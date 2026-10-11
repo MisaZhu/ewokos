@@ -50,6 +50,22 @@ typedef struct st_xwin {
 	bool dirty;
 	bool ready;
 	bool frame_dirty;
+	/*frame_dirty says the frame has to be drawn again; frame_full says WHY: it
+	is set whenever something the decoration itself depends on changed - focus,
+	placement, theme, a frame_g rebuild, the desktop or a window below. It stays
+	clear when frame_dirty was raised purely by this window's own workspace
+	content changing (the frame_cuts_ws path in win_dirty). draw_win uses the
+	difference to let a frosted WM keep its still-valid decoration ring and only
+	re-cut the rounded corners (see prepare_win_content's corners_only). Reset
+	together with frame_dirty at the end of draw_win.*/
+	bool frame_full;
+	/*the title currently baked into the decoration ring of frame_g. A client
+	  rewrites xinfo->title in place and only asks for a plain repaint, so a
+	  title change reaches the server as content-only damage (frame_dirty with
+	  frame_full clear) - which corners_only would pass over, freezing the title
+	  bar on the old text. win_mark_frame_dirty compares against this snapshot
+	  and upgrades to a full redraw when it differs.*/
+	char last_title[XWIN_TITLE_MAX];
 	/*the shadow bands of this window already sit blended on the display:
 	  blending them again would darken them further, so they only get
 	  blended again after what is below them was repainted*/

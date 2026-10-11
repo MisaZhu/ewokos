@@ -194,6 +194,7 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
       physically contiguous - garbled decorations over a correct frame.*/
     win->xinfo->frame_g_shm_contig = win->frame_g->shm_contig;
     win->frame_dirty = true;
+    win->frame_full = true; //fresh frame_g canvas: the whole ring must be drawn
     win->shadow_valid = false;
     /*the outer rect moved: whatever the scan-out holds there (workspace
       pixels drawn at the undecorated offset) has to be repainted over*/
@@ -288,8 +289,10 @@ static void mark_all_frame_dirty(x_t* x, int32_t disp_index) {
     while(w != NULL) {
         xwin_t* p = w->prev;
         if(w->xinfo != NULL &&
-                (w->xinfo->display_index == (uint32_t)disp_index || disp_index < 0))
+                (w->xinfo->display_index == (uint32_t)disp_index || disp_index < 0)) {
             w->frame_dirty = true; //mark dirty temporary
+            w->frame_full = true;  //whole-display rebuild: every ring from scratch
+        }
         w = p;
     }
     x_dirty(x, disp_index);
@@ -432,6 +435,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->xinfo->frame_g_shm_contig = false;
 
         win->frame_dirty = true;
+        win->frame_full = true; //rebuilt canvases: the whole ring must be drawn
         win->ready = false;
         win->not_ready_ms = 0; //restart the stuck-window timeout
         win->repaint_req_ms = 0;

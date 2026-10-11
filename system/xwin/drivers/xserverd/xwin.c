@@ -103,6 +103,7 @@ void x_unfocus(x_t* x) {
     e.value.window.event = XEVT_WIN_UNFOCUS;
     x->win_focus->xinfo->focused = false;
     x->win_focus->frame_dirty = true;
+    x->win_focus->frame_full = true; //focus recolours the decoration: full redraw
     /*the frame recolours: its translucent corners/shadow have to be
       blended again over what is below them*/
     x->win_focus->shadow_valid = false;
@@ -127,6 +128,7 @@ void try_focus(x_t* x, xwin_t* win) {
         e.value.window.event = XEVT_WIN_FOCUS;
         win->xinfo->focused = true;
         win->frame_dirty = true;
+        win->frame_full = true; //focus recolours the decoration: full redraw
         win->shadow_valid = false; /*recoloured frame, see x_unfocus*/
         if(win->xinfo->alpha)
             x_dirty(x, win->xinfo->display_index); /*see x_unfocus*/
@@ -376,8 +378,13 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
                     if(!win_alpha_inplace_ok(v))
                         x_dirty(x, v->xinfo->display_index);
                 }
-                else if(frame_cuts_ws(x, v))
+                else if(frame_cuts_ws(x, v)) {
+                    /*a window below v repainted, so what sits under v changed:
+                      v's frosted backdrop is stale and its frame has to be built
+                      again from scratch, not just re-cornered*/
                     v->frame_dirty = true;
+                    v->frame_full = true;
+                }
             }
         }
         v = v->next;
@@ -502,6 +509,10 @@ static void win_dirty(x_t* x, xwin_t* win) {
                 x_dirty(x, win->xinfo->display_index);
         }
         else if(frame_cuts_ws(x, win))
+            /*only this window's own content changed: the decoration ring stays
+              valid, so leave frame_full clear and let draw_win take the
+              corners-only path. frame_full is whatever an earlier structural
+              change this frame already set.*/
             win->frame_dirty = true;
     }
     x_repaint_req(x, win->xinfo->display_index);
@@ -597,6 +608,7 @@ void x_update_release(x_t* x, xwin_t* win) {
 static void x_accept_abandon(x_t* x, xwin_t* win) {
     win->dirty = false;
     win->frame_dirty = false;
+    win->frame_full = false;
     x_update_commit(x, win);
 
     if(win->xinfo != NULL && win->xinfo->visible) {

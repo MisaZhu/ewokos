@@ -183,6 +183,30 @@ typedef struct {
 	grect_t wsr_pending;
 	uint32_t state_pending;
 	volatile uint32_t geom_pending;
+
+	/*Per-DRAW_FRAME hints from xserverd to the xwm. These are NOT persistent
+	window state: the server publishes them as extra ints on the DRAW_FRAME
+	IPC and libs/x/src/xwm.c writes them onto its OWN stack copy of xinfo_t
+	before handing it to the decoration callbacks, so the values living in the
+	client-shared segment are never read. Keeping them in xinfo_t is just the
+	cheap channel to reach a WM callback without changing every callback's
+	signature.
+
+	backdrop_unchanged: the desktop_g (window-local backdrop) sent with this
+	DRAW_FRAME is byte-identical to the one sent the last time this window was
+	drawn - nothing below it repainted, it did not move and the display is not
+	dirty. A frosted WM (MisaWM) can then skip the whole-window memcmp it would
+	otherwise run every frame to rediscover that the frost cache still matches.
+
+	corners_only: the ONLY thing that changed since the last full frame draw is
+	this window's own workspace content; focus, placement, theme, backdrop and
+everything below are all unchanged. The decoration ring already sitting in
+	frame_g is therefore still valid and is NOT cleared, so the WM only has to
+	re-cut the rounded corners that the fresh workspace blit overwrote. Only
+	sent for a frosted rounded theme (frame_blur != 0 && round > 0), which is
+	the MisaWM glass model; other WMs never see it.*/
+	bool backdrop_unchanged;
+	bool corners_only;
 } xinfo_t;
 
 typedef struct {

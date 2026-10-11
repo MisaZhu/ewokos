@@ -1017,9 +1017,14 @@ int main(int argc, char** argv) {
     /* gaussian blur canvases: allocated while the contiguous shm slab is
        still fresh.  the blur item runs at the end of the suite, after the
        big rotate canvases may have fragmented it, and the GPU back end
-       cannot run a non-contiguous canvas at all. */
-    gblur = canvas_create(320, 240);
-    gtmp = canvas_create(320, 240);
+       cannot run a non-contiguous canvas at all.  320x200 (area 64000) is
+       deliberately BELOW the raspi5 driver's half-res fast-path gate
+       (whole-canvas, area >= 256*256, radius >= 2), so this item validates
+       the EXACT separable QPU kernels bit-exactly; the approximate half-res
+       path is measured by the gaussian_blur_r2 PERF group instead (its
+       canvases are 640x480 and up, well above the gate). */
+    gblur = canvas_create(320, 200);
+    gtmp = canvas_create(320, 200);
 
     /* fill: inside the rect becomes the color, outside stays */
     g2d_fill_req_init(&fill, img_canvas(canvas), g2d_rect(24, 24, 220, 120), fill_color);
@@ -1362,8 +1367,8 @@ int main(int argc, char** argv) {
     else if(gblur->shm_contig == 0 || gtmp->shm_contig == 0) {
         printf("SKIP %-22s canvas not GPU-visible\n", "gaussian_blur");
     }
-    else if((ref = (uint32_t*)malloc(320u * 240u * 4u)) == NULL ||
-            (scratch = (uint32_t*)malloc(320u * 240u * 4u)) == NULL) {
+    else if((ref = (uint32_t*)malloc(320u * 200u * 4u)) == NULL ||
+            (scratch = (uint32_t*)malloc(320u * 200u * 4u)) == NULL) {
         printf("FAIL %-22s out of memory\n", "gaussian_blur");
         failures++;
     }
@@ -1377,11 +1382,11 @@ int main(int argc, char** argv) {
 
             snprintf(label, sizeof(label), "gaussian_blur_r%d", radius);
             fill_pattern(gblur);
-            memcpy(ref, gblur->buffer, 320u * 240u * 4u);
+            memcpy(ref, gblur->buffer, 320u * 200u * 4u);
             /* three DISTINCT buffer roles: the H pass writes tmp while
                still reading a lookahead of up to radius+1 source pixels
                of the same row - src == tmp would corrupt its own input */
-            gauss_ref_scalar(ref, ref, scratch, 320, 240, radius);
+            gauss_ref_scalar(ref, ref, scratch, 320, 200, radius);
             g2d_gaussian_blur_req_init(&greq, img_canvas(gblur),
                     img_canvas(gtmp), g2d_rect(0, 0, gblur->w, gblur->h), radius);
             ret = g2d_gaussian_blur(&greq);
@@ -1394,7 +1399,7 @@ int main(int argc, char** argv) {
                 failures++;
                 continue;
             }
-            for(i = 0; i < 320u * 240u; i++) {
+            for(i = 0; i < 320u * 200u; i++) {
                 if(gblur->buffer[i] != ref[i]) {
                     if(mism == 0)
                         first = i;
@@ -1425,9 +1430,9 @@ int main(int argc, char** argv) {
             int si;
 
             fill_pattern(gblur);
-            memcpy(ref, gblur->buffer, 320u * 240u * 4u);
+            memcpy(ref, gblur->buffer, 320u * 200u * 4u);
             for(si = 0; si < 3; si++)
-                gauss_ref_scalar(ref, ref, scratch, 320, 240, st[si]);
+                gauss_ref_scalar(ref, ref, scratch, 320, 200, st[si]);
             g2d_gaussian_blur_req_init(&greq, img_canvas(gblur),
                     img_canvas(gtmp),
                     g2d_rect(0, 0, gblur->w, gblur->h), 6);
@@ -1440,7 +1445,7 @@ int main(int argc, char** argv) {
                 failures++;
             }
             else {
-                for(i = 0; i < 320u * 240u; i++) {
+                for(i = 0; i < 320u * 200u; i++) {
                     if(gblur->buffer[i] != ref[i]) {
                         if(mism == 0)
                             first = i;

@@ -100,6 +100,13 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 			graph_blt(desktop_g, 0, 0, fw, fh, backdropSharp, 0, 0, fw, fh);
 		}
 		else {
+			/*xserverd guarantees this snapshot is byte-identical to the one the
+			  previous DRAW_FRAME carried (it was not recaptured, and the window
+			  kept its own clean backdrop). The frost already matches it, so the
+			  whole-window per-row memcmp scan - the dominant idle-frame cost when
+			  a foreground app repaints over an unchanged desktop - is skipped.*/
+			if(info->backdrop_unchanged)
+				return;
 			bool changed = false;
 			for(int y = 0; y < fh; y++) {
 				const uint32_t* src = &desktop_g->buffer[y*desktop_g->w];
@@ -314,6 +321,25 @@ void MisaWM::markFrameRound(graph_t* frame_g, grect_t* fr, int r) {
 }
 
 void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
+	/*corners_only: only this window's own workspace content changed, so xserverd
+	  left the decoration ring already sitting in frame_g intact (it skipped
+	  clear_frame_ring) and re-blitted just the fresh content over the client
+	  area. That blit overwrote the rounded corner pixels where the radius reaches
+	  into the workspace, so all that is left is to re-cut the corners and redraw
+	  the 3D border arc. The frost cache, the four border bands, the title, the
+	  buttons and the client-area glass are all still valid and must NOT be
+	  touched: re-blending the translucent glass over itself would darken it.*/
+	if(info->corners_only) {
+		if((info->style & XWIN_STYLE_NO_FRAME) == 0) {
+			int round = (int)xwm.theme.round;
+			if(round > 0) {
+				markFrameRound(frame_g, r, round);
+				graph_round_3d(frame_g, r->x, r->y, r->w, r->h, round, 1, xwm.theme.frameBGColor, false);
+			}
+		}
+		return;
+	}
+
 	int fw = r->w;
 	int fh = r->h;
 	int wd = (int)xwm.theme.frameW;

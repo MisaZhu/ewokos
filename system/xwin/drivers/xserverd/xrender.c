@@ -93,18 +93,34 @@ static void capture_backdrop(x_t* x, xwin_t* win, const grect_t* rect) {
 static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
     x_display_t *display = &x->displays[win->xinfo->display_index];
 
+    /*a client rewrites the shared title in place and only asks for a plain
+      repaint, so a title change arrives as content-only damage. The title is
+      part of the decoration ring, which corners_only deliberately keeps as-is,
+      so a changed title must force a full redraw here or the title bar freezes
+      on the old text. last_title mirrors what the ring currently holds; the
+      compare is a 32-byte scan, far cheaper than the redraw it gates.*/
+    if(strncmp(win->last_title, win->xinfo->title, XWIN_TITLE_MAX) != 0) {
+        strncpy(win->last_title, win->xinfo->title, XWIN_TITLE_MAX - 1);
+        win->last_title[XWIN_TITLE_MAX - 1] = '\0';
+        win->frame_dirty = true;
+        win->frame_full = true; //title is decoration: redraw the whole ring
+    }
+
     /*the background effect mixes the desktop into the frame of an unfocused
       window, so its frame has to be built again whenever the content
       changed. Without such an effect the frame keeps its picture.*/
     if(win->dirty && win_bg_effect_active(x, win)) {
         win->frame_dirty = true;
+        win->frame_full = true; //the blend covers the whole frame
         return;
     }
 
     /*a desktop repaint only invalidates the frames that blend with what is
       below them; a frame drawn opaquely still holds a valid picture*/
-    if(display->dirty && need_repaint_frame(x, win))
+    if(display->dirty && need_repaint_frame(x, win)) {
         win->frame_dirty = true;
+        win->frame_full = true; //what is below changed: the frost is stale
+    }
 }
 
 /*the workspace area gets fully overwritten by the blt in
@@ -132,7 +148,7 @@ static void clear_frame_ring(xwin_t* win) {
     graph_set(g, ws.x + ws.w, ws.y, g->w - ws.x - ws.w, ws.h, 0); //right
 }
 
-static void prepare_win_content(x_t* x, xwin_t* win) {
+static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
     x_display_t *display = &x->displays[win->xinfo->display_index];
     if(display->g == NULL)
         return;
@@ -140,7 +156,19 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
     if(win->frame_g == NULL)
         return;
 
-    if(win->frame_dirty)
+    /*corners_only: nothing the decoration depends on changed (frame_full clear,
+      the backdrop below is stable, no ws blur or bg effect to rebuild) - only
+      this window's own workspace content did. The ring already in frame_g is
+      still valid, so it is NOT cleared and the xwm only re-cuts the rounded
+      corners the fresh workspace blit below overwrites. Gated on the frosted
+      rounded theme (frame_blur && round) because that is the MisaWM glass model
+      that knows how to honour the hint; other WMs never receive it.*/
+    bool corners_only = win->frame_dirty && !win->frame_full && backdrop_stable &&
+            x->config.xwm_theme.frameBlur != 0 &&
+            x->config.xwm_theme.round > 0 &&
+            !ws_blur_active(x, win) && !win_bg_effect_active(x, win);
+
+    if(win->frame_dirty && !corners_only)
         clear_frame_ring(win);
 
     /*two kinds of windows need their content inside frame_g:
@@ -190,6 +218,10 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
     if(win->backdrop != NULL &&
             (win_backdrop_active(x, win) || win->xinfo->alpha))
         src = win->backdrop; //window-local clean backdrop, not the display
+    /*the backdrop handed over is byte-identical to the previous DRAW_FRAME's
+      only when it is the window-local snapshot and it was not recaptured this
+      frame; a full-display src is never claimed stable*/
+    bool backdrop_unchanged = backdrop_stable && (src == win->backdrop);
     PF->format(&in, "i,i,i,m",
         src == display->g ? display->g_shm_id : src->shm_id,
         src->w,
@@ -200,6 +232,8 @@ static void prepare_win_content(x_t* x, xwin_t* win) {
         PF->addi(&in, 1); //top win
     else
         PF->addi(&in, 0);
+    PF->addi(&in, backdrop_unchanged ? 1 : 0);
+    PF->addi(&in, corners_only ? 1 : 0);
 
     ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in);
     PF->clear(&in);
@@ -430,12 +464,17 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
       what is below it right now, and a changed placement exposes a place the
       window never covered: both are clean backdrop worth snapshotting*/
     x_display_t* bd = &x->displays[win->xinfo->display_index];
-    if(win_keeps_backdrop(x, win) &&
+    bool bd_refresh = win_keeps_backdrop(x, win) &&
             (bd->dirty || !win->shadow_valid ||
-             memcmp(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t)) != 0))
+             memcmp(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t)) != 0);
+    if(bd_refresh)
         capture_backdrop(x, win, &win->xinfo->winr);
 
-    prepare_win_content(x, win);
+    /*the backdrop handed to xwm is only byte-stable across frames when it was
+      not recaptured here; a fresh capture means what sits below changed, so
+      the frost has to be rebuilt and the decoration cannot be reduced to
+      corners-only*/
+    prepare_win_content(x, win, !bd_refresh);
 
     /*the published frame is accepted whole on every update, so the whole
       window gets recomposited (in frame_g coordinates)*/
@@ -698,6 +737,7 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
 
     win->dirty = false;
     win->frame_dirty = false;
+    win->frame_full = false;
     return 0;
 }
 

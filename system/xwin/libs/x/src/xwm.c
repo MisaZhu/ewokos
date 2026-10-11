@@ -143,6 +143,14 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
     int xh = proto_read_int(in);
     proto_read_to(in, &info, sizeof(xinfo_t));
     bool bg_effect = (proto_read_int(in) != 0);
+    /*per-frame hints from xserverd. backdrop_unchanged says the clean backdrop
+      handed over is byte-identical to the previous DRAW_FRAME's, so a frosted
+      xwm can skip its backdrop scan. corners_only says only this window's own
+      workspace content changed - the decoration ring still sitting in frame_g
+      is valid and only the rounded corners the fresh content overwrote have to
+      be re-cut, so the title, buttons, shadow and bg effect are all skipped.*/
+    info.backdrop_unchanged = (proto_read_int(in) != 0);
+    info.corners_only = (proto_read_int(in) != 0);
     bool top = info.focused;
 
     if(xw <= 0 || xh <= 0)
@@ -189,7 +197,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
         if(xwm->get_resize != NULL)
             xwm->get_resize(&info, &rresize, xwm->data);
 
-        if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
+        if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !info.corners_only) {
             if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
                 xwm->draw_title(&desktop_g, &frame_g, &info, &rtitle, top, xwm->data);
 
@@ -210,14 +218,14 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
                 framed = true;
             }
 
-            if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
+            if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !info.corners_only) {
                 if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
                     if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
                         xwm->draw_resize(&frame_g, &info, &rresize, top, xwm->data);
                 }
             }
 
-            if(xwm->draw_shadow!= NULL && xwm->theme.shadow > 0)
+            if(xwm->draw_shadow!= NULL && xwm->theme.shadow > 0 && !info.corners_only)
                 xwm->draw_shadow(&desktop_g, &frame_g, &info, top, xwm->data);
         }
     }
@@ -231,7 +239,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
     }
 
     if((info.style & XWIN_STYLE_NO_BG_EFFECT) == 0 &&
-            !info.focused &&
+            !info.focused && !info.corners_only &&
             xwm->draw_bg_effect != NULL) {
         xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, bg_effect, xwm->data);
     }
