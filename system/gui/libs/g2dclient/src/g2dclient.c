@@ -124,6 +124,12 @@ int g2d_fill_rect(const g2d_fill_req_t* req) {
     return g2d_send_struct(G2D_DEV_CNTL_FILL_RECT, req, sizeof(*req));
 }
 
+int g2d_fill_triangle(const g2d_triangle_req_t* req) {
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+    return g2d_send_struct(G2D_DEV_CNTL_FILL_TRIANGLE, req, sizeof(*req));
+}
+
 int g2d_blit(const g2d_blit_req_t* req) {
     return g2d_send_struct(G2D_DEV_CNTL_BLIT, req, sizeof(*req));
 }

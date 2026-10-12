@@ -114,6 +114,11 @@ void     graph_wline(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
 void     graph_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, uint32_t color);
 void     graph_fill_circle(graph_t* g, int32_t x, int32_t y, int32_t radius, uint32_t color);
 
+void     graph_triangle(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+			int32_t x3, int32_t y3, uint32_t color);
+void     graph_fill_triangle(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+			int32_t x3, int32_t y3, uint32_t color);
+
 void     graph_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, int32_t rw, float start_angle, float end_angle, uint32_t color);
 void     graph_fill_arc(graph_t* g, int32_t x, int32_t y, int32_t radius, float start_angle, float end_angle, uint32_t color);
 
@@ -136,6 +141,10 @@ void     graph_blt_alpha_mask(graph_t* src, int32_t sx, int32_t sy, int32_t sw, 
 			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 
 void     graph_fill_cpu(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+void     graph_triangle_cpu(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+			int32_t x3, int32_t y3, uint32_t color);
+void     graph_fill_triangle_cpu(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+			int32_t x3, int32_t y3, uint32_t color);
 void     graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 void     graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,

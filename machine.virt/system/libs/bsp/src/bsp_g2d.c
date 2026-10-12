@@ -34,6 +34,16 @@ int32_t bsp_g2d_fill_alpha(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t conti
 	return arch_g2d_fill_alpha(argb, argb_w, argb_h, x, y, w, h, color);
 }
 
+/* no hardware triangle path on this platform: delegate to the arch
+   engine's software scanline rasterizer (NEON span fills), which clips
+   each span to the whole canvas (clip_w/clip_h == 0). consistent with
+   every other op in this thin dispatch layer. */
+int32_t bsp_g2d_fill_triangle(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+		int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color) {
+	return arch_g2d_fill_triangle(argb, argb_phy, contig, argb_w, argb_h,
+			x1, y1, x2, y2, x3, y3, 0, 0, 0, 0, color);
+}
+
 int32_t bsp_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,

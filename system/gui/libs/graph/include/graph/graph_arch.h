@@ -10,6 +10,15 @@ extern "C" {
 /* All arch hooks return int: 0 on success, -1 on error (invalid arguments).
    Benign no-ops (e.g. a region fully clipped away) still report 0. */
 int  graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+
+/* filled triangle (scanline rasterizer, span fills via the arch engine)
+   and anti-aliased outline. the outline has no accelerated line engine,
+   so graph_triangle_arch always declines (-1) and the dispatcher draws
+   it on the cpu. */
+int  graph_fill_triangle_arch(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+					int32_t x3, int32_t y3, uint32_t color);
+int  graph_triangle_arch(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+					int32_t x3, int32_t y3, uint32_t color);
 int  graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 					graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 int  graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,

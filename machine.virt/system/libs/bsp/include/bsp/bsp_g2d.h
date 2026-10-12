@@ -35,6 +35,17 @@ int32_t bsp_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int
 int32_t bsp_g2d_fill_alpha(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
 			int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
+/* solid/alpha filled triangle (x1,y1)-(x2,y2)-(x3,y3) rasterized into the
+   buffer with the same scanline fill as the software reference (sort-by-Y,
+   two-slope edge walk), each span clipped to the buffer bounds. color
+   carries the blend alpha in its high byte (0xff = opaque, 0 = no-op).
+   argb_phy/contig as for bsp_g2d_fill. returns the g2d result codes:
+   G2D_OK (0) when rasterized, G2D_ERR_NOT_SUPPORTED (-2, sticky) when the
+   back end has no triangle path - the caller then falls back to its own
+   in-process rasterizer. */
+int32_t bsp_g2d_fill_triangle(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+			int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color);
+
 int32_t bsp_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
 			int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 			uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,

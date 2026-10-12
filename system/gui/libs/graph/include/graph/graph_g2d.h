@@ -35,6 +35,16 @@ void  graph_g2d_blur_stats(uint32_t* gpu, uint32_t* fb_notsup,
    G2D_ERR_NOT_SUPPORTED is remembered per op and never offloaded again;
    the other ops keep using the device. */
 int   graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+
+/* filled-triangle offload: G2D_OK when the device rasterized it, any
+   non-zero means "not done" and the caller runs its arch/cpu pass. a
+   partial g->clip is declined (the device clips only to the canvas), and
+   there is no outline-triangle device op, so graph_triangle_g2d always
+   declines. */
+int   graph_fill_triangle_g2d(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+					int32_t x3, int32_t y3, uint32_t color);
+int   graph_triangle_g2d(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+					int32_t x3, int32_t y3, uint32_t color);
 int   graph_blt_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 					graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh);
 int   graph_blt_alpha_g2d(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,

@@ -19,7 +19,8 @@ enum {
 	G2D_DEV_CNTL_GET_CLOCK,
 	G2D_DEV_CNTL_BLIT_TO_PHY,
 	G2D_DEV_CNTL_GAUSSIAN_BLUR,
-	G2D_DEV_CNTL_ROTATE_TO_PHY
+	G2D_DEV_CNTL_ROTATE_TO_PHY,
+	G2D_DEV_CNTL_FILL_TRIANGLE
 };
 
 /* result codes every g2dclient call below answers with (the driver
@@ -89,6 +90,23 @@ typedef struct {
 	g2d_rect_t rect;
 	uint32_t color;
 } g2d_fill_req_t;
+
+/* solid/alpha filled triangle (x1,y1)-(x2,y2)-(x3,y3) rasterized into the
+   dst canvas with the same scanline fill the software reference uses
+   (sort-by-Y, two-slope edge walk). the driver clips the rasterized spans
+   to the canvas bounds; a triangle whose bounding box is fully outside the
+   canvas is refused with G2D_OK (nothing to draw). color carries the blend
+   alpha in its high byte (0xff = opaque). */
+typedef struct {
+	g2d_canvas_t dst;
+	int32_t x1;
+	int32_t y1;
+	int32_t x2;
+	int32_t y2;
+	int32_t x3;
+	int32_t y3;
+	uint32_t color;
+} g2d_triangle_req_t;
 
 /* rotates the src canvas clockwise by degree (any angle, normalized to
    [0, 360) by the driver) into the dst canvas. 90/270 swap dimensions,
@@ -243,6 +261,22 @@ static inline void g2d_fill_req_init(g2d_fill_req_t* req, g2d_canvas_t dst, g2d_
 	req->color = color;
 }
 
+static inline void g2d_triangle_req_init(g2d_triangle_req_t* req, g2d_canvas_t dst,
+		int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3,
+		uint32_t color) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->dst = dst;
+	req->x1 = x1;
+	req->y1 = y1;
+	req->x2 = x2;
+	req->y2 = y2;
+	req->x3 = x3;
+	req->y3 = y3;
+	req->color = color;
+}
+
 static inline void g2d_blit_req_init_ex(g2d_blit_req_t* req,
 		g2d_canvas_t dst,
 		g2d_canvas_t src,
@@ -374,6 +408,7 @@ void g2d_shm_free(uint32_t* pixels);
 
 /* all of these answer with the G2D_* result codes above */
 int g2d_fill_rect(const g2d_fill_req_t* req);
+int g2d_fill_triangle(const g2d_triangle_req_t* req);
 int g2d_blit(const g2d_blit_req_t* req);
 int g2d_blit_alpha(const g2d_blit_req_t* req);
 int g2d_rotate(const g2d_rotate_req_t* req);

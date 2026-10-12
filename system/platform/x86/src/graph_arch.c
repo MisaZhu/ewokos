@@ -41,6 +41,34 @@ int graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
     return 0;
 }
 
+int graph_fill_triangle_arch(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+        int32_t x3, int32_t y3, uint32_t color) {
+    int32_t cx = 0, cy = 0, cw = 0, ch = 0;
+
+    if(g == NULL || g->buffer == NULL)
+        return -1;
+    if(color_a(color) == 0)
+        return 0;
+
+    /* forward the active clip so the rasterizer cuts each span to it
+       (clip_w/clip_h == 0 means the whole canvas) */
+    if(g->clip.w > 0 && g->clip.h > 0) {
+        cx = g->clip.x; cy = g->clip.y; cw = g->clip.w; ch = g->clip.h;
+    }
+
+    arch_g2d_fill_triangle(g->buffer, 0, 0, g->w, g->h,
+            x1, y1, x2, y2, x3, y3, cx, cy, cw, ch, color);
+    return 0;
+}
+
+/* the outline is an anti-aliased edge walk with no accelerated line
+   engine here: decline (-1) so the dispatcher draws it on the cpu. */
+int graph_triangle_arch(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+        int32_t x3, int32_t y3, uint32_t color) {
+    (void)g; (void)x1; (void)y1; (void)x2; (void)y2; (void)x3; (void)y3; (void)color;
+    return -1;
+}
+
 int graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
     if(src == NULL || dst == NULL || src->buffer == NULL || dst->buffer == NULL)

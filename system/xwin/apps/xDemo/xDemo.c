@@ -30,6 +30,8 @@ enum {
     RING,
     RING_ARC,
     RING_FILL_ARC,
+    TRIANGLE,
+    FILL_TRIANGLE,
     MAX_MODE
 };
 
@@ -202,6 +204,27 @@ static void on_repaint(xwin_t* xwin, graph_t* g) {
             start = temp;
         }
         graph_ring_arc(g, x, y, radius, thickness, 3, start, endangle, c);
+    }
+    else if(_xtest_info.mode == TRIANGLE) {
+        // Anti-aliased triangle outline: three random vertices inside the box
+        int x1 = x + random_to(w);
+        int y1 = y + random_to(h);
+        int x2 = x + random_to(w);
+        int y2 = y + random_to(h);
+        int x3 = x + random_to(w);
+        int y3 = y + random_to(h);
+        graph_triangle(g, x1, y1, x2, y2, x3, y3, c);
+    }
+    else if(_xtest_info.mode == FILL_TRIANGLE) {
+        // Filled triangle (g2d/arch/cpu dispatch) plus its outline on top
+        int x1 = x + random_to(w);
+        int y1 = y + random_to(h);
+        int x2 = x + random_to(w);
+        int y2 = y + random_to(h);
+        int x3 = x + random_to(w);
+        int y3 = y + random_to(h);
+        graph_fill_triangle(g, x1, y1, x2, y2, x3, y3, c);
+        graph_triangle(g, x1, y1, x2, y2, x3, y3, c);
     }
     else if(_xtest_info.mode == RING_FILL_ARC) {
         // Filled ring arc (pie chart style) - fills from center to outer radius

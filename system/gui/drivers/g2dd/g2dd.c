@@ -47,13 +47,13 @@ static uint64_t _g2dd_req_cnt = 0;
    end's own per-dispatch phase counters (bsp_g2d_cmd "stat") it isolates
    the attach/clip/CPU share of a request. Plain atomics: a stat, like
    _g2dd_req_cnt. */
-#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_ROTATE_TO_PHY + 1) /* FILL_RECT, a<0xff */
+#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_FILL_TRIANGLE + 1) /* FILL_RECT, a<0xff */
 #define G2DD_STAT_CMDS (G2DD_STAT_FILL_ALPHA + 1)
 static uint64_t _g2dd_stat_cnt[G2DD_STAT_CMDS];
 static uint64_t _g2dd_stat_ns[G2DD_STAT_CMDS];
 static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
 	"fill", "blit", "blit_alpha", "rotate", "scale", "clock", "blit_phy", "blur",
-	"rotate_phy", "fill_alpha"
+	"rotate_phy", "fill_tri", "fill_alpha"
 };
 
 /* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
@@ -960,6 +960,55 @@ static int32_t g2dd_handle_fill_rect(proto_t* in, int* slot) {
 	return ret;
 }
 
+/* solid/alpha filled triangle: rasterize into the dst canvas via the back
+   end's triangle op. the three vertices pass through verbatim (the back end
+   clips each rasterized scanline span to the canvas bounds); a triangle
+   whose bounding box is fully outside the canvas is refused here with 0
+   (nothing to draw). like fill_rect, a translucent color (a<0xff) takes the
+   blend path and is accounted separately. */
+static int32_t g2dd_handle_fill_triangle(proto_t* in, int* slot) {
+	g2d_triangle_req_t req;
+	g2d_attached_t dst;
+	int32_t ret;
+	int32_t minx, maxx, miny, maxy;
+
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return G2D_ERR_FAILED;
+
+	if(g2d_attach(&req.dst, &dst) != 0)
+		return G2D_ERR_FAILED;
+
+	/* bounding box of the three vertices, for the fully-outside reject */
+	minx = (req.x1 < req.x2) ? req.x1 : req.x2;
+	if(req.x3 < minx) minx = req.x3;
+	maxx = (req.x1 > req.x2) ? req.x1 : req.x2;
+	if(req.x3 > maxx) maxx = req.x3;
+	miny = (req.y1 < req.y2) ? req.y1 : req.y2;
+	if(req.y3 < miny) miny = req.y3;
+	maxy = (req.y1 > req.y2) ? req.y1 : req.y2;
+	if(req.y3 > maxy) maxy = req.y3;
+
+	if(minx >= (int32_t)dst.width || miny >= (int32_t)dst.height ||
+			maxx < 0 || maxy < 0) {
+		g2d_detach(&dst);
+		return 0; /* fully clipped: nothing to fill */
+	}
+
+	G2DD_LOG("g2d_fill_triangle (%d,%d)(%d,%d)(%d,%d), color: 0x%08X\n",
+			req.x1, req.y1, req.x2, req.y2, req.x3, req.y3, req.color);
+
+	if(((req.color >> 24) & 0xff) != 0xff)
+		*slot = G2DD_STAT_FILL_ALPHA;
+
+	ret = bsp_g2d_fill_triangle(dst.buffer, dst.phy, dst.contig,
+			(int32_t)dst.width, (int32_t)dst.height,
+			req.x1, req.y1, req.x2, req.y2, req.x3, req.y3, req.color);
+	g2d_detach(&dst);
+	return ret;
+}
+
 /* Render one clipped src->dst blit; picks between the 1:1 pitch-split
    path and the scaled bsp dispatch. */
 static int32_t g2d_blit_render(const g2d_attached_t* dst,
@@ -1577,6 +1626,9 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		break;
 	case G2D_DEV_CNTL_ROTATE_TO_PHY:
 		res = g2dd_handle_rotate_to_phy(in);
+		break;
+	case G2D_DEV_CNTL_FILL_TRIANGLE:
+		res = g2dd_handle_fill_triangle(in, &slot);
 		break;
 	default:
 		/* an unknown command is a capability this driver does not

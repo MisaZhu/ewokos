@@ -45,7 +45,8 @@ enum {
 	G2D_CAP_BLIT_ALPHA,
 	G2D_CAP_ROTATE,
 	G2D_CAP_SCALE_TO,
-	G2D_CAP_GAUSSIAN_BLUR
+	G2D_CAP_GAUSSIAN_BLUR,
+	G2D_CAP_FILL_TRIANGLE
 };
 
 static uint32_t _g2d_unsupported = 0;
@@ -194,6 +195,47 @@ int graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint3
 	g2d_fill_req_init(&fill, g2d_graph_canvas(g),
 			g2d_rect(r.x, r.y, r.w, r.h), color);
 	return g2d_op_result(G2D_CAP_FILL, g2d_fill_rect(&fill));
+}
+
+/* filled triangle offload: the device rasterizes the scanline spans and
+   clips them to the canvas bounds only, so a partial g->clip cannot
+   travel with the request - decline (G2D_ERR_FAILED, not sticky) and let
+   the arch/cpu pass apply the clip per pixel. the size gate uses the
+   triangle bounding box, matching how fill uses its rect. */
+int graph_fill_triangle_g2d(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+		int32_t x3, int32_t y3, uint32_t color) {
+	g2d_triangle_req_t tri;
+	int32_t minx, maxx, miny, maxy, bw, bh;
+
+	if(!g2d_op_supported(G2D_CAP_FILL_TRIANGLE))
+		return G2D_ERR_NOT_SUPPORTED;
+
+	/* a partial clip stays on the cpu/arch side (see above) */
+	if(g != NULL && g->clip.w > 0 && g->clip.h > 0)
+		return G2D_ERR_FAILED;
+
+	minx = (x1 < x2) ? x1 : x2; if(x3 < minx) minx = x3;
+	maxx = (x1 > x2) ? x1 : x2; if(x3 > maxx) maxx = x3;
+	miny = (y1 < y2) ? y1 : y2; if(y3 < miny) miny = y3;
+	maxy = (y1 > y2) ? y1 : y2; if(y3 > maxy) maxy = y3;
+	bw = maxx - minx + 1;
+	bh = maxy - miny + 1;
+
+	if(!g2d_check_graph(g, bw, bh))
+		return g2d_reject(g, NULL, bw, bh);
+
+	g2d_triangle_req_init(&tri, g2d_graph_canvas(g),
+			x1, y1, x2, y2, x3, y3, color);
+	return g2d_op_result(G2D_CAP_FILL_TRIANGLE, g2d_fill_triangle(&tri));
+}
+
+/* the /dev/g2d protocol has no outline-triangle primitive (the outline is
+   an anti-aliased edge walk), so this always declines; the dispatcher
+   draws the outline on the cpu. */
+int graph_triangle_g2d(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+		int32_t x3, int32_t y3, uint32_t color) {
+	(void)g; (void)x1; (void)y1; (void)x2; (void)y2; (void)x3; (void)y3; (void)color;
+	return G2D_ERR_NOT_SUPPORTED;
 }
 
 static int g2d_do_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,

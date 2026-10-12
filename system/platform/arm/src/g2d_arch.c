@@ -2096,6 +2096,87 @@ int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
 }
 #endif /* !ARCH_BOOST */
 
+/* software scanline triangle fill shared by every config: it lives
+   outside the ARCH_BOOST guards and dispatches each rasterized span to
+   the arch_g2d_fill / arch_g2d_fill_alpha engines above (SIMD when
+   ARCH_BOOST is on, their scalar equivalents when it is off). sort the
+   three vertices by ascending Y, walk the two edge slopes per row, round
+   each span exactly like the reference rasterizer, clip it to the caller
+   clip window (clip_w/clip_h <= 0 = whole canvas) and to the buffer
+   bounds, then fill it. a fully transparent color or a flat (zero-height)
+   triangle is a no-op. */
+int32_t arch_g2d_fill_triangle(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+		int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3,
+		int32_t clip_x, int32_t clip_y, int32_t clip_w, int32_t clip_h, uint32_t color) {
+	int32_t x0i = x1, y0i = y1, x1i = x2, y1i = y2, x2i = x3, y2i = y3;
+	int32_t xmin_c, xmax_c, ymin_c, ymax_c, ymin, ymax, opaque, y, t;
+	float s01, s02, s12;
+
+	if(argb == NULL)
+		return 0;
+	if(((color >> 24) & 0xff) == 0)
+		return 0;
+
+	/* sort the three vertices by ascending Y */
+	if(y0i > y1i) { t = x0i; x0i = x1i; x1i = t; t = y0i; y0i = y1i; y1i = t; }
+	if(y0i > y2i) { t = x0i; x0i = x2i; x2i = t; t = y0i; y0i = y2i; y2i = t; }
+	if(y1i > y2i) { t = x1i; x1i = x2i; x2i = t; t = y1i; y1i = y2i; y2i = t; }
+
+	if(y2i == y0i)
+		return 0; /* degenerate (flat) */
+
+	/* clip window: default the whole canvas */
+	xmin_c = 0; ymin_c = 0; xmax_c = argb_w - 1; ymax_c = argb_h - 1;
+	if(clip_w > 0 && clip_h > 0) {
+		xmin_c = clip_x; ymin_c = clip_y;
+		xmax_c = clip_x + clip_w - 1; ymax_c = clip_y + clip_h - 1;
+		if(xmin_c < 0) xmin_c = 0;
+		if(ymin_c < 0) ymin_c = 0;
+		if(xmax_c > argb_w - 1) xmax_c = argb_w - 1;
+		if(ymax_c > argb_h - 1) ymax_c = argb_h - 1;
+	}
+	if(xmin_c > xmax_c || ymin_c > ymax_c)
+		return 0;
+
+	s01 = (y1i > y0i) ? (float)(x1i - x0i) / (float)(y1i - y0i) : 0.0f;
+	s02 = (float)(x2i - x0i) / (float)(y2i - y0i);
+	s12 = (y2i > y1i) ? (float)(x2i - x1i) / (float)(y2i - y1i) : 0.0f;
+
+	opaque = (((color >> 24) & 0xff) == 0xff);
+	ymin = (y0i > ymin_c) ? y0i : ymin_c;
+	ymax = (y2i < ymax_c) ? y2i : ymax_c;
+
+	for(y = ymin; y <= ymax; y++) {
+		float xl, xr, tt;
+		int32_t xs, xe, w;
+
+		if(y == y0i && y1i == y0i) {
+			xl = (float)x1i; /* flat top: row spans v0..v1 */
+		} else if(y <= y1i) {
+			xl = (float)x0i + s01 * (float)(y - y0i);
+		} else {
+			xl = (float)x1i + s12 * (float)(y - y1i);
+		}
+		xr = (float)x0i + s02 * (float)(y - y0i);
+
+		if(xl > xr) { tt = xl; xl = xr; xr = tt; }
+
+		xs = (xl >= 0.0f) ? (int32_t)(xl + 0.5f) : (int32_t)(xl - 0.5f);
+		xe = (xr >= 0.0f) ? (int32_t)(xr + 0.5f) : (int32_t)(xr - 0.5f);
+		if(xs < xmin_c) xs = xmin_c;
+		if(xe > xmax_c) xe = xmax_c;
+		w = xe - xs + 1;
+		if(w <= 0)
+			continue;
+
+		if(opaque)
+			arch_g2d_fill(argb, argb_phy, contig, argb_w, argb_h, xs, y, w, 1, color);
+		else
+			arch_g2d_fill_alpha(argb, argb_w, argb_h, xs, y, w, 1, color);
+	}
+	return 0;
+}
+
 #ifdef __cplusplus
 }
 #endif

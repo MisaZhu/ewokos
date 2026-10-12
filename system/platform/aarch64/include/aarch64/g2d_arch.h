@@ -8,6 +8,17 @@
    times. returns 0 on success. */
 int32_t arch_g2d_init(void);
 
+/* software scanline triangle fill (sort-by-Y, two-slope edge walk),
+   rasterizing (x1,y1)-(x2,y2)-(x3,y3) into the buffer. each span is
+   clipped to the [clip_x,clip_y,clip_w,clip_h] window (clip_w/clip_h <= 0
+   means the whole canvas) and to the buffer bounds, then filled with the
+   same opaque/blend engines arch_g2d_fill / arch_g2d_fill_alpha use. color
+   carries the blend alpha in its high byte (0xff = opaque, 0 = no-op).
+   argb_phy/contig as for arch_g2d_fill. returns 0. */
+int32_t arch_g2d_fill_triangle(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+			int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3,
+			int32_t clip_x, int32_t clip_y, int32_t clip_w, int32_t clip_h, uint32_t color);
+
 /* *_phy: resolved physical base of the buffer when the matching
    *_contig flag is set, 0 otherwise; consumed by hardware 2d engines
    that work on physical addresses */
