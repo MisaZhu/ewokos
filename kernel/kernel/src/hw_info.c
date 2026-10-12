@@ -110,6 +110,12 @@ void sys_info_config(void) {
         _sys_info.sys_dma.size = get_dma_size();
     if(_sys_info.shm_contig.size == 0)
         _sys_info.shm_contig.size = get_shm_contig_size();
+    /* the contig shm VA window (SHM_CONTIG_BASE..SHM_BASE) is a static
+       reservation that also anchors KMALLOC_VM below it; a slab larger than
+       that window could never be fully mapped, so cap it here to keep the
+       physical carve and the virtual window consistent. */
+    if(_sys_info.shm_contig.size > SHM_CONTIG_VA_MAX)
+        _sys_info.shm_contig.size = SHM_CONTIG_VA_MAX;
 
     _sys_info.sys_dma.v_base = DMA_V_BASE;
 

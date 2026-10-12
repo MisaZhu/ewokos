@@ -69,11 +69,29 @@
 #define USER_STACK_MAX                (64*MB)
 #define USER_STACK_BOTTOM             (USER_STACK_TOP - USER_STACK_MAX)
 
+/* Scattered (kalloc-backed) shm virtual window. ONLY non-contig segments draw
+   addresses from here, so it is sized for the small stuff (xinfo, IPC buffers,
+   canvases that fell back off the contig slab) and is fully independent of the
+   contig slab window below. */
 #define SHM_MAX_SIZE                  (128*MB)
 #define SHM_BASE                      (USER_STACK_BOTTOM - SHM_MAX_SIZE)
 
+/* Contiguous shm gets its OWN virtual window, separate from the scattered one,
+   so kernel.conf shm_contig_size is actually usable. Every IPC_CONTIG segment
+   maps a run of the reserved physical slab [shm_contig.phy_base, phy_base+size)
+   into this window, and the runtime bound in shm_alloc is exactly that slab
+   size - contig capacity is therefore governed by shm_contig_size alone, never
+   by SHM_MAX_SIZE. (Before this split both drew from one 128MB window, so at
+   1920x1080 a few full-screen canvases exhausted it and shmget failed even with
+   a 256MB slab reserved; clients then tore down xinfo and crashed reading it in
+   xwin_repaint.) SHM_CONTIG_VA_MAX is the STATIC reservation that anchors
+   KMALLOC_VM below the largest slab a board may configure; sys_info_config caps
+   shm_contig.size to it so the physical carve and this window always agree. */
+#define SHM_CONTIG_VA_MAX             (256*MB)
+#define SHM_CONTIG_BASE               (SHM_BASE - SHM_CONTIG_VA_MAX)
+
 #define KMALLOC_VM_SIZE               (64*MB)
-#define KMALLOC_VM_BASE               (SHM_BASE - KMALLOC_VM_SIZE)
+#define KMALLOC_VM_BASE               (SHM_CONTIG_BASE - KMALLOC_VM_SIZE)
 
 #define get64(addr) (*((volatile uint64_t *)(addr)))
 #define put64(addr, val) (*((volatile uint64_t *)(addr)) = (uint64_t)(val))

@@ -30,6 +30,7 @@ extern void mcore_unlock(int32_t* v);
 #endif
 
 static ewokos_addr_t shmem_tail = 0;
+static ewokos_addr_t shmem_contig_tail = 0;
 static int32_t id_counter = 1;
 static int32_t _shm_spin = 0;
 
@@ -134,6 +135,8 @@ static inline void shm_unlock(void) {
 void shm_init() {
     //share memory base address at virtual address 1GB
     shmem_tail = ALIGN_UP(SHM_BASE, PAGE_SIZE);
+    //the contig slab is mapped through its OWN window below the scattered one
+    shmem_contig_tail = ALIGN_UP(SHM_CONTIG_BASE, PAGE_SIZE);
     _shm_head = NULL;
     _shm_tail = NULL;
     id_counter = 1;
@@ -220,7 +223,10 @@ static int32_t shm_map_pages_contig(ewokos_addr_t addr, ewokos_addr_t paddr, uin
 
 static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t contig) {
     size = ALIGN_UP(size, 32);
-    ewokos_addr_t addr = shmem_tail;
+    /* contig and scattered draw virtual addresses from SEPARATE windows: contig
+       from its own slab-sized window (SHM_CONTIG_BASE), scattered from
+       SHM_BASE. Sharing one tail/window is what stranded the contig slab. */
+    ewokos_addr_t addr = contig ? shmem_contig_tail : shmem_tail;
     uint32_t pages = (size / PAGE_SIZE);
     if((size % PAGE_SIZE) != 0)
         pages++;
@@ -267,7 +273,13 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t conti
         }
     }
     else { // not found, need to expand pages for new block.
-        if((shmem_tail + size) >= (SHM_BASE + SHM_MAX_SIZE)) {
+        /* bound each backing type by its OWN window: a contig segment is capped
+           by the reserved slab (shm_contig.size), never by the scattered window,
+           so kernel.conf shm_contig_size is what actually limits contig shm. */
+        ewokos_addr_t win_top = contig ?
+                (SHM_CONTIG_BASE + _sys_info.shm_contig.size) :
+                (SHM_BASE + SHM_MAX_SIZE);
+        if((addr + size) >= win_top) {
             if(contig)
                 shm_pool_free(pool_paddr);
             return -1;
@@ -309,8 +321,13 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t conti
         i->pages = pages;
     }	
 
-    if(addr == shmem_tail)
+    if(contig) {
+        if(addr == shmem_contig_tail)
+            shmem_contig_tail += pages * PAGE_SIZE;
+    }
+    else if(addr == shmem_tail) {
         shmem_tail += pages * PAGE_SIZE;
+    }
 
     i->used = 1;
     i->key = key;

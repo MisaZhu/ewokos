@@ -1489,6 +1489,16 @@ void proc_funeral(proc_t* proc) {
             thread_stack_free(proc, proc->thread_stack_base);
             proc->thread_stack_base = 0;
         }
+        /*
+         * Reap shm segments THIS thread created via shm_get(IPC_CREAT) but
+         * never attached (refs <= 0). Such an orphan is invisible to the
+         * owner proc's proc_unmap_shms / shm_release_orphans sweep, which is
+         * keyed on the PROC's pid - not the thread's - so without this a
+         * thread-owned orphan leaks its VA window slot and (for contig) its
+         * slab pool run until reboot. Symmetric with the TASK_TYPE_PROC path
+         * above and safe: refs <= 0 means no vm maps the segment.
+         */
+        shm_release_orphans(proc->info.pid);
         proc_space_activate(cproc->space);
         /*
          * This thread's stack slot only just became reusable; let multi_task

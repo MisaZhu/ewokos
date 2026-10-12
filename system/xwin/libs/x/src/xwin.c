@@ -237,6 +237,10 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
                         getpid(), uuid, (uint32_t)key, xinfo_shm_id,
                         title == NULL ? "<null>" : title, (unsigned long long)(ewokos_addr_t)ret);
         /* #endregion */
+        /* destroy the never-attached xinfo segment so it cannot leak a
+           scattered-window slot (mirrors graph_new_shm_row / g2dd cleanup);
+           IPC_RMID is a no-op if somebody else attached it meanwhile */
+        shmctl(xinfo_shm_id, IPC_RMID, NULL);
         close(fd);
         free(ret);
         return NULL;
