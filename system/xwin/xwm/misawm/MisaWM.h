@@ -7,6 +7,12 @@
 
 using namespace Ewok;
 
+/*how many windows can hold a cached frost at once. A misawm desktop rarely
+  frames more than a handful; the rest are handled by LRU eviction (an evicted
+  window simply re-allocates its slot the next time it is drawn). Kept modest so
+  the contig shm pool is never exhausted by cached frost canvases.*/
+#define MISA_FROST_SLOTS 8
+
 /*MisaWM is ewokwm with a frosted-glass border: the frame edge and the title
   bar show a blurred copy of whatever sits behind the window, washed with a
   translucent tint, instead of a flat opaque color. The rounded corners are
@@ -36,13 +42,34 @@ class MisaWM : public XWM {
 	graph_t* roundMask;
 	int roundMaskSize;
 
-	/*unblurred backdrop behind the window, and the blurred copy the glass is
-	  actually painted from. The blur is always recomputed FROM the sharp
-	  copy, never from the previous blur, so it cannot accumulate smear.*/
-	graph_t* backdropSharp;
-	graph_t* frostCache;
-	int frostX, frostY, frostW, frostH;
-	bool frostValid;
+	/*Per-window frost cache. This used to be a SINGLE shared set of members, so
+	  on a full-screen rebuild - which a translucent window forces on nearly
+	  every present - xserverd issues DRAW_FRAME for every window in turn, each
+	  with a different winr; the shared (frostX,frostY) reuse key never matched
+	  the next window, and ensureFrost freed and re-allocated two contig shm
+	  canvases (graph_new_shm) plus re-blurred the whole window for EVERY window
+	  EVERY frame. That contig alloc/free churn - not the memcpy - was the WM cpu
+	  hog, and it defeated the backdrop_unchanged/memcmp skip because the shared
+	  sharp copy always belonged to a different window. Keying the cache by
+	  xinfo_t.win gives each window a stable slot: allocate once, reuse across
+	  frames, and the skip paths fire. The blur is always recomputed FROM the
+	  sharp copy, never from the previous blur, so it cannot accumulate smear.*/
+	struct FrostSlot {
+		ewokos_addr_t win;      //0 = empty slot
+		graph_t* backdropSharp; //unblurred backdrop behind the window
+		graph_t* frostCache;    //blurred copy the glass is painted from
+		int frostX, frostY, frostW, frostH;
+		bool frostValid;
+		uint32_t lastUse;       //LRU stamp
+	};
+	FrostSlot frostSlots[MISA_FROST_SLOTS];
+	uint32_t frostTick;
+	/*find the slot for win without allocating (NULL if absent)*/
+	FrostSlot* findFrost(ewokos_addr_t win);
+	/*find or claim a slot for win, evicting (and freeing) the LRU one if full*/
+	FrostSlot* frostSlotFor(ewokos_addr_t win);
+	/*release a slot's canvases and mark it empty*/
+	void frostSlotFree(FrostSlot* s);
 
 protected:
 	void getMax(xinfo_t* info, grect_t* rect);

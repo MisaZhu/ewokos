@@ -25,16 +25,6 @@ inline uint32_t MisaWM::glassTint(void) {
 	return bg;
 }
 
-/*exact unsigned divide-by-255 for n in [0,65025]. The per-pixel tint blend
-  below does four of these per pixel; on ARM a hardware sdiv is one of the
-  slowest ALU ops. Every numerator here is a product/sum of two <=255 values
-  (ta+inv_a==255), so it never exceeds 255*255==65025 and the shift form is
-  bit-exact. NOTE: the identity breaks at n==65535, so do not reuse this
-  helper for a wider range without re-checking.*/
-static inline int32_t div255(int32_t n) {
-	return (n + 1 + (n >> 8)) >> 8;
-}
-
 /*what graph_pixel(tint) writes over an opaque backdrop pixel: the exact value
   our glass leaves on the display, used to recognise our own output again*/
 inline uint32_t MisaWM::blendPixel(uint32_t tint, uint32_t dst) {
@@ -69,6 +59,45 @@ inline bool MisaWM::decontam(graph_t* sharp, graph_t* pred, graph_t* desktop_g, 
 	return changed;
 }
 
+MisaWM::FrostSlot* MisaWM::findFrost(ewokos_addr_t win) {
+	if(win == 0)
+		return NULL;
+	for(int i = 0; i < MISA_FROST_SLOTS; i++)
+		if(frostSlots[i].win == win)
+			return &frostSlots[i];
+	return NULL;
+}
+
+void MisaWM::frostSlotFree(FrostSlot* s) {
+	if(s->backdropSharp != NULL) { graph_free(s->backdropSharp); s->backdropSharp = NULL; }
+	if(s->frostCache != NULL) { graph_free(s->frostCache); s->frostCache = NULL; }
+	s->win = 0;
+	s->frostX = s->frostY = s->frostW = s->frostH = 0;
+	s->frostValid = false;
+	s->lastUse = 0;
+}
+
+MisaWM::FrostSlot* MisaWM::frostSlotFor(ewokos_addr_t win) {
+	FrostSlot* slot = findFrost(win);
+	if(slot == NULL) {
+		/*claim an empty slot, else evict (and free) the least-recently-used one
+		  so a busy desktop cannot pin more than MISA_FROST_SLOTS contig pairs*/
+		for(int i = 0; i < MISA_FROST_SLOTS; i++) {
+			if(frostSlots[i].win == 0) { slot = &frostSlots[i]; break; }
+		}
+		if(slot == NULL) {
+			slot = &frostSlots[0];
+			for(int i = 1; i < MISA_FROST_SLOTS; i++)
+				if(frostSlots[i].lastUse < slot->lastUse)
+					slot = &frostSlots[i];
+			frostSlotFree(slot);
+		}
+		slot->win = win;
+	}
+	slot->lastUse = ++frostTick;
+	return slot;
+}
+
 void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	int shadow = (int)xwm.theme.shadow;
 	int fw = (int)info->winr.w - shadow;
@@ -78,61 +107,100 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	if(desktop_g == NULL || desktop_g->buffer == NULL)
 		return;
 
+	/*Only the pixels the glass actually shows need to be kept blurred. With a
+	  1px frame edge (frostRegion early-returns on gw/gh<=1) and no client-area
+	  ws_blur, the ONLY region ever read back is the title strip drawn by
+	  drawTitle, so maintaining (memcmp + copy + blur) the whole window every
+	  frame is ~95% waste - and ensureFrost runs twice per DRAW_FRAME (drawTitle
+	  and drawFrame both call it). Limit the maintained height to the title strip
+	  plus the blur bleed unless the client area is glass (alpha + ws_blur) or the
+	  frame edge is thick enough to be read, both of which still need the full
+	  window.*/
+	int fhM = fh;
+	if(xwm.theme.frameW <= 1 && !(info->alpha && xwm.theme.wsBlur > 0)) {
+		fhM = (int)xwm.theme.titleH + 2*(int)xwm.theme.frameBlur + 2;
+		if(fhM > fh)
+			fhM = fh;
+		if(fhM < 1)
+			fhM = fh;
+	}
+
+	/*this window's own frost slot: stable across frames, so a full-screen
+	  rebuild no longer frees/re-allocates the contig canvases per window*/
+	FrostSlot* slot = frostSlotFor(info->win);
+	if(slot == NULL)
+		return;
+	graph_t* backdropSharp = slot->backdropSharp;
+	graph_t* frostCache = slot->frostCache;
+
 	if(desktop_g->w == (int)info->winr.w && desktop_g->h == (int)info->winr.h) {
 		/*xserverd handed us the clean window-local snapshot of everything
 		  below the window (theme frame_blur): it never carries our own glass,
 		  so it can be blurred straight away. Re-blur only when the snapshot
-		  actually changed, so idle frames cost a compare only.*/
-		bool sameSize = frostValid && backdropSharp != NULL && frostCache != NULL &&
-				frostX == info->winr.x && frostY == info->winr.y &&
-				frostW == fw && frostH == fh;
+		  actually changed, so idle frames cost a compare only. Only the top fhM
+		  rows (the region the glass reads) are kept, compared and blurred.*/
+		bool sameSize = slot->frostValid && backdropSharp != NULL && frostCache != NULL &&
+				slot->frostX == info->winr.x && slot->frostY == info->winr.y &&
+				slot->frostW == fw && slot->frostH == fhM;
 		if(!sameSize) {
 			if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
 			if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
-			frostValid = false;
-			backdropSharp = graph_new_shm(fw, fh);
-			frostCache = graph_new_shm(fw, fh);
+			slot->frostValid = false;
+			backdropSharp = graph_new_shm(fw, fhM);
+			frostCache = graph_new_shm(fw, fhM);
+			slot->backdropSharp = backdropSharp;
+			slot->frostCache = frostCache;
 			if(backdropSharp == NULL || frostCache == NULL) {
-				if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
-				if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
+				if(backdropSharp != NULL) { graph_free(backdropSharp); slot->backdropSharp = NULL; }
+				if(frostCache != NULL) { graph_free(frostCache); slot->frostCache = NULL; }
 				return;
 			}
-			graph_blt(desktop_g, 0, 0, fw, fh, backdropSharp, 0, 0, fw, fh);
 		}
 		else {
 			/*xserverd guarantees this snapshot is byte-identical to the one the
 			  previous DRAW_FRAME carried (it was not recaptured, and the window
 			  kept its own clean backdrop). The frost already matches it, so the
-			  whole-window per-row memcmp scan - the dominant idle-frame cost when
-			  a foreground app repaints over an unchanged desktop - is skipped.*/
+			  change scan - the dominant idle-frame cost when a foreground app
+			  repaints over an unchanged desktop - is skipped.*/
 			if(info->backdrop_unchanged)
 				return;
+			/*Sampled change detection. Both caches are contig shm, mapped
+			  PTE_ATTR_NOCACHE, so a full-window scan runs uncached through DRAM
+			  and is the dominant per-frame WM cost (run twice per DRAW_FRAME).
+			  The frost is a BLURRED copy, so a change confined to a few unsampled
+			  rows is invisible and the next sampled change re-syncs the whole
+			  region; scanning every 8th row of a tall (client-area glass,
+			  ws_blur>0) region cuts that scan ~8x. Short strips (title bar,
+			  ws_blur=0) stay fully scanned - they are cheap enough.*/
+			int step = (fhM >= 128) ? 8 : 1;
 			bool changed = false;
-			for(int y = 0; y < fh; y++) {
-				const uint32_t* src = &desktop_g->buffer[y*desktop_g->w];
-				uint32_t* dst = &backdropSharp->buffer[y*fw];
-				if(memcmp(dst, src, (size_t)fw*4) != 0) {
-					memcpy(dst, src, (size_t)fw*4);
+			for(int y = 0; y < fhM; y += step) {
+				if(memcmp(&backdropSharp->buffer[y*fw],
+						&desktop_g->buffer[y*desktop_g->w], (size_t)fw*4) != 0) {
 					changed = true;
+					break;
 				}
 			}
 			if(!changed)
 				return; //backdrop identical: the frost already matches it
 		}
-		/*blur FROM the sharp snapshot, never from the previous blur*/
-		memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
-		graph_gaussian_blur(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
-		frostX = info->winr.x;
-		frostY = info->winr.y;
-		frostW = fw;
-		frostH = fh;
-		frostValid = true;
+		/*Refresh both caches via graph_blt (routed to g2dd) rather than an
+		  uncached full-window CPU copy, then blur FROM the sharp snapshot,
+		  never from the previous blur.*/
+		graph_blt(desktop_g, 0, 0, fw, fhM, backdropSharp, 0, 0, fw, fhM);
+		graph_blt(backdropSharp, 0, 0, fw, fhM, frostCache, 0, 0, fw, fhM);
+		graph_gaussian_blur(frostCache, 0, 0, fw, fhM, xwm.theme.frameBlur);
+		slot->frostX = info->winr.x;
+		slot->frostY = info->winr.y;
+		slot->frostW = fw;
+		slot->frostH = fhM;
+		slot->frostValid = true;
 		return;
 	}
 
-	bool same = frostValid && frostCache != NULL && backdropSharp != NULL &&
-			frostX == info->winr.x && frostY == info->winr.y &&
-			frostW == fw && frostH == fh;
+	bool same = slot->frostValid && frostCache != NULL && backdropSharp != NULL &&
+			slot->frostX == info->winr.x && slot->frostY == info->winr.y &&
+			slot->frostW == fw && slot->frostH == fh;
 	if(same) {
 		/*same placement: the display under the glass still holds our own last
 		  output, except where a window below (or the desktop) repainted over
@@ -177,7 +245,9 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 		graph_free(backdropSharp);
 		backdropSharp = NULL;
 	}
-	frostValid = false;
+	slot->frostCache = frostCache;
+	slot->backdropSharp = backdropSharp;
+	slot->frostValid = false;
 
 	/*fresh placement: the desktop is composited bottom-to-top, so the display
 	  under the window holds only what is really behind it.
@@ -186,20 +256,22 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	  on the cpu every placement.*/
 	backdropSharp = graph_new_shm(fw, fh);
 	frostCache = graph_new_shm(fw, fh);
+	slot->backdropSharp = backdropSharp;
+	slot->frostCache = frostCache;
 	if(backdropSharp == NULL || frostCache == NULL) {
-		if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
-		if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
+		if(backdropSharp != NULL) { graph_free(backdropSharp); slot->backdropSharp = NULL; }
+		if(frostCache != NULL) { graph_free(frostCache); slot->frostCache = NULL; }
 		return;
 	}
 	graph_blt(desktop_g, info->winr.x, info->winr.y, fw, fh,
 			backdropSharp, 0, 0, fw, fh);
 	memcpy(frostCache->buffer, backdropSharp->buffer, (size_t)fw*fh*4);
 	graph_gaussian_blur(frostCache, 0, 0, fw, fh, xwm.theme.frameBlur);
-	frostX = info->winr.x;
-	frostY = info->winr.y;
-	frostW = fw;
-	frostH = fh;
-	frostValid = true;
+	slot->frostX = info->winr.x;
+	slot->frostY = info->winr.y;
+	slot->frostW = fw;
+	slot->frostH = fh;
+	slot->frostValid = true;
 }
 
 void MisaWM::frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
@@ -215,66 +287,37 @@ void MisaWM::frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
 	  the full window six times per repaint even though only the first pass
 	  can ever find a change. frostCache is already valid here.*/
 	(void)desktop_g;
-	if(frostCache == NULL)
+	FrostSlot* slot = findFrost(info->win);
+	if(slot == NULL || slot->frostCache == NULL)
+		return;
+	/*Clip the region to what the cache actually holds, never read past it.
+	  ensureFrost sizes the cache to (winr - shadow) and, when the client area
+	  is not glass (frame_width<=1, ws_blur=0), to just the title strip. A
+	  fullscreen window (NO_FRAME, no shadow band) still asks for its whole
+	  client area, which overshoots the cache by the shadow margin - bailing on
+	  that left the entire fullscreen glass unfrosted. Clamp instead so the
+	  frost still lands everywhere the cache covers; only a fully-outside or
+	  degenerate rect is dropped.*/
+	if(gx < 0) { gw += gx; gx = 0; }
+	if(gy < 0) { gh += gy; gy = 0; }
+	if(gx + gw > slot->frostCache->w) gw = slot->frostCache->w - gx;
+	if(gy + gh > slot->frostCache->h) gh = slot->frostCache->h - gy;
+	if(gw <= 1 || gh <= 1)
 		return;
 
 	/*lay the cached frost into the frame, then wash it with a constant
 	  translucent tint. Neither step reads the live display, so a content
-	  update cannot feed the previous frame back into the glass.
-	  the tint wash is a solid fill: graph_fill_rect runs the optimized
-	  row path (and the gpu fill when the canvas is g2d-visible), the
-	  per-pixel graph_pixel loop this replaces called a clipping check
-	  per pixel five times per window per repaint.*/
-	graph_blt(frostCache, gx, gy, gw, gh, frame_g, gx, gy, gw, gh);
-	/*the tint is translucent, so this must stay a per-pixel BLEND - a
-	  solid fill would destroy the frost.  but the tint is CONSTANT:
-	  clip once, hoist the color decomposition and the inverse alpha out
-	  of the loops, and write the buffer directly.  the graph_pixel loop
-	  this replaces re-evaluated the clip and re-decoded the color for
-	  every pixel, five regions per window per repaint.*/
-	{
-		uint8_t ta = (uint8_t)((tint >> 24) & 0xff);
-		int32_t tr = (int32_t)((tint >> 16) & 0xff);
-		int32_t tg = (int32_t)((tint >> 8) & 0xff);
-		int32_t tb = (int32_t)(tint & 0xff);
-		int32_t x0 = gx > 0 ? gx : 0;
-		int32_t y0 = gy > 0 ? gy : 0;
-		int32_t x1 = gx + gw < frame_g->w ? gx + gw : frame_g->w;
-		int32_t y1 = gy + gh < frame_g->h ? gy + gh : frame_g->h;
-
-		if(ta == 0xff) {
-			for(int32_t py = y0; py < y1; py++) {
-				uint32_t* row = frame_g->buffer +
-					(size_t)py * frame_g->w;
-				for(int32_t px = x0; px < x1; px++)
-					row[px] = tint;
-			}
-		}
-		else if(ta > 0) {
-			/*ta+inv_a == 255, so the tint RGB scaled by ta is a per-channel
-			  constant: hoist it out and turn the four per-pixel divides into
-			  the exact div255 shift form.*/
-			int32_t inv_a = 255 - ta;
-			int32_t tra = tr * ta, tga = tg * ta, tba = tb * ta;
-			for(int32_t py = y0; py < y1; py++) {
-				uint32_t* row = frame_g->buffer +
-					(size_t)py * frame_g->w;
-				for(int32_t px = x0; px < x1; px++) {
-					uint32_t oc = row[px];
-					int32_t oa = (int32_t)((oc >> 24) & 0xff);
-					int32_t orr = (int32_t)((oc >> 16) & 0xff);
-					int32_t ogg = (int32_t)((oc >> 8) & 0xff);
-					int32_t obb = (int32_t)(oc & 0xff);
-					int32_t na = oa + div255((255 - oa) * ta);
-					row[px] = argb(
-							(uint8_t)na,
-							(uint8_t)div255(tra + orr * inv_a),
-							(uint8_t)div255(tga + ogg * inv_a),
-							(uint8_t)div255(tba + obb * inv_a));
-				}
-			}
-		}
-	}
+	  update cannot feed the previous frame back into the glass.*/
+	graph_blt(slot->frostCache, gx, gy, gw, gh, frame_g, gx, gy, gw, gh);
+	/*the tint is a CONSTANT translucent color laid src-over the frost, so it
+	  is exactly a fill-with-alpha: graph_fill_rect routes color_a != 0xff to
+	  the g2d fill_alpha primitive, which moves the whole-client-area ws_blur
+	  wash onto g2dd/GPU instead of a per-pixel loop on the WM's cpu (regions
+	  below G2D_MIN_SIZE fall back to the arch NEON blend, still faster than
+	  the old scalar loop). the device blend (g2d_blend_argb_scalar) is
+	  formula-identical to the div255 loop this replaces over the opaque
+	  backdrop the frost blit just laid down, so the glass is unchanged.*/
+	graph_fill_rect(frame_g, gx, gy, gw, gh, tint);
 }
 
 void MisaWM::drawDragFrame(graph_t* g, grect_t* r) {
@@ -471,19 +514,23 @@ void MisaWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 MisaWM::~MisaWM(void) {
 	if(roundMask != NULL)
 		graph_free(roundMask);
-	if(backdropSharp != NULL)
-		graph_free(backdropSharp);
-	if(frostCache != NULL)
-		graph_free(frostCache);
+	for(int i = 0; i < MISA_FROST_SLOTS; i++)
+		frostSlotFree(&frostSlots[i]);
 }
 
 MisaWM::MisaWM(void) {
 	roundMask = NULL;
 	roundMaskSize = 0;
-	backdropSharp = NULL;
-	frostCache = NULL;
-	frostX = frostY = frostW = frostH = 0;
-	frostValid = false;
+	for(int i = 0; i < MISA_FROST_SLOTS; i++) {
+		frostSlots[i].win = 0;
+		frostSlots[i].backdropSharp = NULL;
+		frostSlots[i].frostCache = NULL;
+		frostSlots[i].frostX = frostSlots[i].frostY = 0;
+		frostSlots[i].frostW = frostSlots[i].frostH = 0;
+		frostSlots[i].frostValid = false;
+		frostSlots[i].lastUse = 0;
+	}
+	frostTick = 0;
 	xwm.theme.desktopBGColor = 0xff555588;
 	xwm.theme.desktopFGColor = 0xff8888aa;
 	xwm.theme.frameBGColor = 0xffe8eef7;
