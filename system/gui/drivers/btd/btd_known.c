@@ -10,6 +10,20 @@ bt_known_t _known[MAX_BT_KNOWN];
 
 bt_pending_t _pending;
 
+/* Our own LE static random address, cached in RAM so bt_known_save can
+   emit it as the top-level "local" field of bt.json in a single atomic
+   rewrite alongside the device array. Populated by bt_known_load's
+   top-level parse (or by the one-shot legacy migration below); written
+   by bt_local_addr_save. Kept separate from _known[] because it is not
+   a peer bond. */
+static uint8_t _local_addr_stored[6];
+static bool _has_local_addr = false;
+/* Idempotency guard so bt_local_addr_load/save can force a load early
+   (bt_le_provision_own_addr runs during controller init, well before
+   btd.c's own _known_loaded gate opens on the first mount/open) without
+   re-parsing the file when the outer gate later runs. */
+static bool _known_store_loaded = false;
+
 uint8_t hci_opcode_lo(uint16_t opcode) {
     return (uint8_t)(opcode & 0xff);
 }
@@ -398,8 +412,17 @@ int bt_known_load(void) {
     int n;
     int count = 0;
 
+    /* Idempotent: bt_local_addr_load/save may force an early load during
+       controller init (well before btd.c's own _known_loaded gate runs);
+       a second call from that outer gate must be a no-op so we do not
+       re-parse the file or re-run the prune pass on already-clean data. */
+    if (_known_store_loaded) {
+        return 0;
+    }
+
     fd = open(BT_KNOWN_FILE, O_RDONLY);
     if (fd < 0) {
+        _known_store_loaded = true;
         return 0; /* no store yet, not an error */
     }
     buf = (char*)malloc(BT_KNOWN_MAX_FILE + 1);
@@ -411,9 +434,40 @@ int bt_known_load(void) {
     close(fd);
     if (n <= 0) {
         free(buf);
+        _known_store_loaded = true;
         return 0;
     }
     buf[n] = 0;
+
+    /* Top-level "local":"xxxxxxxxxxxx" - our own persisted LE static
+       random address. Bounded by the "devices" key so a device name
+       that happens to contain the substring "local" cannot leak in.
+       Validation mirrors bt_local_addr_load's: exactly 12 hex chars,
+       non-zero, and the two MSBs of the most significant octet set
+       (BLE static random address type). A malformed value is ignored
+       so a fresh one gets generated and re-saved. */
+    {
+        char* devices_pos = strstr(buf, "\"devices\"");
+        char* local_end = devices_pos != NULL ? devices_pos : buf + n;
+        char lhex[16];
+
+        if (bt_json_str_field(buf, local_end, "local", lhex, sizeof(lhex)) &&
+                strlen(lhex) == 12 &&
+                bt_hex_to_bytes(lhex, _local_addr_stored, 6) &&
+                (_local_addr_stored[5] & 0xc0) == 0xc0) {
+            int i;
+            bool any = false;
+            for (i = 0; i < 6; ++i) {
+                if (_local_addr_stored[i] != 0) {
+                    any = true;
+                    break;
+                }
+            }
+            if (any) {
+                _has_local_addr = true;
+            }
+        }
+    }
 
     p = buf;
     while (count < MAX_BT_KNOWN && (p = strstr(p, "\"addr\"")) != NULL) {
@@ -494,6 +548,7 @@ int bt_known_load(void) {
             bt_known_save();
         }
     }
+    _known_store_loaded = true;
     return count;
 }
 
@@ -532,7 +587,21 @@ int bt_known_save(void) {
         slog("bluetooth store save_failed path=%s errno=%d\n", BT_KNOWN_FILE, errno);
         return -1;
     }
-    write(fd, "{\n  \"devices\": [\n", 17);
+    /* Header: opening brace, then our own persisted LE static random
+       address as a top-level "local" field (only when we have one), then
+       the devices array. bt_known_load parses "local" bounded by the
+       "devices" key so this ordering is load-bearing. */
+    write(fd, "{\n", 2);
+    if (_has_local_addr) {
+        char lhex[13];
+        bt_bytes_to_hex(_local_addr_stored, 6, lhex);
+        {
+            int len = snprintf(line, sizeof(line),
+                    "  \"local\":\"%s\",\n", lhex);
+            write(fd, line, len);
+        }
+    }
+    write(fd, "  \"devices\": [\n", 15);
     for (i = 0; i < MAX_BT_KNOWN; ++i) {
         char addr[24];
         int len;
@@ -585,6 +654,53 @@ int bt_known_save(void) {
     write(fd, "  ]\n}\n", 6);
     close(fd);
     return 0;
+}
+
+/* ---- our own LE static random address, persisted in bt.json ---------
+   The controller on Pi5 (CYW43455) has no programmed public BD_ADDR and
+   btd does not issue a vendor Write_BD_ADDR, so bt_le_provision_own_addr
+   falls back to a random static address. Without persistence every cold
+   boot mints a fresh identity: any BLE peripheral bonded on a previous
+   boot keeps doing ADV_DIRECT_IND toward the address it remembers, our
+   scanner never reports it (InitA mismatch), auto-reconnect starves and
+   even a manual `scan` finds nothing until the user forces the peer back
+   into pairing mode. Persisting the octets as a top-level "local" field
+   of bt.json keeps our identity stable across reboots so bonds survive,
+   and keeps every bluetooth persistent state in a single file.
+
+   Both entry points are safe to call before btd.c's _known_loaded gate
+   opens (bt_le_provision_own_addr runs during controller init): load
+   forces bt_known_load first (idempotent, so the outer gate's later
+   call is a no-op), and save does the same before rewriting the file so
+   the existing device array is preserved rather than clobbered. */
+int bt_local_addr_load(uint8_t* out) {
+    if (out == NULL) {
+        return -1;
+    }
+    if (!_known_store_loaded) {
+        (void)bt_known_load();
+    }
+    if (!_has_local_addr) {
+        return -1;
+    }
+    memcpy(out, _local_addr_stored, 6);
+    return 0;
+}
+
+int bt_local_addr_save(const uint8_t* addr) {
+    if (addr == NULL) {
+        return -1;
+    }
+    /* Force a load first so a save triggered during controller init
+       (before btd.c's _known_loaded gate has run) does not overwrite
+       the device array with an empty one. bt_known_load is idempotent,
+       so the outer gate's later call is a no-op. */
+    if (!_known_store_loaded) {
+        (void)bt_known_load();
+    }
+    memcpy(_local_addr_stored, addr, 6);
+    _has_local_addr = true;
+    return bt_known_save();
 }
 
 /* record a device we just connected/paired with (link key included when

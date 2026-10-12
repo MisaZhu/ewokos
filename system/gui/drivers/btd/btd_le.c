@@ -602,7 +602,16 @@ static bool bt_local_addr_valid(void) {
    pairing aborts with reason 0x04 (Confirm Value Failed). Synthesize a random
    static address, program it with LE_Set_Random_Address and switch our own
    address type to RANDOM, so the InitA on air and the ia we feed c1 are the
-   very same value we control. */
+   very same value we control.
+
+   The synthesized address MUST be persisted (BT_LOCAL_ADDR_FILE) and reused
+   on every later cold boot. A BLE HID peripheral that has bonded to us
+   remembers OUR identity address; if we come up with a fresh random each
+   boot, the peer's wake-up advertising is directed (ADV_DIRECT_IND) at the
+   previous address, our scanner never reports it (InitA mismatch), and the
+   user's only recovery is to force the peer back into pairing mode. The
+   load-before-generate order below keeps the identity stable so bonds
+   survive reboots. */
 static void bt_le_provision_own_addr(void) {
     uint8_t addr_ret[8];
     uint8_t addr_ret_len = 0;
@@ -622,15 +631,42 @@ static void bt_le_provision_own_addr(void) {
         return;
     }
 
-    /* No usable public address: build a random static one. The two most
-       significant bits of the most significant octet (addr[5]; HCI stores
-       octets LSB first) must be 1 for a static random address. */
+    /* No usable public address. Prefer the static random we persisted on a
+       previous boot so our LE identity is stable across reboots; only mint
+       a fresh one when the store is absent or corrupt. */
+    if (bt_local_addr_load(_local_addr) == 0) {
+        _local_addr_type = BT_LE_ADDR_TYPE_RANDOM;
+        if (bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_SET_RANDOM_ADDRESS,
+                _local_addr, sizeof(_local_addr), 1000) != 0) {
+            slog("bluetooth le_set_random_addr_failed persisted=1\n");
+        }
+        else {
+            char astr[24];
+            bt_addr_to_str(_local_addr, astr, sizeof(astr));
+            slog("bluetooth le_local_addr_restored %s\n", astr);
+        }
+        return;
+    }
+
+    /* No usable public address and no persisted identity: build a random
+       static one. The two most significant bits of the most significant
+       octet (addr[5]; HCI stores octets LSB first) must be 1 for a static
+       random address. */
     bt_fill_random(_local_addr, sizeof(_local_addr));
     _local_addr[5] = (uint8_t)((_local_addr[5] & 0x3f) | 0xc0);
     _local_addr_type = BT_LE_ADDR_TYPE_RANDOM;
     if (bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_SET_RANDOM_ADDRESS,
             _local_addr, sizeof(_local_addr), 1000) != 0) {
         slog("bluetooth le_set_random_addr_failed\n");
+    }
+    /* Persist BEFORE any pairing so the very first bond a peer stores is
+       keyed on an identity we will still own on the next boot. A save
+       failure is not fatal (this boot still works) but will show up as
+       the same "re-pair every reboot" symptom, so surface it in slog. */
+    if (bt_local_addr_save(_local_addr) == 0) {
+        char astr[24];
+        bt_addr_to_str(_local_addr, astr, sizeof(astr));
+        slog("bluetooth le_local_addr_persisted %s\n", astr);
     }
 }
 

@@ -47,7 +47,20 @@
 #define BT_UART_PKT_FOLLOW_TIMEOUT_MS 120
 
 /* persistent store of every device we connected (or paired) with, so a
-   future adapter power-on can page them again without a manual scan */
+   future adapter power-on can page them again without a manual scan.
+   The same file also carries our OWN LE static random address in a
+   top-level "local" field: a controller with no programmed public
+   BD_ADDR (Pi5's CYW43455 comes up all-zero because btd does not issue
+   a Broadcom VSC Write_BD_ADDR) forces bt_le_provision_own_addr to
+   synthesize a random static address; without persistence every cold
+   boot mints a NEW identity, so a gamepad bonded on the previous boot
+   sees a foreign host: it stops general-advertising and only emits
+   ADV_DIRECT_IND toward the address it remembers, which our scanner
+   never reports (InitA does not match us). Symptom: second reboot
+   cannot auto-reconnect and cannot even scan the pad unless the user
+   puts it back into pairing mode. Persisting the address inside the
+   same bt.json keeps our identity stable across boots so the bond
+   survives, and keeps every bluetooth persistent state in one file. */
 #define BT_KNOWN_DIR "/etc/bt"
 #define BT_KNOWN_FILE "/etc/bt/bt.json"
 #define BT_KNOWN_MAX_FILE 16384
@@ -963,6 +976,18 @@ void bt_known_seed_devices(void);
    scan branch instead of paging BR/EDR again on the next boot. */
 void bt_known_prefer_le(const uint8_t* addr);
 void bt_known_prefer_le_by_name(const char* name);
+/* Load/save our own LE static random address, stored as a top-level
+   "local":"xxxxxxxxxxxx" field of BT_KNOWN_FILE (12 lowercase hex chars,
+   HCI LSB-first octet order). load returns 0 on success and fills the 6
+   octets; non-zero means no persisted address (first boot) or a corrupt
+   value (treated as absent so a fresh one is generated). save updates
+   the in-memory cache and rewrites BT_KNOWN_FILE atomically via
+   bt_known_save, so calling it before bt_known_load is safe (load is
+   forced first to preserve the existing device array). Both calls are
+   idempotent w.r.t. the rest of the daemon: btd.c's own _known_loaded
+   guard still runs its dedup/seed pass on the first mount/open. */
+int bt_local_addr_load(uint8_t* out);
+int bt_local_addr_save(const uint8_t* addr);
 void bt_parse_eir_name(const uint8_t* eir, size_t len, char* out, size_t out_sz);
 void bt_emit_device_line(const char* prefix, const bt_device_t* dev);
 void bt_ret_append_device_line(int dev_id, char* ret, size_t ret_sz, const char* prefix, const bt_device_t* dev);
