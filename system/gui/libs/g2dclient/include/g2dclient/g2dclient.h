@@ -20,8 +20,52 @@ enum {
 	G2D_DEV_CNTL_BLIT_TO_PHY,
 	G2D_DEV_CNTL_GAUSSIAN_BLUR,
 	G2D_DEV_CNTL_ROTATE_TO_PHY,
-	G2D_DEV_CNTL_FILL_TRIANGLE
+	G2D_DEV_CNTL_FILL_TRIANGLE,
+	G2D_DEV_CNTL_PGL_CLEAR,
+	G2D_DEV_CNTL_PGL_DRAW
 };
+
+/* portablegl GPU (V3D 3D-pipeline) offload.  Only the raspi5 back end
+   implements these; every other machine declines both ops with the sticky
+   G2D_ERR_NOT_SUPPORTED so a portablegl client latches off and keeps its
+   own CPU rasterizer.  The constants below mirror the raspi5 vc_pgl3d back
+   end's values exactly, so g2dd forwards them unchanged. */
+enum {
+	G2D_PGL_MODE_POINTS    = 0,
+	G2D_PGL_MODE_LINES     = 1,
+	G2D_PGL_MODE_TRIANGLES = 4
+};
+enum {
+	G2D_PGL_FMT_BGR565 = 7,
+	G2D_PGL_FMT_RGBA8  = 27
+};
+enum {
+	G2D_PGL_FS_SOLID   = 0,
+	G2D_PGL_FS_GOURAUD = 1,
+	G2D_PGL_FS_TEX_MOD = 2
+};
+enum {
+	G2D_PGL_DEPTH_NONE = 0,
+	G2D_PGL_DEPTH_LESS,
+	G2D_PGL_DEPTH_LEQUAL,
+	G2D_PGL_DEPTH_GREATER,
+	G2D_PGL_DEPTH_GEQUAL,
+	G2D_PGL_DEPTH_ALWAYS,
+	G2D_PGL_DEPTH_NEVER,
+	G2D_PGL_DEPTH_EQUAL,
+	G2D_PGL_DEPTH_NOTEQUAL
+};
+/* back-face-cull config carried in cull_en (0 = draw both facings) */
+enum {
+	G2D_PGL_CULL_NONE = 0,
+	G2D_PGL_CULL_BACK_CCW,
+	G2D_PGL_CULL_BACK_CW,
+	G2D_PGL_CULL_FRONT_CCW,
+	G2D_PGL_CULL_FRONT_CW,
+	G2D_PGL_CULL_BOTH
+};
+/* maximum vertices per draw dispatch (the back end declines more) */
+#define G2D_PGL_MAX_VERTS 4096u
 
 /* result codes every g2dclient call below answers with (the driver
    sends the same codes back on the wire):
@@ -213,6 +257,96 @@ typedef struct {
 	int32_t radius;
 } g2d_gaussian_blur_req_t;
 
+/* Extended per-dispatch fixed-function state (Phase B2c): the scissor test
+   window, polygon offset and colour write mask.  Carried as a sub-struct so
+   bsp_g2d_pgl_draw grows by ONE opaque pointer instead of eight scalars: the
+   full definition lives here (g2dd and the raspi5 back end include this
+   header), while the six stub bsp layers only forward-declare the tag
+   `struct g2d_pgl_ext_s` and ignore the pointer.  Every field defaults to zero
+   through the request memset, which is exactly the "feature off / write all
+   four channels" state, so an older caller that never sets ext is unaffected.
+   The V3D 7.1 encodings these drive (colour-mask bit polarity, clip-window
+   y-origin, depth-offset f187 scaling) are confirmed on the Pi5 in Phase G. */
+typedef struct g2d_pgl_ext_s {
+	int32_t  scissor_x;   /* clip window left, framebuffer pixels */
+	int32_t  scissor_y;   /* clip window bottom (y down from the top edge) */
+	int32_t  scissor_w;   /* scissor_w/h == 0 -> scissor off (full frame) */
+	int32_t  scissor_h;
+	uint8_t  poly_enable; /* polygon offset applies to this primitive */
+	float    poly_factor; /* Depth Offset Factor (sent as f187) */
+	float    poly_units;  /* Depth Offset Units (sent as f187) */
+	uint32_t color_mask;  /* RGBA write-enable, GL order: bit0=R,1=G,2=B,3=A;
+	                         0xF (or 0 from an old caller) = write all four */
+} g2d_pgl_ext_t;
+
+/* Phase D texture state passed to bsp_g2d_pgl_draw as an opaque pointer
+   (mirrors g2d_pgl_ext_t so the six stub bsp layers only forward-declare the
+   tag and ignore the pointer; the raspi5 back end fills its
+   vc_pgl3d_draw_req_t tex fields verbatim).  tex_phy is the resolved physical
+   base of the linear RGBA8 texture image (contig or dma); uv_phy is the
+   resolved physical base of the per-vertex uv float3 attribute array.  Both
+   must be non-zero for a TEX_MOD draw or the back end declines. */
+typedef struct g2d_pgl_tex_s {
+	ewokos_addr_t tex_phy;    /* linear RGBA8 texture image (row pitch tex_stride) */
+	uint8_t       tex_contig;
+	uint32_t      tex_stride; /* texture row pitch, bytes (0 -> derive w*4) */
+	uint32_t      tex_w;      /* texture width, texels */
+	uint32_t      tex_h;      /* texture height, texels */
+	ewokos_addr_t uv_phy;     /* per-vertex uv float3 attribute (stride 12) */
+	uint8_t       uv_contig;
+} g2d_pgl_tex_t;
+
+/* portablegl GPU offload request, used by BOTH PGL_CLEAR and PGL_DRAW.
+   dst is the render target (an RGBA8/BGR565 contig-shm or dma canvas;
+   modelled w x h so the driver's size >= w*h*4 attach check holds for
+   RGBA8).  PGL_CLEAR uses only dst/fmt/color/stride/rb_swap.  PGL_DRAW
+   also carries the CPU-computed post-vertex-shader data as two further
+   canvases so the driver resolves their physical bases zero-copy:
+     pos - float3 clip-space positions, nverts*12 bytes, modelled as a
+           w=nverts h=3 canvas (nverts*3*4 == nverts*12);
+     col - byte4 RGBA8 per vertex, nverts*4 bytes, modelled as a
+           w=nverts h=1 canvas (nverts*1*4 == nverts*4).
+   Both must be contig so the GPU can address them by physical base; a
+   non-contig vertex buffer is declined.  nverts <= G2D_PGL_MAX_VERTS.
+   The state subset (depth_func/depth_mask/blend_en/cull_en) is carried for
+   the protocol; the raspi5 back end renders depth test/write (tile-local Z)
+   and back-face cull for the built-in solid/gouraud shaders and declines
+   blending (the fixed-function frag has no blend stage). */
+typedef struct {
+	g2d_canvas_t dst;
+	g2d_canvas_t pos;
+	g2d_canvas_t col;
+	g2d_canvas_t z;        /* persistent Z32F depth surface (size 0 = none) */
+	uint32_t mode;       /* G2D_PGL_MODE_* */
+	uint32_t nverts;
+	uint32_t fmt;        /* G2D_PGL_FMT_* */
+	uint32_t fs_id;      /* G2D_PGL_FS_* */
+	uint32_t color;      /* solid colour / clear colour, 0xAABBGGRR */
+	uint32_t stride;     /* render-target row pitch, bytes */
+	uint32_t z_stride;   /* Z-surface row pitch, bytes (w*4); 0 -> derive */
+	uint32_t depth_func; /* G2D_PGL_DEPTH_* */
+	uint32_t clear_rgba; /* colour the frame's first dispatch clears to */
+	float    clear_z;    /* depth the frame's first dispatch clears to */
+	uint8_t depth_mask;  /* depth writes enabled */
+	uint8_t blend_en;    /* blending enabled */
+	uint8_t cull_en;     /* G2D_PGL_CULL_* config code (0 = no cull) */
+	uint8_t rb_swap;     /* swap R/B on store (BGR565 panel) */
+	uint8_t first_frame; /* non-zero: first dispatch of the frame (clear) */
+	g2d_pgl_ext_t ext;   /* Phase B2c scissor / polygon-offset / colour-mask */
+	/* Phase D texture state (fs_id == G2D_PGL_FS_TEX_MOD only).  tex is a
+	   linear RGBA8 texture image (contig or dma canvas; size >= tex_stride *
+	   tex_h so the driver's attach check holds); uv is a per-vertex uv float3
+	   canvas (nverts * 12 bytes, modelled w=nverts h=3, mirroring pos).
+	   tex_w/tex_h/tex_stride describe the image (tex_stride == 0 lets the
+	   driver derive w*4).  All default to zero through the request memset;
+	   a TEX_MOD request with tex.size == 0 or uv.size == 0 is declined. */
+	g2d_canvas_t tex;
+	g2d_canvas_t uv;
+	uint32_t tex_w;
+	uint32_t tex_h;
+	uint32_t tex_stride;
+} g2d_pgl_req_t;
+
 static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 	g2d_rect_t rect;
 	rect.x = x;
@@ -393,6 +527,70 @@ static inline void g2d_rotate_to_phy_req_init(g2d_rotate_to_phy_req_t* req,
 	req->rotate = rotate;
 }
 
+/* portablegl GPU offload helpers.  g2d_pgl_clear_req_init fills a
+   full-frame clear of dst; g2d_pgl_draw_req_init fills a draw of nverts
+   primitives from the pos/col vertex canvases into dst, including the depth
+   test/write and back-face-cull state (blend stays off; the back end declines
+   a blend_en request). */
+static inline void g2d_pgl_clear_req_init(g2d_pgl_req_t* req,
+		g2d_canvas_t dst, uint32_t fmt, uint32_t stride, uint32_t color,
+		uint8_t rb_swap) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->dst = dst;
+	req->fmt = fmt;
+	req->stride = stride;
+	req->color = color;
+	req->rb_swap = rb_swap;
+}
+
+static inline void g2d_pgl_draw_req_init(g2d_pgl_req_t* req,
+		g2d_canvas_t dst, g2d_canvas_t pos, g2d_canvas_t col,
+		uint32_t mode, uint32_t nverts, uint32_t fmt, uint32_t stride,
+		uint32_t fs_id, uint32_t color, uint8_t rb_swap,
+		uint32_t depth_func, uint8_t depth_mask, uint8_t cull_en,
+		g2d_canvas_t z, uint32_t z_stride, uint8_t first_frame,
+		uint32_t clear_rgba, float clear_z) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->dst = dst;
+	req->pos = pos;
+	req->col = col;
+	req->mode = mode;
+	req->nverts = nverts;
+	req->fmt = fmt;
+	req->stride = stride;
+	req->fs_id = fs_id;
+	req->color = color;
+	req->rb_swap = rb_swap;
+	req->depth_func = depth_func;
+	req->depth_mask = depth_mask;
+	req->cull_en = cull_en;
+	req->z = z;
+	req->z_stride = z_stride;
+	req->first_frame = first_frame;
+	req->clear_rgba = clear_rgba;
+	req->clear_z = clear_z;
+}
+
+/* Phase D: attach the texture image + per-vertex uv canvases to a draw
+   request whose fs_id == G2D_PGL_FS_TEX_MOD.  tex_stride == 0 lets the back
+   end derive tex_w * 4.  Call AFTER g2d_pgl_draw_req_init (which memsets the
+   whole struct).  A no-op on a NULL req or when fs_id is not TEX_MOD. */
+static inline void g2d_pgl_draw_req_set_tex(g2d_pgl_req_t* req,
+		g2d_canvas_t tex, uint32_t tex_w, uint32_t tex_h, uint32_t tex_stride,
+		g2d_canvas_t uv) {
+	if(req == NULL)
+		return;
+	req->tex = tex;
+	req->tex_w = tex_w;
+	req->tex_h = tex_h;
+	req->tex_stride = tex_stride;
+	req->uv = uv;
+}
+
 int has_g2d(void);
 int g2d_set_dev(const char* dev);
 
@@ -416,6 +614,14 @@ int g2d_scale_to(const g2d_scale_to_req_t* req);
 int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req);
 int g2d_rotate_to_phy(const g2d_rotate_to_phy_req_t* req);
 int g2d_gaussian_blur(const g2d_gaussian_blur_req_t* req);
+
+/* portablegl GPU (V3D 3D-pipeline) offload.  Both answer with the G2D_*
+   result codes: G2D_OK when the GPU ran the op, G2D_ERR_NOT_SUPPORTED
+   (sticky) when the platform has no 3D GPU path or the back end declined
+   the state/geometry - the caller then runs its own CPU rasterizer and
+   stops offloading.  G2D_ERR_FAILED is a transient back-end failure. */
+int g2d_pgl_clear(const g2d_pgl_req_t* req);
+int g2d_pgl_draw(const g2d_pgl_req_t* req);
 
 /* query the g2d engine clock rate in Hz (as confirmed by the driver at
    startup; hardware backends pin the GPU to its max rate). returns

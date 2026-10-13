@@ -198,3 +198,15 @@ int g2d_gaussian_blur(const g2d_gaussian_blur_req_t* req) {
         return G2D_ERR_FAILED;
     return g2d_send_struct(G2D_DEV_CNTL_GAUSSIAN_BLUR, req, sizeof(*req));
 }
+
+int g2d_pgl_clear(const g2d_pgl_req_t* req) {
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+    return g2d_send_struct(G2D_DEV_CNTL_PGL_CLEAR, req, sizeof(*req));
+}
+
+int g2d_pgl_draw(const g2d_pgl_req_t* req) {
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+    return g2d_send_struct(G2D_DEV_CNTL_PGL_DRAW, req, sizeof(*req));
+}

@@ -47,13 +47,15 @@ static uint64_t _g2dd_req_cnt = 0;
    end's own per-dispatch phase counters (bsp_g2d_cmd "stat") it isolates
    the attach/clip/CPU share of a request. Plain atomics: a stat, like
    _g2dd_req_cnt. */
-#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_FILL_TRIANGLE + 1) /* FILL_RECT, a<0xff */
+/* FILL_ALPHA is a synthetic slot (fill_triangle with a<0xff), so it must
+   sit past the last real command slot - now PGL_DRAW, not FILL_TRIANGLE. */
+#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_PGL_DRAW + 1) /* FILL_RECT, a<0xff */
 #define G2DD_STAT_CMDS (G2DD_STAT_FILL_ALPHA + 1)
 static uint64_t _g2dd_stat_cnt[G2DD_STAT_CMDS];
 static uint64_t _g2dd_stat_ns[G2DD_STAT_CMDS];
 static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
 	"fill", "blit", "blit_alpha", "rotate", "scale", "clock", "blit_phy", "blur",
-	"rotate_phy", "fill_tri", "fill_alpha"
+	"rotate_phy", "fill_tri", "pgl_clear", "pgl_draw", "fill_alpha"
 };
 
 /* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
@@ -1572,6 +1574,181 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	return G2D_ERR_FAILED;
 }
 
+/* portablegl GPU full-frame clear: attach the dst render target and hand
+   its physical base to the back end.  GPU-only - there is no driver CPU
+   fallback (the portablegl client keeps its own clear); a machine with no
+   3D path, or a non-GPU-visible target, answers G2D_ERR_NOT_SUPPORTED so
+   the client latches the capability off and stops offloading. */
+static int32_t g2dd_handle_pgl_clear(proto_t* in) {
+	g2d_pgl_req_t req;
+	g2d_attached_t dst;
+	uint32_t stride;
+	int32_t ret;
+
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return G2D_ERR_FAILED;
+
+	if(g2d_attach(&req.dst, &dst) != 0)
+		return G2D_ERR_FAILED;
+	if(dst.contig == 0 || dst.phy == 0) {
+		g2d_detach(&dst);
+		return G2D_ERR_NOT_SUPPORTED;
+	}
+
+	stride = req.stride ? req.stride : dst.width * 4u;
+	ret = bsp_g2d_pgl_clear(dst.buffer, dst.phy, dst.contig,
+			(int32_t)dst.width, (int32_t)dst.height,
+			stride, req.fmt, req.color, req.rb_swap);
+	g2d_detach(&dst);
+	return ret;
+}
+
+/* portablegl GPU primitive draw: attach the render target plus the two
+   CPU-computed vertex canvases (pos float3, col byte4) and hand their
+   physical bases to the back end zero-copy.  All three must be contig
+   (GPU-addressable); a non-contig buffer or a machine with no 3D path
+   answers G2D_ERR_NOT_SUPPORTED.  The back end applies its own state /
+   geometry gate and declines (G2D_ERR_NOT_SUPPORTED) anything outside the
+   supported subset, never drawing it incorrectly. */
+static int32_t g2dd_handle_pgl_draw(proto_t* in) {
+	g2d_pgl_req_t req;
+	g2d_attached_t dst;
+	g2d_attached_t pos;
+	g2d_attached_t col;
+	g2d_attached_t z;
+	g2d_attached_t tex;
+	g2d_attached_t uv;
+	ewokos_addr_t z_phy = 0;
+	uint8_t z_contig = 0;
+	int have_z = 0;
+	int have_tex = 0;
+	int have_uv = 0;
+	g2d_pgl_tex_t texreq;
+	int use_tex = 0;
+	uint32_t stride;
+	int32_t ret;
+
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return G2D_ERR_FAILED;
+	if(req.nverts == 0 || req.nverts > G2D_PGL_MAX_VERTS)
+		return G2D_ERR_FAILED;
+	/* the vertex canvases are modelled w=nverts (pos h=3, col h=1) so the
+	   driver's size>=w*h*4 attach check encodes the byte count; make sure
+	   the declared width agrees with nverts.  On the TEX_MOD path col is
+	   optional (uv replaces it in attribute slot 1); pos is always required
+	   and uv is modelled w=nverts h=3 (nverts*3*4 == nverts*12 bytes). */
+	if(req.pos.w != req.nverts)
+		return G2D_ERR_FAILED;
+	if(req.fs_id == G2D_PGL_FS_TEX_MOD) {
+		if(req.uv.w != req.nverts || req.uv.size == 0 || req.tex.size == 0)
+			return G2D_ERR_FAILED;
+	} else if(req.col.w != req.nverts) {
+		return G2D_ERR_FAILED;
+	}
+
+	if(g2d_attach(&req.dst, &dst) != 0)
+		return G2D_ERR_FAILED;
+	if(dst.contig == 0 || dst.phy == 0) {
+		g2d_detach(&dst);
+		return G2D_ERR_NOT_SUPPORTED;
+	}
+	if(g2d_attach(&req.pos, &pos) != 0) {
+		g2d_detach(&dst);
+		return G2D_ERR_FAILED;
+	}
+	/* col is optional on the TEX_MOD path: an unused zero-size canvas skips
+	   attach so the caller does not need to allocate a placeholder. */
+	if(req.fs_id != G2D_PGL_FS_TEX_MOD || req.col.size != 0) {
+		if(g2d_attach(&req.col, &col) != 0) {
+			g2d_detach(&pos);
+			g2d_detach(&dst);
+			return G2D_ERR_FAILED;
+		}
+	} else {
+		memset(&col, 0, sizeof(col));
+	}
+	if(pos.contig == 0 || pos.phy == 0 ||
+	   (req.fs_id != G2D_PGL_FS_TEX_MOD && (col.contig == 0 || col.phy == 0))) {
+		ret = G2D_ERR_NOT_SUPPORTED;
+		goto done;
+	}
+	/* the persistent Z32F depth surface is optional (z.size == 0 -> the back
+	   end keeps tile-local Z).  When present it must be contig and
+	   GPU-addressable like the render target; a Z canvas that cannot be
+	   attached declines (NOT_SUPPORTED) rather than rendering against a
+	   stale or absent depth buffer. */
+	if(req.z.size != 0) {
+		if(g2d_attach(&req.z, &z) != 0) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		have_z = 1;
+		if(z.contig == 0 || z.phy == 0) {
+			ret = G2D_ERR_NOT_SUPPORTED;
+			goto done;
+		}
+		z_phy = z.phy;
+		z_contig = z.contig;
+	}
+	/* Phase D: the TEX_MOD path resolves two additional canvases (linear
+	   RGBA8 texture image + per-vertex uv float3 attribute) into a filled
+	   g2d_pgl_tex_t.  A non-TEX_MOD request leaves use_tex == 0 and passes
+	   NULL, so the raspi5 back end keeps every tex field zero. */
+	memset(&texreq, 0, sizeof(texreq));
+	if(req.fs_id == G2D_PGL_FS_TEX_MOD) {
+		if(g2d_attach(&req.tex, &tex) != 0) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		have_tex = 1;
+		if(g2d_attach(&req.uv, &uv) != 0) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		have_uv = 1;
+		if(tex.contig == 0 || tex.phy == 0 ||
+		   uv.contig == 0 || uv.phy == 0) {
+			ret = G2D_ERR_NOT_SUPPORTED;
+			goto done;
+		}
+		texreq.tex_phy    = tex.phy;
+		texreq.tex_contig = tex.contig;
+		texreq.tex_stride = req.tex_stride;
+		texreq.tex_w      = req.tex_w;
+		texreq.tex_h      = req.tex_h;
+		texreq.uv_phy     = uv.phy;
+		texreq.uv_contig  = uv.contig;
+		use_tex = 1;
+	}
+
+	stride = req.stride ? req.stride : dst.width * 4u;
+	ret = bsp_g2d_pgl_draw(dst.phy, dst.contig,
+			(int32_t)dst.width, (int32_t)dst.height, stride, req.fmt,
+			req.mode, req.nverts,
+			pos.phy, pos.contig, col.phy, col.contig,
+			req.fs_id, req.color, req.rb_swap,
+			req.depth_func, req.depth_mask, req.blend_en, req.cull_en,
+			z_phy, z_contig, req.z_stride, req.first_frame,
+			req.clear_rgba, req.clear_z, &req.ext,
+			use_tex ? &texreq : NULL);
+done:
+	if(have_uv)
+		g2d_detach(&uv);
+	if(have_tex)
+		g2d_detach(&tex);
+	if(have_z)
+		g2d_detach(&z);
+	if(req.fs_id != G2D_PGL_FS_TEX_MOD || req.col.size != 0)
+		g2d_detach(&col);
+	g2d_detach(&pos);
+	g2d_detach(&dst);
+	return ret;
+}
+
 static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)dev;
 	(void)from_pid;
@@ -1629,6 +1806,12 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		break;
 	case G2D_DEV_CNTL_FILL_TRIANGLE:
 		res = g2dd_handle_fill_triangle(in, &slot);
+		break;
+	case G2D_DEV_CNTL_PGL_CLEAR:
+		res = g2dd_handle_pgl_clear(in);
+		break;
+	case G2D_DEV_CNTL_PGL_DRAW:
+		res = g2dd_handle_pgl_draw(in);
 		break;
 	default:
 		/* an unknown command is a capability this driver does not

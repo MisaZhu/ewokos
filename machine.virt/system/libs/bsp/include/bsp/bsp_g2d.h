@@ -113,4 +113,23 @@ int32_t bsp_g2d_gaussian_blur(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t co
 			int32_t rect_w, int32_t rect_h,
 			int32_t radius);
 
+/* portablegl GPU (V3D 3D) offload; raspi5-only, others decline with the
+   sticky G2D_ERR_NOT_SUPPORTED (-2).  *_phy are resolved contig physical
+   bases (GPU works on them directly); fmt/mode/fs_id/depth_func use the
+   G2D_PGL_* values.  Both return the g2d result codes (0 / -1 / -2). */
+int32_t bsp_g2d_pgl_clear(uint32_t* fb, ewokos_addr_t fb_phy, uint8_t contig,
+			int32_t w, int32_t h, uint32_t stride, uint32_t fmt,
+			uint32_t color, int32_t rb_swap);
+int32_t bsp_g2d_pgl_draw(ewokos_addr_t fb_phy, uint8_t fb_contig,
+			int32_t w, int32_t h, uint32_t stride, uint32_t fmt,
+			uint32_t mode, uint32_t nverts,
+		ewokos_addr_t pos_phy, uint8_t pos_contig,
+		ewokos_addr_t col_phy, uint8_t col_contig,
+			uint32_t fs_id, uint32_t color, int32_t rb_swap,
+			uint32_t depth_func, int32_t depth_mask,
+			int32_t blend_en, int32_t cull_en,
+					ewokos_addr_t z_phy, uint8_t z_contig,
+						uint32_t z_stride, uint8_t first_frame,
+						uint32_t clear_rgba, float clear_z, const void* ext, const void* tex);
+
 #endif
