@@ -1995,10 +1995,25 @@ int bt_loop(vdevice_t* dev, void* p) {
         /* bound the backoff by whether an input link is live: a connected
            mouse/keyboard must not wait more than BT_IDLE_SLEEP_HID_US for
            the next poll, while an idle (scanning-only) daemon may relax to
-           the full ceiling to save CPU. */
+           the full ceiling to save CPU.
+
+           When the machine's bsp_bt implements an event-driven wait
+           (raspi5: the 16550 RX interrupt), _idle_sleep_us is a CEILING,
+           not a floor: bsp_bt_wait_readable returns within ~one handler
+           round-trip of the first byte landing on the wire, so the poll
+           floor is effectively zero and the doubling below just bounds
+           the safety timeout when nothing arrives. On machines without
+           the event-driven path (bsp_bt_wait_readable returns -1: every
+           stub, raspix, x86) the historical usleep cadence is kept. */
         uint32_t cap = bt_hid_live() ? BT_IDLE_SLEEP_HID_US : BT_IDLE_SLEEP_MAX_US;
-        usleep(_idle_sleep_us);
-        if (_idle_sleep_us < cap) {
+        uint32_t wait_ms = (_idle_sleep_us + 999u) / 1000u;
+        int r = bsp_bt_wait_readable(wait_ms);
+        if (r < 0) {
+            usleep(_idle_sleep_us);
+        }
+        /* r == 1 (a byte is ready now) skips the backoff: the next
+           bt_poll_once will consume it and reset _idle_sleep_us below. */
+        if (r != 1 && _idle_sleep_us < cap) {
             _idle_sleep_us <<= 1;
             if (_idle_sleep_us > cap) {
                 _idle_sleep_us = cap;

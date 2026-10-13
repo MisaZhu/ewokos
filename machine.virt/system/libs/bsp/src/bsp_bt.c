@@ -25,6 +25,11 @@ int bsp_bt_recv(uint32_t timeout_ms) {
     return -1;
 }
 
+int bsp_bt_wait_readable(uint32_t timeout_ms) {
+    (void)timeout_ms;
+    return -1;
+}
+
 int bsp_bt_flush(void) {
     return 0;
 }

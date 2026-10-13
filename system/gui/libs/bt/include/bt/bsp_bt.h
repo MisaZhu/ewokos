@@ -21,7 +21,14 @@
  * Typical call sequence in btd:
  *   bsp_bt_init(false)            (retried until it succeeds)
  *   HCI_Reset / firmware download (bsp_bt_firmware + bsp_bt_send/_recv)
- *   steady state: bsp_bt_send / bsp_bt_recv(0) polling
+ *   steady state: bsp_bt_send, then either
+ *     - bsp_bt_wait_readable(cap_ms) + bsp_bt_recv(0) polling when the
+ *       machine implements an event-driven wait (raspi5: the 16550 RX
+ *       interrupt), or
+ *     - usleep + bsp_bt_recv(0) polling when it does not (every stub,
+ *       raspix, x86). bsp_bt_wait_readable returns -1 in that case and
+ *       the caller keeps its old cadence.
+ *   mid-packet: bsp_bt_recv(timeout_ms > 0) for follow bytes
  *   "close" command: bsp_bt_power_off()
  *   "open" command after close: bsp_bt_init(true)
  */
@@ -50,6 +57,18 @@ int bsp_bt_send(uint8_t pkt_type, const uint8_t* data, size_t len);
    transport is not up. Must be safe to call before bsp_bt_init() ever
    succeeded (return <0 then). */
 int bsp_bt_recv(uint32_t timeout_ms);
+
+/* Event-driven first-byte wait. Blocks up to timeout_ms until the transport
+   has any byte ready for bsp_bt_recv() without consuming it. Returns:
+     1  a byte is ready now (call bsp_bt_recv(0) to consume);
+     0  the timeout elapsed with no data;
+    -1  the machine has no event-driven path (every stub, plus raspix/x86);
+        the caller must fall back to usleep(timeout_ms * 1000).
+   Only the raspi5 HCI UART (16550 with a wired RX interrupt) currently
+   implements 1/0; adding another machine means arming its own IRQ and
+   publishing an equivalent wait token. Must be safe to call before
+   bsp_bt_init() ever succeeded (return -1 then). */
+int bsp_bt_wait_readable(uint32_t timeout_ms);
 
 /* Drain and discard pending RX bytes (used right after UART setup).
    Bounded internally; returns how many bytes were dropped. */
