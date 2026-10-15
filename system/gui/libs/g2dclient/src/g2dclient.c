@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <g2dclient/g2dclient.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/proto.h>
@@ -209,4 +210,35 @@ int g2d_pgl_draw(const g2d_pgl_req_t* req) {
     if(req == NULL)
         return G2D_ERR_FAILED;
     return g2d_send_struct(G2D_DEV_CNTL_PGL_DRAW, req, sizeof(*req));
+}
+
+int g2d_pgl_program(const g2d_pgl_program_req_t* req) {
+    proto_t in;
+    proto_t out;
+    int pid;
+    int ret;
+
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+
+    pid = g2d_dev_pid();
+    if(pid <= 0)
+        return G2D_ERR_FAILED;
+
+    PF->init(&in)->add(&in, req, sizeof(*req));
+    PF->init(&out);
+    ret = dev_cntl_by_pid(pid, G2D_DEV_CNTL_PGL_PROGRAM, &in, &out);
+    /* The handle cannot ride the status int: do_dev_cntl drops a positive
+       handler return and dev_cntl_by_pid normalises a positive status to -1.
+       So a successful upload answers status 0 with the non-negative handle
+       appended as the reply's SECOND int (the two-int pattern g2d_get_clock
+       uses); a failure answers a negative G2D_ERR_* status with no payload. */
+    if(ret == 0) {
+        ret = proto_read_int(&out);        /* handler status (0 == accepted) */
+        if(ret == 0)
+            ret = proto_read_int(&out);    /* the program handle (>= 0) */
+    }
+    PF->clear(&out);
+    PF->clear(&in);
+    return ret;
 }

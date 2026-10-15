@@ -22,7 +22,8 @@ enum {
 	G2D_DEV_CNTL_ROTATE_TO_PHY,
 	G2D_DEV_CNTL_FILL_TRIANGLE,
 	G2D_DEV_CNTL_PGL_CLEAR,
-	G2D_DEV_CNTL_PGL_DRAW
+	G2D_DEV_CNTL_PGL_DRAW,
+	G2D_DEV_CNTL_PGL_PROGRAM
 };
 
 /* portablegl GPU (V3D 3D-pipeline) offload.  Only the raspi5 back end
@@ -67,6 +68,12 @@ enum {
 /* maximum vertices per draw dispatch (the back end declines more) */
 #define G2D_PGL_MAX_VERTS 4096u
 
+/* Maximum texture units a compiled FS may bind (iChannel0..iChannelN).
+   Sized to cover the shadertoy set (max 3 channels in the_cave) with one
+   slot of headroom.  Mirrors V3D_MAX_TEXTURE_SAMPLERS on the back end.
+   Used by g2d_pgl_req_t's compiled-shader sampler-binding block below. */
+#define G2D_PGL_MAX_TEX_UNITS   4u
+
 /* result codes every g2dclient call below answers with (the driver
    sends the same codes back on the wire):
    G2D_OK                 the operation completed.
@@ -81,6 +88,11 @@ enum {
 #define G2D_OK                0
 #define G2D_ERR_FAILED        (-1)
 #define G2D_ERR_NOT_SUPPORTED (-2)
+/* compiled-shader draw refinements of FAILED (the GPU job WAS submitted):
+   the dispatch overran the daemon's wait budget / faulted the GPU MMU.
+   Treat exactly like FAILED (never replay); the value only names the cause. */
+#define G2D_ERR_TIMEOUT       (-3)
+#define G2D_ERR_MMU_FAULT     (-4)
 
 enum {
 	G2D_FMT_ARGB8888 = 0
@@ -259,7 +271,7 @@ typedef struct {
 
 /* Extended per-dispatch fixed-function state (Phase B2c): the scissor test
    window, polygon offset and colour write mask.  Carried as a sub-struct so
-   bsp_g2d_pgl_draw grows by ONE opaque pointer instead of eight scalars: the
+   bsp_g3d_draw grows by ONE opaque pointer instead of eight scalars: the
    full definition lives here (g2dd and the raspi5 back end include this
    header), while the six stub bsp layers only forward-declare the tag
    `struct g2d_pgl_ext_s` and ignore the pointer.  Every field defaults to zero
@@ -279,7 +291,7 @@ typedef struct g2d_pgl_ext_s {
 	                         0xF (or 0 from an old caller) = write all four */
 } g2d_pgl_ext_t;
 
-/* Phase D texture state passed to bsp_g2d_pgl_draw as an opaque pointer
+/* Phase D texture state passed to bsp_g3d_draw as an opaque pointer
    (mirrors g2d_pgl_ext_t so the six stub bsp layers only forward-declare the
    tag and ignore the pointer; the raspi5 back end fills its
    vc_pgl3d_draw_req_t tex fields verbatim).  tex_phy is the resolved physical
@@ -295,6 +307,30 @@ typedef struct g2d_pgl_tex_s {
 	ewokos_addr_t uv_phy;     /* per-vertex uv float3 attribute (stride 12) */
 	uint8_t       uv_contig;
 } g2d_pgl_tex_t;
+
+/* WS4 compiled-shader sampler-binding state passed to bsp_g3d_draw as an
+   opaque pointer (mirrors g2d_pgl_tex_t so the six stub bsp layers only
+   forward-declare the tag and ignore the pointer; the raspi5 back end
+   forwards each entry into vc_pgl3d_draw_req_t's compiled-tex fields
+   verbatim).  Each entry describes one texture unit's resolved physical
+   base + geometry; ctex_phy[i] == 0 means unit i is unbound (any sample
+   the FS makes from that unit returns whatever the driver leaves in the
+   TMU config - safe black for shaders that never sample it).  The images
+   are RGBA8 in the V3D texture memory layout named by ctex_tiling[i]
+   (enum v3d_tex_tiling: 0 raster, 1 LT, 2/3 UBLINEAR, 4/5 UIF no-xor/xor,
+   with ctex_ub_pad[i] the UIF level_0_ub_pad), contig or dma so the GPU
+   can address them by physical base; ctex_stride[i] is the allocated row
+   pitch of the (padded) image, 0 lets the driver derive ctex_w[i]*4.
+   Only meaningful when the draw carries a compiled prog_handle >= 0. */
+typedef struct g2d_pgl_ctex_s {
+	ewokos_addr_t ctex_phy[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t       ctex_contig[G2D_PGL_MAX_TEX_UNITS];
+	uint32_t      ctex_stride[G2D_PGL_MAX_TEX_UNITS];
+	uint32_t      ctex_w[G2D_PGL_MAX_TEX_UNITS];
+	uint32_t      ctex_h[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t       ctex_tiling[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t       ctex_ub_pad[G2D_PGL_MAX_TEX_UNITS];
+} g2d_pgl_ctex_t;
 
 /* portablegl GPU offload request, used by BOTH PGL_CLEAR and PGL_DRAW.
    dst is the render target (an RGBA8/BGR565 contig-shm or dma canvas;
@@ -345,7 +381,171 @@ typedef struct {
 	uint32_t tex_w;
 	uint32_t tex_h;
 	uint32_t tex_stride;
+	/* --- WS4 compiled-shader draw reference ----------------------------
+	   prog_handle selects an on-device-compiled program uploaded earlier via
+	   G2D_DEV_CNTL_PGL_PROGRAM: a non-negative value is the daemon program
+	   handle (the raspi5 back end builds the V3D shader-state record from the
+	   cached prog_data and dispatches the compiled VS/FS QPU); the default -1
+	   keeps the historical fixed-function path (fs_id SOLID/GOURAUD/TEX_MOD),
+	   so every existing caller is unaffected.  When prog_handle >= 0, `unif`
+	   is a contig-shm canvas carrying the per-draw GL uniform storage - an
+	   array of num_uniforms u32 values that the daemon's QUNIFORM interpreter
+	   indexes for QUNIFORM_UNIFORM slots (iGlobalTime / iResolution / ...);
+	   it is modelled w=num_uniforms h=1 (num_uniforms*4 == size) so the
+	   driver's size >= w*h*4 attach check holds, exactly like pos/col.  The
+	   driver-computed uniforms (VIEWPORT_*_SCALE, TMU_CONFIG_*) are filled by
+	   the back end from the render-target geometry and the bound textures, not
+	   from this blob.  unif.size == 0 (num_uniforms == 0) is valid for a
+	   program whose uniforms are all CONSTANT / driver-computed. */
+	int32_t prog_handle;
+	uint32_t num_uniforms;
+	g2d_canvas_t unif;
+	/* --- WS4 compiled-shader sampler bindings ---------------------------
+	   A compiled FS may reference up to G2D_PGL_MAX_TEX_UNITS texture units
+	   (iChannel0..iChannelN).  Each unit's QUNIFORM_TMU_CONFIG_P0/P1 pair
+	   carries the unit index in the upper 8 bits of the data word, so the
+	   daemon's expand_uniforms walks the FS uniform stream, extracts each
+	   referenced unit index, and binds the corresponding texture canvas
+	   below at that TMU slot.  A slot with tex.size == 0 is unbound: any
+	   sample the FS makes from it returns whatever the driver leaves in
+	   the TMU config (safe black for shaders that never sample it).
+	   The images are RGBA8 in the V3D texture memory layout named by
+	   ctex_tiling (enum v3d_tex_tiling; the TMU cannot sample a raster 2D
+	   image, so the client tiles them with v3d_tex_store_2d) and contig or
+	   dma so the GPU can address them by physical base; ctex_stride is the
+	   allocated (padded) row pitch, 0 lets the driver derive tex_w * 4.
+	   Only meaningful when prog_handle >= 0.  The fixed-function TEX_MOD
+	   path continues to use the singular tex/uv fields above and never
+	   touches this block.  All fields default to zero through the request
+	   memset, so existing callers that never set them are unaffected. */
+	g2d_canvas_t ctex[G2D_PGL_MAX_TEX_UNITS];
+	uint32_t     ctex_w[G2D_PGL_MAX_TEX_UNITS];
+	uint32_t     ctex_h[G2D_PGL_MAX_TEX_UNITS];
+	uint32_t     ctex_stride[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t      ctex_tiling[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t      ctex_ub_pad[G2D_PGL_MAX_TEX_UNITS];
 } g2d_pgl_req_t;
+
+/* --- On-device-compiled shader program upload (G2D_DEV_CNTL_PGL_PROGRAM) ----
+   portablegl compiles a GLSL ES vertex+fragment pair to VideoCore V3D 7.1 QPU
+   IN THE APP PROCESS (libv3dcompiler.a), then ships the result to g2dd ONCE via
+   this command; g2dd forwards it to the raspi5 back end, which is the only
+   entity that may copy the QPU into GPU-visible dma, build the V3D shader-state
+   records and dispatch.  A later PGL_DRAW references the uploaded program by
+   the integer handle this command returns, so the QPU is never re-sent per
+   frame.
+
+   The program travels as ONE serialized blob inside a contig-shm canvas (the
+   same zero-copy model as the pos/col vertex canvases): a fixed
+   g2d_pgl_program_blob_t header followed immediately by the variable payload.
+   All fields are little-endian / naturally aligned; the payload is u32-aligned
+   because the header size is a multiple of 4.  Payload order (each section
+   present only when its count/size is non-zero):
+     vs_qpu[vs_qpu_words]                 (u32 words: lo,hi per 64-bit instr)
+     fs_qpu[fs_qpu_words]
+     coord_qpu[coord_qpu_words]           (coordinate/binning shader)
+     vs_uniform_contents[vs_num_uniforms] (enum quniform_contents as u32)
+     vs_uniform_data[vs_num_uniforms]
+     fs_uniform_contents[fs_num_uniforms]
+     fs_uniform_data[fs_num_uniforms]
+     coord_uniform_contents[coord_num_uniforms]
+     coord_uniform_data[coord_num_uniforms]
+     cs_qpu[cs_qpu_words]                 (VERSION 3: compute stage)
+     cs_uniform_contents[cs_num_uniforms]
+     cs_uniform_data[cs_num_uniforms]
+   payload_bytes is the total byte length of all twelve sections, so the receiver
+   can validate the canvas size without walking the counts.
+
+   VERSION 2 adds the coordinate-shader (binning) stage: the SAME vertex NIR
+   compiled with is_coord=true, so the V3D binner computes each vertex's
+   clip-space position through the real model/view/projection transform instead
+   of a fixed pass-through coord shader.  That is what lets arbitrary geometry
+   (e.g. the teapot mesh) bin correctly; a pre-transformed full-screen quad
+   could reuse the pass-through, a transformed mesh cannot.  The coord stage
+   shares the render VS's uniform driver_locations (one linker assignment), so
+   the client packs ONE per-draw uniform blob that feeds both the coord and the
+   render-VS uniform expansion.
+
+   VERSION 3 adds an OPTIONAL compute stage (cs_qpu_words == 0 when absent):
+   the fragment program recompiled as a V3D compute kernel whose SSBO binding 0
+   is the render target and whose per-draw uniform `v3d_cs_stride` is the
+   target's row pitch in dwords.  A program carrying it is dispatched through
+   the CSD as a full-frame grid (one invocation per pixel) instead of through
+   the binner.  Its uniform driver_locations are assigned by the compute
+   program's own linker pass, so the client looks a uniform name up in the
+   COMPUTE stage too when packing the per-draw blob. */
+#define G2D_PGL_PROGRAM_MAGIC   0x33445047u   /* 'G','P','D','3' little-endian */
+#define G2D_PGL_PROGRAM_VERSION 3u
+#define G2D_PGL_MAX_VS_ATTRS    64            /* mirrors V3D_MAX_VS_INPUTS */
+#define G2D_PGL_MAX_FS_INPUTS   64            /* mirrors V3D_MAX_FS_INPUTS */
+
+typedef struct {
+	uint32_t magic;             /* G2D_PGL_PROGRAM_MAGIC */
+	uint32_t version;           /* G2D_PGL_PROGRAM_VERSION */
+	uint32_t vs_qpu_words;      /* 2 * VS QPU instruction count */
+	uint32_t fs_qpu_words;      /* 2 * FS QPU instruction count */
+	uint32_t vs_num_uniforms;
+	uint32_t fs_num_uniforms;
+	uint32_t payload_bytes;     /* bytes in the six payload sections */
+	/* fragment-stage state the shader record + dispatch need */
+	uint32_t fs_num_inputs;     /* varying inputs read (== VS outputs) */
+	uint8_t  fs_needs_coords;   /* FS reads gl_FragCoord -> coord shader */
+	uint8_t  fs_uses_center_w;  /* real_pixel_centre_mode record bit */
+	uint8_t  fs_writes_z;       /* FS writes gl_FragDepth */
+	uint8_t  fs_disable_ez;     /* early-Z must be disabled */
+	uint8_t  fs_threads;        /* FS SIMD dispatch width */
+	uint8_t  fs_single_seg;
+	uint8_t  vs_threads;        /* VS SIMD dispatch width */
+	uint8_t  vs_single_seg;
+	/* vertex-stage VPM layout */
+	uint32_t vs_vpm_input_size;
+	uint32_t vs_vpm_output_size;
+	uint32_t vs_vcm_cache_size;
+	uint8_t  vs_separate_segments;
+	uint8_t  reserved[3];
+	/* vertex attribute -> driver_location map (fixed-size, mostly zero) */
+	uint8_t  vs_vattr_sizes[G2D_PGL_MAX_VS_ATTRS / 4];
+	int32_t  vs_driver_location_map[G2D_PGL_MAX_VS_ATTRS];
+	/* fragment varying input slots (packed slot_and_component) */
+	uint32_t fs_input_slots[G2D_PGL_MAX_FS_INPUTS];
+	/* coordinate-shader (binning) stage: the same VS NIR compiled with
+	   is_coord=true.  Carries its own QPU + uniform stream and VPM layout so
+	   the binner applies the real MVP transform; the coord QPU/uniform payload
+	   sections follow the FS uniform sections in the wire order documented
+	   above.  The coord VPM sizes differ from the render VS's (the coord
+	   shader writes only gl_Position, no varyings), so they are carried
+	   separately for the shader-state record's coord VPM-segment fields. */
+	uint32_t coord_qpu_words;     /* 2 * COORD QPU instruction count */
+	uint32_t coord_num_uniforms;
+	uint32_t coord_vpm_input_size;
+	uint32_t coord_vpm_output_size;
+	uint32_t coord_vcm_cache_size;
+	uint8_t  coord_separate_segments;
+	uint8_t  coord_threads;       /* COORD SIMD dispatch width */
+	uint8_t  coord_single_seg;
+	uint8_t  coord_reserved[1];
+	/* VERSION 3: optional compute stage (see above); its three payload
+	   sections follow the coord uniform sections. */
+	uint32_t cs_qpu_words;        /* 2 * compute QPU instruction count, 0 = none */
+	uint32_t cs_num_uniforms;
+	uint32_t cs_local_size[3];    /* workgroup shape */
+	uint32_t cs_shared_size;      /* bytes of shared memory (0 expected) */
+	uint8_t  cs_threads;          /* compute SIMD dispatch width */
+	uint8_t  cs_single_seg;
+	uint8_t  cs_is_geom;          /* 1 = fixed geometry rasterizer (was reserved) */
+	uint8_t  cs_reserved[1];
+	/* variable payload follows immediately after this header */
+} g2d_pgl_program_blob_t;
+
+/* Upload request: `blob` is a contig-shm canvas whose first sizeof(header)
+   bytes are a g2d_pgl_program_blob_t and whose remaining bytes are the
+   payload; blob.size must be >= sizeof(header) + payload_bytes.  The back end
+   copies the QPU into GPU dma and answers with a non-negative program handle
+   (usable as g2d_pgl_req_t.fs_id-program selector on a later PGL_DRAW) or a
+   negative G2D_ERR_* code. */
+typedef struct {
+	g2d_canvas_t blob;
+} g2d_pgl_program_req_t;
 
 static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 	g2d_rect_t rect;
@@ -384,6 +584,23 @@ static inline g2d_canvas_t g2d_canvas_dma(ewokos_addr_t addr, uint32_t size, uin
 	canvas.addr = addr;
 	canvas.phy = 0; /* resolved by the driver from the sys_dma window */
 	return canvas;
+}
+
+/* Bind an on-device-compiled program (uploaded via g2d_pgl_program) to a draw
+   request, together with its per-draw GL uniform storage.  `unif_shm` is the
+   contig-shm segment holding num_uniforms u32 uniform values (or 0/0 when the
+   program needs no per-draw uniforms).  A negative `handle` restores the
+   fixed-function path (prog_handle defaults to -1 via the request init). */
+static inline void g2d_pgl_draw_req_set_shader(g2d_pgl_req_t* req, int32_t handle,
+		int32_t unif_shm, uint32_t num_uniforms, uint8_t contig) {
+	if(req == NULL)
+		return;
+	req->prog_handle = handle;
+	req->num_uniforms = num_uniforms;
+	if(num_uniforms > 0)
+		req->unif = g2d_canvas(unif_shm, num_uniforms * 4u, num_uniforms, 1u, contig);
+	else
+		req->unif = g2d_canvas(0, 0, 0, 0, 0);
 }
 
 static inline void g2d_fill_req_init(g2d_fill_req_t* req, g2d_canvas_t dst, g2d_rect_t rect, uint32_t color) {
@@ -543,6 +760,7 @@ static inline void g2d_pgl_clear_req_init(g2d_pgl_req_t* req,
 	req->stride = stride;
 	req->color = color;
 	req->rb_swap = rb_swap;
+	req->prog_handle = -1;   /* fixed-function path (no compiled program) */
 }
 
 static inline void g2d_pgl_draw_req_init(g2d_pgl_req_t* req,
@@ -573,6 +791,10 @@ static inline void g2d_pgl_draw_req_init(g2d_pgl_req_t* req,
 	req->first_frame = first_frame;
 	req->clear_rgba = clear_rgba;
 	req->clear_z = clear_z;
+	/* prog_handle defaults to -1 (fixed-function): a memset-zero 0 would
+	   alias compiled program slot 0, so the compiled path is opt-in via
+	   g2d_pgl_draw_req_set_shader. */
+	req->prog_handle = -1;
 }
 
 /* Phase D: attach the texture image + per-vertex uv canvases to a draw
@@ -589,6 +811,17 @@ static inline void g2d_pgl_draw_req_set_tex(g2d_pgl_req_t* req,
 	req->tex_h = tex_h;
 	req->tex_stride = tex_stride;
 	req->uv = uv;
+}
+
+/* Fill a compiled-program upload request.  blob is a contig-shm canvas holding
+   a serialized g2d_pgl_program_blob_t header + payload (see the struct
+   comment); blob.size must cover both.  Call g2d_pgl_program() to upload. */
+static inline void g2d_pgl_program_req_init(g2d_pgl_program_req_t* req,
+		g2d_canvas_t blob) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->blob = blob;
 }
 
 int has_g2d(void);
@@ -622,6 +855,13 @@ int g2d_gaussian_blur(const g2d_gaussian_blur_req_t* req);
    stops offloading.  G2D_ERR_FAILED is a transient back-end failure. */
 int g2d_pgl_clear(const g2d_pgl_req_t* req);
 int g2d_pgl_draw(const g2d_pgl_req_t* req);
+
+/* Upload an on-device-compiled shader program (QPU + uniforms + shader-state
+   metadata) serialized in req->blob.  On success returns a NON-NEGATIVE
+   program handle that a later g2d_pgl_draw may reference; on failure returns
+   a negative G2D_ERR_* code (G2D_ERR_NOT_SUPPORTED when the platform has no
+   3D compiler-upload path, so the caller keeps its CPU rasterizer). */
+int g2d_pgl_program(const g2d_pgl_program_req_t* req);
 
 /* query the g2d engine clock rate in Hz (as confirmed by the driver at
    startup; hardware backends pin the GPU to its max rate). returns

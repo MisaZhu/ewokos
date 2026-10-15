@@ -81,6 +81,7 @@ ether_tap_reopen_locked(struct ether_tap *tap)
         close(tap->fd);
     }
     tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
+    intr_set_poll_fd(tap->fd);
     return tap->fd >= 0 ? 0 : -1;
 }
 
@@ -116,6 +117,7 @@ ether_tap_open(struct net_device *dev)
         slog("open: %s, dev=%s", strerror(errno), dev->name);
         return -1;
     }
+    intr_set_poll_fd(tap->fd);
  
     if (memcmp(dev->addr, ETHER_ADDR_ANY, ETHER_ADDR_LEN) == 0) {
         if (ether_tap_addr(dev) == -1) {

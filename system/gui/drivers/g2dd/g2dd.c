@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <sched.h>
+#include <pthread.h>
 #include <ewoksys/spinlock.h>
 #include <sys/shm.h>
 #include <ewoksys/proto.h>
@@ -14,8 +15,10 @@
 #include <ewoksys/sys.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/shm.h>
+#include <ewoksys/proc.h>
 #include <sysinfo.h>
 #include <bsp/bsp_g2d.h>
+#include <bsp/bsp_g3d.h>
 #include <g2d_arch.h>
 #include <g2dclient/g2dclient.h>
 
@@ -48,14 +51,14 @@ static uint64_t _g2dd_req_cnt = 0;
    the attach/clip/CPU share of a request. Plain atomics: a stat, like
    _g2dd_req_cnt. */
 /* FILL_ALPHA is a synthetic slot (fill_triangle with a<0xff), so it must
-   sit past the last real command slot - now PGL_DRAW, not FILL_TRIANGLE. */
-#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_PGL_DRAW + 1) /* FILL_RECT, a<0xff */
+   sit past the last real command slot - now PGL_PROGRAM, not PGL_DRAW. */
+#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_PGL_PROGRAM + 1) /* FILL_RECT, a<0xff */
 #define G2DD_STAT_CMDS (G2DD_STAT_FILL_ALPHA + 1)
 static uint64_t _g2dd_stat_cnt[G2DD_STAT_CMDS];
 static uint64_t _g2dd_stat_ns[G2DD_STAT_CMDS];
 static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
 	"fill", "blit", "blit_alpha", "rotate", "scale", "clock", "blit_phy", "blur",
-	"rotate_phy", "fill_tri", "pgl_clear", "pgl_draw", "fill_alpha"
+	"rotate_phy", "fill_tri", "pgl_clear", "pgl_draw", "pgl_program", "fill_alpha"
 };
 
 /* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
@@ -1598,7 +1601,7 @@ static int32_t g2dd_handle_pgl_clear(proto_t* in) {
 	}
 
 	stride = req.stride ? req.stride : dst.width * 4u;
-	ret = bsp_g2d_pgl_clear(dst.buffer, dst.phy, dst.contig,
+	ret = bsp_g3d_clear(dst.buffer, dst.phy, dst.contig,
 			(int32_t)dst.width, (int32_t)dst.height,
 			stride, req.fmt, req.color, req.rb_swap);
 	g2d_detach(&dst);
@@ -1620,15 +1623,23 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 	g2d_attached_t z;
 	g2d_attached_t tex;
 	g2d_attached_t uv;
+	g2d_attached_t unif;
+	g2d_attached_t ctex[G2D_PGL_MAX_TEX_UNITS];
+	int have_ctex[G2D_PGL_MAX_TEX_UNITS];
+	const void* unif_ptr = NULL;
+	int have_unif = 0;
 	ewokos_addr_t z_phy = 0;
 	uint8_t z_contig = 0;
 	int have_z = 0;
 	int have_tex = 0;
 	int have_uv = 0;
 	g2d_pgl_tex_t texreq;
+	g2d_pgl_ctex_t ctexreq;
 	int use_tex = 0;
+	int use_ctex = 0;
 	uint32_t stride;
 	int32_t ret;
+	int col_absent;
 
 	if(in == NULL)
 		return G2D_ERR_FAILED;
@@ -1636,17 +1647,25 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 		return G2D_ERR_FAILED;
 	if(req.nverts == 0 || req.nverts > G2D_PGL_MAX_VERTS)
 		return G2D_ERR_FAILED;
+	/* col is optional on two paths: the TEX_MOD fixed-function path (uv
+	   replaces it in attribute slot 1) and the compiled-shader path
+	   (prog_handle >= 0), where a pos-only program (e.g. shadertoy's
+	   full-screen quad) derives colour procedurally and stages no colour
+	   attribute, so the client sends a zero-size col canvas.  A compiled
+	   draw that DOES supply col (e.g. a de-interleaved mesh's attr-1
+	   NORMAL stream) sends col.size != 0 and is validated like any other. */
+	col_absent = (req.col.size == 0) &&
+	             (req.fs_id == G2D_PGL_FS_TEX_MOD || req.prog_handle >= 0);
 	/* the vertex canvases are modelled w=nverts (pos h=3, col h=1) so the
 	   driver's size>=w*h*4 attach check encodes the byte count; make sure
-	   the declared width agrees with nverts.  On the TEX_MOD path col is
-	   optional (uv replaces it in attribute slot 1); pos is always required
-	   and uv is modelled w=nverts h=3 (nverts*3*4 == nverts*12 bytes). */
+	   the declared width agrees with nverts.  pos is always required and uv
+	   is modelled w=nverts h=3 (nverts*3*4 == nverts*12 bytes). */
 	if(req.pos.w != req.nverts)
 		return G2D_ERR_FAILED;
 	if(req.fs_id == G2D_PGL_FS_TEX_MOD) {
 		if(req.uv.w != req.nverts || req.uv.size == 0 || req.tex.size == 0)
 			return G2D_ERR_FAILED;
-	} else if(req.col.w != req.nverts) {
+	} else if(!col_absent && req.col.w != req.nverts) {
 		return G2D_ERR_FAILED;
 	}
 
@@ -1660,9 +1679,10 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 		g2d_detach(&dst);
 		return G2D_ERR_FAILED;
 	}
-	/* col is optional on the TEX_MOD path: an unused zero-size canvas skips
-	   attach so the caller does not need to allocate a placeholder. */
-	if(req.fs_id != G2D_PGL_FS_TEX_MOD || req.col.size != 0) {
+	/* col is optional on the TEX_MOD / compiled pos-only paths: an unused
+	   zero-size canvas skips attach so the caller does not need to allocate
+	   a placeholder. */
+	if(!col_absent) {
 		if(g2d_attach(&req.col, &col) != 0) {
 			g2d_detach(&pos);
 			g2d_detach(&dst);
@@ -1672,7 +1692,7 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 		memset(&col, 0, sizeof(col));
 	}
 	if(pos.contig == 0 || pos.phy == 0 ||
-	   (req.fs_id != G2D_PGL_FS_TEX_MOD && (col.contig == 0 || col.phy == 0))) {
+	   (!col_absent && (col.contig == 0 || col.phy == 0))) {
 		ret = G2D_ERR_NOT_SUPPORTED;
 		goto done;
 	}
@@ -1725,8 +1745,68 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 		use_tex = 1;
 	}
 
+	/* WS4 compiled-shader draw: when prog_handle >= 0 the back end builds the
+	   V3D shader-state record from the cached program and CPU-reads the
+	   per-draw GL uniform storage (num_uniforms u32 values) to expand its
+	   QUNIFORM stream.  The uniform canvas is attached for its CPU buffer
+	   (not its phys); a fixed-function draw (prog_handle < 0) skips it. */
+	if(req.prog_handle >= 0 && req.num_uniforms > 0) {
+		if(req.unif.size < req.num_uniforms * 4u ||
+		   req.unif.w != req.num_uniforms) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		if(g2d_attach(&req.unif, &unif) != 0) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		have_unif = 1;
+		if(unif.buffer == NULL) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		unif_ptr = unif.buffer;
+	}
+
+	/* WS4 compiled-shader sampler bindings: attach each of the up-to-4
+	   per-unit texture canvases the client staged in req.ctex[] and build
+	   a filled g2d_pgl_ctex_t so the raspi5 back end can point each TMU
+	   slot at its resolved physical base.  A slot with size == 0 stays
+	   unbound (ctex_phy[i] = 0), which is safe for programs whose FS
+	   never samples that unit.  A fixed-function draw (prog_handle < 0)
+	   skips this block entirely, so use_ctex stays 0 and NULL is passed
+	   to bsp_g3d_draw.  Each attached canvas must be contig + GPU-visible
+	   (like the TEX_MOD tex image); a non-contig ctex declines the whole
+	   draw rather than partially binding (the FS may sample any unit). */
+	memset(&ctexreq, 0, sizeof(ctexreq));
+	memset(have_ctex, 0, sizeof(have_ctex));
+	if(req.prog_handle >= 0) {
+		uint32_t i;
+		for(i = 0; i < G2D_PGL_MAX_TEX_UNITS; i++) {
+			if(req.ctex[i].size == 0)
+				continue;
+			if(g2d_attach(&req.ctex[i], &ctex[i]) != 0) {
+				ret = G2D_ERR_FAILED;
+				goto done;
+			}
+			have_ctex[i] = 1;
+			if(ctex[i].contig == 0 || ctex[i].phy == 0) {
+				ret = G2D_ERR_NOT_SUPPORTED;
+				goto done;
+			}
+			ctexreq.ctex_phy[i]    = ctex[i].phy;
+			ctexreq.ctex_contig[i] = ctex[i].contig;
+			ctexreq.ctex_stride[i] = req.ctex_stride[i];
+			ctexreq.ctex_w[i]      = req.ctex_w[i];
+			ctexreq.ctex_h[i]      = req.ctex_h[i];
+			ctexreq.ctex_tiling[i] = req.ctex_tiling[i];
+			ctexreq.ctex_ub_pad[i] = req.ctex_ub_pad[i];
+			use_ctex = 1;
+		}
+	}
+
 	stride = req.stride ? req.stride : dst.width * 4u;
-	ret = bsp_g2d_pgl_draw(dst.phy, dst.contig,
+	ret = bsp_g3d_draw(dst.phy, dst.contig,
 			(int32_t)dst.width, (int32_t)dst.height, stride, req.fmt,
 			req.mode, req.nverts,
 			pos.phy, pos.contig, col.phy, col.contig,
@@ -1734,30 +1814,154 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 			req.depth_func, req.depth_mask, req.blend_en, req.cull_en,
 			z_phy, z_contig, req.z_stride, req.first_frame,
 			req.clear_rgba, req.clear_z, &req.ext,
-			use_tex ? &texreq : NULL);
+			use_tex ? &texreq : NULL,
+			req.prog_handle, unif_ptr, req.num_uniforms,
+			use_ctex ? &ctexreq : NULL);
 done:
+	{
+		uint32_t i;
+		for(i = 0; i < G2D_PGL_MAX_TEX_UNITS; i++)
+			if(have_ctex[i])
+				g2d_detach(&ctex[i]);
+	}
+	if(have_unif)
+		g2d_detach(&unif);
 	if(have_uv)
 		g2d_detach(&uv);
 	if(have_tex)
 		g2d_detach(&tex);
 	if(have_z)
 		g2d_detach(&z);
-	if(req.fs_id != G2D_PGL_FS_TEX_MOD || req.col.size != 0)
+	if(!col_absent)
 		g2d_detach(&col);
 	g2d_detach(&pos);
 	g2d_detach(&dst);
 	return ret;
 }
 
+/* portablegl compiled-shader program upload: attach the CPU-side blob canvas
+   (a serialized g2d_pgl_program_blob_t header + QPU/uniform payload) and hand
+   it to the back end, which parses it and copies the QPU into GPU dma.  The
+   blob needs only a readable mapping (no contig/phy requirement): bsp_g3d
+   reads it on the CPU.  On success the non-negative program handle is returned
+   via *handle_out and this returns G2D_OK, so the handle rides the reply
+   payload (never the status int) because dev_cntl_by_pid normalises a positive
+   status to -1.  A machine with no 3D path, or a malformed blob, answers a
+   negative G2D_ERR_* so the client latches that program back to its CPU path.
+
+   Program ownership: the back end caches only a handful of programs and a
+   client never tells us when it exits (shadertoy uploads 11 per launch), so
+   every handle is recorded against the uploading process (pid + kernel uuid,
+   so a recycled pid cannot inherit it) and, before each new upload, handles
+   whose owner is gone are released through bsp_g3d_program_free.  Uploads
+   are rare and may block in the back end (dma_alloc), hence a mutex rather
+   than one of the spinlocks. */
+#define G2DD_PROG_OWNERS 64
+
+typedef struct {
+	int      used;
+	int      pid;
+	uint32_t uuid;
+} g2dd_prog_owner_t;
+
+static g2dd_prog_owner_t _g2dd_prog_owner[G2DD_PROG_OWNERS];
+static pthread_mutex_t _g2dd_prog_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/* owner alive: pid still maps to the same task instance and is not winding
+   down.  proc_info fails once the pid is recycled or gone. */
+static int g2dd_prog_owner_alive(const g2dd_prog_owner_t* o) {
+	procinfo_t pi;
+	if(proc_info(o->pid, &pi) != 0)
+		return 0;
+	if(o->uuid != 0 && pi.uuid != o->uuid)
+		return 0;
+	return pi.state != UNUSED && pi.state != ZOMBIE;
+}
+
+/* release every program whose owning client has exited (caller holds
+   _g2dd_prog_lock) */
+static void g2dd_prog_sweep(void) {
+	int h;
+	for(h = 0; h < G2DD_PROG_OWNERS; h++) {
+		g2dd_prog_owner_t* o = &_g2dd_prog_owner[h];
+		if(!o->used || g2dd_prog_owner_alive(o))
+			continue;
+		slog("g2dd: pgl_program %d owner pid %d gone, freed (%d)\n",
+			h, o->pid, bsp_g3d_program_free(h));
+		memset(o, 0, sizeof(*o));
+	}
+}
+
+static void g2dd_prog_record(int h, int from_pid) {
+	g2dd_prog_owner_t* o;
+	procinfo_t pi;
+	int pid;
+
+	if(h < 0 || h >= G2DD_PROG_OWNERS)
+		return;
+	/* a thread's request is owned by its process */
+	pid = proc_getpid(from_pid);
+	if(pid < 0)
+		pid = from_pid;
+	o = &_g2dd_prog_owner[h];
+	o->used = 1;
+	o->pid = pid;
+	o->uuid = (proc_info(pid, &pi) == 0) ? pi.uuid : 0;
+}
+
+static int32_t g2dd_handle_pgl_program(proto_t* in, int from_pid, int* handle_out) {
+	g2d_pgl_program_req_t req;
+	g2d_attached_t blob;
+	int32_t h;
+
+	*handle_out = 0;
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return -10;   /* diag: req struct size mismatch client vs daemon */
+	/* transport sanity: the canvas must at least hold the fixed header so the
+	   back end can dereference it safely.  Full magic/version/payload validation
+	   lives in bsp_g3d_program (the only layer that both knows the blob layout
+	   and owns a 3D back end). */
+	if(req.blob.size < sizeof(g2d_pgl_program_blob_t)) {
+		slog("g2dd: pgl_program blob %u < header\n", req.blob.size);
+		return -11;
+	}
+
+	if(g2d_attach(&req.blob, &blob) != 0) {
+		slog("g2dd: pgl_program attach shm %d size %u failed\n", req.blob.shm_id, req.blob.size);
+		return -12;
+	}
+	if(blob.buffer == NULL) {
+		g2d_detach(&blob);
+		return -13;
+	}
+
+	pthread_mutex_lock(&_g2dd_prog_lock);
+	g2dd_prog_sweep();
+	h = bsp_g3d_program(blob.buffer, req.blob.size);
+	if(h >= 0)
+		g2dd_prog_record(h, from_pid);
+	pthread_mutex_unlock(&_g2dd_prog_lock);
+	g2d_detach(&blob);
+
+	if(h >= 0) {
+		*handle_out = h;
+		return G2D_OK;
+	}
+	return h; /* negative G2D_ERR_* passes through verbatim */
+}
+
 static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)dev;
-	(void)from_pid;
 	(void)ret;
 	(void)p;
 
 	int res = G2D_ERR_FAILED;
 	uint32_t clock_hz = 0;
 	int is_clock = (cmd == G2D_DEV_CNTL_GET_CLOCK);
+	int is_program = (cmd == G2D_DEV_CNTL_PGL_PROGRAM);
+	int prog_handle = 0;
 	uint64_t t0 = 0, t1 = 0;
 	int slot = cmd;
 
@@ -1813,6 +2017,9 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	case G2D_DEV_CNTL_PGL_DRAW:
 		res = g2dd_handle_pgl_draw(in);
 		break;
+	case G2D_DEV_CNTL_PGL_PROGRAM:
+		res = g2dd_handle_pgl_program(in, from_pid, &prog_handle);
+		break;
 	default:
 		/* an unknown command is a capability this driver does not
 		   have at all, not an operation that failed */
@@ -1825,12 +2032,17 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		__atomic_add_fetch(&_g2dd_stat_ns[slot], t1 - t0, __ATOMIC_RELAXED);
 	}
 
-	if(res != 0 && !is_clock) {
+	if(res != 0 && !is_clock && !is_program) {
 		G2DD_LOG("g2d_dev_cntl: cmd %d res %d\n", cmd, res);
 	}
 	PF->clear(ret)->addi(ret, res);
 	if(is_clock && res == 0)
 		PF->addi(ret, clock_hz);
+	/* a successful program upload appends the non-negative handle as the
+	   reply's second int (the client's g2d_pgl_program reads it there);
+	   the status int stays 0 so dev_cntl_by_pid does not normalise it. */
+	if(is_program && res == 0)
+		PF->addi(ret, prog_handle);
 	return res;
 }
 
@@ -1842,6 +2054,11 @@ int main(int argc, char** argv) {
 
 	if(bsp_g2d_init() != 0)
 		return -1;
+
+	/* 3D (portablegl V3D) offload is optional: only raspi5 provides a real
+	   back end, every other machine declines with G2D_ERR_NOT_SUPPORTED so
+	   portablegl keeps its own CPU/NEON rasterizer.  Ignore the result. */
+	bsp_g3d_init();
 
 	memset(&dev, 0, sizeof(dev));
 	strcpy(dev.desc, "g2d");

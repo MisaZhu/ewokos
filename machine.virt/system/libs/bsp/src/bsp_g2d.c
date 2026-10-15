@@ -128,35 +128,7 @@ int32_t bsp_g2d_gaussian_blur(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t co
 			rect_x, rect_y, rect_w, rect_h, radius);
 }
 
-/* portablegl GPU (V3D 3D) offload: this platform has no V3D 3D-pipeline
-   back end, so decline both ops with the sticky G2D_ERR_NOT_SUPPORTED - a
-   portablegl client latches the capability off and keeps its own CPU
-   rasterizer.  Nothing is submitted. */
-int32_t bsp_g2d_pgl_clear(uint32_t* fb, ewokos_addr_t fb_phy, uint8_t contig,
-int32_t w, int32_t h, uint32_t stride, uint32_t fmt,
-uint32_t color, int32_t rb_swap) {
-(void)fb; (void)fb_phy; (void)contig; (void)w; (void)h;
-(void)stride; (void)fmt; (void)color; (void)rb_swap;
-return -2 /* G2D_ERR_NOT_SUPPORTED */;
-}
-
-int32_t bsp_g2d_pgl_draw(ewokos_addr_t fb_phy, uint8_t fb_contig,
-int32_t w, int32_t h, uint32_t stride, uint32_t fmt,
-uint32_t mode, uint32_t nverts,
-ewokos_addr_t pos_phy, uint8_t pos_contig,
-ewokos_addr_t col_phy, uint8_t col_contig,
-uint32_t fs_id, uint32_t color, int32_t rb_swap,
-uint32_t depth_func, int32_t depth_mask,
-int32_t blend_en, int32_t cull_en,
-ewokos_addr_t z_phy, uint8_t z_contig,
-uint32_t z_stride, uint8_t first_frame,
-uint32_t clear_rgba, float clear_z, const void* ext, const void* tex) {
-(void)fb_phy; (void)fb_contig; (void)w; (void)h; (void)stride;
-(void)fmt; (void)mode; (void)nverts; (void)pos_phy; (void)pos_contig;
-(void)col_phy; (void)col_contig; (void)fs_id; (void)color;
-(void)rb_swap; (void)depth_func; (void)depth_mask; (void)blend_en;
-(void)cull_en;
-(void)z_phy; (void)z_contig; (void)z_stride;
-(void)first_frame; (void)clear_rgba; (void)clear_z; (void)ext; (void)tex;
-return -2 /* G2D_ERR_NOT_SUPPORTED */;
-}
+/* portablegl 3D offload moved to bsp_g3d.c (<bsp/bsp_g3d.h>): this
+   platform has no V3D 3D-pipeline back end, so bsp_g3d declines with the
+   sticky G2D_ERR_NOT_SUPPORTED and portablegl keeps its own CPU/NEON
+   rasterizer. */

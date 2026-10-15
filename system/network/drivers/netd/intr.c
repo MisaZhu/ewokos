@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <poll.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/semaphore.h>
 
@@ -119,6 +120,19 @@ void raise_softirq(uint32_t  sig){
         gSignel[sig] = 1;
         mutex_unlock(&gSignelLock);
     }
+}
+
+/*
+ * Single tap fd registered by ether_tap_init/reopen. intr_step() polls on
+ * this fd instead of a plain usleep so that wland's VFS_EVT_RD wakeup
+ * (issued on 0->1 rx_queue depth transition) immediately breaks the sleep.
+ * EwokOS single-fd poll uses proc_block_timeout(node, ...) -- a node-scoped
+ * kernel block that vfs_wakeup can interrupt without busy-looping.
+ */
+static int g_tap_poll_fd = -1;
+
+void intr_set_poll_fd(int fd) {
+    g_tap_poll_fd = fd;
 }
 
 int intr_poll_once(void) {
@@ -295,7 +309,25 @@ void intr_step(void) {
          * the old dedicated flusher thread.
          */
         task_flush_wakeups();
-        usleep(sleep_us);
+        /*
+         * Sleep on the tap fd with POLLIN so wland's VFS_EVT_RD wakeup
+         * (brcm_wakeup_dev on rx_queue 0->1) breaks the sleep immediately
+         * instead of waiting for the full adaptive timeout. Single-fd poll
+         * uses proc_block_timeout(node, ...) in EwokOS -- efficient kernel
+         * park, no busy-loop. Falls back to usleep if no fd registered yet.
+         */
+        if (g_tap_poll_fd >= 0) {
+            struct pollfd pfd;
+            int timeout_ms = (int)((sleep_us + 999) / 1000);
+            if (timeout_ms < 1)
+                timeout_ms = 1;
+            pfd.fd = g_tap_poll_fd;
+            pfd.events = POLLIN;
+            pfd.revents = 0;
+            poll(&pfd, 1, timeout_ms);
+        } else {
+            usleep(sleep_us);
+        }
     }
     return;
 }

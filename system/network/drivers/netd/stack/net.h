@@ -133,6 +133,8 @@ net_event_handler(void);
 
 extern void
 intr_step(void);
+extern void
+intr_set_poll_fd(int fd);
 
 extern int
 net_interrupt(void);
