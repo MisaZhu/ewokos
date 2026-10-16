@@ -126,11 +126,14 @@ static int bt_uart_flush(void) {
     return bsp_bt_flush();
 }
 
-/* short platform register snapshot ("lsr=0x.. msr=0x.." on the raspi5
-   16550, "fr=0x.." on the raspix PL011, "" on a stub) for the timeout and
-   error log lines; single-threaded daemon, static buffer, never NULL */
+/* short platform register snapshot ("lsr=0x.. msr=0x.." plus IRQ
+   forensics on the raspi5 16550, "fr=0x.." on the raspix PL011, "" on a
+   stub) for the timeout and error log lines; single-threaded daemon,
+   static buffer, never NULL. Sized for the raspi5 v3 diag tail
+   (lsr/msr/irq/miss/ring/hirq/hb/hz/hd/hmax) with headroom for large
+   counter values. */
 static const char* bt_diag_str(void) {
-    static char diag[64];
+    static char diag[192];
     bsp_bt_diag_str(diag, sizeof(diag));
     return diag;
 }
@@ -798,6 +801,45 @@ static int bt_start_connection(const uint8_t* addr, bool pair, const char* pin,
     return 0;
 }
 
+/* True when a known-store LE record is already covered by a live LE session.
+   A dual-identity pad (GameSir / Xbox) is bonded in the store under its
+   CLASSIC BDADDR (bt_known_prefer_le_by_name only flips le=/has_key, it does
+   not rewrite the address), while the live LE session holds the pad's LE
+   BDADDR - a different value. Matching on address alone therefore reports
+   "not live" for a pad that IS streaming, which is what previously forced
+   bt_le_autoconnect_retry_step to bail on bt_hid_live() and, as a side
+   effect, blocked reconnect scans for every OTHER bonded peripheral (mouse,
+   keyboard) while any single HID link was up. Adding a name match against
+   the device behind each live session lets the retry step re-arm freely:
+   the phantom is recognised, and a genuinely absent second peripheral is
+   still discovered and connected. */
+static bool bt_known_le_is_live(int i) {
+    int s;
+
+    if (!_known[i].used) {
+        return false;
+    }
+    for (s = 0; s < MAX_LE_SESSIONS; ++s) {
+        bt_device_t* dev;
+
+        if (!_les[s].le.handle_valid) {
+            continue;
+        }
+        if (bt_addr_equal(_les[s].le.addr, _known[i].addr)) {
+            return true;
+        }
+        if (_known[i].name[0] == 0) {
+            continue;
+        }
+        dev = bt_find_device(_les[s].le.addr, false);
+        if (dev != NULL && dev->name[0] != 0 &&
+                strcmp(dev->name, _known[i].name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /* walk the persistent store and page every device we connected with
    before; each attempt is bounded (1.5s cmd status + 3s page wait) so a
    drawer full of absent devices cannot stall the daemon for long */
@@ -821,18 +863,10 @@ void bt_autoconnect_known(void) {
            so paging it is pointless: it is counted here and picked up by
            the bounded scan session armed below */
         if (_known[i].le && !_known[i].has_key) {
-            int s;
-            bool live = false;
-            /* don't count one already linked on a session, or a scan would
-               be armed for a device that is already streaming */
-            for (s = 0; s < MAX_LE_SESSIONS; ++s) {
-                if (_les[s].le.handle_valid &&
-                        bt_addr_equal(_les[s].le.addr, _known[i].addr)) {
-                    live = true;
-                    break;
-                }
-            }
-            if (!live) {
+            /* don't count one already linked on a session (matched by addr
+               OR by name for dual-identity pads), or a scan would be armed
+               for a device that is already streaming */
+            if (!bt_known_le_is_live(i)) {
                 ++le_known;
             }
             continue;
@@ -953,27 +987,26 @@ bool bt_le_discovery_active(void) {
 
 static void bt_le_autoconnect_retry_step(void) {
     uint64_t now = kernel_tic_ms(0);
-    int i, s;
+    int i;
 
     if (_le_autoconnect_retry_ms != 0 && now < _le_autoconnect_retry_ms) {
         return;
     }
     _le_autoconnect_retry_ms = now + BT_LE_AUTOCONNECT_RETRY_MS;
 
-    /* Never arm a reconnect scan while an input link is live. The by-address
-       "live" test below only matches a record whose OWN address is on a
-       session; a dual-identity pad migrated off classic (a GameSir whose LE
-       BDADDR differs from its classic one, converted by
-       bt_known_prefer_le_by_name) leaves a le&&!has_key record whose classic
-       address never goes live, so without this gate the step re-arms a scan
-       every 3s even while the pad streams - and the latched _le_autoconnect
-       defeats bt_le_step's radio-contention suspension, starving the live
-       link. bt_hid_live() is the transport-independent "something is streaming"
-       test that restores the intended stop-while-live behaviour; it clears the
-       moment the link drops, so reconnect re-arms normally. */
+    /* Arm a reconnect scan whenever a bonded LE peripheral is not on any
+       session and a slot is free. The old bt_hid_live() gate here blocked
+       the retry step while ANY HID link was streaming, which killed the
+       multi-device case: with a gamepad up, a bonded mouse that woke up
+       later never got discovered. Radio contention is handled downstream -
+       bt_le_step forces an _le_autoconnect scan into LE-only slices when a
+       link is live, so the reconnect cannot page-scan over the streaming
+       peripheral. The dual-identity phantom (a `le && !has_key` record
+       whose classic BDADDR never appears on the LE session) is filtered by
+       bt_known_le_is_live's name match, so this loop stays quiet while the
+       pad streams. */
     if (!_ready || !_le_supported || _scanning || _le_req_active ||
-            _pending.type != BT_PENDING_NONE || le_session_free() < 0 ||
-            bt_hid_live()) {
+            _pending.type != BT_PENDING_NONE || le_session_free() < 0) {
         return;
     }
     /* Bounded first-time discovery window opened by bt_le_only_classic_migrate
@@ -995,19 +1028,10 @@ static void bt_le_autoconnect_retry_step(void) {
         return;
     }
     for (i = 0; i < MAX_BT_KNOWN; ++i) {
-        bool live = false;
-
         if (!_known[i].used || !(_known[i].le && !_known[i].has_key)) {
             continue;
         }
-        for (s = 0; s < MAX_LE_SESSIONS; ++s) {
-            if (_les[s].le.handle_valid &&
-                    bt_addr_equal(_les[s].le.addr, _known[i].addr)) {
-                live = true;
-                break;
-            }
-        }
-        if (!live) {
+        if (!bt_known_le_is_live(i)) {
             _le_autoconnect = true;
             (void)bt_start_scan(BT_LE_AUTOCONNECT_SCAN_S);
             return;
