@@ -182,6 +182,19 @@ The tree already includes a large amount of board-specific and peripheral work.
 - X client libraries in both C and C++ forms
 - Desktop apps such as `xterm`, `xread`, `ximg`, `xlog`, `xapps`, `clock`, `cards`, and `mine`
 - Alternate window managers and demos in `sw.extra/`
+- A software 3D / OpenGL stack (`soft3d`) with an on-device GLSL compiler and, on Raspberry Pi 5, real GPU offload — see [3D Graphics and OpenGL](#3d-graphics-and-opengl)
+
+### 3D Graphics and OpenGL
+
+The `projects/soft3d` tree provides an OpenGL-ES-like 3D stack that runs on EwokOS without a hosted GPU driver:
+
+- **`portablegl`** — a small, self-contained OpenGL ES 2.x-style implementation (vertex/fragment shaders, VBOs, textures, depth test) that renders into an EwokOS framebuffer. It is the GL entry point used by the `soft3d` apps and demos.
+- **`glcommon`** — math and GL helper utilities shared by the apps.
+- **`v3dcompiler`** — a vendored copy of the **mesa** Broadcom V3D compiler back end (upstream `mesa` pin `f45825a0`, see `libs/v3dcompiler/VENDORED.txt`). It compiles GLSL ES 3.10 shaders through mesa's `GLSL → NIR → VIR → QPU` pipeline into V3D 7.1 QPU code **on the device**, built as `libv3dcompiler.a`.
+
+On most targets `portablegl` rasterizes entirely on the CPU (with NEON acceleration where available). On **Raspberry Pi 5** the stack additionally offloads geometry to the VideoCore VII (V3D 7.1 / BCM2712) GPU: because the V3D 7.1 binner cannot rasterize real primitives on BCM2712, `soft3d` transforms, lights, and rasterizes geometry in **CSD compute shaders** compiled by the vendored mesa compiler, dispatched through the `g2dd` daemon (`PGL_G3D=yes`, exported only from `machines/raspi5/system/make.inc`). This two-pass compute rasterizer (a per-vertex transform pass plus a one-lane-per-triangle raster pass) makes the GPU path faster than the CPU rasterizer for scenes such as the `teapot` demo.
+
+The `soft3d` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`, `imgui_demo`) and the `shadertoy`-style fullscreen-compute demos exercise both paths. The compiler is validated on the host by the `dump_uniforms` oracle (`libs/v3dcompiler`, `make -f Makefile.host`), which compiles every shader and checks the QPU output before it is ever run on the device.
 
 ### Extra Software
 

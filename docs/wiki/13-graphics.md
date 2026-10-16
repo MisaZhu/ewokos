@@ -204,6 +204,57 @@ driver — gets its own chapter too: [Ch. 22](22-xserverd-render.md).
 - `consoled`: the graphical console (a fullscreen terminal), configured in
   `/etc/console.json`.
 
+### ⑤ 3D and OpenGL: soft3d + the vendored mesa compiler
+
+Everything above is 2D. The `projects/soft3d` tree adds a **3D /
+OpenGL-ES-like** stack on top of the same framebuffer + g2d plumbing, and
+it is the one place EwokOS carries a real GPU shader compiler.
+
+Three pieces, all under
+[projects/soft3d/libs/](../../projects/soft3d/libs/):
+
+- **`portablegl`** — a compact, self-contained OpenGL ES 2.x-style
+  implementation (vertex/fragment shaders, VBOs, textures, depth test) that
+  renders into a `graph_t`-style framebuffer. This is the GL entry point the
+  apps call.
+- **`glcommon`** — the matrix/vector math and GL helpers the apps share.
+- **`v3dcompiler`** — a **vendored copy of mesa's Broadcom V3D compiler back
+  end** (upstream pin `f45825a0`, recorded in
+  [VENDORED.txt](../../projects/soft3d/libs/v3dcompiler/VENDORED.txt)). It
+  runs mesa's real `GLSL → NIR → VIR → QPU` pipeline to compile GLSL ES 3.10
+  shaders into V3D 7.1 QPU machine code **on the device**, built as
+  `libv3dcompiler.a`.
+
+On ordinary targets `portablegl` rasterizes on the CPU (NEON-accelerated
+where available) and the mesa compiler is not involved. On **Raspberry Pi 5**
+the stack also offloads geometry to the VideoCore VII GPU (V3D 7.1 /
+BCM2712). The catch: the V3D 7.1 *binner* cannot rasterize real primitives
+on BCM2712, so `soft3d` does the whole transform → light → raster in **CSD
+compute shaders** compiled by the vendored mesa compiler, dispatched through
+the same `g2dd` daemon you met in ② (gated by `PGL_G3D=yes`, exported only
+from `machines/raspi5/system/make.inc`):
+
+```
+portablegl (pgl_g3d)  →  g2dclient  →  g2dd  →  bsp_g3d  →  vc_pgl3d
+      →  machines/raspi5 .../videocore/src/v3d_3d.c  →  V3D CSD dispatch
+```
+
+The compute rasterizer runs in **two passes**: pass 1 transforms and lights
+every vertex once (one invocation per vertex, writing a packed 32-byte
+record); pass 2 rasterizes, one lane per triangle in a 16×16 workgroup,
+resolving depth with an `atomicMin`. That one-lane-per-triangle shape is the
+whole performance point — the V3D 7.1 CSD charges a fixed ~3µs *per
+workgroup*, so collapsing thousands of per-triangle workgroups into a few
+dozen is what lets the GPU path beat the CPU rasterizer on the `teapot`
+demo.
+
+The `soft3d` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`,
+`imgui_demo`) and the `shadertoy`-style fullscreen-compute demos exercise
+these paths. Because a shader bug on real QPU hardware is painful to debug,
+the compiler is first validated on the host by the `dump_uniforms` oracle
+(`make -f Makefile.host` under `libs/v3dcompiler`), which compiles every
+shader and checks the QPU output before it ever runs on the Pi.
+
 ## 13.3 Follow Along: Run a Graphics Program
 
 Build the full system with graphics and run it:
@@ -248,7 +299,11 @@ routine as Ch. 12, just additionally linking the graphics library.
 - `xserverd` uses an `IPC_MULTI_TASK` thread pool to handle requests in
   parallel, keeping mouse latency low;
 - Windows, themes, and event dispatch all live in userland — a crash won't
-  take the system down.
+  take the system down;
+- 3D/OpenGL lives in `projects/soft3d`: `portablegl` provides the GL API,
+  and a vendored **mesa** V3D back end (`v3dcompiler`) compiles GLSL to QPU
+  on-device; on Raspberry Pi 5 geometry is offloaded to the VideoCore VII GPU
+  as two-pass CSD compute shaders through `g2dd`.
 
 To go deeper into the window system, read
 [Ch. 20: the xwm window manager](20-xwm.md) first, then
