@@ -538,7 +538,16 @@ typedef struct {
 	uint8_t  cs_threads;          /* compute SIMD dispatch width */
 	uint8_t  cs_single_seg;
 	uint8_t  cs_is_geom;          /* 1 = gouraud geom, 2 = textured geom */
-	uint8_t  cs_reserved[1];
+	/* VERSION 3 reserved byte, now assigned: raster-pass TRIANGLES PER
+	 * WORKGROUP for geom programs.  0 = legacy grid of one workgroup per
+	 * triangle; 64/256 = the one-lane-per-triangle kernels
+	 * (geom_raster_cs_glsl_v4/v5), so the daemon dispatches
+	 * ceil(ntris/cs_geom_tpw) workgroups.  Device-measured motivation: the
+	 * V3D 7.1 CSD charges ~3us fixed overhead per workgroup, which at
+	 * 6400 workgroups (teapot) was the entire ~19-20ms raster-pass cost.
+	 * Old daemons ignore the byte and over-dispatch; the kernels' uTriCount
+	 * guard keeps that correct (just slow).  Ignored for non-geom. */
+	uint8_t  cs_geom_tpw;
 	/* VERSION 4: SECOND compute stage (cs2) for the two-pass geometry
 	   rasterizer.  cs2 is the VERTEX-TRANSFORM pass (pass 1): one invocation
 	   per vertex, applies uMVP (+ lighting for gouraud) and writes a packed

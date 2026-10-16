@@ -17,6 +17,20 @@
 #define SERVER_NAME "simple httpd\r\n"
 #define SERVER_PORT 80
 
+/* send() can report a short count when the TCP window closes mid-write
+ * (netd tcp_send returns partial); loop until the whole buffer is out. */
+static void send_all(int fd, const char *buf, size_t len)
+{
+    size_t sent = 0;
+    while (sent < len)
+    {
+        int ret = send(fd, buf + sent, (uint32_t)(len - sent), 0);
+        if (ret <= 0)
+            return;
+        sent += (size_t)ret;
+    }
+}
+
 void sgets(char* buf, int size, int sock){
     recv(sock, (void*)buf, size, 0);
 }
@@ -49,8 +63,8 @@ void send_error_msg(int fd, const int error_code)
     strcat(txbuf, server_name);
     strcat(txbuf, content_length);
     strcat(txbuf, content_type);
-    send(fd, txbuf, strlen(txbuf), 0);
-    send(fd, content, strlen(content), 0);
+    send_all(fd, txbuf, strlen(txbuf));
+    send_all(fd, content, strlen(content));
 }
 
 void send_data_html(int sock)
@@ -82,8 +96,8 @@ void send_data_html(int sock)
     strcat(txbuf, server_name);
     strcat(txbuf, content_length);
     strcat(txbuf, content_type);
-    send(sock, txbuf, strlen(txbuf), 0);
-    send(sock, content, strlen(content), 0);
+    send_all(sock, txbuf, strlen(txbuf));
+    send_all(sock, content, strlen(content));
 }
 
 void *request_handler(void *arg)
