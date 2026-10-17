@@ -61,6 +61,24 @@
  * fast-fails a truly dead link.
  */
 #define ETHER_TAP_TX_WAIT_MS 200
+/*
+ * Cap on "device advertised POLLOUT, we rewrote, and write() STILL returned
+ * EAGAIN" retries inside a single ether_tap_write_batch_once() call.
+ *
+ * The POLLOUT-driven `continue` is the normal backpressure path: the device
+ * was momentarily full, drained, signalled writable, and the rewrite succeeds
+ * -- legitimately within one or two passes. But a WiFi link whose association
+ * failed (wrong password / handshake rejected) can present a contradictory,
+ * sustained state: wland advertises VFS_EVT_WR from brcm_tx_writable() while
+ * net_write()/brcm_send() keeps rejecting the frame with VFS_ERR_RETRY, so
+ * poll() returns POLLOUT immediately on every pass and write() returns EAGAIN
+ * on every pass. With no bound that is a zero-sleep write->EAGAIN->poll->
+ * POLLOUT->write livelock pinning netd at 100% CPU. Bailing out after a few
+ * no-progress passes reports TX_AGAIN: the batch is retained and retried on a
+ * later intr_step() round, whose adaptive sleep then backs off instead of
+ * hot-spinning.
+ */
+#define ETHER_TAP_TX_WR_RETRY_MAX 4
 struct ether_tap {
     char name[IFNAMSIZ];
     int fd;
@@ -156,6 +174,7 @@ ether_tap_write_batch_once(struct ether_tap *tap, uint8_t *buf, size_t len, int 
 {
     int ret;
     struct pollfd pfd;
+    int wr_retries = 0;
 
     for (;;) {
         ret = write(tap->fd, buf, len);
@@ -179,6 +198,15 @@ ether_tap_write_batch_once(struct ether_tap *tap, uint8_t *buf, size_t len, int 
             pfd.revents = 0;
             if (poll(&pfd, 1, ETHER_TAP_TX_WAIT_MS) > 0 &&
                 (pfd.revents & (POLLOUT | POLLERR | POLLHUP | POLLNVAL)) == POLLOUT) {
+                /*
+                 * Writable was advertised, so retry -- but only a bounded
+                 * number of times. A link that reports POLLOUT yet rejects
+                 * every write (failed WiFi association) would otherwise spin
+                 * here forever with no sleep; see ETHER_TAP_TX_WR_RETRY_MAX.
+                 */
+                if (++wr_retries >= ETHER_TAP_TX_WR_RETRY_MAX) {
+                    return NET_DEVICE_TX_AGAIN;
+                }
                 continue;
             }
             /*

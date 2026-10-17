@@ -23,7 +23,12 @@ enum {
 	G2D_DEV_CNTL_FILL_TRIANGLE,
 	G2D_DEV_CNTL_PGL_CLEAR,
 	G2D_DEV_CNTL_PGL_DRAW,
-	G2D_DEV_CNTL_PGL_PROGRAM
+	G2D_DEV_CNTL_PGL_PROGRAM,
+	/* appended last (never inserted mid-enum) so the existing command
+	   values, and thus the client<->daemon wire protocol for every other
+	   op, stay unchanged. g2dd's synthetic G2DD_STAT_FILL_ALPHA slot is
+	   defined relative to this value. */
+	G2D_DEV_CNTL_GET_VERSION
 };
 
 /* portablegl GPU (V3D 3D-pipeline) offload.  Only the raspi5 back end
@@ -900,6 +905,15 @@ int g2d_pgl_program(const g2d_pgl_program_req_t* req);
    G2D_OK with *hz set, G2D_ERR_NOT_SUPPORTED when the platform has no
    engine clock to report. */
 int g2d_get_clock(uint32_t* hz);
+
+/* query the V3D architecture version x10 of the g2d engine, as pinned by the
+   driver at startup (21 = V3D 2.1 / Pi3, 42 = V3D 4.2 / Pi4, 71 = V3D 7.1 /
+   Pi5). returns G2D_OK with *ver set, or G2D_ERR_NOT_SUPPORTED when the
+   platform has no V3D engine to report. the soft3d app-side compiler uses
+   this to pick its codegen target on a machine that ships one binary across
+   chip generations (raspix); a machine with a single V3D generation (raspi5)
+   still reports it so the shared client need not special-case the board. */
+int g2d_get_version(uint32_t* ver);
 
 #ifdef __cplusplus
 }

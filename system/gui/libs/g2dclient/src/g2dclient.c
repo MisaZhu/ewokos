@@ -182,6 +182,37 @@ int g2d_get_clock(uint32_t* hz) {
     return ret;
 }
 
+/* the driver answers with a status int (G2D_OK, or G2D_ERR_NOT_SUPPORTED when
+   the platform has no V3D engine) followed by the architecture version x10,
+   so this reads the payload directly instead of going through
+   g2d_send_struct() - the exact two-int reply pattern g2d_get_clock() uses. */
+int g2d_get_version(uint32_t* ver) {
+    proto_t in;
+    proto_t out;
+    int32_t dummy = 0;
+    int ret;
+
+    if(ver == NULL)
+        return G2D_ERR_FAILED;
+    *ver = 0;
+
+    int pid = g2d_dev_pid();
+    if(pid <= 0)
+        return G2D_ERR_FAILED;
+
+    PF->init(&in)->add(&in, &dummy, sizeof(dummy));
+    PF->init(&out);
+    ret = dev_cntl_by_pid(pid, G2D_DEV_CNTL_GET_VERSION, &in, &out);
+    if(ret == 0) {
+        ret = proto_read_int(&out);
+        if(ret == 0)
+            *ver = (uint32_t)proto_read_int(&out);
+    }
+    PF->clear(&out);
+    PF->clear(&in);
+    return ret;
+}
+
 int g2d_blit_to_phy(const g2d_blit_to_phy_req_t* req) {
     if(req == NULL)
         return G2D_ERR_FAILED;

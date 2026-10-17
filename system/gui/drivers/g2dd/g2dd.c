@@ -51,14 +51,15 @@ static uint64_t _g2dd_req_cnt = 0;
    the attach/clip/CPU share of a request. Plain atomics: a stat, like
    _g2dd_req_cnt. */
 /* FILL_ALPHA is a synthetic slot (fill_triangle with a<0xff), so it must
-   sit past the last real command slot - now PGL_PROGRAM, not PGL_DRAW. */
-#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_PGL_PROGRAM + 1) /* FILL_RECT, a<0xff */
+   sit past the last real command slot - now GET_VERSION, not PGL_PROGRAM. */
+#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_GET_VERSION + 1) /* FILL_RECT, a<0xff */
 #define G2DD_STAT_CMDS (G2DD_STAT_FILL_ALPHA + 1)
 static uint64_t _g2dd_stat_cnt[G2DD_STAT_CMDS];
 static uint64_t _g2dd_stat_ns[G2DD_STAT_CMDS];
 static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
 	"fill", "blit", "blit_alpha", "rotate", "scale", "clock", "blit_phy", "blur",
-	"rotate_phy", "fill_tri", "pgl_clear", "pgl_draw", "pgl_program", "fill_alpha"
+	"rotate_phy", "fill_tri", "pgl_clear", "pgl_draw", "pgl_program", "version",
+	"fill_alpha"
 };
 
 /* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
@@ -1959,7 +1960,9 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 
 	int res = G2D_ERR_FAILED;
 	uint32_t clock_hz = 0;
+	uint32_t ver = 0;
 	int is_clock = (cmd == G2D_DEV_CNTL_GET_CLOCK);
+	int is_version = (cmd == G2D_DEV_CNTL_GET_VERSION);
 	int is_program = (cmd == G2D_DEV_CNTL_PGL_PROGRAM);
 	int prog_handle = 0;
 	uint64_t t0 = 0, t1 = 0;
@@ -1999,6 +2002,16 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		clock_hz = bsp_g2d_clock_hz();
 		res = (clock_hz > 0) ? G2D_OK : G2D_ERR_NOT_SUPPORTED;
 		break;
+	case G2D_DEV_CNTL_GET_VERSION:
+		/* report the V3D architecture version x10 pinned at driver
+		   init (21 = V3D 2.1 Pi3, 42 = V3D 4.2 Pi4, 71 = V3D 7.1 Pi5);
+		   0 when the platform has no V3D engine.  Read-only after init,
+		   so no lock is needed.  The soft3d app-side compiler queries
+		   this once to pick its codegen target on a machine shipping one
+		   binary across chip generations (raspix). */
+		ver = bsp_g2d_version();
+		res = (ver > 0) ? G2D_OK : G2D_ERR_NOT_SUPPORTED;
+		break;
 	case G2D_DEV_CNTL_BLIT_TO_PHY:
 		res = g2dd_handle_blit_to_phy(in);
 		break;
@@ -2032,12 +2045,14 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		__atomic_add_fetch(&_g2dd_stat_ns[slot], t1 - t0, __ATOMIC_RELAXED);
 	}
 
-	if(res != 0 && !is_clock && !is_program) {
+	if(res != 0 && !is_clock && !is_version && !is_program) {
 		G2DD_LOG("g2d_dev_cntl: cmd %d res %d\n", cmd, res);
 	}
 	PF->clear(ret)->addi(ret, res);
 	if(is_clock && res == 0)
 		PF->addi(ret, clock_hz);
+	if(is_version && res == 0)
+		PF->addi(ret, ver);
 	/* a successful program upload appends the non-negative handle as the
 	   reply's second int (the client's g2d_pgl_program reads it there);
 	   the status int stays 0 so dev_cntl_by_pid does not normalise it. */
