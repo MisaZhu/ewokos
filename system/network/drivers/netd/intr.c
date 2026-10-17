@@ -85,6 +85,17 @@ static mutex_t gSignelLock = MUTEX_INITIALIZER;
  */
 #define NETD_ROUND_PASSES_MAX 4
 
+/*
+ * Consecutive end-of-round poll() wakeups that serviced no work before netd
+ * stops trusting the tap fd's readiness and paces the loop with a real usleep.
+ * intr_step()'s poll is netd's only throttle -- device_run() re-enters
+ * loop_step in a tight while(!terminated) loop with no sleep of its own -- so
+ * a persistently-ready fd (a stuck/errored tap, or a readiness the RX path
+ * cannot drain) would otherwise hard-spin netd at 100% CPU. A healthy link
+ * drains frames every round and never reaches this threshold.
+ */
+#define NETD_STUCK_READY_ROUNDS_MAX 8
+
 static uint32_t softirq_pending(uint32_t sig)
 {
     uint32_t pending = 0;
@@ -173,12 +184,14 @@ void intr_step(void) {
     struct irq_entry *entry;
     static uint32_t sleep_us = NETD_BUSY_SLEEP_US;
     static uint32_t tap_rounds = 0;
+    static uint32_t stuck_ready_rounds = 0;
     int protocol_more_pending = 0;
     int event_ready = 0;
     int tap_pending = 0;
     int tcp_timer_due = -1;
     int passes = 0;
     int progress;
+    int did_work = 0;
 
     do {
         progress = 0;
@@ -315,16 +328,46 @@ void intr_step(void) {
          * instead of waiting for the full adaptive timeout. Single-fd poll
          * uses proc_block_timeout(node, ...) in EwokOS -- efficient kernel
          * park, no busy-loop. Falls back to usleep if no fd registered yet.
+         *
+         * This poll is netd's ONLY pacing: device_run() re-enters loop_step in
+         * a tight while(!terminated) loop with no sleep of its own (vdevice.c),
+         * so poll() cannot be treated as an unconditional sleep -- its return
+         * value must be honoured. When the tap fd stays continuously ready for
+         * a round that drained nothing (a stuck/errored fd, or a readiness the
+         * RX path cannot consume -- e.g. while a concurrent sender parks on
+         * tap->lock inside the bounded TX POLLOUT wait), poll returns at once,
+         * the round makes no progress, and re-entering intr_step with zero
+         * delay hard-spins netd at 100% CPU. That is the WiFi-association-
+         * failure burn. Count consecutive ready-but-idle rounds and, past a
+         * small threshold, pace with a real usleep; a genuinely busy link
+         * delivers frames every round (did_work), resets the counter, and keeps
+         * the zero-added-latency poll wakeup, so healthy RX is unaffected.
          */
+        did_work = (tap_pending || protocol_more_pending || event_ready);
         if (g_tap_poll_fd >= 0) {
             struct pollfd pfd;
             int timeout_ms = (int)((sleep_us + 999) / 1000);
+            int pr;
             if (timeout_ms < 1)
                 timeout_ms = 1;
             pfd.fd = g_tap_poll_fd;
             pfd.events = POLLIN;
             pfd.revents = 0;
-            poll(&pfd, 1, timeout_ms);
+            pr = poll(&pfd, 1, timeout_ms);
+            if (pr > 0 && !did_work) {
+                /* Ready, yet nothing was serviced this round: bound the rate
+                 * so a persistently-ready fd cannot spin the loop. Once the
+                 * threshold is reached every such round parks for sleep_us
+                 * (already backed off toward the deep-idle cap), so CPU drops
+                 * to the paced cadence; a real frame drained next round sets
+                 * did_work and clears the counter, restoring the fast path. */
+                if (stuck_ready_rounds < NETD_STUCK_READY_ROUNDS_MAX)
+                    stuck_ready_rounds++;
+                if (stuck_ready_rounds >= NETD_STUCK_READY_ROUNDS_MAX)
+                    usleep(sleep_us);
+            } else {
+                stuck_ready_rounds = 0;
+            }
         } else {
             usleep(sleep_us);
         }
