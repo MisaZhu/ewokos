@@ -22,7 +22,6 @@ CFLAGS =  -march=armv8-a -Wno-incompatible-pointer-types -Wno-int-conversion \
 		-fno-builtin-memmove \
 		-fno-builtin-memset \
         -Wno-unused-parameter \
-		-mstrict-align \
         -mno-outline-atomics \
         -std=c99 \
 		-D__ewokos__=1
@@ -44,7 +43,6 @@ CXXFLAGS = -march=armv8-a \
         -Wno-unused-parameter \
         -pedantic \
 		-fno-rtti \
-		-mstrict-align \
         -mno-outline-atomics \
         -fno-exceptions \
         -fno-use-cxa-atexit \

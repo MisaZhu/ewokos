@@ -44,6 +44,7 @@ extra:
 projs:
 	$(MAKE) HW=$(HW) -C $(EWOKOS_ROOT_DIR)/projects
 	cp -r $(EWOKOS_ROOT_DIR)/projects/usr $(EWOKOS_ROOT_DIR)/system/build_$(ARCH)/$(HW)/rootfs/
+	cp -r $(EWOKOS_ROOT_DIR)/projects/data $(EWOKOS_ROOT_DIR)/system/build_$(ARCH)/$(HW)/rootfs/
 	@$(MAKE) final
 
 qt:
