@@ -206,33 +206,46 @@ driver — gets its own chapter too: [Ch. 22](22-xserverd-render.md).
 
 ### ⑤ 3D and OpenGL: soft3d + the vendored mesa compiler
 
-Everything above is 2D. The `projects/soft3d` tree adds a **3D /
-OpenGL-ES-like** stack on top of the same framebuffer + g2d plumbing, and
-it is the one place EwokOS carries a real GPU shader compiler.
+Everything above is 2D. The `projects/soft3d` tree adds a **3D stack with a
+real OpenGL ES 2.0 / EGL API** on top of the same framebuffer + g2d plumbing,
+and it is the one place EwokOS carries a real GPU shader compiler. Apps write
+standard GLES2/EGL code (`<GLES2/gl2.h>` + `<EGL/egl.h>`, `glCreateShader` /
+`glDrawArrays` / `eglSwapBuffers`) and never touch the back end directly.
 
-Three pieces, all under
+Four pieces, all under
 [projects/soft3d/libs/](../../projects/soft3d/libs/):
 
-- **`portablegl`** — a compact, self-contained OpenGL ES 2.x-style
-  implementation (vertex/fragment shaders, VBOs, textures, depth test) that
-  renders into a `graph_t`-style framebuffer. This is the GL entry point the
-  apps call.
-- **`glcommon`** — the matrix/vector math and GL helpers the apps share.
-- **`v3dcompiler`** — a **vendored copy of mesa's Broadcom V3D compiler back
-  end** (upstream pin `f45825a0`, recorded in
-  [VENDORED.txt](../../projects/soft3d/libs/v3dcompiler/VENDORED.txt)). It
-  runs mesa's real `GLSL → NIR → VIR → QPU` pipeline to compile GLSL ES 3.10
-  shaders into V3D 7.1 QPU machine code **on the device**, built as
+- **`gles`** (`libs/gles`) — the standard API front end, built as
+  **`libGLESv2.a` + `libEGL.a`** and installing the usual `GLES2`/`GLES3`/
+  `EGL`/`KHR` headers. It layers a CPU GLSL ES interpreter (`src/glsl`) and a
+  single engine adapter (`src/engine/pgl_engine.c`, the only TU allowed to
+  include `portablegl.h`) over the rasterizer. An app links just
+  `-lEGL -lGLESv2` (plus `glcommon` and the system X/graph libs);
+  `portablegl` and `v3dcompiler` are MRI-merged into `libGLESv2.a` as
+  **private intermediates** and stay invisible to it.
+- **`portablegl`** (`libs/gles/portablegl`) — a compact, self-contained
+  OpenGL ES 2.x-style rasterizer (vertex/fragment shaders, VBOs, textures,
+  depth test) that renders into a `graph_t`-style framebuffer. This is the
+  engine behind the GLES API.
+- **`glcommon`** (`libs/glcommon`) — the matrix/vector math and GL helpers the
+  apps share.
+- **`v3dcompiler`** (`libs/gles/v3dcompiler`) — a **vendored copy of mesa's
+  Broadcom V3D compiler back end** (upstream pin `f45825a0`, recorded in
+  [VENDORED.txt](../../projects/soft3d/libs/gles/v3dcompiler/VENDORED.txt)).
+  It runs mesa's real `GLSL → NIR → VIR → QPU` pipeline to compile GLSL ES
+  3.10 shaders into V3D 7.1 QPU machine code **on the device**, built as
   `libv3dcompiler.a`.
 
-On ordinary targets `portablegl` rasterizes on the CPU (NEON-accelerated
-where available) and the mesa compiler is not involved. On **Raspberry Pi 5**
-the stack also offloads geometry to the VideoCore VII GPU (V3D 7.1 /
-BCM2712). The catch: the V3D 7.1 *binner* cannot rasterize real primitives
-on BCM2712, so `soft3d` does the whole transform → light → raster in **CSD
-compute shaders** compiled by the vendored mesa compiler, dispatched through
-the same `g2dd` daemon you met in ② (gated by `PGL_G3D=yes`, exported only
-from `machines/raspi5/system/make.inc`):
+On ordinary targets the GLES calls rasterize on the CPU — `portablegl` with
+NEON where available, driven by the interpreter in `gles/src/glsl` — and the
+mesa compiler is not involved. On **Raspberry Pi 5** the *same* app binary
+also offloads geometry to the VideoCore VII GPU (V3D 7.1 / BCM2712); the
+engine adapter picks CPU vs GPU per draw, so no app-side change is needed.
+The catch: the V3D 7.1 *binner* cannot rasterize real primitives on BCM2712,
+so `soft3d` does the whole transform → light → raster in **CSD compute
+shaders** compiled by the vendored mesa compiler, dispatched through the same
+`g2dd` daemon you met in ② (gated by `PGL_G3D=yes`, exported only from
+`machines/raspi5/system/make.inc`):
 
 ```
 portablegl (pgl_g3d)  →  g2dclient  →  g2dd  →  bsp_g3d  →  vc_pgl3d
@@ -246,13 +259,18 @@ resolving depth with an `atomicMin`. That one-lane-per-triangle shape is the
 whole performance point — the V3D 7.1 CSD charges a fixed ~3µs *per
 workgroup*, so collapsing thousands of per-triangle workgroups into a few
 dozen is what lets the GPU path beat the CPU rasterizer on the `teapot`
-demo.
+demo. The GPU also stays engaged across window resizes: the offload
+framebuffer is allocated with grow-only geometric headroom
+(`pgl_g3d_resize`), so a drag-to-resize collapses into a handful of
+reallocations instead of one per event — never exhausting the kernel's
+contiguous shared-memory pool, which would otherwise silently latch the app
+back to CPU.
 
 The `soft3d` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`,
 `imgui_demo`) and the `shadertoy`-style fullscreen-compute demos exercise
 these paths. Because a shader bug on real QPU hardware is painful to debug,
 the compiler is first validated on the host by the `dump_uniforms` oracle
-(`make -f Makefile.host` under `libs/v3dcompiler`), which compiles every
+(`make -f Makefile.host` under `libs/gles/v3dcompiler`), which compiles every
 shader and checks the QPU output before it ever runs on the Pi.
 
 ## 13.3 Follow Along: Run a Graphics Program
@@ -300,10 +318,11 @@ routine as Ch. 12, just additionally linking the graphics library.
   parallel, keeping mouse latency low;
 - Windows, themes, and event dispatch all live in userland — a crash won't
   take the system down;
-- 3D/OpenGL lives in `projects/soft3d`: `portablegl` provides the GL API,
-  and a vendored **mesa** V3D back end (`v3dcompiler`) compiles GLSL to QPU
-  on-device; on Raspberry Pi 5 geometry is offloaded to the VideoCore VII GPU
-  as two-pass CSD compute shaders through `g2dd`.
+- 3D/OpenGL lives in `projects/soft3d`: apps use a standard **OpenGL ES 2.0 /
+  EGL** API (`libGLESv2`/`libEGL` from `libs/gles`), backed by the
+  `portablegl` rasterizer; a vendored **mesa** V3D back end (`v3dcompiler`)
+  compiles GLSL to QPU on-device, and on Raspberry Pi 5 geometry is offloaded
+  to the VideoCore VII GPU as two-pass CSD compute shaders through `g2dd`.
 
 To go deeper into the window system, read
 [Ch. 20: the xwm window manager](20-xwm.md) first, then

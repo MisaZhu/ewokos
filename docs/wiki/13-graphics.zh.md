@@ -172,28 +172,38 @@ xwm 本身是一个独立的用户态进程，它与 xserverd 之间的 IPC 协�
 ### ⑤ 3D 与 OpenGL：soft3d + 内置的 mesa 编译器
 
 上面讲的都是 2D。`projects/soft3d` 目录在同一套 framebuffer + g2d 管道之上
-又搭了一个 **3D / 类 OpenGL-ES** 栈，也是 EwokOS 里唯一携带真正 GPU
-着色器编译器的地方。
+又搭了一个 **带真正 OpenGL ES 2.0 / EGL API 的 3D 栈**，也是 EwokOS 里唯一
+携带真正 GPU 着色器编译器的地方。应用写的是标准 GLES2/EGL 代码
+（`<GLES2/gl2.h>` + `<EGL/egl.h>`、`glCreateShader` / `glDrawArrays` /
+`eglSwapBuffers`），完全不直接接触后端。
 
-三个部件都在 [projects/soft3d/libs/](../../projects/soft3d/libs/) 下：
+四个部件都在 [projects/soft3d/libs/](../../projects/soft3d/libs/) 下：
 
-- **`portablegl`**——一份精简、自包含的类 OpenGL ES 2.x 实现（顶点/片元
-  着色器、VBO、纹理、深度测试），渲染进一块 `graph_t` 风格的帧缓冲。
-  这是应用调用的 GL 入口。
-- **`glcommon`**——应用共用的矩阵/向量数学与 GL 辅助工具。
-- **`v3dcompiler`**——**内置（vendored）的 mesa Broadcom V3D 编译器后端**
-  （上游锁定 commit `f45825a0`，记录在
-  [VENDORED.txt](../../projects/soft3d/libs/v3dcompiler/VENDORED.txt)）。
+- **`gles`**（`libs/gles`）——标准 API 前端，编成 **`libGLESv2.a` +
+  `libEGL.a`**，并安装常规的 `GLES2`/`GLES3`/`EGL`/`KHR` 头文件。它在光栅器
+  之上叠了一个 CPU 上的 GLSL ES 解释器（`src/glsl`）和唯一的引擎适配层
+  （`src/engine/pgl_engine.c`，也是唯一被允许 include `portablegl.h` 的编译
+  单元）。应用只需链接 `-lEGL -lGLESv2`（外加 `glcommon` 与系统的 X/graph
+  库）；`portablegl` 和 `v3dcompiler` 会用 MRI 脚本合并进 `libGLESv2.a`，作为
+  **私有中间产物**对应用不可见。
+- **`portablegl`**（`libs/gles/portablegl`）——一份精简、自包含的类
+  OpenGL ES 2.x 光栅器（顶点/片元着色器、VBO、纹理、深度测试），渲染进一块
+  `graph_t` 风格的帧缓冲。这是 GLES API 背后的引擎。
+- **`glcommon`**（`libs/glcommon`）——应用共用的矩阵/向量数学与 GL 辅助工具。
+- **`v3dcompiler`**（`libs/gles/v3dcompiler`）——**内置（vendored）的 mesa
+  Broadcom V3D 编译器后端**（上游锁定 commit `f45825a0`，记录在
+  [VENDORED.txt](../../projects/soft3d/libs/gles/v3dcompiler/VENDORED.txt)）。
   它跑的是 mesa 真实的 `GLSL → NIR → VIR → QPU` 流水线，**在设备上**把
   GLSL ES 3.10 着色器编译成 V3D 7.1 的 QPU 机器码，编成 `libv3dcompiler.a`。
 
-普通目标上 `portablegl` 完全用 CPU 光栅化（有 NEON 就加速），不涉及 mesa
-编译器。在 **树莓派 5** 上，这个栈还会把几何处理 offload 给 VideoCore VII
-GPU（V3D 7.1 / BCM2712）。关键点在于：V3D 7.1 的 *binner* 在 BCM2712 上无法
-光栅化真实图元，所以 `soft3d` 把整个 变换 → 光照 → 光栅化 都放进由内置
-mesa 编译器编译的 **CSD compute 着色器** 里做，再经由你在 ② 见过的同一个
-`g2dd` 守护进程下发（由 `PGL_G3D=yes` 门控，只在
-`machines/raspi5/system/make.inc` 里导出）：
+普通目标上，这些 GLES 调用完全用 CPU 光栅化——由 `gles/src/glsl` 里的解释器
+驱动 `portablegl`（有 NEON 就加速），不涉及 mesa 编译器。在 **树莓派 5** 上，
+**同一个** 应用二进制还会把几何处理 offload 给 VideoCore VII GPU（V3D 7.1 /
+BCM2712）；引擎适配层会在每次 draw 时选择走 CPU 还是 GPU，应用侧无需任何改动。
+关键点在于：V3D 7.1 的 *binner* 在 BCM2712 上无法光栅化真实图元，所以
+`soft3d` 把整个 变换 → 光照 → 光栅化 都放进由内置 mesa 编译器编译的
+**CSD compute 着色器** 里做，再经由你在 ② 见过的同一个 `g2dd` 守护进程下发
+（由 `PGL_G3D=yes` 门控，只在 `machines/raspi5/system/make.inc` 里导出）：
 
 ```
 portablegl (pgl_g3d)  →  g2dclient  →  g2dd  →  bsp_g3d  →  vc_pgl3d
@@ -205,12 +215,15 @@ invocation 处理一个顶点，写出紧凑的 32 字节记录）；第二趟�
 的 workgroup 里**每个 lane 负责一个三角形**，用 `atomicMin` 解决深度。这个
 “一 lane 一三角形”的形状正是性能关键——V3D 7.1 的 CSD 对**每个 workgroup**
 收固定约 3µs 的开销，所以把成千上万个“每三角形一个 workgroup”压成几十个，
-正是 `teapot` demo 里 GPU 路径能反超 CPU 光栅器的原因。
+正是 `teapot` demo 里 GPU 路径能反超 CPU 光栅器的原因。窗口缩放时 GPU 也不会
+掉线：offload 帧缓冲按“只增不减”的几何余量分配（`pgl_g3d_resize`），于是一次
+拖拽缩放会收敛成寥寥几次真实重分配、而不是每个事件一次，既不会耗尽内核的连续
+共享内存池，也就不会悄悄把应用 latch 回 CPU。
 
 `soft3d` 的应用（`teapot`、`gears`、`3ddemo`、`matrix`、`Fireworks`、
 `imgui_demo`）以及 `shadertoy` 风格的全屏 compute demo 都会走到这些路径。
 由于真实 QPU 硬件上的着色器 bug 很难调，编译器会先在主机上由
-`dump_uniforms` oracle（`libs/v3dcompiler` 下 `make -f Makefile.host`）验证：
+`dump_uniforms` oracle（`libs/gles/v3dcompiler` 下 `make -f Makefile.host`）验证：
 它把每个着色器都编译一遍并检查 QPU 输出，之后才会在树莓派上真正运行。
 
 ## 13.3 跟着做：跑一个图形程序
@@ -247,9 +260,10 @@ invocation 处理一个顶点，写出紧凑的 32 字节记录）；第二趟�
 - g2d 用共享内存实现零拷贝画布，硬件引擎要求物理连续（`shm_contig_phy_addr`）；
 - `xserverd` 用 `IPC_MULTI_TASK` 多线程池并行处理请求，保证鼠标低延迟；
 - 窗口、主题、事件分发都在用户态，崩了也不会带垮系统；
-- 3D/OpenGL 在 `projects/soft3d`：`portablegl` 提供 GL API，内置的 **mesa**
-  V3D 后端（`v3dcompiler`）在设备上把 GLSL 编成 QPU；树莓派 5 上几何处理
-  经 `g2dd` 以两趟 CSD compute 着色器 offload 给 VideoCore VII GPU。
+- 3D/OpenGL 在 `projects/soft3d`：应用用的是标准 **OpenGL ES 2.0 / EGL** API
+  （`libs/gles` 产出的 `libGLESv2`/`libEGL`），底层由 `portablegl` 光栅器支撑；
+  内置的 **mesa** V3D 后端（`v3dcompiler`）在设备上把 GLSL 编成 QPU，树莓派 5
+  上几何处理经 `g2dd` 以两趟 CSD compute 着色器 offload 给 VideoCore VII GPU。
 
 想继续深入窗口系统，可以先读 [第 20 章 xwm 窗口管理器](20-xwm.zh.md)，
 再读 [第 22 章 xserverd 合成器](22-xserverd-render.zh.md)；
