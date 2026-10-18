@@ -3174,6 +3174,17 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
     done = 0;
     p = (char*)ptr;
 
+    /* Honor a byte pushed back by ungetc(): the C standard requires any
+       subsequent read (fgetc, fread, fgets, ...) to return it first.  ungetc
+       caches the byte without rewinding the descriptor, so consume it here
+       before reading from the fd; otherwise it is silently dropped and the
+       stream is misaligned by one byte. */
+    if (stream->has_unget) {
+        stream->has_unget = 0;
+        stream->eof = 0;
+        p[done++] = (char)stream->unget_ch;
+    }
+
     while (done < total) {
         ssize_t ret = read(stream->fd, p + done, total - done);
         if (ret <= 0) {
