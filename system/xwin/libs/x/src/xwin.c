@@ -286,7 +286,32 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
         ret->xinfo->state = XWIN_STATE_MAX;
 
     xwin_registry_add(ret);
-    xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+    /*the initial UPDATE_INFO is what makes the server allocate ws_g/frame_g.
+      When that fails (the scattered shm window is exhausted - a full-screen
+      4K window alone needs three or four ~31MB canvases) the window still
+      exists in the client but ws_g_shm_id stays -1, so every later repaint
+      silently draws nothing and the app runs forever with an invisible
+      window. Fail the open instead: the caller then gets false from
+      XWin::open and can report it (xterm already checked, xfinder/xapps now
+      print an error and exit).*/
+    int update_ret = xwin_update_info(ret, X_UPDATE_REBUILD | X_UPDATE_REFRESH);
+    if(update_ret != 0 || ret->xinfo->ws_g_shm_id == -1) {
+        slog("xwin_open: no window canvas (%dx%d, update=%d, ws_g=%d)\n",
+                w, h, update_ret, ret->xinfo->ws_g_shm_id);
+        xwin_registry_remove(ret);
+        /*this window never became the session's main window: drop the
+          bookkeeping xwin_close() would clear through x_terminate()*/
+        if(ret->x->main_win == ret)
+            ret->x->main_win = NULL;
+        if(ret->x->prompt_win == ret)
+            ret->x->prompt_win = NULL;
+        close(ret->fd);
+        if(ret->xinfo != NULL)
+            shmdt(ret->xinfo);
+        pthread_mutex_destroy(&ret->painting_lock);
+        free(ret);
+        return NULL;
+    }
     return ret;
 }
 

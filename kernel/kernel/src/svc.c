@@ -287,12 +287,22 @@ static int32_t sys_proc_get_cmd(int32_t pid, char* cmd, int32_t sz) {
     return proc_get_cmd_safe(pid, cmd, sz);
 }
 
-static int32_t	sys_get_sys_info(sys_info_t* info) {
-    if(info == NULL)
+static int32_t	sys_get_sys_info(sys_info_t* info, ewokos_addr_t size) {
+    /*
+     * Legacy ABI: before the size argument existed, callers used
+     * syscall1(SYS_GET_SYS_INFO, &info), which passes 0 in arg1.  Treat 0 as
+     * "the original sys_info_t" so binaries built against the old header (and
+     * machine BSPs still using the raw syscall) keep working.  A non-zero
+     * size must still match exactly, so a mismatched caller can neither leave
+     * fields stale nor make the kernel write past its buffer.
+     */
+    if(size == 0)
+        size = sizeof(sys_info_t);
+    if(info == NULL || size != sizeof(sys_info_t))
         return -1;
-    if(!user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)info, sizeof(sys_info_t)))
+    if(!user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)info, size))
         return -1;
-    memcpy(info, &_sys_info, sizeof(sys_info_t));
+    memcpy(info, &_sys_info, size);
     info->max_proc_num = _kernel_config.max_proc_num;
     info->max_task_num = _kernel_config.max_task_num;
     info->max_task_per_proc = _kernel_config.max_task_per_proc;
@@ -742,7 +752,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         ctx->gpr[0] = sys_proc_get_cmd(arg0, (char*)arg1, arg2);
         return;
     case SYS_GET_SYS_INFO:
-        ctx->gpr[0] = sys_get_sys_info((sys_info_t*)arg0);
+        ctx->gpr[0] = sys_get_sys_info((sys_info_t*)arg0, arg1);
         return;
     case SYS_GET_SYS_STATE:
         ctx->gpr[0] = sys_get_sys_state((sys_state_t*)arg0);

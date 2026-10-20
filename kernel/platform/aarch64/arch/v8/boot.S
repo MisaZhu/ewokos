@@ -4,6 +4,14 @@
 .align 4
 .global __entry
 __entry:
+#ifdef Q8B_BOARD
+    /* PSCI starts every Q8B core at this entry point.  Remember the core id
+     * before any C call so secondaries can avoid touching boot-global state. */
+    mrs x20, mpidr_el1
+    ubfx x21, x20, #8, #8
+    and x20, x20, #0xff
+    orr x20, x20, x21
+#endif
     # Mask exceptions and interrupts
     msr DAIFSet, #0xf
 	
@@ -57,6 +65,17 @@ __el1_entry:
 	adr x0, #_svc_start_stack
     mov sp, x0
 
+#ifdef Q8B_BOARD
+    cbnz x20, 8f
+
+    /* UEFI's serial driver is stopped at EBS: re-enable QUP2/SE1,
+     * re-init the GENI UART before any C code leaves the physical .init
+     * mapping. */
+    bl q8b_early_watchdog_disable
+    bl q8b_early_uart_init
+8:
+#endif
+
 	# Create a the first frame record, this should be 0
     mov fp, xzr
     mov lr, xzr
@@ -78,7 +97,18 @@ __el1_entry:
     orr x0, x0, x1
     msr SCTLR_EL1, x0
 
+#ifdef Q8B_BOARD
+    cbnz x20, 8f
+#endif
 	bl _boot_start
+#ifdef Q8B_BOARD
+    b 9f
+8:
+    /* The boot core has already published and flushed these tables before
+     * issuing PSCI CPU_ON.  APs only install them and the exception vectors. */
+    bl _boot_start_secondary
+9:
+#endif
 
 #ifdef KERNEL_SMP
 	# core id: Aff0 on A53/A72 (virt/pi4), Aff1 on DynamIQ A76 (pi5);

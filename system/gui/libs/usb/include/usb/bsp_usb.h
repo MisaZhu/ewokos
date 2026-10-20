@@ -28,6 +28,7 @@
 #define BSP_USB_SPEED_FULL 1
 #define BSP_USB_SPEED_HIGH 2
 #define BSP_USB_SPEED_SUPER 3
+#define BSP_USB_SPEED_SUPER_PLUS 4
 
 typedef struct bsp_usb_dev bsp_usb_dev_t;
 

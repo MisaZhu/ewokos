@@ -78,20 +78,29 @@ static void reset_kernel_vm(void) {
 }
 
 
-static void map_allocable_pages(page_dir_entry_t* vm) {
+static int32_t map_allocable_pages(page_dir_entry_t* vm) {
     //map kernel dma memory
-    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_SYS_DMA);
+    if(map_pages_size(vm, _sys_info.sys_dma.phy_base,
+                _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size,
+                AP_RW_D, PTE_ATTR_SYS_DMA) != 0)
+        return -1;
     //direct-map the reserved contiguous shm slab so the kernel can zero it
     //(the shm window itself lives in the private user half and is not
     //accessible from kernel/syscall context)
-    if(_sys_info.shm_contig.size > 0)
-        map_pages_size(vm, P2V(_sys_info.shm_contig.phy_base), _sys_info.shm_contig.phy_base, _sys_info.shm_contig.size, AP_RW_D, PTE_ATTR_NOCACHE);
-    map_pages(vm,
+    if(_sys_info.shm_contig.size > 0 &&
+            map_pages_size(vm, P2V(_sys_info.shm_contig.phy_base),
+                _sys_info.shm_contig.phy_base,
+                _sys_info.shm_contig.size, AP_RW_D,
+                PTE_ATTR_NOCACHE) != 0)
+        return -1;
+    if(map_pages(vm,
             P2V(_sys_info.allocable_phy_mem_base),
             _sys_info.allocable_phy_mem_base,
             _sys_info.allocable_phy_mem_top,
-            AP_RW_D, PTE_ATTR_WRBACK);
+            AP_RW_D, PTE_ATTR_WRBACK) != 0)
+        return -1;
     flush_tlb();
+    return 0;
 }
 
 /*
@@ -105,7 +114,7 @@ static void map_allocable_pages(page_dir_entry_t* vm) {
  */
 __attribute__((weak)) void arch_set_proc_vm(page_dir_entry_t* vm) {
     set_kernel_vm(vm);
-    map_allocable_pages(vm);
+    (void)map_allocable_pages(vm);
 }
 
 void set_vm(page_dir_entry_t* vm) {
@@ -129,7 +138,10 @@ static void init_allocable_mem(void) {
     //printf("kernel: kalloc init for allocable page dir\n");
     kalloc_append(ALLOCABLE_PAGE_DIR_BASE, ALLOCABLE_PAGE_DIR_END); 
     //printf("kernel: mapping allocable pages\n");
-    map_allocable_pages(_kernel_info.kernel_vm);
+    if(map_allocable_pages(_kernel_info.kernel_vm) != 0) {
+        kout_str("kernel: allocable page-table pool exhausted\n");
+        halt();
+    }
     
     //_pages_ref.max = kalloc_append(P2V(_sys_info.allocable_phy_mem_base), P2V(_sys_info.allocable_phy_mem_top));
     kalloc_arch();
@@ -279,8 +291,10 @@ void _kernel_entry_c(void) {
     kout_str("[OK]\n");
 
     kout_str("kernel: init sd                ... ");
-    sd_init();
-    kout_str("[OK]\n");
+    if(sd_init() != 0)
+        kout_str("[FAILED]\n");
+    else
+        kout_str("[OK]\n");
 
     kout_str("kernel: load kernel config     ... ");
     load_kernel_config();

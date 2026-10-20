@@ -190,8 +190,13 @@ uint32_t kalloc_append(ewokos_addr_t start, ewokos_addr_t end) {
     char *current_page = 0;
     uint32_t num = 0;
 
+    /* Firmware maps may contain fragments smaller than the kernel page size.
+     * After alignment such a range is empty (or inverted), not a page run. */
+    if(start_address >= end_address)
+        return 0;
+
     /* add each of the pages to the free list */
-    for (current_page = start_address; current_page != end_address;
+    for (current_page = start_address; current_page < end_address;
             current_page += PAGE_SIZE) {
         _free_list_page = page_list_prepend(_free_list_page, current_page);
         num++;

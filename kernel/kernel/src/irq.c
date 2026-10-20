@@ -150,7 +150,7 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
     else if(cid == 0 && irq == IRQ_TIMER0) {
         irq_do_timer0(ctx);
     }
-    else {
+    else if(irq == IRQ_IPI) {
 #ifdef KERNEL_SMP
         ipi_clear(get_core_id());
 #endif
@@ -201,10 +201,15 @@ static int32_t copy_on_write(proc_t* proc, ewokos_addr_t v_addr) {
         // Lazily reserved heap/stack pages have no backing page yet.
         memset(page, 0, PAGE_SIZE);
     }
-    map_page_ref(proc->space->vm,
-            v_addr,
-            V2P(page),
-            AP_RW_RW, PTE_ATTR_WRBACK);
+    if(map_page_ref(proc->space->vm,
+                v_addr,
+                V2P(page),
+                AP_RW_RW, PTE_ATTR_WRBACK) != 0) {
+        kfree_page(page);
+        return -1;
+    }
+    if(v_addr >= USER_STACK_BOTTOM && v_addr < USER_STACK_TOP)
+        arch_mark_stack_pte_noexec(proc->space->vm, v_addr);
     flush_tlb();
     return 0;
 }

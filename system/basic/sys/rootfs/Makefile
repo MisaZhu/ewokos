@@ -18,7 +18,7 @@ $(SDFSD): $(SDFSD_OBJS) \
 		$(BUILD_DIR)/lib/libbsp.a \
 		$(BUILD_DIR)/lib/libext2.a \
 		$(BUILD_DIR)/lib/libext3.a 
-	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS)  $(BSP_LFLAGS) -lsd -lext2 -lext3  $(EWOK_LIBC) 
+	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS)  $(BSP_LFLAGS) -lsd -lext3  $(EWOK_LIBC) 
 
 clean:
 	rm -fr $(SDFSD) $(SDFSD_OBJS)

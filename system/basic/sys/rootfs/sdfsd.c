@@ -411,6 +411,11 @@ static int sdext_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int 
         return 0;
 
     ext3_t* ext3 = (ext3_t*)p;
+
+    if(ext3_is_readonly(ext3) &&
+            ((oflag & (O_WRONLY | O_RDWR | O_TRUNC)) != 0))
+        return -1;
+
     int32_t ino = (int32_t)info->data;
     if(ino == 0)
         return -1;
@@ -681,13 +686,29 @@ int main(int argc, char** argv) {
     }
 
     ext3_t ext3;
-    int32_t ret = ext3_init_ex2(&ext3, sd_read, sdext_sd_read_blocks, sd_write, sdext_sd_write_blocks,
-            sd_flush, SD_BUFFER_SIZE);
+    /* Mount read-write; a damaged journal falls back to a read-only mount
+     * below instead of being treated as an ext2 volume. */
+    int readonly = 0;
+    int32_t ret = ext3_init_ex2(&ext3, sd_read, sdext_sd_read_blocks, sd_write,
+            sdext_sd_write_blocks, sd_flush, SD_BUFFER_SIZE);
     if(ret != 0) {
-        if(ret == EXT3_ERR_JOURNAL)
-            klog("sdfsd: ext3 journal unusable, run e2fsck!\n");
-        sd_quit();
-        return -1;
+        if(ret == EXT3_ERR_JOURNAL) {
+            klog("sdfsd: ext3 journal unusable (jbd=%d), run e2fsck!\n",
+                    ext3.journal_error);
+            /* A damaged journal must never be treated as an ext2 volume:
+             * doing so can overwrite metadata while recovery is pending.
+             * Keep the rootfs available read-only so init/login and the
+             * raw-SD repair tools can still be used to repair it offline. */
+            readonly = 1;
+            ret = ext3_init_ro_ex2(&ext3, sd_read, sdext_sd_read_blocks,
+                    sd_write, sdext_sd_write_blocks, NULL, SD_BUFFER_SIZE);
+            if(ret == 0)
+                klog("sdfsd: mounted read-only pending journal repair\n");
+        }
+        if(ret != 0) {
+            sd_quit();
+            return -1;
+        }
     }
 
     /*if(ext3_has_journal(&ext3)) {
@@ -701,16 +722,16 @@ int main(int argc, char** argv) {
     strcpy(dev.desc, ext3_has_journal(&ext3) ? "rootfs:ext3" : "rootfs:ext2");
     dev.mount = sdext_mount;
     dev.read = sdext_read;
-    dev.write = sdext_write;
-    dev.create = sdext_create;
+    dev.write = readonly ? NULL : sdext_write;
+    dev.create = readonly ? NULL : sdext_create;
     dev.open = sdext_open;
     dev.dup = sdext_dup;
     dev.close = sdext_close;
-    dev.flush = sdext_flush;
-    dev.set = sdext_set;
+    dev.flush = readonly ? NULL : sdext_flush;
+    dev.set = readonly ? NULL : sdext_set;
     dev.get = sdext_get;
     dev.kids = sdext_kids;
-    dev.unlink = sdext_unlink;
+    dev.unlink = readonly ? NULL : sdext_unlink;
 
     dev.extra_data = &ext3;
 

@@ -4,6 +4,7 @@
 #include <sys/shm.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 #include <x/xwm.h>
 #include "xwin_cmd.h"
 #include "xwin.h"
@@ -445,8 +446,17 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         /*graph_new_shm allocates its own keyed shm canvas: the buffer and
           the shm id both travel inside the graph, no window-level mirrors*/
         win->ws_g = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
-        if(win->ws_g == NULL)
+        if(win->ws_g == NULL) {
+            /*the scattered shm window is exhausted: on a 4K panel one frame
+              canvas is ~31MB, so a full-screen window plus the display's
+              scan-out/back buffers can overrun it. Without this log the
+              failure only shows up in the client ("xwin open failed") and
+              looks like an app that started but has no window.*/
+            klog("xserverd: window '%s' workspace shm %dx%d failed: "
+                    "shm window exhausted\n", win->xinfo->title,
+                    win->xinfo->wsr.w, win->xinfo->wsr.h);
             return -1;
+        }
         win->xinfo->ws_g_shm_id = win->ws_g->shm_id;
         /*publish the backing type with the id: clients mark their workspace
           graph with it, and g2d only engages on contig-backed canvases*/
@@ -469,6 +479,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
                   left the client with ws_g_shm_id == -1 for good - xwin_open
                   does not retry - so the window ran but never drew anything.
                   ws_g stays valid and front_index 0 keeps win_comp_src on it.*/
+                klog("xserverd: window '%s' fps_async handoff shm %dx%d "
+                        "failed, using single buffer\n", win->xinfo->title,
+                        win->xinfo->wsr.w, win->xinfo->wsr.h);
                 win->xinfo->fps_async = false;
                 win->xinfo->ws_g2_shm_id = -1;
                 win->xinfo->ws_g2_shm_contig = false;
@@ -501,6 +514,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 
         win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
         if(win->frame_g == NULL) {
+            klog("xserverd: window '%s' frame shm %dx%d failed: "
+                    "shm window exhausted\n", win->xinfo->title,
+                    win->xinfo->winr.w, win->xinfo->winr.h);
             graph_free(win->ws_g);
             win->ws_g = NULL;
             win->xinfo->ws_g_shm_id = -1;

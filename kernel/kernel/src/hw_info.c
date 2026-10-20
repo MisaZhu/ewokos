@@ -103,6 +103,11 @@ void sys_info_init(void) {
 }
 
 void sys_info_config(void) {
+    /* load_kernel_config() has already clamped this to the BSP's hardware
+       limit.  Runtime scheduling and secondary-core bring-up use
+       _sys_info.cores, so keep it in sync with the configured active count. */
+    _sys_info.cores = _kernel_config.cores;
+
     _sys_info.kmalloc_size = get_kmalloc_size();
     _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
 
