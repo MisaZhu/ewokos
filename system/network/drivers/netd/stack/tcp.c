@@ -1221,8 +1221,13 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
              * churn. Fire the VFS wakeup only on the blocked->writable edge;
              * an ACK stream with the window already open must not emit one
              * reverse IPC per segment (wakeup storm on the shared /dev/net0
-             * node). Level-triggered rechecks (check_poll_events and the
-             * worker's post-EAGAIN sock_writable() recheck) cover the races.
+             * node). The races are covered by level-triggered rechecks:
+             * task_poll_events() republishes live writability on every poll(),
+             * and task_write()/task_cntl(SOCK_SEND) re-check sock_writable()
+             * right after an EAGAIN and re-raise WR when the window reopened
+             * while the worker sat inside sock_send(). Without that recheck a
+             * missed edge parks the writer with no further ACK to rearm it --
+             * the raspi5 "output resumes only after the client types" stall.
              */
             {
                 uint32_t inflight_now = pcb->snd.nxt - pcb->snd.una;

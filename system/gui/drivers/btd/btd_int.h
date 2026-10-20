@@ -44,7 +44,19 @@
 #define MAX_HCI_PAYLOAD 260
 #define MAX_EVT_LINE 256
 #define BT_CMD_RET_SZ 2048
-#define BT_UART_PKT_FOLLOW_TIMEOUT_MS 120
+/* v5: raised from 120ms to 500ms. Real-hardware forensics (v4 IIR-gated
+   handler) proved the 0x00 bytes are legitimate H4 traffic (ACL headers
+   contain handle_hi=0x00, len_hi=0x00, L2CAP cid_hi=0x00), not spurious
+   RBR reads. The desync root cause is wire-rate collapse after
+   le_conn_updated itv=12: throughput drops from ~4700 bytes/sec to
+   8-100 bytes/sec (gamepad idle, controller has nothing to forward).
+   At 8 bytes/sec, 1 byte takes 125ms -- right at the 120ms edge. Once
+   bt_recv_exact times out, the partial pkt_type + hdr bytes are lost
+   forever (L414-420 has no pushback), misaligning the H4 stream. The
+   stable event/acl alternating timeout pattern (delta_hz=+2 for event,
+   +12 for acl) confirms systematic misalignment, not random noise.
+   500ms gives 4x margin over the worst observed inter-byte gap. */
+#define BT_UART_PKT_FOLLOW_TIMEOUT_MS 500
 
 /* persistent store of every device we connected (or paired) with, so a
    future adapter power-on can page them again without a manual scan.

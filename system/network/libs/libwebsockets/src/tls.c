@@ -153,5 +153,15 @@ int lws_ssl_write(struct lws *wsi, const unsigned char *buf, int len)
         }
         return ret;
     }
-    return (int)send(wsi->fd, buf, (uint32_t)len, 0);
+    int off = 0;
+    /* Plain path: send() reports a short count when the TCP window closes
+     * mid-write (netd tcp_send returns partial). Loop so callers -- frame
+     * header/payload, handshakes, pong/close -- never see a truncated write. */
+    while (off < len) {
+        int ret = (int)send(wsi->fd, buf + off, (uint32_t)(len - off), 0);
+        if (ret <= 0)
+            return (off > 0) ? off : ret;
+        off += ret;
+    }
+    return len;
 }

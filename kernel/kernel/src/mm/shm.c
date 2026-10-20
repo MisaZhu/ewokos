@@ -52,11 +52,22 @@ typedef struct share_mem {
 static share_mem_t* _shm_head = NULL;
 static share_mem_t* _shm_tail = NULL;
 
-/* contiguous slab sub-allocator: first-fit with split and merge, managing
+/* contiguous slab sub-allocator: best-fit with split and merge, managing
    physical page runs inside _sys_info.shm_contig. entries are never
    compacted (released ones turn into empty slots, paddr == 0), so no
-   overlapping copies are needed. always called with the shm lock held. */
-#define SHM_POOL_MAX 64
+   overlapping copies are needed. always called with the shm lock held.
+
+   Best-fit (smallest sufficient free run) instead of first-fit: a large
+   request - e.g. the full-screen framebuffer+depth pair a soft3d app needs
+   the moment its window is maximized - is far more likely to find one
+   contiguous run when small allocations do not carve up the biggest free
+   runs front-to-back.  The entry table is sized generously, and a split with
+   no free slot for its remainder grants the whole run rather than failing, so
+   a request that physically fits is never refused just because the table
+   momentarily filled - the old first-fit + hard 64-entry cap did exactly
+   that, which the soft3d GPU path latched into a permanent CPU fallback on
+   window resize even with hundreds of MB of slab free. */
+#define SHM_POOL_MAX 128
 typedef struct {
     ewokos_addr_t paddr; //0 means empty slot
     uint32_t pages;
@@ -66,33 +77,47 @@ typedef struct {
 static shm_pool_item_t _shm_pool[SHM_POOL_MAX];
 static uint32_t _shm_pool_count = 0;
 
+/* find a free entry slot: reuse an emptied one (paddr == 0) or extend the
+   live count; -1 when the table is completely full. */
+static int32_t shm_pool_slot(void) {
+    for(uint32_t j = 0; j < _shm_pool_count; j++) {
+        if(_shm_pool[j].paddr == 0)
+            return (int32_t)j;
+    }
+    if(_shm_pool_count >= SHM_POOL_MAX)
+        return -1;
+    return (int32_t)_shm_pool_count++;
+}
+
 static ewokos_addr_t shm_pool_alloc(uint32_t pages) {
+    /* best-fit: pick the smallest free run that satisfies the request, so the
+       large contiguous runs a full-screen GPU target needs survive small
+       allocations instead of being chopped up front-to-back. */
+    int32_t best = -1;
     for(uint32_t i = 0; i < _shm_pool_count; i++) {
         shm_pool_item_t* it = &_shm_pool[i];
         if(it->paddr == 0 || it->used || it->pages < pages)
             continue;
-        if(it->pages > pages) { //split the remainder into a free entry
-            int32_t slot = -1;
-            for(uint32_t j = 0; j < _shm_pool_count; j++) {
-                if(_shm_pool[j].paddr == 0) {
-                    slot = (int32_t)j;
-                    break;
-                }
-            }
-            if(slot < 0) {
-                if(_shm_pool_count >= SHM_POOL_MAX)
-                    return 0;
-                slot = (int32_t)_shm_pool_count++;
-            }
+        if(best < 0 || it->pages < _shm_pool[best].pages)
+            best = (int32_t)i;
+    }
+    if(best < 0)
+        return 0;
+
+    shm_pool_item_t* it = &_shm_pool[best];
+    if(it->pages > pages) { //split the remainder into a free entry
+        int32_t slot = shm_pool_slot();
+        if(slot >= 0) {
             _shm_pool[slot].paddr = it->paddr + pages * PAGE_SIZE;
             _shm_pool[slot].pages = it->pages - pages;
             _shm_pool[slot].used = 0;
             it->pages = pages;
         }
-        it->used = 1;
-        return it->paddr;
+        /* slot < 0 (table full): grant the whole run instead of failing; the
+           unused tail is never mapped and returns to the pool on free. */
     }
-    return 0;
+    it->used = 1;
+    return it->paddr;
 }
 
 static void shm_pool_free(ewokos_addr_t paddr) {

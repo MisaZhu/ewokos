@@ -590,7 +590,14 @@ int task_cntl(uint32_t node, int from_pid, int cmd, proto_t *in, proto_t *out) {
             if (ret < 0 && sock_errno == 0)
                 sock_errno = EAGAIN;
             if (ret < 0 && (sock_errno == EAGAIN || sock_errno == EINTR)) {
-                /* Send window full: the ACK-driven WR wakeup re-arms us. */
+                /* Send window full: the ACK-driven WR wakeup re-arms us.
+                 * Lost-wakeup guard, same as task_write(): the window may have
+                 * reopened while we sat inside sock_send(), after the ACK
+                 * path's blocked->writable edge already fired into an empty
+                 * wait queue. Re-check and re-raise WR so the client's poll()
+                 * sees a live edge instead of parking until the peer sends. */
+                if (sock_writable(sock))
+                    task_queue_vfs_wakeup(node, VFS_EVT_WR);
                 res = VFS_ERR_RETRY;
                 break;
             }
@@ -803,10 +810,38 @@ int task_write(uint32_t node, const char* buf, int size) {
             /* Send window full: the ACK-driven WR wakeup re-arms. Partial
              * writes return the accepted byte count; libc loops on it. */
             ret = VFS_ERR_RETRY;
+            /*
+             * Lost-wakeup guard: an ACK/window update may have reopened the
+             * socket while this worker sat inside sock_send() (the stack mutex
+             * is dropped before the ACK path evaluates its blocked->writable
+             * EDGE). If that edge fired before the client registered on the
+             * poll wait queue it is lost, and with the window now open no
+             * further ACK arrives to re-fire it -- the writer parks until the
+             * peer happens to send something (the raspi5 "output resumes only
+             * after I type" stall). This is the post-EAGAIN sock_writable()
+             * recheck the tcp.c ACK comment relies on; re-raise WR so the
+             * client's poll() observes a live edge. Coalesced per node, so an
+             * already-open window never turns into a wakeup storm.
+             */
+            if (sock_writable(sock))
+                task_queue_vfs_wakeup(node, VFS_EVT_WR);
         }
-        /* Burst boundary: push any coalesced tap frames out now instead of
-         * waiting for the next batch-full or interrupt-loop flush. */
-        net_tx_flush();
+        /*
+         * Burst boundary: push any coalesced tap frames out now instead of
+         * waiting for the next batch-full or interrupt-loop flush.
+         *
+         * tryflush, not flush: this runs on an IPC pool worker. The blocking
+         * flush parks up to ETHER_TAP_TX_WAIT_MS * ETHER_TAP_TX_WR_RETRY_MAX
+         * per batch on POLLOUT while holding the tap device lock the main
+         * thread needs to drain inbound frames. Under wl0 (WiFi) TX
+         * backpressure that lock is held for seconds, so RX starves, the peer's
+         * ACKs pile up undrained, the send window never reopens and the
+         * transfer wedges until the client sends something to unblock it.
+         * task_read()/task_recv() already flush this way for exactly this
+         * reason; a congested batch simply rides the next intr_step()
+         * net_tx_flush(), one cadence period away.
+         */
+        net_tx_tryflush();
     }
 
     int saved_errno = errno;

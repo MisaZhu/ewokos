@@ -82,8 +82,15 @@ class AppGrid: public Grid {
 			img = i;
 		}
 
+		/*center the icon inside the area above the bottom title strip
+		  (title text height + titleMargin below it); use the measured
+		  title height and the real scaled icon height, like dx does*/
+		uint32_t tw, th;
+		font_text_size(item->app.c_str(), theme->getFont(), theme->basic.fontSize, &tw, &th);
 		int dx = (w - img->w)/2;
-		int dy = (h - (int)(iconSize + titleMargin + theme->basic.fontSize)) / 2;
+		int dy = (h - (int)(th + titleMargin) - img->h) / 2;
+		if(dy < 0)
+			dy = 0;
 		graph_blt_alpha(img, 0, 0, img->w, img->h,
 				g, x+dx, y+dy, img->w, img->h, 0xff);
 	}
@@ -93,8 +100,7 @@ class AppGrid: public Grid {
 		uint32_t tw, th;
 		font_text_size(title, theme->getFont(), theme->basic.fontSize, &tw, &th);
 		x += (w - (int32_t)tw)/2;
-		y += (h - (int)(iconSize + titleMargin + (int32_t)th)) /2 +
-				iconSize + titleMargin;
+		y += h - (int32_t)(th + titleMargin); /*title pinned to bottom, margin below it*/
 		graph_draw_text_font(g, x, y, title, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
 	}
 

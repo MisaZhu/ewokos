@@ -23,7 +23,12 @@ enum {
 	G2D_DEV_CNTL_FILL_TRIANGLE,
 	G2D_DEV_CNTL_PGL_CLEAR,
 	G2D_DEV_CNTL_PGL_DRAW,
-	G2D_DEV_CNTL_PGL_PROGRAM
+	G2D_DEV_CNTL_PGL_PROGRAM,
+	/* appended last (never inserted mid-enum) so the existing command
+	   values, and thus the client<->daemon wire protocol for every other
+	   op, stay unchanged. g2dd's synthetic G2DD_STAT_FILL_ALPHA slot is
+	   defined relative to this value. */
+	G2D_DEV_CNTL_GET_VERSION
 };
 
 /* portablegl GPU (V3D 3D-pipeline) offload.  Only the raspi5 back end
@@ -65,8 +70,13 @@ enum {
 	G2D_PGL_CULL_FRONT_CW,
 	G2D_PGL_CULL_BOTH
 };
-/* maximum vertices per draw dispatch (the back end declines more) */
-#define G2D_PGL_MAX_VERTS 4096u
+/* maximum vertices per draw dispatch (the back end declines more).  Raised to
+   20480 so a whole rigid mesh (e.g. the 19200-vertex Utah teapot) can ride ONE
+   dispatch instead of many small ones: each dispatch pays a fixed whole-surface
+   L2 clean+invalidate + IRQ wait + IPC round-trip independent of triangle
+   count, so batching a mesh into a single dispatch is what makes the GPU path
+   beat the CPU rasterizer.  Must stay >= the client's PGL_G3D_MAX_VERTS. */
+#define G2D_PGL_MAX_VERTS 20480u
 
 /* Maximum texture units a compiled FS may bind (iChannel0..iChannelN).
    Sized to cover the shadertoy set (max 3 channels in the_cave) with one
@@ -475,7 +485,7 @@ typedef struct {
    program's own linker pass, so the client looks a uniform name up in the
    COMPUTE stage too when packing the per-draw blob. */
 #define G2D_PGL_PROGRAM_MAGIC   0x33445047u   /* 'G','P','D','3' little-endian */
-#define G2D_PGL_PROGRAM_VERSION 3u
+#define G2D_PGL_PROGRAM_VERSION 4u
 #define G2D_PGL_MAX_VS_ATTRS    64            /* mirrors V3D_MAX_VS_INPUTS */
 #define G2D_PGL_MAX_FS_INPUTS   64            /* mirrors V3D_MAX_FS_INPUTS */
 
@@ -532,8 +542,35 @@ typedef struct {
 	uint32_t cs_shared_size;      /* bytes of shared memory (0 expected) */
 	uint8_t  cs_threads;          /* compute SIMD dispatch width */
 	uint8_t  cs_single_seg;
-	uint8_t  cs_is_geom;          /* 1 = fixed geometry rasterizer (was reserved) */
-	uint8_t  cs_reserved[1];
+	uint8_t  cs_is_geom;          /* 1 = gouraud geom, 2 = textured geom */
+	/* VERSION 3 reserved byte, now assigned: raster-pass TRIANGLES PER
+	 * WORKGROUP for geom programs.  0 = legacy grid of one workgroup per
+	 * triangle; 64/256 = the one-lane-per-triangle kernels
+	 * (geom_raster_cs_glsl_v4/v5), so the daemon dispatches
+	 * ceil(ntris/cs_geom_tpw) workgroups.  Device-measured motivation: the
+	 * V3D 7.1 CSD charges ~3us fixed overhead per workgroup, which at
+	 * 6400 workgroups (teapot) was the entire ~19-20ms raster-pass cost.
+	 * Old daemons ignore the byte and over-dispatch; the kernels' uTriCount
+	 * guard keeps that correct (just slow).  Ignored for non-geom. */
+	uint8_t  cs_geom_tpw;
+	/* VERSION 4: SECOND compute stage (cs2) for the two-pass geometry
+	   rasterizer.  cs2 is the VERTEX-TRANSFORM pass (pass 1): one invocation
+	   per vertex, applies uMVP (+ lighting for gouraud) and writes a packed
+	   8-float/32-byte per-vertex record into the daemon-allocated `vout`
+	   SSBO.  cs stays the RASTER pass (pass 2): one workgroup per triangle,
+	   reads vout.  cs2_qpu_words == 0 when absent (single-pass or non-geom
+	   program); its three payload sections follow the cs uniform sections in
+	   the wire order.  The per-draw uniform blob is the CONCATENATION
+	   [cs2/xform uniforms | cs/raster uniforms]; cs2_uniform_blob_dwords is
+	   the split point (leading dwords feed cs2, the remainder feed cs). */
+	uint32_t cs2_qpu_words;       /* 2 * xform compute QPU instruction count, 0 = none */
+	uint32_t cs2_num_uniforms;
+	uint32_t cs2_local_size[3];   /* workgroup shape */
+	uint32_t cs2_shared_size;     /* bytes of shared memory (0 expected) */
+	uint32_t cs2_uniform_blob_dwords; /* dwords of the per-draw blob for cs2 */
+	uint8_t  cs2_threads;         /* compute SIMD dispatch width */
+	uint8_t  cs2_single_seg;
+	uint8_t  cs2_reserved[2];
 	/* variable payload follows immediately after this header */
 } g2d_pgl_program_blob_t;
 
@@ -868,6 +905,15 @@ int g2d_pgl_program(const g2d_pgl_program_req_t* req);
    G2D_OK with *hz set, G2D_ERR_NOT_SUPPORTED when the platform has no
    engine clock to report. */
 int g2d_get_clock(uint32_t* hz);
+
+/* query the V3D architecture version x10 of the g2d engine, as pinned by the
+   driver at startup (21 = V3D 2.1 / Pi3, 42 = V3D 4.2 / Pi4, 71 = V3D 7.1 /
+   Pi5). returns G2D_OK with *ver set, or G2D_ERR_NOT_SUPPORTED when the
+   platform has no V3D engine to report. the soft3d app-side compiler uses
+   this to pick its codegen target on a machine that ships one binary across
+   chip generations (raspix); a machine with a single V3D generation (raspi5)
+   still reports it so the shared client need not special-case the board. */
+int g2d_get_version(uint32_t* ver);
 
 #ifdef __cplusplus
 }

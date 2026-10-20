@@ -14,6 +14,10 @@ int32_t bsp_g2d_init(void);
    (software backends) or the rate could not be confirmed. */
 uint32_t bsp_g2d_clock_hz(void);
 
+/* V3D architecture version x10 (21/42/71), or 0 when the platform has no
+   V3D engine.  Reported via the G2D_DEV_CNTL_GET_VERSION device control. */
+uint32_t bsp_g2d_version(void);
+
 /* backend diagnostics for `devcmd /dev/g2d <args>`: formats the reply
    into buf and returns 0 when the backend recognises argv[0], -1 when it
    does not (g2dd then answers nothing). this backend has no diagnostics of its own and always returns -1. */
