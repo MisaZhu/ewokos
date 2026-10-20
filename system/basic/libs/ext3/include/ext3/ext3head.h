@@ -209,8 +209,10 @@ typedef struct {
 	uint32_t journal_txn_limit;	/* auto-commit threshold, in blocks */
 	uint32_t recovered_txns;	/* stats filled by recovery at mount */
 	uint32_t recovered_blocks;
+	int32_t journal_error;		/* detailed JBD setup/recovery error */
 	uint8_t error;			/* sticky: any commit/IO failure */
 	uint8_t commit_pending;		/* committed txn awaits checkpoint (re)try */
+	uint8_t readonly;			/* mounted without journal replay/write-back */
 
 	/* dirty metadata block cache, hashed by blk */
 	ext3_blkcache_t* cache[EXT3_CACHE_BUCKETS];

@@ -66,6 +66,11 @@ CFLAGS +=  -O2
 CXXFLAGS +=  -O2
 endif
 
+# System binaries are statically linked and share kernel ABI headers. Track
+# those headers so a layout change cannot leave stale objects in a new rootfs.
+CFLAGS += -MMD -MP
+CXXFLAGS += -MMD -MP
+
 STL_HEADERS_STAMP = $(BUILD_DIR)/include/.stl_headers_timestamp
 
 $(ARCH)/%.o: %.c
@@ -87,3 +92,9 @@ $(ARCH)/%.o: %.S
 $(ARCH)/%.o: %.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ARCH_CFLAGS) -o $@ $<
+
+DEP_FILES := $(shell find $(ARCH) -type f -name '*.d' 2>/dev/null)
+-include $(DEP_FILES)
+# Included dependency files can otherwise make their first object target the
+# default goal before the including Makefile defines its real entry point.
+.DEFAULT_GOAL :=

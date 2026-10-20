@@ -41,6 +41,12 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
     if(console->terminal.font != NULL)
         font_free(console->terminal.font);
     console->terminal.font = font_new(font_fname, true);
+    if(console->terminal.font == NULL) {
+        klog("consoled: cannot load font %s\n", font_fname);
+        if(conf_var != NULL)
+            json_var_unref(conf_var);
+        return -1;
+    }
 
     const char* v = json_get_str_def(conf_var, "icon", "");
     if(v[0] != 0) 
@@ -59,7 +65,8 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
 
 static void init_graph(fb_console_t* console) {
     console->g = display_fetch_graph(&console->display);
-    graph_clear(console->g, 0xff000000);
+    if(console->g != NULL)
+        graph_clear(console->g, 0xff000000);
 }
 
 static int init_console(fb_console_t* console, const char* display_dev, const uint32_t display_index) {
@@ -71,9 +78,12 @@ static int init_console(fb_console_t* console, const char* display_dev, const ui
     if(displayman_open(display_dev, console->display_index, &console->display) != 0)
         return -1;
     init_graph(console);
+    if(console->g == NULL) {
+        display_close(&console->display);
+        return -1;
+    }
     gterminal_init(&console->terminal);
-    read_config(console, "/etc/console.json");
-    return 0;
+    return read_config(console, "/etc/console.json");
 }
 
 static void close_console(fb_console_t* console) {
@@ -89,6 +99,8 @@ static void close_console(fb_console_t* console) {
 
 static int reset_console(fb_console_t* console) {
     gterminal_resize(&console->terminal, console->g->w, console->g->h);
+    if(console->terminal.rows == 0 || console->terminal.cols == 0)
+        return -1;
     return 0;
 }
 
@@ -357,8 +369,16 @@ int main(int argc, char** argv) {
     const char* display_dev = "/dev/displayman";
 
     fb_console_t _console;
-    init_console(&_console, display_dev, _disp_index);
-    reset_console(&_console);
+    if(init_console(&_console, display_dev, _disp_index) != 0) {
+        klog("consoled: cannot open display %u via %s\n",
+                _disp_index, display_dev);
+        return -1;
+    }
+    if(reset_console(&_console) != 0) {
+        klog("consoled: terminal resize failed\n");
+        close_console(&_console);
+        return -1;
+    }
     _console.terminal.output_callback = console_output_cb;
     _console.terminal.output_callback_arg = NULL;
 

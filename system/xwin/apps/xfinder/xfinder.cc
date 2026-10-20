@@ -63,7 +63,12 @@ int main(int argc, char** argv) {
 	root->add(fm);
 	root->focus(fm);
 
-	win.open(&x, -1, -1, -1, 0, 0, "xfinder", XWIN_STYLE_NORMAL);
+	if(!win.open(&x, -1, -1, -1, 0, 0, "xfinder", XWIN_STYLE_NORMAL)) {
+		/*no window means no work: exiting beats spinning headless with a
+		  window that was never created (out of shm on a 4K screen)*/
+		fprintf(stderr, "xfinder: cannot open window\n");
+		return 1;
+	}
 	/*window shows right away; directory entries are loaded and drawn
 	  progressively inside the event loop*/
 	fm->loadDir("/");

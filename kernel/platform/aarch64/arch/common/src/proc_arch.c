@@ -24,8 +24,8 @@ void arch_proc_tls_base_write(ewokos_addr_t v) {
 }
 
 void arch_mark_stack_pte_noexec(page_dir_entry_t* vm, ewokos_addr_t vaddr) {
-	page_table_entry_t* pte = get_page_table_entry(vm, vaddr);
-	if(pte != NULL) {
-		pte->UXN = 1;
-	}
+    page_table_entry_t* pte = get_page_table_entry(vm, vaddr);
+    if(pte != NULL) {
+        pte->UXN = 1;
+    }
 }

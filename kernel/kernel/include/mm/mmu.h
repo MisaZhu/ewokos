@@ -30,13 +30,17 @@
 #if __aarch64__
 #define ALLOCABLE_L3_PAGE_TABLE_SIZE  \
 	((ALIGN_UP(_sys_info.total_usable_mem_size, PAGE_TABLE_SPAN_L3) / PAGE_TABLE_SPAN_L3) * PAGE_TABLE_SIZE)
+/* Low identity mappings are also built from this pool after early boot. */
+#define ALLOCABLE_PAGE_DIR_EXTRA_SIZE (1*MB)
 #ifdef PAGE_SIZE_64K
-#define ALLOCABLE_PAGE_DIR_SIZE       (ALLOCABLE_L3_PAGE_TABLE_SIZE)
+#define ALLOCABLE_PAGE_DIR_SIZE       \
+	(ALLOCABLE_L3_PAGE_TABLE_SIZE + ALLOCABLE_PAGE_DIR_EXTRA_SIZE)
 #else
 #define ALLOCABLE_L2_PAGE_TABLE_SIZE  \
 	((ALIGN_UP(_sys_info.total_usable_mem_size, PAGE_TABLE_SPAN_L2) / PAGE_TABLE_SPAN_L2) * PAGE_TABLE_SIZE)
 #define ALLOCABLE_PAGE_DIR_SIZE       \
-	(ALLOCABLE_L3_PAGE_TABLE_SIZE + ALLOCABLE_L2_PAGE_TABLE_SIZE)
+	(ALLOCABLE_L3_PAGE_TABLE_SIZE + ALLOCABLE_L2_PAGE_TABLE_SIZE + \
+	 ALLOCABLE_PAGE_DIR_EXTRA_SIZE)
 #endif
 #else
 #define ALLOCABLE_PAGE_DIR_SIZE       (2 * (_sys_info.total_phy_mem_size / KB))
@@ -70,10 +74,21 @@
 #define USER_STACK_BOTTOM             (USER_STACK_TOP - USER_STACK_MAX)
 
 /* Scattered (kalloc-backed) shm virtual window. ONLY non-contig segments draw
-   addresses from here, so it is sized for the small stuff (xinfo, IPC buffers,
-   canvases that fell back off the contig slab) and is fully independent of the
-   contig slab window below. */
+   addresses from here, so it is fully independent of the contig slab window
+   below. Boards without a g2d engine (Q8B/GOP) put every canvas here: the
+   display keeps two full frames (scan-out shm + libdisplay's cache_g back
+   buffer) and every window keeps ws_g, ws_g2 (fps_async), frame_g and often a
+   frosted backdrop. A 3840x2160 canvas is 31.6MB, so 4K needs ~66MB just for
+   the display and ~130MB for one full-screen window - the old 128MB window
+   overflowed and graph_new_shm() returned NULL, leaving xwin_open() to fail
+   while the app kept running with no window. Real 1080p sessions measure
+   ~57MB of scattered shm, i.e. ~230MB scaled to 4K, so 64-bit kernels get
+   512MB (~2x the 4K baseline); 32-bit ones keep 128MB. */
+#ifdef __aarch64__
+#define SHM_MAX_SIZE                  (512*MB)
+#else
 #define SHM_MAX_SIZE                  (128*MB)
+#endif
 #define SHM_BASE                      (USER_STACK_BOTTOM - SHM_MAX_SIZE)
 
 /* Contiguous shm gets its OWN virtual window, separate from the scattered one,
@@ -102,21 +117,21 @@
 #define get8(addr) (*((volatile uint8_t *)(addr)))
 #define put8(addr, val) (*((volatile uint8_t *)(addr)) = (uint8_t)(val))
 
-void map_pages(page_dir_entry_t *vm, ewokos_addr_t vaddr, 
-	ewokos_addr_t pstart, 
-	ewokos_addr_t pend,  
+int32_t map_pages(page_dir_entry_t *vm, ewokos_addr_t vaddr,
+	ewokos_addr_t pstart,
+	ewokos_addr_t pend,
 	uint32_t access_permissions,
 	uint32_t pte_attr);
 
-void map_pages_size(page_dir_entry_t *vm, ewokos_addr_t vaddr, 
-	ewokos_addr_t pstart, 
-	uint32_t size,  
+int32_t map_pages_size(page_dir_entry_t *vm, ewokos_addr_t vaddr,
+	ewokos_addr_t pstart,
+	uint32_t size,
 	uint32_t access_permissions,
 	uint32_t pte_attr);
 
 void unmap_pages(page_dir_entry_t *vm, ewokos_addr_t virtual_addr, uint32_t pages);
 
-void map_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t permissions, uint32_t pte_attr);
+int32_t map_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t permissions, uint32_t pte_attr);
 void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr);
 
 void free_page_tables(page_dir_entry_t *vm);

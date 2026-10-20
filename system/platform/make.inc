@@ -17,15 +17,15 @@ kernel_heads:
 	mkdir -p ${BUILD_DIR}/include
 	mkdir -p ${BUILD_DIR}/lib
 	mkdir -p ${BUILD_DIR}/rootfs
-	cp -r $(KERNEL_H) $(BUILD_DIR)/include/
+	cp -p $(KERNEL_H) $(BUILD_DIR)/include/
 
 ewok_heads:
 # pre-install libc headers so libs (arch/bsp) built before basic can use
 # pthread.h/sys/*.h (same set as libewoksys install_headers)
 	mkdir -p $(BUILD_DIR)/include/ewoksys $(BUILD_DIR)/include/sys
-	cp -r $(LIBEWOKSYS_DIR)/ewoksys/include/ewoksys/* $(BUILD_DIR)/include/ewoksys/
-	cp -r $(LIBEWOKSYS_DIR)/include/sys/* $(BUILD_DIR)/include/sys/
-	cp $(LIBEWOKSYS_DIR)/include/*.h $(BUILD_DIR)/include/
+	cp -Rp $(LIBEWOKSYS_DIR)/ewoksys/include/ewoksys/* $(BUILD_DIR)/include/ewoksys/
+	cp -Rp $(LIBEWOKSYS_DIR)/include/sys/* $(BUILD_DIR)/include/sys/
+	cp -p $(LIBEWOKSYS_DIR)/include/*.h $(BUILD_DIR)/include/
 
 FINAL_DIR = build_$(ARCH)
 

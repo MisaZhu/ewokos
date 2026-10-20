@@ -1896,9 +1896,14 @@ static int32_t ext3_setup_journal(ext3_t* ext3, uint32_t now) {
     /* the journal file's own blocks are accessed with RAW device IO:
      * log blocks must never be served from (or written through) the
      * metadata cache */
-    if(jbd_load(j, ext3->read_block, ext3->write_block, ext3->flush, ext3_jbd_map, ext3) != 0) {
-        free(j);
-        return -1;
+    {
+        int32_t jret = jbd_load(j, ext3->read_block, ext3->write_block,
+                ext3->flush, ext3_jbd_map, ext3);
+        if(jret != 0) {
+            ext3->journal_error = jret;
+            free(j);
+            return -1;
+        }
     }
     if(j->block_size != ext3_block_size(ext3) ||
             (uint64_t)j->maxlen * j->block_size > (uint64_t)ext3->journal_inode.i_size) {
@@ -1910,8 +1915,13 @@ static int32_t ext3_setup_journal(ext3_t* ext3, uint32_t now) {
     ext3->journal_ino = inum;
 
     /* replay committed transactions found in the log */
-    if(jbd_recover(j) != 0)
-        goto failed;
+    {
+        int32_t jret = jbd_recover(j);
+        if(jret != 0) {
+            ext3->journal_error = jret;
+            goto failed;
+        }
+    }
     ext3->recovered_txns = j->recovered_txns;
     ext3->recovered_blocks = j->recovered_blocks;
 
@@ -1988,6 +1998,9 @@ static int32_t ext3_checkpoint_cache(ext3_t* ext3) {
 int32_t ext3_commit(ext3_t* ext3) {
     if(ext3 == NULL)
         return -1;
+
+    if(ext3->readonly)
+        return 0;
 
     /* ext2 compatible mode: no journal, the deferred metadata writes
      * just go straight home (identical to the old ext2 library) */
@@ -2072,9 +2085,9 @@ int32_t ext3_init_ex(ext3_t* ext3, read_block_func_t read_block, read_blocks_fun
     return ext3_init_ex2(ext3, read_block, read_blocks, write_block, write_blocks, NULL, buffer_size);
 }
 
-int32_t ext3_init_ex2(ext3_t* ext3, read_block_func_t read_block, read_blocks_func_t read_blocks,
+static int32_t ext3_init_mode_ex2(ext3_t* ext3, read_block_func_t read_block, read_blocks_func_t read_blocks,
         write_block_func_t write_block, write_blocks_func_t write_blocks,
-        flush_func_t flush, uint32_t buffer_size) {
+        flush_func_t flush, uint32_t buffer_size, int readonly) {
     char buf[EXT3_MAX_BLOCK_SIZE];
     int32_t ret;
 
@@ -2087,6 +2100,7 @@ int32_t ext3_init_ex2(ext3_t* ext3, read_block_func_t read_block, read_blocks_fu
     ext3->write_block = write_block;
     ext3->write_blocks = write_blocks;
     ext3->flush = flush;
+    ext3->readonly = readonly ? 1 : 0;
 
     _cached_block_bitmap_blk = 0;
     _cached_block_bitmap_dirty = 0;
@@ -2133,9 +2147,10 @@ int32_t ext3_init_ex2(ext3_t* ext3, read_block_func_t read_block, read_blocks_fu
     sd_set_max_sector_index(ext3->super.s_blocks_count * (ext3_block_size(ext3) / SECTOR_SIZE));
     sd_set_buffer_size(buffer_size);
 
-    /* ext3 preferred: when the fs carries a journal, load it, replay
-     * it and journal all further metadata updates */
-    if((ext3->super.s_feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0) {
+    /* A read-only block backend cannot safely replay or mark an ext3
+     * journal. The regular read path does not require journal state. */
+    if(!ext3->readonly &&
+            (ext3->super.s_feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0) {
         int32_t jret = ext3_setup_journal(ext3, ext3_now());
         if(jret != 0) {
             ret = EXT3_ERR_JOURNAL;
@@ -2156,6 +2171,20 @@ failed:
     free(ext3->gds);
     ext3->gds = NULL;
     return ret;
+}
+
+int32_t ext3_init_ex2(ext3_t* ext3, read_block_func_t read_block, read_blocks_func_t read_blocks,
+        write_block_func_t write_block, write_blocks_func_t write_blocks,
+        flush_func_t flush, uint32_t buffer_size) {
+    return ext3_init_mode_ex2(ext3, read_block, read_blocks, write_block, write_blocks,
+            flush, buffer_size, 0);
+}
+
+int32_t ext3_init_ro_ex2(ext3_t* ext3, read_block_func_t read_block, read_blocks_func_t read_blocks,
+        write_block_func_t write_block, write_blocks_func_t write_blocks,
+        flush_func_t flush, uint32_t buffer_size) {
+    return ext3_init_mode_ex2(ext3, read_block, read_blocks, write_block, write_blocks,
+            flush, buffer_size, 1);
 }
 
 int32_t ext3_probe(read_block_func_t read_block) {
@@ -2189,7 +2218,8 @@ void ext3_quit(ext3_t* ext3) {
     if(ext3 == NULL)
         return;
 
-    (void)ext3_commit(ext3);
+    if(!ext3->readonly)
+        (void)ext3_commit(ext3);
 
     if(ext3->journal != NULL) {
         /* clean unmount: drop RECOVER and mark the fs valid (or

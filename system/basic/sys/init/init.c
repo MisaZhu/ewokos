@@ -13,30 +13,44 @@
 #include <ewoksys/wait.h>
 #include <dirent.h>
 #include <sys/shm.h>
+#include <bsp/bsp_sd.h>
 
 #include "cap_policy.h"
 
 extern void* read_fs(const char* fname, off_t* size);
 
+/*
+ * Load a program from the rootfs.  This runs in the forked child, which has
+ * its own address space: SYS_MEM_MAP windows (SD controller / RAM disk) are
+ * not inherited across fork, so the backing store must be (re)established in
+ * THIS process before read_fs().  That is the BSP's job: bsp_sd_init() both
+ * registers the libsd callbacks and maps the windows.  On q8b it re-maps the
+ * SDCC2/RAM-disk windows while reusing the card identification the kernel
+ * already published, so calling it per child is a cheap remap, not a card
+ * re-probe.
+ */
 static int32_t exec_from_sd(const char* prog) {
     off_t sz;
-    if(bsp_sd_init() != 0){
-        printf("bsp init failed\n");
+    if(bsp_sd_init() != 0) {
+        klog("init: bsp_sd_init failed (%s)\n", prog);
         return -1;
     }
-
     char* elf = read_fs(prog, &sz);
-    if(elf == NULL)
+    if(elf == NULL) {
+        klog("init: read_fs failed (%s)\n", prog);
         return -1;
+    }
 
     /* Allocate shm and copy ELF image into it */
     int shm_id = shmget(0, (int)sz, 0666);
     if(shm_id <= 0) {
+        klog("init: shmget failed (%s)\n", prog);
         free(elf);
         return -1;
     }
     uint8_t* shm_buf = (uint8_t*)shmat(shm_id, NULL, 0);
     if(shm_buf == NULL) {
+        klog("init: shmat failed (%s)\n", prog);
         shmctl(shm_id, IPC_RMID, NULL);
         free(elf);
         return -1;
@@ -45,6 +59,8 @@ static int32_t exec_from_sd(const char* prog) {
     free(elf);
 
     int res = syscall3(SYS_EXEC_ELF, (ewokos_addr_t)prog, (ewokos_addr_t)shm_id, (ewokos_addr_t)sz);
+    if(res != 0)
+        klog("init: SYS_EXEC_ELF failed %d (%s)\n", res, prog);
     /* If exec fails, clean up shm */
     shmdt(shm_buf);
     shmctl(shm_id, IPC_RMID, NULL);

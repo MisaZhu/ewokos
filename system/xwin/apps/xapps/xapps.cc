@@ -273,12 +273,18 @@ int main(int argc, char** argv) {
 	apps->setScrollerV(scrollerV);
 
 	if(_launcher) {
-		win.open(&x, -1, 0, 0, 0, 0, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT, false);
+		if(!win.open(&x, -1, 0, 0, 0, 0, "xapps", 
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT, false)) {
+			fprintf(stderr, "xapps: cannot open window\n");
+			return 1;
+		}
 	}
 	else {
-		win.open(&x, -1, 0, 0, 0, 0, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT, false);
+		if(!win.open(&x, -1, 0, 0, 0, 0, "xapps", 
+			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT, false)) {
+			fprintf(stderr, "xapps: cannot open window\n");
+			return 1;
+		}
 	}
 
 	/*show window first so the alpha background appears right away,

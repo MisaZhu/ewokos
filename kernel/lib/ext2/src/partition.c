@@ -4,44 +4,13 @@
 #include "gpt.h"
 #include "partition.h"
 
-static uint8_t _sector_buf[SECTOR_SIZE];
+#define GPT_MAX_ENTRY_ARRAY_SIZE (1024U * 1024U)
+#define EXT_SUPER_MAGIC 0xef53U
+#define EXT_FEATURE_INCOMPAT_FILETYPE 0x2U
+#define EXT_FEATURE_INCOMPAT_RECOVER 0x4U
+#define EXT_FEATURE_RO_COMPAT_SUPPORTED 0x3U
 
 static int32_t (*_read_sector)(int32_t sector, void* buf);
-
-static inline int hw_read_data(uint8_t* dest, uint32_t offset,  int size){
-    uint32_t sector = offset/SECTOR_SIZE;
-    
-    uint32_t unalign = offset%SECTOR_SIZE;
-
-    if(unalign){
-        uint32_t read_len = SECTOR_SIZE - unalign;
-        if(read_len > size)
-            read_len = size;
-
-        _read_sector(sector, _sector_buf);
-
-        memcpy(dest, _sector_buf + unalign, read_len);
-        dest += read_len;
-        size -= read_len;
-        sector++;
-    }
-
-    while(size/SECTOR_SIZE > 0){
-        _read_sector(sector, dest);
-        dest += SECTOR_SIZE;
-        size -= SECTOR_SIZE;
-        sector++;
-    }
-
-    uint32_t left = size%SECTOR_SIZE;
-
-    if(left){
-        _read_sector(sector, _sector_buf);
-        memcpy(dest, _sector_buf, left);
-    }
-
-    return size;
-}
 
 /* calculate size of entries array in bytes for specified number of entries */
 static inline int gpt_calculate_sizeof_entries(
@@ -51,7 +20,8 @@ static inline int gpt_calculate_sizeof_entries(
     uint32_t esz = hdr ? le32_to_cpu(hdr->sizeof_partition_entry) :
                  sizeof(struct gpt_entry);
 
-    if (nents == 0 || esz == 0 || SIZE_MAX/esz < nents) {
+    if (nents == 0 || esz < sizeof(struct gpt_entry) ||
+            UINT32_MAX/esz < nents) {
         printf("entries array size check failed");
         return -1;
     }
@@ -75,7 +45,7 @@ static uint64_t gpt_partition_size(const struct gpt_entry *e)
 
 static int valid_pmbr(uint8_t *firstsector)
 {
-    int i, part = 0, ret = -1; /* invalid by default */
+    int i, ret = -1; /* invalid by default */
     struct gpt_legacy_mbr *pmbr = 0;
 
     if (!firstsector)
@@ -95,7 +65,6 @@ static int valid_pmbr(uint8_t *firstsector)
              * now check if there are other partition types for
              * hybrid MBR.
              */
-            part = i;
             ret = GPT_MBR_PROTECTIVE;
             break;
         }
@@ -119,8 +88,16 @@ done:
 static int32_t read_lba(uint64_t lba,
             void *buffer, const uint32_t bytes)
 {
-    for(int i = 0 ; i < (bytes + SECTOR_SIZE - 1)/SECTOR_SIZE; i++)
-    _read_sector(lba+i, (uint8_t*)buffer + i * SECTOR_SIZE);
+    uint32_t sectors = (bytes + SECTOR_SIZE - 1U) / SECTOR_SIZE;
+
+    if (lba > 0x7fffffffULL || (sectors != 0 &&
+                sectors - 1U > 0x7fffffffU - (uint32_t)lba))
+        return -1;
+    for (uint32_t i = 0; i < sectors; ++i) {
+        if (_read_sector((int32_t)(lba + i),
+                    (uint8_t*)buffer + i * SECTOR_SIZE) != 0)
+            return -1;
+    }
     return 0;
 }
 
@@ -145,8 +122,8 @@ static int gpt_check_lba_sanity(struct gpt_header *header)
     }
 
     /* the header has to be outside usable range */
-    if (fu < GPT_PRIMARY_PARTITION_TABLE_LBA &&
-        GPT_PRIMARY_PARTITION_TABLE_LBA < lu) {
+    if (GPT_PRIMARY_PARTITION_TABLE_LBA >= fu &&
+        GPT_PRIMARY_PARTITION_TABLE_LBA <= lu) {
         printf("error: header outside of usable range\n");
         goto done;
     }
@@ -160,22 +137,26 @@ done:
 static unsigned char *gpt_read_entries(struct gpt_header *header)
 {
     uint32_t sz = 0;
-    int32_t ssz;
-
     unsigned char *ret = 0;
-    uint32_t offset;
+    uint32_t alloc_sz;
+    uint64_t lba;
 
     if (gpt_sizeof_entries(header, &sz))
         return 0;
+    if (sz > GPT_MAX_ENTRY_ARRAY_SIZE)
+        return 0;
 
-    ret = kcalloc(1, sz);
+    alloc_sz = (sz + SECTOR_SIZE - 1U) & ~(SECTOR_SIZE - 1U);
+    if (alloc_sz < sz)
+        return 0;
+
+    ret = kcalloc(1, alloc_sz);
     if (!ret)
         return 0;
 
-    offset = (uint32_t) le64_to_cpu(header->partition_entry_lba) *
-               SECTOR_SIZE;
-
-    hw_read_data(ret, offset, sz);
+    lba = le64_to_cpu(header->partition_entry_lba);
+    if (read_lba(lba, ret, alloc_sz) != 0)
+        goto fail;
     return ret;
 
 fail:
@@ -200,23 +181,48 @@ static inline struct gpt_entry *gpt_get_entry(struct gpt_label *gpt, uint32_t i)
 
 static inline int gpt_entry_is_used(const struct gpt_entry *e)
 {
-    return memcmp(&e->type, &GPT_UNUSED_ENTRY_GUID,
+    return memcmp((void*)&e->type, &GPT_UNUSED_ENTRY_GUID,
             sizeof(struct gpt_guid)) != 0;
 }
 
-static uint32_t partitions_in_use(struct gpt_label *gpt)
+static uint32_t get_le32(const uint8_t *p)
 {
-    uint32_t i, used = 0;
-
-    for (i = 0; i < gpt_get_nentries(gpt); i++) {
-        struct gpt_entry *e = gpt_get_entry(gpt, i);
-
-        if (gpt_entry_is_used(e))
-            used++;
-    }
-    return used;
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
+static int gpt_entry_is_supported_ext(const struct gpt_entry *e)
+{
+    uint8_t sector[SECTOR_SIZE];
+    uint64_t start = gpt_partition_start(e);
+    uint64_t end = gpt_partition_end(e);
+    uint32_t log_block_size;
+    uint32_t feature_incompat;
+    uint32_t feature_ro_compat;
+    uint16_t inode_size;
+    uint16_t magic;
+
+    if (start > end || end - start < 2U || start > 0x7ffffffdULL)
+        return 0;
+    if (_read_sector((int32_t)(start + 2U), sector) != 0)
+        return 0;
+
+    log_block_size = get_le32(sector + 24);
+    magic = (uint16_t)sector[56] | ((uint16_t)sector[57] << 8);
+    inode_size = (uint16_t)sector[88] | ((uint16_t)sector[89] << 8);
+    feature_incompat = get_le32(sector + 96);
+    feature_ro_compat = get_le32(sector + 100);
+
+    return magic == EXT_SUPER_MAGIC && log_block_size <= 2U &&
+            inode_size >= 128U &&
+            /* The kernel ext3 reader accepts RECOVER read-only.  Keep the
+             * partition selector consistent so an uncleanly unmounted SD
+             * rootfs is still discoverable at the next boot. */
+            (feature_incompat &
+                ~(EXT_FEATURE_INCOMPAT_FILETYPE |
+                  EXT_FEATURE_INCOMPAT_RECOVER)) == 0 &&
+            (feature_ro_compat & ~EXT_FEATURE_RO_COMPAT_SUPPORTED) == 0;
+}
 
 static struct gpt_header *gpt_read_header(uint64_t lba, unsigned char **_ents)
 {
@@ -268,15 +274,21 @@ invalid:
     kfree(header);
     kfree(ents);
 
-    printf("read header on LBA %d failed\n", lba);
+    printf("read header on LBA %llu failed\n", (unsigned long long)lba);
     return 0;
 }
 
 uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf)){
     uint32_t rootfs_start = 0;
-    uint8_t *mbr = (uint8_t*)kmalloc(SECTOR_SIZE);
+    uint8_t *mbr;
+    if (read_sector == 0)
+        return 0;
+    mbr = (uint8_t*)kmalloc(SECTOR_SIZE);
+    if (mbr == 0)
+        return 0;
     _read_sector = read_sector;
-    _read_sector(0, mbr);
+    if (_read_sector(0, mbr) != 0)
+        goto done;
 
     int mbr_type = valid_pmbr(mbr);
     if(mbr_type == 0){
@@ -287,19 +299,29 @@ uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf)){
             p++;
         }
     }else if(mbr_type == GPT_MBR_PROTECTIVE){
-        struct gpt_label gpt;
+        struct gpt_label gpt = {0};
         gpt.pheader = gpt_read_header(GPT_PRIMARY_PARTITION_TABLE_LBA, &gpt.ents);
+        if (gpt.pheader == 0 || gpt.ents == 0)
+            goto done;
 
-        int n = partitions_in_use(&gpt);
-        for(int i = 0; i < n; i++){
+        uint32_t n = gpt_get_nentries(&gpt);
+        for(uint32_t i = 0; i < n; i++){
             struct gpt_entry *e = gpt_get_entry(&gpt, i);
-            if(memcmp(e, &GPT_ROOTFS_ENTRY_TYPE, sizeof(struct gpt_guid)) == 0){
-                rootfs_start = gpt_partition_start(e);
+            uint64_t start = gpt_partition_start(e);
+            if(gpt_entry_is_used(e) &&
+                    memcmp(e, &GPT_ROOTFS_ENTRY_TYPE,
+                        sizeof(struct gpt_guid)) == 0 &&
+                    gpt_partition_size(e) != 0 &&
+                    start <= 0x7fffffffULL &&
+                    gpt_entry_is_supported_ext(e)){
+                rootfs_start = (uint32_t)start;
+                break;
             }
         }
         kfree(gpt.ents);
         kfree(gpt.pheader);
     }
+done:
     kfree(mbr);
     return rootfs_start;
 }

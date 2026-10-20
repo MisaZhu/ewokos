@@ -17,6 +17,7 @@
 */
 #include <string.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 #include <tinyjson/tinyjson.h>
 #include <graph/graph_png.h>
 #include <displayman/displayman.h>
@@ -214,8 +215,10 @@ int main(int argc, char** argv) {
     const char* display_man = "/dev/displayman";
 
     x_t x;
-    if(x_init(&x, display_man) != 0)
+    if(x_init(&x, display_man) != 0) {
+        klog("xserverd: cannot initialize displays via %s\n", display_man);
         return -1;
+    }
 
     cursor_init("default", &x.cursor);
     x_load_theme("default", &x.config.theme);
@@ -237,8 +240,9 @@ int main(int argc, char** argv) {
       handlers and the loop_step run concurrently: the server state lock
       must be ready before the first request lands*/
     pthread_mutex_init(&x_server_lock, NULL);
-    device_run(&dev, mnt_point, FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, x.config.multi_task);
+    int run_ret = device_run(&dev, mnt_point,
+            FS_TYPE_CHAR | FS_TYPE_ANNOUNIMOUS, 0666, x.config.multi_task);
     pthread_mutex_destroy(&x_server_lock);
     x_close(&x);
-    return 0;
+    return run_ret;
 }

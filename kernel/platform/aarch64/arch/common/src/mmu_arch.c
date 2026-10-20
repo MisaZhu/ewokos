@@ -168,7 +168,7 @@ page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t vir
     l3_table = (page_table_entry_t*)P2V(pte_get_address(&vm[root_index]) << PAGE_SHIFT);
     if(l3_table[l3_index].EntryType == 0)
         return NULL;
-    return l3_table;
+    return &l3_table[l3_index];
 #else
     page_table_entry_t *l2_table = 0;
     page_table_entry_t *l3_table = 0;
@@ -185,7 +185,7 @@ page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t vir
     l3_table = (page_table_entry_t*)P2V(pte_get_address(&l2_table[l2_index]) << PAGE_SHIFT);
     if(l3_table[l3_index].EntryType == 0)
         return NULL;
-    return l3_table; 	
+    return &l3_table[l3_index];
 #endif
 }
 

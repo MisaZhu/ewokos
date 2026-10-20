@@ -11,7 +11,8 @@ int sys_get_sys_info(sys_info_t* info) {
         return -1;
 
     memset(info, 0, sizeof(sys_info_t));
-    int ret = syscall1(SYS_GET_SYS_INFO, (ewokos_addr_t)info);
+    int ret = syscall2(SYS_GET_SYS_INFO, (ewokos_addr_t)info,
+            (ewokos_addr_t)sizeof(sys_info_t));
     if(ret < 0)
         return ret;
 

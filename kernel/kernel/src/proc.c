@@ -358,7 +358,7 @@ int32_t  proc_childof(proc_t* proc, proc_t* parent) {
 }
 
 proc_t* proc_get(int32_t pid) {
-    if(pid < 0 || pid >= _kernel_config.max_task_num)
+    if(_task_table == NULL || pid < 0 || pid >= _kernel_config.max_task_num)
         return NULL;
 
     proc_t* p = _task_table[pid];
@@ -472,14 +472,37 @@ bool user_ptr_ok(proc_t* proc, ewokos_addr_t ptr, ewokos_addr_t size) {
     return true;
 }
 
-static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
+static int32_t map_stack(proc_t* proc, ewokos_addr_t* stacks,
+        ewokos_addr_t base, uint32_t pages, uint32_t initial_pages) {
+    uint32_t first;
     uint32_t i;
-    for(i=0; i<pages; i++) {
-        stacks[i] = (ewokos_addr_t)kalloc_page();
-        map_page(proc->space->vm,
-            base + PAGE_SIZE*i,
-            V2P(stacks[i]),
-            AP_RW_RW, PTE_ATTR_WRBACK);
+
+    if(initial_pages > pages)
+        initial_pages = pages;
+    first = pages - initial_pages;
+    memset(stacks, 0, pages * sizeof(ewokos_addr_t));
+
+    /*
+     * Stack virtual ranges are reserved in full, but AArch64 worker stacks
+     * only need a few top pages initially. Missing pages grow through the
+     * existing user translation-fault path as the stack moves downward.
+     * Build the initial mapping transactionally: publishing V2P(NULL) after
+     * kalloc exhaustion creates an address-size-fault PTE (0xFFC080000000 on
+     * q8b) and turns a recoverable OOM into a nested kernel abort.
+     */
+    for(i=first; i<pages; i++) {
+        void* page = kalloc_page();
+        if(page == NULL)
+            goto failed;
+        memset(page, 0, PAGE_SIZE);
+        if(map_page_ref(proc->space->vm,
+                    base + PAGE_SIZE*i,
+                    V2P(page),
+                    AP_RW_RW, PTE_ATTR_WRBACK) != 0) {
+            kfree_page(page);
+            goto failed;
+        }
+        stacks[i] = (ewokos_addr_t)page;
         arch_mark_stack_pte_noexec(proc->space->vm, base + PAGE_SIZE*i);
     }
     /* Descriptor publication is arch-specific: aarch64 walks tables as
@@ -487,13 +510,27 @@ static void map_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, u
      * walks non-cacheable and its flush_tlb_nosweep() does the full D-cache
      * publish. Either way the fresh stack PTEs are visible to the walker. */
     flush_tlb_nosweep();
+    return 0;
+
+failed:
+    while(i > first) {
+        i--;
+        if(stacks[i] != 0) {
+            unmap_page_ref(proc->space->vm, base + PAGE_SIZE*i);
+            stacks[i] = 0;
+        }
+    }
+    flush_tlb_nosweep();
+    return -1;
 }
 
 static void unmap_stack(proc_t* proc, ewokos_addr_t* stacks, ewokos_addr_t base, uint32_t pages) {
     uint32_t i;
     for(i=0; i<pages; i++) {
-        unmap_page(proc->space->vm, base + PAGE_SIZE*i);
-        kfree_page((void*)stacks[i]);
+        ewokos_addr_t vaddr = base + PAGE_SIZE*i;
+        if(resolve_phy_address(proc->space->vm, vaddr) != 0)
+            unmap_page_ref(proc->space->vm, vaddr);
+        stacks[i] = 0;
     }
     /* unmap_page published the invalid descriptor per-line: TLB-only. */
     flush_tlb_nosweep();
@@ -524,9 +561,18 @@ ewokos_addr_t thread_stack_alloc(proc_t* proc) {
         proc->space->thread_stacks[i].stacks = kmalloc(THREAD_STACK_PAGES*sizeof(void*));
     if(proc->space->thread_stacks[i].stacks == NULL)
         return 0;
+#ifdef __aarch64__
+    const uint32_t initial_pages = 4U;
+#else
+    const uint32_t initial_pages = THREAD_STACK_PAGES;
+#endif
+    if(map_stack(proc, proc->space->thread_stacks[i].stacks,
+                base, pages, initial_pages) != 0) {
+        kfree(proc->space->thread_stacks[i].stacks);
+        proc->space->thread_stacks[i].stacks = NULL;
+        return 0;
+    }
     proc->space->thread_stacks[i].base = base;
-    memset(proc->space->thread_stacks[i].stacks, 0, THREAD_STACK_PAGES*sizeof(void*));
-    map_stack(proc, proc->space->thread_stacks[i].stacks, base, pages);
     return base;
 }
 
@@ -1286,14 +1332,15 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
     proc_update_vsyscall(proc);
 }
 
-static inline void proc_init_user_stack(proc_t* proc) {
+static inline int32_t proc_init_user_stack(proc_t* proc) {
     if(proc->info.type == TASK_TYPE_THREAD) {
         proc->thread_stack_base = thread_stack_alloc(proc);
+        return proc->thread_stack_base != 0 ? 0 : -1;
     }
     else {
         ewokos_addr_t base =  proc_get_user_stack_base(proc);
         uint32_t pages = proc_get_user_stack_pages(proc);
-        map_stack(proc, proc->space->user_stack, base, pages);
+        return map_stack(proc, proc->space->user_stack, base, pages, pages);
     }
 }
 
@@ -1848,7 +1895,22 @@ proc_t *proc_create(int32_t type, proc_t* parent) {
         strcpy(proc->info.cmd, parent->info.cmd);
     }
 
-    proc_init_user_stack(proc);
+    if(proc_init_user_stack(proc) != 0) {
+        if(type == TASK_TYPE_PROC) {
+            flush_tlb_asid(proc_space_asid(proc->space));
+            free_page_tables(proc->space->vm);
+            _proc_vm_mark[proc->space->pde_index] = 0;
+            kfree(proc->space);
+        }
+        else {
+            proc->space->refs--;
+        }
+        proto_release(&proc->ipc_res.data);
+        cap_cnode_init(&proc->cnode);
+        _task_table[index] = NULL;
+        kfree(proc);
+        return NULL;
+    }
     proc->info.start_sec = _kernel_info.uptime_sec;
     CONTEXT_INIT(proc->ctx);
 

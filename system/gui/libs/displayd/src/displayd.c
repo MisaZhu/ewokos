@@ -5,6 +5,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/vdevice.h>
+#include <ewoksys/klog.h>
 #include <sys/shm.h>
 #include <ewoksys/shm.h>
 #include <display/display.h>
@@ -982,18 +983,31 @@ int fbdisplayd_run(displayd_t* fbdisplayd, const char* mnt_name,
     _rotate = G_ROTATE_0;
 
     int32_t index = displayman_add_dev("/dev/displayman", mnt_name, display_index);
-    if(index < 0)
+    if(index < 0) {
+        klog("fbdisplayd: displayman rejected %s index %u\n",
+                mnt_name, display_index);
         return -1;
+    }
     read_config(conf_file, index, &w, &h, &dep, &_rotate, &_zoom);
 
     disp_shm_t shm;
     shm.shm = NULL;
-    if(fbdisplayd->init(w, h, dep) != 0)
+    if(fbdisplayd->init(w, h, dep) != 0) {
+        klog("fbdisplayd: hardware init failed for %s\n", mnt_name);
         return -1;
+    }
     disp_get_info();
-    
-    if(disp_shm_init(&shm) != 0)
+    if(_fbinfo.width == 0 || _fbinfo.height == 0 || _fbinfo.depth == 0) {
+        klog("fbdisplayd: invalid display geometry %ux%u bpp=%u\n",
+                _fbinfo.width, _fbinfo.height, _fbinfo.depth);
         return -1;
+    }
+    
+    if(disp_shm_init(&shm) != 0) {
+        klog("fbdisplayd: framebuffer shm allocation failed (%ux%u)\n",
+                _zwidth, _zheight);
+        return -1;
+    }
 
     vdevice_t dev;
     memset(&dev, 0, sizeof(vdevice_t));
@@ -1017,9 +1031,11 @@ int fbdisplayd_run(displayd_t* fbdisplayd, const char* mnt_name,
     dev.extra_data = &shm;
     _cur_shm = &shm;
 
-    device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666, false);
+    int run_ret = device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666, false);
+    if(run_ret != 0)
+        klog("fbdisplayd: device_run failed for %s (%d)\n", mnt_name, run_ret);
     shmdt(shm.shm);
     if(shm.ctrl != NULL && shm.ctrl != (void*)-1)
         shmdt(shm.ctrl);
-    return 0;
+    return run_ret;
 }

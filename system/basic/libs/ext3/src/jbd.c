@@ -20,6 +20,7 @@
 #define JSB_OFF_SEQUENCE	0x18
 #define JSB_OFF_START		0x1C
 #define JSB_OFF_ERRNO		0x20
+#define JSB_OFF_COMPAT		0x24
 #define JSB_OFF_INCOMPAT	0x28
 
 /* compile-time guards: the raw jsb image must fit a max-size block */
@@ -111,7 +112,7 @@ int32_t jbd_load(jbd_t* j, jbd_read_block_func_t read_block, jbd_write_block_fun
 	j->ctx = ctx;
 
 	if(j->read_block == NULL || j->write_block == NULL || j->map == NULL)
-		return -1;
+		return -10;
 
 	/* journal superblock lives in journal block 0; read it directly:
 	 * jbd_log_read() bounds-checks against j->maxlen, which is only
@@ -119,15 +120,15 @@ int32_t jbd_load(jbd_t* j, jbd_read_block_func_t read_block, jbd_write_block_fun
 	{
 		uint32_t sb_fs_block = 0;
 		if(j->map(j->ctx, 0, &sb_fs_block) != 0)
-			return -1;
+			return -11;
 		if(j->read_block((int32_t)sb_fs_block, j->sb) != 0)
-			return -1;
+			return -12;
 	}
 
 	if(jbd_check_header(j->sb, &blocktype, &sequence) != 0)
-		return -1;
+		return -13;
 	if(blocktype != JBD_SUPERBLOCK_V1 && blocktype != JBD_SUPERBLOCK_V2)
-		return -1;
+		return -14;
 	j->format_version = blocktype - JBD_SUPERBLOCK_V1 + 1;
 
 	blocksize = jbd_get_be32(j->sb, JSB_OFF_BLOCKSIZE);
@@ -136,24 +137,50 @@ int32_t jbd_load(jbd_t* j, jbd_read_block_func_t read_block, jbd_write_block_fun
 	start = jbd_get_be32(j->sb, JSB_OFF_START);
 
 	if(blocksize != EXT3_MIN_BLOCK_SIZE && blocksize != 2048 && blocksize != EXT3_MAX_BLOCK_SIZE)
-		return -1;
+		return -15;
 	if(blocksize > JBD_MAX_BLOCK_SIZE)
-		return -1;
+		return -16;
 	j->block_size = blocksize;
 
 	if(maxlen < JBD_MIN_JOURNAL_BLOCKS)
-		return -1;
-	if(first == 0 || first >= maxlen || first > 8) /* log starts right after the jsb */
-		return -1;
+		return -17;
+	/* Linux accepts any first log block in the journal range. */
+	if(first == 0 || first >= maxlen)
+		return -18;
 	j->maxlen = maxlen;
 	j->first = first;
 
 	if(j->format_version >= 2) {
+		uint32_t compat = jbd_get_be32(j->sb, JSB_OFF_COMPAT);
 		incompat = jbd_get_be32(j->sb, JSB_OFF_INCOMPAT);
-		/* only plain (v1-style) journals are supported: no 64bit tags,
-		 * no checksums, no fast-commit */
-		if(incompat & ~JBD_FEATURE_INCOMPAT_REVOKE)
-			return -1;
+		/* 64-bit tags and fast-commit change the tag/log layout.  Async
+		 * commit does not change the tag/log geometry. */
+		if(incompat & ~(JBD_FEATURE_INCOMPAT_REVOKE |
+				JBD_FEATURE_INCOMPAT_ASYNC_COMMIT |
+				JBD_FEATURE_INCOMPAT_64BIT |
+				JBD_FEATURE_INCOMPAT_CSUM_V2 |
+				JBD_FEATURE_INCOMPAT_CSUM_V3 |
+				JBD_FEATURE_INCOMPAT_FAST_COMMIT))
+			return -19;
+		if(incompat & (JBD_FEATURE_INCOMPAT_64BIT |
+				JBD_FEATURE_INCOMPAT_FAST_COMMIT))
+			return -20;
+		/* EwokOS currently writes the classic unchecksummed descriptor
+		 * format.  A clean Linux journal can be downgraded in place: no
+		 * transaction is pending, so clearing checksum flags cannot discard
+		 * committed data.  A dirty checksummed journal must be recovered by
+		 * Linux/e2fsck instead of being replayed without verification. */
+		if((incompat & (JBD_FEATURE_INCOMPAT_CSUM_V2 |
+				JBD_FEATURE_INCOMPAT_CSUM_V3)) != 0 || (compat & 1U) != 0) {
+			if(start != 0)
+				return -21;
+			jbd_set_be32(j->sb, JSB_OFF_COMPAT, compat & ~1U);
+			jbd_set_be32(j->sb, JSB_OFF_INCOMPAT,
+				incompat & ~(JBD_FEATURE_INCOMPAT_CSUM_V2 |
+				JBD_FEATURE_INCOMPAT_CSUM_V3));
+			if(jbd_write_super(j) != 0)
+				return -22;
+		}
 	}
 
 	if(start == 0) {
@@ -163,7 +190,7 @@ int32_t jbd_load(jbd_t* j, jbd_read_block_func_t read_block, jbd_write_block_fun
 	}
 	else {
 		if(start < j->first || start >= j->maxlen)
-			return -1;
+			return -21;
 		j->head = start; /* fixed up by recovery */
 		j->next_sequence = jbd_get_be32(j->sb, JSB_OFF_SEQUENCE);
 	}

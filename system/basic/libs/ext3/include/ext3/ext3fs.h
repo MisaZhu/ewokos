@@ -32,6 +32,15 @@ int32_t ext3_init_ex2(ext3_t* ext3, read_block_func_t read_block, read_blocks_fu
 		write_block_func_t write_block, write_blocks_func_t write_blocks,
 		flush_func_t flush, uint32_t buffer_size);
 
+/* Read-only initialization leaves an ext3 journal untouched. */
+int32_t ext3_init_ro_ex2(ext3_t* ext3, read_block_func_t read_block, read_blocks_func_t read_blocks,
+		write_block_func_t write_block, write_blocks_func_t write_blocks,
+		flush_func_t flush, uint32_t buffer_size);
+
+static inline int ext3_is_readonly(const ext3_t* ext3) {
+	return ext3 != NULL && ext3->readonly != 0;
+}
+
 /*
  * Probe the filesystem type on the raw block device.  ext3 (with journal)
  * is checked first; only a filesystem without a journal is classified as

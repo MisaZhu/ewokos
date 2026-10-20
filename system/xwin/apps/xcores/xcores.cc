@@ -149,7 +149,7 @@ protected:
 		}
 	}
 
-	/*get_mem_size_desc truncates to uint32_t, overflows with >=4GB mem*/
+	/* get_mem_size_desc accepts the native address width on AArch64. */
 	static const char* memSizeStr(uint64_t size, char* ret, uint32_t len) {
 		if(size >= 1024ULL*1024*1024)
 			snprintf(ret, len, "%u.%uG", (uint32_t)(size>>30),

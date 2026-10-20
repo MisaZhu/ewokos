@@ -12,7 +12,7 @@
  * map_pages adds the given virtual to physical memory mapping to the given
  * virtual memory. A mapping can map multiple pages.
  */
-void map_pages(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t pstart, ewokos_addr_t pend, uint32_t permissions, uint32_t pte_attr) {
+int32_t map_pages(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t pstart, ewokos_addr_t pend, uint32_t permissions, uint32_t pte_attr) {
     ewokos_addr_t physical_current = 0;
     ewokos_addr_t virtual_current = 0;
 
@@ -25,13 +25,17 @@ void map_pages(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t pstart, 
     for (physical_current = physical_start; 
             physical_current < physical_end;
             physical_current += PAGE_SIZE) {
-        map_page(vm,  virtual_current, physical_current, permissions, pte_attr);
+        if(map_page(vm, virtual_current, physical_current,
+                    permissions, pte_attr) != 0)
+            return -1;
         virtual_current += PAGE_SIZE;
     }
+    return 0;
 }
 
-void map_pages_size(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t pstart, uint32_t size, uint32_t permissions, uint32_t pte_attr) {
-    map_pages(vm, vaddr, pstart, pstart + size, permissions, pte_attr);
+int32_t map_pages_size(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t pstart, uint32_t size, uint32_t permissions, uint32_t pte_attr) {
+    return map_pages(vm, vaddr, pstart, pstart + size,
+            permissions, pte_attr);
 }
 
 void unmap_pages(page_dir_entry_t *vm, ewokos_addr_t virtual_addr, uint32_t pages) {
@@ -46,11 +50,13 @@ inline ewokos_addr_t resolve_kernel_address(page_dir_entry_t *vm, ewokos_addr_t 
     return P2V(phy);
 }
 
-inline void map_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t permissions, uint32_t pte_attr) {
-    map_page(vm, vaddr, paddr, permissions, pte_attr);
+inline int32_t map_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t permissions, uint32_t pte_attr) {
+    if(map_page(vm, vaddr, paddr, permissions, pte_attr) != 0)
+        return -1;
     uint32_t i = page_ref_index(paddr);
     if(i < _pages_ref.max)
         _pages_ref.refs[i]++;
+    return 0;
 }
 
 inline void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t virtual_addr) {
