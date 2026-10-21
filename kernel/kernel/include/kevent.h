@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <ewokos_config.h>
+#include <procinfo.h>
 
 enum {
 	KEV_NONE = 0,
@@ -88,8 +89,9 @@ typedef union {
 /*
  * Crash snapshot handed to the core proc when a user proc dies from an
  * exception. Addresses use ewokos_addr_t so 64-bit targets (aarch64) keep the
- * full pc/sp/fault address instead of truncating to 32 bits. The proc name is
- * intentionally not carried here to keep the queued event small.
+ * full pc/sp/fault address instead of truncating to 32 bits. The proc command
+ * is snapshotted from procinfo.cmd so the crash log can name the dead proc even
+ * after the kernel has torn its procinfo down.
  */
 typedef struct {
 	int32_t       pid;
@@ -99,6 +101,7 @@ typedef struct {
 	ewokos_addr_t fault_addr; /* faulting address (data abort) */
 	ewokos_addr_t pc;
 	ewokos_addr_t sp;
+	char          cmd[PROC_INFO_MAX_CMD_LEN]; /* proc command, NUL terminated */
 	kev_regs_t    regs;       /* full register dump, arch specific */
 } kev_core_dump_t;
 

@@ -316,6 +316,30 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
     }
 
     mutex_lock(&tap->lock);
+    /*
+     * Capacity guard: a previous non-blocking flush can leave the batch full
+     * while the device is TX-congested. Make room WITHOUT blocking; if the
+     * device still will not take it, report TX_AGAIN so tcp_output retains the
+     * segment in its retransmit queue (it is re-sent from there, and the batch
+     * rides the next intr_step() flush). Never park here and never append past
+     * ETHER_TAP_BATCH_BUF_SIZE: the old blocking batch-full flush held
+     * tap->lock across the full ETHER_TAP_TX_WAIT_MS * ETHER_TAP_TX_WR_RETRY_MAX
+     * (~800ms) POLLOUT park, and the main thread's inbound RX drain
+     * (ether_tap_read, trylock) failed for that whole window. The peer's ACKs
+     * then piled in the wl0 RX queue, overflowed and were dropped, so snd.una
+     * never advanced and the send window collapsed -- sshd's write stayed
+     * EAGAIN until the client happened to send something (the raspi5 "output
+     * stalls halfway until I type" bug). A nowait flush bounds the tap->lock
+     * hold to a single write() attempt, so RX is drained every round.
+     */
+    if (tap->batch_len + 2 + flen > ETHER_TAP_BATCH_BUF_SIZE) {
+        ether_tap_flush_locked(tap, 1);
+        if (tap->batch_len + 2 + flen > ETHER_TAP_BATCH_BUF_SIZE) {
+            mutex_unlock(&tap->lock);
+            TRACE();
+            return NET_DEVICE_TX_AGAIN;
+        }
+    }
     /* Append [u16 len][frame] to the batch */
     tap->batch[tap->batch_len] = (uint8_t)(flen & 0xff);
     tap->batch[tap->batch_len + 1] = (uint8_t)((flen >> 8) & 0xff);
@@ -324,13 +348,15 @@ ether_tap_write(struct net_device *dev, const uint8_t *frame, size_t flen)
     tap->batch_frames++;
 
     if (tap->batch_frames >= ETHER_TAP_BATCH_MAX_FRAMES) {
-        ret = ether_tap_flush_locked(tap, 0);
+        /*
+         * Push a full batch promptly, but non-blocking: on congestion it is
+         * retained and rides the next intr_step() flush instead of parking
+         * here and starving the main thread's inbound RX drain. Report
+         * TX_AGAIN so upper layers back off; the batch content is retained.
+         */
+        ret = ether_tap_flush_locked(tap, 1);
         mutex_unlock(&tap->lock);
         TRACE();
-        /*
-         * Report TX_AGAIN on congestion so upper layers back off; the batch
-         * content is retained and goes out on the next flush.
-         */
         return (ret == 0) ? (ssize_t)flen : ret;
     }
     mutex_unlock(&tap->lock);

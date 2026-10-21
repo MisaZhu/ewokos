@@ -251,8 +251,19 @@ void intr_step(void) {
         /*
          * Push any coalesced tap frames left by one-off senders (ARP replies,
          * ICMP, short UDP) so they do not wait for the next bulk writer.
+         *
+         * tryflush, not flush: this is the main thread, and the RX drain above
+         * runs BEFORE this in the same round. The blocking flush parks up to
+         * ETHER_TAP_TX_WAIT_MS * ETHER_TAP_TX_WR_RETRY_MAX (~800ms) on wl0 TX
+         * backpressure, delaying the NEXT round's inbound drain by that whole
+         * window -- ACKs pile in the wl0 RX queue, overflow and collapse the
+         * send window (the "sshd output stalls halfway until the client types"
+         * bug). A congested batch is retained and retried every round (<= one
+         * cadence period), the correct back-off; tcp_inflight_pending() pins
+         * that cadence to the busy 400us while segments are still unacked, so
+         * TX resumes within one busy round of the device becoming writable.
          */
-        net_tx_flush();
+        net_tx_tryflush();
 
         kernel_tic(NULL, NULL);
 
