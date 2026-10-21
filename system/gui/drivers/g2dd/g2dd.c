@@ -1802,6 +1802,8 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 			ctexreq.ctex_h[i]      = req.ctex_h[i];
 			ctexreq.ctex_tiling[i] = req.ctex_tiling[i];
 			ctexreq.ctex_ub_pad[i] = req.ctex_ub_pad[i];
+			ctexreq.ctex_depth[i]       = req.ctex_depth[i];
+			ctexreq.ctex_arrstride64[i] = req.ctex_arrstride64[i];
 			use_ctex = 1;
 		}
 	}
