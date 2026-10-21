@@ -485,7 +485,7 @@ typedef struct {
    program's own linker pass, so the client looks a uniform name up in the
    COMPUTE stage too when packing the per-draw blob. */
 #define G2D_PGL_PROGRAM_MAGIC   0x33445047u   /* 'G','P','D','3' little-endian */
-#define G2D_PGL_PROGRAM_VERSION 4u
+#define G2D_PGL_PROGRAM_VERSION 5u
 #define G2D_PGL_MAX_VS_ATTRS    64            /* mirrors V3D_MAX_VS_INPUTS */
 #define G2D_PGL_MAX_FS_INPUTS   64            /* mirrors V3D_MAX_FS_INPUTS */
 
@@ -540,6 +540,13 @@ typedef struct {
 	uint32_t cs_num_uniforms;
 	uint32_t cs_local_size[3];    /* workgroup shape */
 	uint32_t cs_shared_size;      /* bytes of shared memory (0 expected) */
+	/* VERSION 5: bytes/thread of register-spill scratch the compute kernel
+	 * needs (0 = no spill).  mesa's allocator spills heavy kernels (the wave
+	 * faithful ocean emits QUNIFORM_SPILL_OFFSET / _SIZE_PER_THREAD); the daemon
+	 * allocates a qpu_count*4*cs_spill_size DMA scratch buffer and resolves those
+	 * two uniform slots from it so the kernel dispatches on the GPU instead of
+	 * being declined to the CPU. */
+	uint32_t cs_spill_size;
 	uint8_t  cs_threads;          /* compute SIMD dispatch width */
 	uint8_t  cs_single_seg;
 	uint8_t  cs_is_geom;          /* 1 = gouraud geom, 2 = textured geom */
