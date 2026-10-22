@@ -344,6 +344,15 @@ typedef struct g2d_pgl_ctex_s {
 	uint32_t      ctex_h[G2D_PGL_MAX_TEX_UNITS];
 	uint8_t       ctex_tiling[G2D_PGL_MAX_TEX_UNITS];
 	uint8_t       ctex_ub_pad[G2D_PGL_MAX_TEX_UNITS];
+	/* Cubemap / 2D-array support: ctex_depth[i] is the array layer count
+	   (0 or 1 = a plain single-layer 2D image; 6 = a cubemap staged as a
+	   6-layer 2D array, which is how mesa lowers a samplerCube TMU fetch).
+	   ctex_arrstride64[i] is the per-layer tiled size in 64-byte units
+	   (array_stride_64_byte_aligned in the V3D texture-state record); the
+	   layers are stored contiguously at phy + layer*arrstride64*64.  Both
+	   are 0 for a plain 2D image, so its record stays byte-identical. */
+	uint8_t       ctex_depth[G2D_PGL_MAX_TEX_UNITS];
+	uint32_t      ctex_arrstride64[G2D_PGL_MAX_TEX_UNITS];
 } g2d_pgl_ctex_t;
 
 /* portablegl GPU offload request, used by BOTH PGL_CLEAR and PGL_DRAW.
@@ -438,6 +447,13 @@ typedef struct {
 	uint32_t     ctex_stride[G2D_PGL_MAX_TEX_UNITS];
 	uint8_t      ctex_tiling[G2D_PGL_MAX_TEX_UNITS];
 	uint8_t      ctex_ub_pad[G2D_PGL_MAX_TEX_UNITS];
+	/* Cubemap / 2D-array staging (see g2d_pgl_ctex_t): ctex_depth[i] is the
+	   array layer count (0/1 = plain 2D, 6 = cubemap-as-2D-array) and
+	   ctex_arrstride64[i] the per-layer tiled size in 64-byte units.  The
+	   ctex[i] canvas size must then cover the WHOLE depth*arrstride64*64
+	   allocation.  Both are 0 for a plain 2D image. */
+	uint8_t      ctex_depth[G2D_PGL_MAX_TEX_UNITS];
+	uint32_t     ctex_arrstride64[G2D_PGL_MAX_TEX_UNITS];
 } g2d_pgl_req_t;
 
 /* --- On-device-compiled shader program upload (G2D_DEV_CNTL_PGL_PROGRAM) ----

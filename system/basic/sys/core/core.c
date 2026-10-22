@@ -470,8 +470,8 @@ static void do_proc_core_dump(kevent_t* kev) {
     char buf[2048];
     int cap = (int)sizeof(buf);
     int off = dump_appendf(buf, cap, 0,
-            "[coredump] pid=%d core=%u reason=%s status=0x%x fault=0x%llx pc=0x%llx sp=0x%llx\n",
-            d->pid, d->core, core_dump_reason_str(d->reason), d->status,
+            "[coredump] pid=%d(%s) core=%u reason=%s status=0x%x fault=0x%llx pc=0x%llx sp=0x%llx\n",
+            d->pid, d->cmd, d->core, core_dump_reason_str(d->reason), d->status,
             (unsigned long long)d->fault_addr,
             (unsigned long long)d->pc,
             (unsigned long long)d->sp);

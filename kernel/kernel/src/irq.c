@@ -245,6 +245,10 @@ static void push_proc_core_dump(proc_t* cproc, context_t* ctx, uint32_t reason,
     dump.pc = (ewokos_addr_t)ctx->pc;
     dump.sp = (ewokos_addr_t)ctx->sp;
 
+    /* snapshot the proc command so the crash log can name the dead proc */
+    sstrncpy(dump.cmd, cproc->info.cmd, PROC_INFO_MAX_CMD_LEN - 1);
+    dump.cmd[PROC_INFO_MAX_CMD_LEN - 1] = 0;
+
     /* snapshot the full register file, mirroring dump_ctx()'s arch layout */
     arch_fill_core_dump_regs(&dump, ctx);
 
