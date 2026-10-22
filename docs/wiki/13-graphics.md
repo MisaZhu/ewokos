@@ -221,20 +221,27 @@ Four pieces, all under
   single engine adapter (`src/engine/pgl_engine.c`, the only TU allowed to
   include `portablegl.h`) over the rasterizer. An app links just
   `-lEGL -lGLESv2` (plus `glcommon` and the system X/graph libs);
-  `portablegl` and `v3dcompiler` are MRI-merged into `libGLESv2.a` as
-  **private intermediates** and stay invisible to it.
+  `portablegl` and `pglcompiler` (plus the machine's GPU back end) are
+  MRI-merged into `libGLESv2.a` as **private intermediates** and stay
+  invisible to it.
 - **`portablegl`** (`libs/gles/portablegl`) — a compact, self-contained
   OpenGL ES 2.x-style rasterizer (vertex/fragment shaders, VBOs, textures,
   depth test) that renders into a `graph_t`-style framebuffer. This is the
   engine behind the GLES API.
 - **`glcommon`** (`libs/glcommon`) — the matrix/vector math and GL helpers the
   apps share.
-- **`v3dcompiler`** (`libs/gles/v3dcompiler`) — a **vendored copy of mesa's
-  Broadcom V3D compiler back end** (upstream pin `f45825a0`, recorded in
-  [VENDORED.txt](../../projects/soft3d/libs/gles/v3dcompiler/VENDORED.txt)).
-  It runs mesa's real `GLSL → NIR → VIR → QPU` pipeline to compile GLSL ES
-  3.10 shaders into V3D 7.1 QPU machine code **on the device**, built as
-  `libv3dcompiler.a`.
+- **`pglcompiler`** (`libs/gles/pglcompiler`) — a **vendored copy of mesa's
+  GLSL → NIR compiler front end** (upstream pin `f45825a0`, recorded in
+  [VENDORED.txt](../../projects/soft3d/libs/gles/pglcompiler/VENDORED.txt)),
+  shared by every GPU-backed board behind the GPU-neutral `pglcompiler.h`
+  contract (`pglc_*`). The NIR → machine-code **back end** lives with each
+  machine, next to its GPU driver: `machines/raspi5|raspix/system/libs/`
+  `v3dcompiler` (mesa Broadcom `NIR → VIR → QPU`, V3D 4.2/7.1) and
+  `machines/q8b/system/libs/adrenocompiler` (mesa freedreno `NIR → ir3`,
+  Adreno 690). The machine's `make.inc` exports `PGL_G3D=yes` and points
+  `PGL_G3D_COMPILER_DIR` at its back end; the gles Makefile builds front and
+  back end into private archives so GLSL ES 3.10 shaders are compiled to GPU
+  machine code **on the device**.
 
 On ordinary targets the GLES calls rasterize on the CPU — `portablegl` with
 NEON where available, driven by the interpreter in `gles/src/glsl` — and the
@@ -244,12 +251,13 @@ engine adapter picks CPU vs GPU per draw, so no app-side change is needed.
 The catch: the V3D 7.1 *binner* cannot rasterize real primitives on BCM2712,
 so `soft3d` does the whole transform → light → raster in **CSD compute
 shaders** compiled by the vendored mesa compiler, dispatched through the same
-`g2dd` daemon you met in ② (gated by `PGL_G3D=yes`, exported only from
-`machines/raspi5/system/make.inc`):
+`g2dd` daemon you met in ② (gated by `PGL_G3D=yes`, exported from the GPU
+machines' `machines/<hw>/system/make.inc`):
 
 ```
 portablegl (pgl_g3d)  →  g2dclient  →  g2dd  →  bsp_g3d  →  vc_pgl3d
       →  machines/raspi5 .../videocore/src/v3d_3d.c  →  V3D CSD dispatch
+      →  machines/q8b    .../adreno/src/adreno_3d.c  →  Adreno CP_EXEC_CS
 ```
 
 The compute rasterizer runs in **two passes**: pass 1 transforms and lights
@@ -268,10 +276,9 @@ back to CPU.
 
 The `soft3d` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`,
 `imgui_demo`) and the `shadertoy`-style fullscreen-compute demos exercise
-these paths. Because a shader bug on real QPU hardware is painful to debug,
-the compiler is first validated on the host by the `dump_uniforms` oracle
-(`make -f Makefile.host` under `libs/gles/v3dcompiler`), which compiles every
-shader and checks the QPU output before it ever runs on the Pi.
+these paths. The same two-pass kernels (`pglcompiler/include/geom_raster_cs.h`)
+are what the Radxa Dragon Q8B build feeds through the Adreno back end; that
+port is compile-verified only — no SC8280XP hardware run yet.
 
 ## 13.3 Follow Along: Run a Graphics Program
 
@@ -320,8 +327,9 @@ routine as Ch. 12, just additionally linking the graphics library.
   take the system down;
 - 3D/OpenGL lives in `projects/soft3d`: apps use a standard **OpenGL ES 2.0 /
   EGL** API (`libGLESv2`/`libEGL` from `libs/gles`), backed by the
-  `portablegl` rasterizer; a vendored **mesa** V3D back end (`v3dcompiler`)
-  compiles GLSL to QPU on-device, and on Raspberry Pi 5 geometry is offloaded
+  `portablegl` rasterizer; a vendored **mesa** GLSL front end (`pglcompiler`)
+  plus a per-machine back end (`v3dcompiler` / `adrenocompiler`) compiles
+  GLSL to GPU code on-device, and on Raspberry Pi 5 geometry is offloaded
   to the VideoCore VII GPU as two-pass CSD compute shaders through `g2dd`.
 
 To go deeper into the window system, read

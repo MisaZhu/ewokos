@@ -28,12 +28,13 @@ void  graph_g2d_blur_stats(uint32_t* gpu, uint32_t* fb_notsup,
 					uint32_t* fb_canvas, uint32_t* fb_rect,
 					uint32_t* fb_tmp, uint32_t* fb_drv);
 
-/* every graph_*_g2d answers G2D_OK when the device did the work; any
+/* every graph_*_g2d answers G2D_OK when the device did the work; a returned
    non-zero (g2dclient's G2D_ERR_FAILED / G2D_ERR_NOT_SUPPORTED, see
    g2dclient/g2dclient.h) means "not done" and the caller runs its own
    cpu/arch pass instead. an op the driver declined with
    G2D_ERR_NOT_SUPPORTED is remembered per op and never offloaded again;
-   the other ops keep using the device. */
+   the other ops keep using the device. Terminal GPU faults quiesce the
+   calling process to retain buffers and prevent CPU/GPU races until reboot. */
 int   graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
 
 /* filled-triangle offload: G2D_OK when the device rasterized it, any

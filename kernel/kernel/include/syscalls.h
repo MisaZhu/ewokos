@@ -9,6 +9,10 @@
 
 #define DMA_MAGIC   0xCAFECAFF
 
+/* Architecture-specific, privileged controls. Outside the counted enum to
+ * preserve sys_state_t's ABI for existing rootfs binaries. */
+#define SYS_PLATFORM_CTL 0x100
+
 /* SYS_SEMAPHORE_ALLOC: arg0=0 allocates a private semaphore (legacy ABI).
  * Nonzero keys retrieve kernel-owned hardware locks. Successful lookups
  * return SYS_SEM_HANDLE_TAG | id; old kernels return an untagged private id,

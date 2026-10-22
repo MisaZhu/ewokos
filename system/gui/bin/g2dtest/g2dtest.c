@@ -11,6 +11,26 @@
 #include <string.h>
 #include <unistd.h>
 
+/* A timed-out/faulted GPU may still own every test canvas. Keep them alive
+   until reboot instead of continuing benchmarks or freeing active DMA. */
+#define CHECKED_G2D(name, type) \
+    static int checked_##name(const type *req) { \
+        int ret=name(req); g2d_quiesce_on_fault(ret); return ret; \
+    }
+CHECKED_G2D(g2d_fill_rect, g2d_fill_req_t)
+CHECKED_G2D(g2d_blit, g2d_blit_req_t)
+CHECKED_G2D(g2d_blit_alpha, g2d_blit_req_t)
+CHECKED_G2D(g2d_rotate, g2d_rotate_req_t)
+CHECKED_G2D(g2d_scale_to, g2d_scale_to_req_t)
+CHECKED_G2D(g2d_gaussian_blur, g2d_gaussian_blur_req_t)
+#undef CHECKED_G2D
+#define g2d_fill_rect checked_g2d_fill_rect
+#define g2d_blit checked_g2d_blit
+#define g2d_blit_alpha checked_g2d_blit_alpha
+#define g2d_rotate checked_g2d_rotate
+#define g2d_scale_to checked_g2d_scale_to
+#define g2d_gaussian_blur checked_g2d_gaussian_blur
+
 /* stateless g2d test: the canvases are shm segments owned by this
    process (allocated via graph_new_shm), so every result can be
    verified pixel by pixel.

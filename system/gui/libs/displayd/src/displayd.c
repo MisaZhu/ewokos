@@ -205,6 +205,7 @@ static uint32_t blit_g2d_rect(const disp_info_t* fbinfo, const graph_t* g,
             (int32_t)fbinfo->width, (int32_t)fbinfo->height, disp_pitch32(fbinfo),
             g2d_rect(dx, dy, w, h));
     int ret = g2d_blit_to_phy(&req);
+    g2d_quiesce_on_fault(ret);
     if(ret == G2D_ERR_NOT_SUPPORTED)
         _g2d_blt_phy_unsupported = 1;
     if(ret != 0)
@@ -227,13 +228,21 @@ static uint32_t rotate_g2d_rect(const disp_info_t* fbinfo, const graph_t* g,
     if(w <= 0 || h <= 0 || !g2d_scanout_ok(fbinfo, g, &off, &src_phy))
         return 0;
 
+    int degree;
+    switch(rotate) {
+    case G_ROTATE_90: degree = G2D_ROTATE_90; break;
+    case G_ROTATE_180: degree = G2D_ROTATE_180; break;
+    case G_ROTATE_270: degree = G2D_ROTATE_270; break;
+    default: return 0;
+    }
     g2d_rotate_to_phy_req_t req;
     g2d_rotate_to_phy_req_init(&req, g2d_scanout_canvas(g, src_phy),
             g2d_rect(sx, sy, w, h),
             fbinfo->phy_base + off, fbinfo->size - off,
             (int32_t)fbinfo->width, (int32_t)fbinfo->height, disp_pitch32(fbinfo),
-            dx, dy, rotate);
+            dx, dy, degree);
     int ret = g2d_rotate_to_phy(&req);
+    g2d_quiesce_on_fault(ret);
     if(ret == G2D_ERR_NOT_SUPPORTED)
         _g2d_rot_phy_unsupported = 1;
     if(ret != 0)
@@ -292,9 +301,9 @@ uint32_t fbdisplayd_rotate_to(const disp_info_t* fbinfo, const graph_t* g, int r
     if (res > 0)
         return res;
 
-    graph_t dst_g;
-    graph_init(&dst_g, (uint32_t*)base, dw, dh);
-    graph_blt(tmp, 0, 0, dw, dh, &dst_g, 0, 0, dw, dh);
+    for(int32_t y = 0; y < dh; y++)
+        memcpy(base + (uint32_t)y * pitch, tmp->buffer + y * dw,
+                (uint32_t)dw * 4u);
     return (uint32_t)dw * (uint32_t)dh * 4;
 }
 
@@ -323,9 +332,15 @@ uint32_t fbdisplayd_flush_rect_to(const disp_info_t* fbinfo, const graph_t* g, c
         return 0;
     if(r->w <= 0 || r->h <= 0)
         return 0;
+    if(r->x < 0 || r->y < 0 || (uint32_t)r->x >= fbinfo->width ||
+            (uint32_t)r->y >= fbinfo->height ||
+            (uint32_t)r->w > fbinfo->width - (uint32_t)r->x ||
+            (uint32_t)r->h > fbinfo->height - (uint32_t)r->y)
+        return 0;
 
     uint32_t bytes_per_pixel = fbinfo->depth / 8;
     if(fbinfo->depth == 32 &&
+            fbinfo->xoffset == 0 && fbinfo->yoffset == 0 &&
             (ewokos_addr_t)fbinfo->pointer == (ewokos_addr_t)g->buffer)
         return (uint32_t)r->w * (uint32_t)r->h * 4; //scan-out is the dma itself
 
@@ -334,14 +349,18 @@ uint32_t fbdisplayd_flush_rect_to(const disp_info_t* fbinfo, const graph_t* g, c
         pitch = fbinfo->width * bytes_per_pixel;
 
     if(fbinfo->depth == 32) {
-        /*packed scan-out: blit through graph_blt so the arch kernels
-            (NEON/SSE streaming copies) do the work */
-        graph_t dst;
-        uint32_t* base = (uint32_t*)((uint8_t*)(ewokos_addr_t)fbinfo->pointer +
-                fbinfo->yoffset * pitch + fbinfo->xoffset * 4);
-        graph_init(&dst, base, fbinfo->width, fbinfo->height);
-        graph_blt((graph_t*)g, r->x, r->y, r->w, r->h,
-                &dst, fbinfo->xoffset + r->x, fbinfo->yoffset + r->y, r->w, r->h);
+        uint32_t n = blit_g2d_rect(fbinfo, g, r->x, r->y, r->w, r->h,
+                r->x, r->y);
+        if(n > 0)
+            return n;
+        /* A graph is packed; a physical display can have row padding and
+           a visible origin. Apply the origin once and preserve its pitch. */
+        uint8_t* base = (uint8_t*)(ewokos_addr_t)fbinfo->pointer +
+                fbinfo->yoffset * pitch + fbinfo->xoffset * 4;
+        for(int32_t y = 0; y < r->h; y++)
+            memcpy(base + (uint32_t)(r->y + y) * pitch + (uint32_t)r->x * 4u,
+                    g->buffer + (r->y + y) * g->w + r->x,
+                    (uint32_t)r->w * 4u);
         return (uint32_t)r->w * (uint32_t)r->h * 4;
     }
 

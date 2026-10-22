@@ -29,6 +29,12 @@
 
 static uint32_t _svc_counter[SYS_CALL_NUM];
 static uint32_t _svc_total;
+
+__attribute__((weak)) ewokos_addr_t platform_control_arch(ewokos_addr_t op,
+        ewokos_addr_t arg, ewokos_addr_t size) {
+    (void)op; (void)arg; (void)size;
+    return (ewokos_addr_t)-1;
+}
 #ifdef KERNEL_SMP
 static int32_t _svc_stat_spin = 0;
 #endif
@@ -691,6 +697,11 @@ static inline void sys_mmio_rw(ewokos_addr_t arg0, uint32_t arg1, uint32_t arg2,
 
 static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ewokos_addr_t arg2, context_t* ctx) {
     switch(code) {
+    case SYS_PLATFORM_CTL:
+        ctx->gpr[0] = (ewokos_addr_t)-1;
+        if(proc_cap_has(proc_get_proc(get_current_proc()), CAP_ROOT, 0))
+            ctx->gpr[0] = platform_control_arch(arg0, arg1, arg2);
+        return;
     case SYS_EXIT:
         sys_exit(ctx, arg0);
         return;
