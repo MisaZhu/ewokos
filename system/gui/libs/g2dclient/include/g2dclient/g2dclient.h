@@ -331,7 +331,21 @@ typedef struct g2d_pgl_tex_s {
    with ctex_ub_pad[i] the UIF level_0_ub_pad), contig or dma so the GPU
    can address them by physical base; ctex_stride[i] is the allocated row
    pitch of the (padded) image, 0 lets the driver derive ctex_w[i]*4.
+   ctex_ub_pad[i] carries the UIF level_0_ub_pad in its low nibble
+   (G2D_PGL_CTEX_UB_PAD_MASK) and the unit's sampler filter in the high
+   nibble (G2D_PGL_CTEX_FILTER_*), packed into one byte so the request
+   layout stays byte-identical to older statically-linked clients (which
+   leave the high nibble 0 = NEAREST, the historic fixed sampler).
    Only meaningful when the draw carries a compiled prog_handle >= 0. */
+#define G2D_PGL_CTEX_UB_PAD_MASK    0x0Fu
+#define G2D_PGL_CTEX_FILTER_SHIFT   4u
+#define G2D_PGL_CTEX_FILTER_NEAREST 0u   /* mag/min NEAREST (default)      */
+#define G2D_PGL_CTEX_FILTER_LINEAR  1u   /* mag/min LINEAR (TMU bilinear)  */
+#define G2D_PGL_CTEX_FILTER_OF(ub_pad) \
+	(((uint32_t)(ub_pad) >> G2D_PGL_CTEX_FILTER_SHIFT) & 0x0Fu)
+#define G2D_PGL_CTEX_UB_PAD_PACK(ub_pad, filter) \
+	((uint8_t)(((ub_pad) & G2D_PGL_CTEX_UB_PAD_MASK) | \
+	           (((filter) & 0x0Fu) << G2D_PGL_CTEX_FILTER_SHIFT)))
 typedef struct g2d_pgl_ctex_s {
 	ewokos_addr_t ctex_phy[G2D_PGL_MAX_TEX_UNITS];
 	uint8_t       ctex_contig[G2D_PGL_MAX_TEX_UNITS];
