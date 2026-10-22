@@ -22,9 +22,9 @@ inline int graph_g2d_avaliable(graph_t* g) {
    only shm-backed graphs (created via graph_new_shm) can be processed,
    zero copy: the device writes directly into the graph's own canvas.
 
-   Any non-zero from here is NOT terminal: every dispatcher (graph_blt,
-   graph_fill_rect, graph_blt_alpha, graph_rotate_to, graph_scale_tof)
-   treats it as "run the cpu/arch pass instead", in the calling process.
+   Only FAILED / NOT_SUPPORTED permit CPU fallback. Submitted timeouts and
+   faults quiesce the caller, preserving buffers until reboot, since the
+   current protocol cannot prove that DMA has stopped.
    So a canvas that lost its contig backing degrades silently into a
    full-frame cpu copy with no error and no log anywhere - the counters
    below are the only way to see it happen.
@@ -58,6 +58,7 @@ static int g2d_op_supported(int cap) {
 /* hand the g2dclient result to the dispatcher, marking the op when the
    driver reported the capability missing */
 static int g2d_op_result(int cap, int ret) {
+	g2d_quiesce_on_fault(ret);
 	if(ret == G2D_ERR_NOT_SUPPORTED)
 		_g2d_unsupported |= (1u << cap);
 	return ret;
@@ -297,7 +298,13 @@ int graph_scale_tof_g2d(graph_t* g, graph_t* dst, double scale) {
 		return 0;
 	if(!g2d_op_supported(G2D_CAP_SCALE_TO))
 		return G2D_ERR_NOT_SUPPORTED;
-	if(!g2d_check_graph(g, 0, 0) && !g2d_check_graph(dst, 0, 0))
+	if(!g2d_check_graph(g, 0, 0) || !g2d_check_graph(dst, 0, 0))
+		return G2D_ERR_FAILED;
+	/* graph_scale_tof uses origin-based bilinear sampling and a supplied
+	   uniform factor. SCALE_TO promises nearest sampling by dst geometry;
+	   these coincide only for an identity scale. Do not change graph output
+	   according to whether a GPU happens to be installed. */
+	if(scale != 1.0 || g->w != dst->w || g->h != dst->h)
 		return G2D_ERR_FAILED;
 	return g2d_do_scale(g, dst, scale);
 }

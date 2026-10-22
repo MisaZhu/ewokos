@@ -98,11 +98,15 @@ enum {
 #define G2D_OK                0
 #define G2D_ERR_FAILED        (-1)
 #define G2D_ERR_NOT_SUPPORTED (-2)
-/* compiled-shader draw refinements of FAILED (the GPU job WAS submitted):
-   the dispatch overran the daemon's wait budget / faulted the GPU MMU.
-   Treat exactly like FAILED (never replay); the value only names the cause. */
+/* Submitted GPU work may still own its buffers. These terminal results must
+   never trigger CPU replay, buffer reuse or release without a GPU reset. */
 #define G2D_ERR_TIMEOUT       (-3)
 #define G2D_ERR_MMU_FAULT     (-4)
+
+/* Retain this process and its buffers on a terminal GPU result. There is no
+   reset/recovery protocol yet; rendering clients must stop until reboot.
+   Nonterminal results return immediately and may use software fallback. */
+void g2d_quiesce_on_fault(int result);
 
 enum {
 	G2D_FMT_ARGB8888 = 0
@@ -943,13 +947,10 @@ int g2d_pgl_program(const g2d_pgl_program_req_t* req);
    engine clock to report. */
 int g2d_get_clock(uint32_t* hz);
 
-/* query the V3D architecture version x10 of the g2d engine, as pinned by the
-   driver at startup (21 = V3D 2.1 / Pi3, 42 = V3D 4.2 / Pi4, 71 = V3D 7.1 /
-   Pi5). returns G2D_OK with *ver set, or G2D_ERR_NOT_SUPPORTED when the
-   platform has no V3D engine to report. the soft3d app-side compiler uses
-   this to pick its codegen target on a machine that ships one binary across
-   chip generations (raspix); a machine with a single V3D generation (raspi5)
-   still reports it so the shared client need not special-case the board. */
+/* Query the backend compiler target (V3D 21/42/71; Adreno A690 = 690).
+   Returns G2D_OK with *ver set, or G2D_ERR_NOT_SUPPORTED when no compiler
+   target is available. The shared app-side compiler selects its backend
+   through pglc_version_supported(), without board-specific client code. */
 int g2d_get_version(uint32_t* ver);
 
 #ifdef __cplusplus

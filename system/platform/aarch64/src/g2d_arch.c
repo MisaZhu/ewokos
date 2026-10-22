@@ -564,24 +564,34 @@ static inline void g2d_alpha16_blend_core(uint32_t *dp, uint8x16x4_t fg,
         vmovn_u16(vaddq_u16(vmovl_u8(vget_low_u8(bg.val[3])), oa_lo)),
         vmovn_u16(vaddq_u16(vmovl_u8(vget_high_u8(bg.val[3])), oa_hi)));
 
+    /* Effective alpha zero is an exact no-op, including meaningless RGB in
+       an empty destination. The scalar path skips these pixels entirely. */
+    uint8x16_t no_alpha = vceqq_u8(a, vdupq_n_u8(0));
+    for(int c = 0; c < 4; c++)
+        out.val[c] = vbslq_u8(no_alpha, bg.val[c], out.val[c]);
+
     vst4q_u8((uint8_t*)dp, out);
 }
 
-/* 16px blend with global alpha 0xff: effective alpha is the source alpha
-   itself, skipping the per-block div255(fg_a*alpha) scaling chain. The
-   caller must have ruled out the all-transparent and all-opaque cases. */
+/* Match the scalar effective alpha (src_a * 255) >> 8, with its exact
+   source-copy exception for opaque pixels, even inside a mixed block. */
 static inline void g2d_alpha16_blend_a255(uint32_t *dp, uint8x16x4_t fg)
 {
+    uint8x16_t full = vdupq_n_u8(255);
+    uint8x16_t a = vcombine_u8(
+            vshrn_n_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(full)), 8),
+            vshrn_n_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(full)), 8));
+    a = vbslq_u8(vceqq_u8(fg.val[3], full), full, a);
     g2d_alpha16_blend_core(dp, fg,
-            vget_low_u8(fg.val[3]), vget_high_u8(fg.val[3]));
+            vget_low_u8(a), vget_high_u8(a));
 }
 
 /* 16px blend with a global alpha < 0xff */
 static inline void g2d_alpha16_blend_scaled(uint32_t *dp, uint8x16x4_t fg,
         uint8x16_t alpha_vec)
 {
-    uint8x8_t a_lo = vmovn_u16(neon_div255_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(alpha_vec))));
-    uint8x8_t a_hi = vmovn_u16(neon_div255_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(alpha_vec))));
+    uint8x8_t a_lo = vshrn_n_u16(vmull_u8(vget_low_u8(fg.val[3]), vget_low_u8(alpha_vec)), 8);
+    uint8x8_t a_hi = vshrn_n_u16(vmull_u8(vget_high_u8(fg.val[3]), vget_high_u8(alpha_vec)), 8);
     g2d_alpha16_blend_core(dp, fg, a_lo, a_hi);
 }
 

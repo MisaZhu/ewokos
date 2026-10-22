@@ -5,11 +5,21 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <ewoksys/shm.h>
+#include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 #include <unistd.h>
 
 #define G2D_DEFAULT_DEV "/dev/g2d"
 static char _g2d_dev[FS_FULL_NAME_MAX] = { 0 };
 static int  _dev_pid = 0;
+
+void g2d_quiesce_on_fault(int result) {
+    if(result != G2D_ERR_TIMEOUT && result != G2D_ERR_MMU_FAULT)
+        return;
+    klog("g2d: terminal GPU result %d; retaining buffers until reboot\n", result);
+    while(1)
+        proc_nsleep_precise(1000000000);
+}
 
 static int g2d_dev_pid(void) {
     if(_dev_pid > 0)
@@ -136,12 +146,29 @@ int g2d_blit(const g2d_blit_req_t* req) {
 }
 
 int g2d_blit_alpha(const g2d_blit_req_t* req) {
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+    if(req->alpha == 0)
+        return G2D_OK;
     return g2d_send_struct(G2D_DEV_CNTL_BLIT_ALPHA, req, sizeof(*req));
 }
 
 int g2d_rotate(const g2d_rotate_req_t* req) {
     if(req == NULL)
         return G2D_ERR_FAILED;
+    /* Identity rotation is a whole-canvas copy. Older daemons reject zero
+       in ROTATE, while BLIT already provides the exact overwrite operation. */
+    if(req->rotate % 360 == 0) {
+        g2d_blit_req_t copy;
+        if(req->src.w != req->dst.w || req->src.h != req->dst.h ||
+                req->src.w == 0 || req->src.h == 0 ||
+                req->src.w > 0x7fffffffu || req->src.h > 0x7fffffffu)
+            return G2D_ERR_FAILED;
+        g2d_blit_req_init(&copy, req->dst, req->src,
+                g2d_rect(0, 0, req->src.w, req->src.h),
+                g2d_rect(0, 0, req->dst.w, req->dst.h), 255);
+        return g2d_blit(&copy);
+    }
     return g2d_send_struct(G2D_DEV_CNTL_ROTATE, req, sizeof(*req));
 }
 

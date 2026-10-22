@@ -903,7 +903,7 @@ static int32_t g2d_blt_split(const g2d_attached_t* dst,
 	int32_t ret = G2D_ERR_FAILED;
 
 	if(use_alpha != 0 && alpha == 0)
-		return G2D_ERR_FAILED;
+		return G2D_OK;
 
 	aw = sw - sw % G2D_PITCH_ALIGN_PX;
 	if(aw > 0) {
