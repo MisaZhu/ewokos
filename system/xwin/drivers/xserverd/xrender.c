@@ -53,10 +53,8 @@ static bool ws_blur_active(x_t* x, xwin_t* win) {
 static bool win_keeps_backdrop(x_t* x, xwin_t* win) {
     if(win_backdrop_active(x, win))
         return true;
-    if(win->xinfo != NULL && win->xinfo->alpha) {
-        if(win_edge_to_edge(win) || ws_blur_active(x, win))
-            return true;
-    }
+    if(win->xinfo != NULL && win->xinfo->alpha)
+        return true;
     return false;
 }
 
@@ -74,20 +72,40 @@ static void capture_backdrop(x_t* x, xwin_t* win, const grect_t* rect) {
     int32_t ww = win->xinfo->winr.w;
     int32_t wh = win->xinfo->winr.h;
     if(win->backdrop == NULL || win->backdrop->w != ww || win->backdrop->h != wh) {
+        win->backdrop_valid = false;
         if(win->backdrop != NULL)
-            graph_free(win->backdrop);
+            x_free_canvas(x, win->backdrop);
         win->backdrop = graph_new_shm(ww, wh);
         if(win->backdrop == NULL)
             return;
+        graph_clear(win->backdrop, 0);
     }
 
     grect_t d = *rect;
     grect_t bounds = {win->xinfo->winr.x, win->xinfo->winr.y, ww, wh};
-    if(!grect_insect(&bounds, &d) || d.w <= 0 || d.h <= 0)
+    if(!grect_insect(&bounds, &d) || !rect_clip_to_graph(display->g, &d) ||
+            d.w <= 0 || d.h <= 0)
         return;
+    grect_t visible = bounds;
+    if(!rect_clip_to_graph(display->g, &visible))
+        return;
+    bool matching = win->backdrop_valid &&
+            memcmp(&win->backdrop_rect, &bounds, sizeof(bounds)) == 0 &&
+            memcmp(&win->backdrop_visible, &visible, sizeof(visible)) == 0;
+    if(!matching && !rect_contains(&d, &visible)) {
+        win->backdrop_valid = false;
+        return; //a partial capture cannot initialize a complete snapshot
+    }
     graph_blt(display->g, d.x, d.y, d.w, d.h,
             win->backdrop, d.x - win->xinfo->winr.x, d.y - win->xinfo->winr.y,
             d.w, d.h);
+    win->backdrop_rect = bounds;
+    win->backdrop_visible = visible;
+    win->backdrop_valid = true;
+    if(++win->backdrop_generation == 0)
+        ++win->backdrop_generation;
+    win->frame_dirty = true;
+    win->frame_full = true;
 }
 
 static void win_mark_frame_dirty(x_t* x, xwin_t* win) {
@@ -168,7 +186,10 @@ static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
             x->config.xwm_theme.round > 0 &&
             !ws_blur_active(x, win) && !win_bg_effect_active(x, win);
 
-    if(win->frame_dirty && !corners_only)
+    bool content_only = x->xwm_retained_decorations &&
+            win->frame_dirty && !win->frame_full && backdrop_stable &&
+            win->xinfo->alpha && !win_bg_effect_active(x, win);
+    if(win->frame_dirty && !corners_only && !content_only)
         clear_frame_ring(win);
 
     /*two kinds of windows need their content inside frame_g:
@@ -215,7 +236,7 @@ static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
       (ws_blur) would then blur its own last output: the frost feeds itself
       and smears and darkens a little more on every present, which is the
       flicker a fullscreen launcher shows while its selection moves.*/
-    if(win->backdrop != NULL &&
+    if(win->backdrop != NULL && win->backdrop_valid &&
             (win_backdrop_active(x, win) || win->xinfo->alpha))
         src = win->backdrop; //window-local clean backdrop, not the display
     /*the backdrop handed over is byte-identical to the previous DRAW_FRAME's
@@ -234,8 +255,13 @@ static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
         PF->addi(&in, 0);
     PF->addi(&in, backdrop_unchanged ? 1 : 0);
     PF->addi(&in, corners_only ? 1 : 0);
+    xwm_frame_meta_t meta = {
+        win->backdrop_generation, src == win->backdrop, content_only
+    };
+    PF->add(&in, &meta, sizeof(meta));
 
     ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in);
+    win->backdrop_drawn_generation = win->backdrop_generation;
     PF->clear(&in);
 }
 
@@ -464,17 +490,24 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
       what is below it right now, and a changed placement exposes a place the
       window never covered: both are clean backdrop worth snapshotting*/
     x_display_t* bd = &x->displays[win->xinfo->display_index];
-    bool bd_refresh = win_keeps_backdrop(x, win) &&
-            (bd->dirty || !win->shadow_valid ||
-             memcmp(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t)) != 0);
+    bool bd_refresh = win_keeps_backdrop(x, win) && bd->dirty;
     if(bd_refresh)
         capture_backdrop(x, win, &win->xinfo->winr);
+    bool restored = !bd->dirty && win->backdrop_valid &&
+            (win->xinfo->alpha || win->frame_full);
+    if(restored) {
+        const grect_t* r = &win->backdrop_visible;
+        graph_blt(win->backdrop, r->x - win->xinfo->winr.x,
+                r->y - win->xinfo->winr.y, r->w, r->h,
+                disp_g, r->x, r->y, r->w, r->h);
+    }
 
     /*the backdrop handed to xwm is only byte-stable across frames when it was
       not recaptured here; a fresh capture means what sits below changed, so
       the frost has to be rebuilt and the decoration cannot be reduced to
       corners-only*/
-    prepare_win_content(x, win, !bd_refresh);
+    prepare_win_content(x, win, win->backdrop_valid &&
+            win->backdrop_drawn_generation == win->backdrop_generation);
 
     /*the published frame is accepted whole on every update, so the whole
       window gets recomposited (in frame_g coordinates)*/
@@ -492,92 +525,12 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
             dmg.w = 0;
             dmg.h = 0;
         }
-        else if(win->xinfo->alpha) {
-            /*the window content itself is translucent: the whole picture can
-              only be blended onto a background that does not carry it yet. A
-              fresh placement (rebuild, move, show) blends it once and gets
-              recorded; an incremental pass (a recoloured frame etc.) then
-              refreshes just the opaque pixels - blending the translucent
-              content, corner arcs or shadow bands again would stack alpha on
-              alpha until the bands turn black*/
-            bool place_ok = win->shadow_valid &&
-                    memcmp(&win->shadow_rect, &win->xinfo->winr,
-                           sizeof(grect_t)) == 0;
-            if(!place_ok) {
-                blit_win_part(x, win, disp_g, &dmg, true);
-                win->shadow_valid = true;
-                memcpy(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t));
-            }
-            else if(win->backdrop != NULL && win_edge_to_edge(win) &&
-                    !bd->dirty) {
-                /*edge-to-edge alpha window (a fullscreen launcher, say) whose
-                  placement did not change and whose clean backdrop snapshot
-                  is still valid: the display under it still carries the
-                  previous blend, so put the snapshot back first and then
-                  blend the new content over it. This is what keeps a single
-                  present from escalating into a whole-display rebuild
-                  (desktop IPC + every window's frame IPC + full recomposite
-                  + full flush) - see win_alpha_inplace_ok() in xwin.c for
-                  the matching skip on the dirty-escalation side.*/
-                int32_t wx = win->xinfo->winr.x;
-                int32_t wy = win->xinfo->winr.y;
-                graph_blt(win->backdrop, 0, 0,
-                        win->backdrop->w, win->backdrop->h,
-                        disp_g, wx, wy,
-                        win->backdrop->w, win->backdrop->h);
-                blit_win_part(x, win, disp_g, &dmg, true);
-            }
-            else {
-                int32_t wx = win->xinfo->winr.x;
-                int32_t wy = win->xinfo->winr.y;
-                int32_t edge = (int32_t)x->config.xwm_theme.frameW;
-                if((int32_t)x->config.xwm_theme.round > edge)
-                    edge = (int32_t)x->config.xwm_theme.round;
-                if(edge > g->w/2)
-                    edge = g->w/2;
-                if(edge > g->h/2)
-                    edge = g->h/2;
-                int32_t round = (int32_t)x->config.xwm_theme.round;
-                int32_t s_right = win->xinfo->winr.w -
-                        ((win->xinfo->wsr.x - win->xinfo->winr.x) +
-                         win->xinfo->wsr.w);
-                int32_t s_bottom = win->xinfo->winr.h -
-                        ((win->xinfo->wsr.y - win->xinfo->winr.y) +
-                         win->xinfo->wsr.h);
-                if(s_right < 0) s_right = 0;
-                if(s_bottom < 0) s_bottom = 0;
-
-                int32_t fw = g->w - s_right;
-                int32_t fh = g->h - s_bottom;
-                if(round > fw/2) round = fw/2;
-                if(round > fh/2) round = fh/2;
-                if(round < 0) round = 0;
-
-                /*the opaque decoration ring, plain copies every update*/
-                grect_t top = {round, 0, fw - 2*round, edge};
-                grect_t bottom = {round, fh - edge, fw - 2*round, edge};
-                grect_t left = {0, round, edge, fh - 2*round};
-                grect_t right = {fw - edge, round, edge, fh - 2*round};
-                blit_win_area(g, disp_g, wx, wy, &dmg, &top, false);
-                blit_win_area(g, disp_g, wx, wy, &dmg, &bottom, false);
-                blit_win_area(g, disp_g, wx, wy, &dmg, &left, false);
-                blit_win_area(g, disp_g, wx, wy, &dmg, &right, false);
-
-                /*interior and corner squares: opaque pixels only (title,
-                  buttons, opaque content); the translucent ones already sit
-                  blended on the display and must not be touched*/
-                grect_t mid = {edge, edge, fw - 2*edge, fh - 2*edge};
-                grect_t c0 = {0, 0, round, round};
-                grect_t c1 = {fw - round, 0, round, round};
-                grect_t c2 = {0, fh - round, round, round};
-                grect_t c3 = {fw - round, fh - round, round, round};
-                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &mid);
-                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c0);
-                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c1);
-                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c2);
-                blit_win_area_opaque(g, disp_g, wx, wy, &dmg, &c3);
-                win->bands_kept = true; //translucent pixels left as they sat
-            }
+        else if(win->xinfo->alpha || restored) {
+            /*The full visible backdrop was restored before preparing the
+              frame. Blend every pixel exactly once, including shadow/corners.*/
+            blit_win_part(x, win, disp_g, &dmg, true);
+            win->shadow_valid = true;
+            win->shadow_rect = win->xinfo->winr;
         }
         else if(x->config.xwm_theme.shadow > 0 &&
                 !x->config.xwm_theme.frameAlpha) {
@@ -753,8 +706,6 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
     int32_t shadow = x->config.xwm_theme.shadow;
     int32_t round = x->config.xwm_theme.round;
     bool frame_alpha = x->config.xwm_theme.frameAlpha;
-    if(shadow <= 0 && !(frame_alpha && round > 0))
-        return;
 
     /*the sub-rects of region that below actually overwrote with opaque
       pixels this pass. Where below kept its translucent decoration (the
@@ -819,11 +770,22 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
         if(w->ready && w->xinfo != NULL && w->xinfo->visible &&
                 w->xinfo->display_index == below->xinfo->display_index &&
                 w->frame_g != NULL) {
+            bool overlaps = false;
+            for(uint32_t i = 0; i < fresh_num; i++) {
+                grect_t d = fresh[i];
+                if(grect_insect(&w->xinfo->winr, &d) && rect_is_valid(&d))
+                    overlaps = true;
+            }
+            if(!overlaps) {
+                w = w->next;
+                continue;
+            }
             /*the slabs were just repainted fresh from below upwards, so the
               display in them holds exactly what is below w: refresh w's
               backdrop before its own translucent parts get re-blended*/
             for(uint32_t i = 0; i < fresh_num; i++)
                 capture_backdrop(x, w, &fresh[i]);
+            w->dirty = true;
             if(w->xinfo->alpha) {
                 /*a translucent window keeps its whole picture blended on the
                   display, so a fresh repaint below wipes content and shadow
@@ -849,8 +811,28 @@ void refresh_shadows_above(x_t* x, xwin_t* below, const grect_t* region) {
             if(s_bottom < 0)
                 s_bottom = 0;
 
-            bool has_bands = (s_right > 0 || s_bottom > 0);
-            bool has_corners = frame_alpha && round > 0;
+            bool has_bands = shadow > 0 && (s_right > 0 || s_bottom > 0);
+            bool has_corners = frame_cuts_ws(x, w) && frame_alpha && round > 0;
+            /*Restore the intervening opaque picture too before taking the
+              next window's snapshot; otherwise it would capture pixels from
+              below this window through its opaque interior.*/
+            int fw = w->frame_g->w - s_right;
+            int fh = w->frame_g->h - s_bottom;
+            int cr = has_corners ? round : 0;
+            if(cr > fw/2) cr = fw/2;
+            if(cr > fh/2) cr = fh/2;
+            grect_t opaque[3] = {{cr, 0, fw-2*cr, cr},
+                {0, cr, fw, fh-2*cr}, {cr, fh-cr, fw-2*cr, cr}};
+            for(uint32_t i = 0; i < fresh_num; i++) {
+                grect_t d = fresh[i];
+                d.x -= w->xinfo->winr.x;
+                d.y -= w->xinfo->winr.y;
+                for(int j = 0; j < 3; j++) {
+                    grect_t part = opaque[j];
+                    if(grect_insect(&d, &part) && rect_is_valid(&part))
+                        blit_win_part(x, w, display->g, &part, false);
+                }
+            }
             if(has_bands || has_corners) {
                 bool bands_ok = w->shadow_valid &&
                         memcmp(&w->shadow_rect, &w->xinfo->winr, sizeof(grect_t)) == 0;

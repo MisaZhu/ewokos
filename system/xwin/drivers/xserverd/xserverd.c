@@ -17,6 +17,7 @@
 */
 #include <string.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/ipc.h>
 #include <ewoksys/klog.h>
 #include <tinyjson/tinyjson.h>
 #include <graph/graph_png.h>
@@ -38,7 +39,30 @@ bool check_xwm(x_t* x) {
     return false;
 }
 
+void x_release_canvases(x_t* x, ewokos_addr_t win, const int32_t* ids, int count) {
+    if(!check_xwm(x))
+        return;
+    proto_t in;
+    PF->init(&in)->add(&in, &win, sizeof(win))->addi(&in, count);
+    for(int i = 0; i < count; i++)
+        PF->addi(&in, ids[i]);
+    ipc_call_wait(x->xwm_pid, XWM_CNTL_RELEASE_CANVASES, &in);
+    PF->clear(&in);
+}
+
+void x_free_canvas(x_t* x, graph_t* g) {
+    if(g == NULL)
+        return;
+    if(g->shm_id >= 0)
+        x_release_canvases(x, 0, &g->shm_id, 1);
+    graph_free(g);
+}
+
 void x_dirty(x_t* x, int32_t display_index) {
+    for(xwin_t* w = x->win_head; w != NULL; w = w->next)
+        if(w->xinfo != NULL && (display_index < 0 ||
+                w->xinfo->display_index == (uint32_t)display_index))
+            w->backdrop_valid = false;
     if(display_index >= 0) {
         x_display_t *display = &x->displays[display_index];
         display->dirty = true;
@@ -194,6 +218,7 @@ static int x_init(x_t* x, const char* display_man) {
 }	
 
 static void x_close(x_t* x) {
+    x_release_canvases(x, 0, NULL, -1);
     for(uint32_t i=0; i<DISP_MAX; i++) {
         x_display_t* display = &x->displays[i];
         if(!display->active)

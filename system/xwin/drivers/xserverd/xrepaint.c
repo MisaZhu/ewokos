@@ -272,6 +272,7 @@ void x_repaint(x_t* x, uint32_t display_index) {
         }
     }
     display->wait_ready = 0;
+    x_prepare_repaint(x, display_index);
 
     /*the frame must reach the panel whole, so hold the ENTIRE step back while
       any window that owes a repaint is still mid-frame, then composite and
@@ -312,9 +313,7 @@ void x_repaint(x_t* x, uint32_t display_index) {
           genuinely slow single paint is held - a client that publishes each
           frame sets update_requested, win_src_stable returns true at once and
           the pre-pass never engages.*/
-        uint32_t fps = x->config.fps ? x->config.fps : 30;
-        uint32_t paint_budget = (fps * X_PAINT_TIMEOUT_MS) / 1000 + 1;
-        if(painting && display->paint_wait < paint_budget) {
+        if(painting) {
             display->paint_wait++;
             return;
         }
@@ -390,6 +389,7 @@ void x_repaint(x_t* x, uint32_t display_index) {
                     /*its area gets overwritten by the covering window, so
                       whatever shadow sat there is gone*/
                     win->shadow_valid = false;
+                    win->backdrop_valid = false;
                     /*the published frame is not going on screen, so hand the
                       buffer back now instead of leaving the client parked (or
                       locked out of its handoff buffer) until the accept

@@ -16,33 +16,110 @@
 extern "C" {
 #endif
 
-typedef struct {
-    int shm_id;
-    int w;
-    int h;
-    uint8_t* g;
-} xwm_graph_t;
+#define XWM_MAP_SLOTS 32
+#define XWM_MAP_BYTES (64ull * 1024 * 1024)
+#define XWM_DRAW_MAPS 3
 
-static xwm_graph_t _xwm_graph;
+typedef struct {
+    int32_t id;
+    void* buffer;
+    uint64_t bytes, used;
+    bool pinned, retired;
+} xwm_mapping_t;
+
+/*Single-task IPC serializes draws and retirement, including nested GPU calls.
+  The extra slots hold oversized/over-budget mappings only until draw end.*/
+static xwm_mapping_t _maps[XWM_MAP_SLOTS + XWM_DRAW_MAPS];
+static uint64_t _map_tick, _map_bytes;
+static int _server_pid = -1;
+static uint32_t _server_uuid;
+
+static void mapping_drop(xwm_mapping_t* m) {
+    if(m->buffer == NULL)
+        return;
+    shmdt(m->buffer);
+    if(m < &_maps[XWM_MAP_SLOTS])
+        _map_bytes -= m->bytes;
+    memset(m, 0, sizeof(*m));
+}
+
+static void mapping_release(int32_t id) {
+    for(unsigned i = 0; i < XWM_MAP_SLOTS + XWM_DRAW_MAPS; i++) {
+        xwm_mapping_t* m = &_maps[i];
+        if(m->buffer != NULL && (id < 0 || m->id == id)) {
+            if(m->pinned)
+                m->retired = true;
+            else
+                mapping_drop(m);
+        }
+    }
+}
+
+static void mapping_end_draw(void) {
+    for(unsigned i = 0; i < XWM_MAP_SLOTS + XWM_DRAW_MAPS; i++) {
+        _maps[i].pinned = false;
+        if(i >= XWM_MAP_SLOTS || _maps[i].retired)
+            mapping_drop(&_maps[i]);
+    }
+}
+
+static void* mapping_get(int32_t id, int w, int h) {
+    if(id < 0 || w <= 0 || h <= 0)
+        return NULL;
+    uint64_t bytes = ((uint64_t)w * h * 4 + 4095) & ~4095ull;
+    for(unsigned i = 0; i < XWM_MAP_SLOTS + XWM_DRAW_MAPS; i++) {
+        xwm_mapping_t* m = &_maps[i];
+        if(m->buffer != NULL && m->id == id && !m->retired) {
+            /*Aliases describe the same allocation. The largest view owns
+              its accounting; display/frame is acquired before workspace.*/
+            if(bytes > m->bytes)
+                return NULL;
+            m->pinned = true;
+            m->used = ++_map_tick;
+            return m->buffer;
+        }
+    }
+    xwm_mapping_t* slot = NULL;
+    if(bytes <= XWM_MAP_BYTES) {
+        for(;;) {
+            xwm_mapping_t* oldest = NULL;
+            for(unsigned i = 0; i < XWM_MAP_SLOTS; i++) {
+                xwm_mapping_t* m = &_maps[i];
+                if(m->buffer == NULL)
+                    slot = m;
+                else if(!m->pinned && (oldest == NULL || m->used < oldest->used))
+                    oldest = m;
+            }
+            if(slot != NULL && _map_bytes + bytes <= XWM_MAP_BYTES)
+                break;
+            slot = NULL;
+            if(oldest == NULL)
+                break;
+            mapping_drop(oldest);
+        }
+    }
+    if(slot == NULL) {
+        for(unsigned i = XWM_MAP_SLOTS; i < XWM_MAP_SLOTS + XWM_DRAW_MAPS; i++)
+            if(_maps[i].buffer == NULL) { slot = &_maps[i]; break; }
+    }
+    if(slot == NULL)
+        return NULL;
+    void* buffer = shmat(id, 0, 0);
+    if(buffer == NULL || buffer == (void*)-1)
+        return NULL;
+    slot->id = id;
+    slot->buffer = buffer;
+    slot->bytes = bytes;
+    slot->used = ++_map_tick;
+    slot->pinned = true;
+    if(slot < &_maps[XWM_MAP_SLOTS])
+        _map_bytes += bytes;
+    return buffer;
+}
 
 static bool fetch_desktop_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_t* g) {
     (void)xwm;
-    uint8_t* g_buf = NULL;
-    if(w == _xwm_graph.w && h == _xwm_graph.h && shm_id == _xwm_graph.shm_id)
-        g_buf = _xwm_graph.g;
-    else {
-        if(_xwm_graph.g != NULL) {
-            shmdt(_xwm_graph.g);
-            _xwm_graph.g = NULL;
-        }
-        g_buf = shmat(shm_id, 0, 0);
-        if(g_buf == (void*)-1)
-            return false;
-        _xwm_graph.g = g_buf;
-        _xwm_graph.w = w;
-        _xwm_graph.h = h;
-        _xwm_graph.shm_id = shm_id;
-    }
+    uint8_t* g_buf = mapping_get(shm_id, w, h);
 
     if(g_buf == NULL || g_buf == (void*)-1)
         return false;
@@ -55,7 +132,7 @@ static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
         return false;
     memset(g, 0, sizeof(graph_t));
 
-    uint32_t* frame_g_shm = (uint32_t*)shmat(info->frame_g_shm_id, 0, 0);
+    uint32_t* frame_g_shm = (uint32_t*)mapping_get(info->frame_g_shm_id, info->winr.w, info->winr.h);
     if(frame_g_shm == NULL || frame_g_shm == (void*)-1)
         return false;
     g->buffer = frame_g_shm;
@@ -89,7 +166,7 @@ static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
         return false;
     memset(g, 0, sizeof(graph_t));
 
-    uint32_t* ws_g_shm = (uint32_t*)shmat(info->ws_g_buffer_shm_id, 0, 0);
+    uint32_t* ws_g_shm = (uint32_t*)mapping_get(info->ws_g_buffer_shm_id, info->wsr.w, info->wsr.h);
     if(ws_g_shm == NULL || ws_g_shm == (void*)-1)
         return false;
     g->buffer = ws_g_shm;
@@ -107,11 +184,10 @@ static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
   a no-op that does not take a ref, so detaching it here would tear the
   desktop mapping out of this process and leave the cache dangling.*/
 static void free_win_graph(graph_t* g, int32_t keep_shm_id) {
-    if(g->buffer == NULL)
-        return;
-    if(g->shm_id == keep_shm_id)
-        return;
-    shmdt(g->buffer);
+    (void)g;
+    (void)keep_shm_id;
+    /*Mapping ownership is draw-scoped; aliases remain pinned until dispatch
+      finishes, including all failure paths.*/
 }
 
 static void draw_drag_frame(xwm_t* xwm, proto_t* in) {
@@ -151,6 +227,14 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
       be re-cut, so the title, buttons, shadow and bg effect are all skipped.*/
     info.backdrop_unchanged = (proto_read_int(in) != 0);
     info.corners_only = (proto_read_int(in) != 0);
+    memset(&xwm->draw.frame, 0, sizeof(xwm->draw.frame));
+    proto_read_to(in, &xwm->draw.frame, sizeof(xwm->draw.frame));
+    xwm->draw.backdrop_id = shm_id;
+    xwm->draw.serial++;
+    if(xwm->draw.serial == 0)
+        xwm->draw.serial++;
+    bool keep_decor = info.corners_only ||
+            (xwm->retained_decorations && xwm->draw.frame.content_only);
     bool top = info.focused;
 
     if(xw <= 0 || xh <= 0)
@@ -197,7 +281,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
         if(xwm->get_resize != NULL)
             xwm->get_resize(&info, &rresize, xwm->data);
 
-        if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !info.corners_only) {
+        if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !keep_decor) {
             if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
                 xwm->draw_title(&desktop_g, &frame_g, &info, &rtitle, top, xwm->data);
 
@@ -218,14 +302,14 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
                 framed = true;
             }
 
-            if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !info.corners_only) {
+            if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !keep_decor) {
                 if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
                     if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
                         xwm->draw_resize(&frame_g, &info, &rresize, top, xwm->data);
                 }
             }
 
-            if(xwm->draw_shadow!= NULL && xwm->theme.shadow > 0 && !info.corners_only)
+            if(xwm->draw_shadow!= NULL && xwm->theme.shadow > 0 && !keep_decor)
                 xwm->draw_shadow(&desktop_g, &frame_g, &info, top, xwm->data);
         }
     }
@@ -239,7 +323,7 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
     }
 
     if((info.style & XWIN_STYLE_NO_BG_EFFECT) == 0 &&
-            !info.focused && !info.corners_only &&
+            !info.focused && !keep_decor &&
             xwm->draw_bg_effect != NULL) {
         xwm->draw_bg_effect(&desktop_g, &frame_g, &ws_g, &info, bg_effect, xwm->data);
     }
@@ -341,8 +425,15 @@ static void set_theme(xwm_t* xwm, proto_t* in, proto_t* out) {
 }
 
 static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
-    (void)from_pid;
     xwm_t* xwm = (xwm_t*)p;
+    uint32_t uuid = proc_get_uuid(from_pid);
+    if(_server_pid != from_pid || _server_uuid != uuid) {
+        mapping_release(-1);
+        if(xwm->release_window != NULL)
+            xwm->release_window(0, xwm->data);
+        _server_pid = from_pid;
+        _server_uuid = uuid;
+    }
 
     if(cmd == XWM_CNTL_DRAW_FRAME) { //draw frame
         draw_frame(xwm, in);
@@ -365,22 +456,41 @@ static void handle(int from_pid, int cmd, proto_t* in, proto_t* out, void* p) {
     else if(cmd == XWM_CNTL_SET_THEME) {
         set_theme(xwm, in, out);
     }
+    else if(cmd == XWM_CNTL_RELEASE_CANVASES) {
+        ewokos_addr_t win = 0;
+        proto_read_to(in, &win, sizeof(win));
+        int count = proto_read_int(in);
+        if(count < 0)
+            mapping_release(-1);
+        else
+            for(int i = 0; i < count; i++) {
+                int32_t id = proto_read_int(in);
+                if(id >= 0)
+                    mapping_release(id);
+            }
+        if((win != 0 || count < 0) && xwm->release_window != NULL)
+            xwm->release_window(win, xwm->data);
+    }
+    mapping_end_draw();
 }
 
 void xwm_run(xwm_t* xwm) {
-    memset(&_xwm_graph, 0, sizeof(xwm_graph_t));
+    mapping_release(-1);
     ipc_serv_run(handle, NULL, xwm, IPC_NON_BLOCK);
 
     setenv("XWM", "true");
-    dev_cntl("/dev/x", X_DCNTL_SET_XWM, NULL, NULL);
+    proto_t in;
+    PF->init(&in)->addi(&in, xwm->retained_decorations ? 1 : 0);
+    dev_cntl("/dev/x", X_DCNTL_SET_XWM, &in, NULL);
+    PF->clear(&in);
 
     while(true) {
         usleep(100000);
     }
     
-    if(_xwm_graph.g != NULL) {
-        shmdt(_xwm_graph.g);
-    }
+    mapping_release(-1);
+    if(xwm->release_window != NULL)
+        xwm->release_window(0, xwm->data);
 }
 
 

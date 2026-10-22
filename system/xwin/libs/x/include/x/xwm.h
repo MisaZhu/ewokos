@@ -18,8 +18,22 @@ enum {
 	XWM_CNTL_GET_WIN_SPACE,
 	XWM_CNTL_GET_MIN_SIZE,
 	XWM_CNTL_GET_FRAME_AREAS,
-	XWM_CNTL_SET_THEME
+	XWM_CNTL_SET_THEME,
+	XWM_CNTL_RELEASE_CANVASES
 };
+
+/*Internal WM-only draw contract, appended after the legacy DRAW_FRAME fields.*/
+typedef struct {
+	uint32_t backdrop_generation;
+	uint32_t clean_snapshot;
+	uint32_t content_only;
+} xwm_frame_meta_t;
+
+typedef struct {
+	xwm_frame_meta_t frame;
+	int32_t backdrop_id;
+	uint64_t serial;
+} xwm_draw_context_t;
 
 typedef struct {
 	void* data;
@@ -45,6 +59,9 @@ typedef struct {
 	void (*draw_bg_effect)(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, bool top, void* p);
 	void (*draw_drag_frame)(graph_t* g, grect_t* r, void* p);
 	void (*update_theme)(bool load_from_x, void* p);
+	void (*release_window)(ewokos_addr_t win, void* p);
+	bool retained_decorations;
+	xwm_draw_context_t draw;
 } xwm_t;
 
 void xwm_run(xwm_t* xwm);

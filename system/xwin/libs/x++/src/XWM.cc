@@ -196,6 +196,10 @@ void draw_shadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* 
 	((XWM*)p)->__drawShadow(desktop_g, g, info, top);
 }
 
+static void release_window(ewokos_addr_t win, void* p) {
+	((XWM*)p)->__releaseWindow(win);
+}
+
 void update_theme(bool loadFromX, void* p) {
 	((XWM*)p)->__updateTheme(loadFromX);
 }
@@ -273,7 +277,8 @@ static void draw_resize(graph_t* g, xinfo_t* info, grect_t* r, bool top, void* p
 
 graph_t* XWM::genDesktopPattern(void) {
 	graph_t* g = graph_new(NULL, 64, 64);
-	graph_draw_dot_pattern(g, 0, 0, g->w, g->h, xwm.theme.desktopBGColor, xwm.theme.desktopFGColor, 2, 1);
+	if(g != NULL && g->buffer != NULL)
+		graph_draw_dot_pattern(g, 0, 0, g->w, g->h, xwm.theme.desktopBGColor, xwm.theme.desktopFGColor, 2, 1);
 	return g;
 }
 
@@ -320,7 +325,11 @@ void XWM::drawDesktop(graph_t* g) {
 		}
 	}
 
-	graph_clear(g, xwm.theme.desktopBGColor);
+	if(desktopPattern == NULL || desktopPattern->buffer == NULL ||
+			desktopPattern->w <= 0 || desktopPattern->h <= 0) {
+		graph_clear(g, xwm.theme.desktopBGColor);
+		return;
+	}
 
 	// Calculate center of screen
 	int centerX = g->w / 2;
@@ -346,9 +355,22 @@ void XWM::drawDesktop(graph_t* g) {
 	}
 	else if(patternMode == DESKTOP_PATTERN_CENTER ||
 			patternMode == DESKTOP_PATTERN_FIT) {
+		grect_t covered = {startX, startY, desktopPattern->w, desktopPattern->h};
+		grect_t bounds = {0, 0, g->w, g->h};
+		if(grect_insect(&bounds, &covered)) {
+			uint32_t bg = xwm.theme.desktopBGColor;
+			graph_set(g, 0, 0, g->w, covered.y, bg);
+			graph_set(g, 0, covered.y + covered.h, g->w, g->h-covered.y-covered.h, bg);
+			graph_set(g, 0, covered.y, covered.x, covered.h, bg);
+			graph_set(g, covered.x + covered.w, covered.y, g->w-covered.x-covered.w, covered.h, bg);
+		}
+		else
+			graph_clear(g, xwm.theme.desktopBGColor);
 		graph_blt(desktopPattern, 0, 0, desktopPattern->w, desktopPattern->h,
 				g, startX, startY, desktopPattern->w, desktopPattern->h);
 	}
+	else
+		graph_clear(g, xwm.theme.desktopBGColor);
 }
 
 static void draw_desktop(graph_t* g, void* p) {
@@ -447,6 +469,10 @@ void XWM::updateTheme(bool loadFromX) {
 		char fname[FS_FULL_NAME_MAX+1] = {0};
 		x_get_theme_fname(X_THEME_ROOT, "xwm", xwm.theme.patternName, fname, FS_FULL_NAME_MAX);
 		graph_t* img = graph_image_new_bg(fname, xwm.theme.desktopBGColor);
+		if(img == NULL || img->buffer == NULL) {
+			if(img != NULL) graph_free(img);
+			return;
+		}
 		desktopPattern = graph_new_shm(img->w, img->h);
 		if(desktopPattern != NULL) {
 			memcpy(desktopPattern->buffer, img->buffer, img->w * img->h * 4);
@@ -517,6 +543,7 @@ XWM::XWM(void) {
 	xwm.draw_desktop = draw_desktop;
 	xwm.draw_shadow = draw_shadow;
 	xwm.update_theme = update_theme;
+	xwm.release_window = release_window;
 }
 
 XWM::~XWM(void) {
