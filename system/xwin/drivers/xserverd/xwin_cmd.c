@@ -175,7 +175,7 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
       middle of a resize burst: retry here every step instead of leaving the
       window blank for good, which is what the old early return did.*/
     if(win->frame_g != NULL) {
-        graph_free(win->frame_g);
+        x_free_canvas(x, win->frame_g);
         win->frame_g = NULL;
     }
     /*publishes -1 right away: an id pointing at freed memory is worse than
@@ -410,16 +410,17 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
           This runs inside the UPDATE_INFO IPC (caller holds x_server_lock);
           the wakeup itself is a plain syscall and needs no extra locking.*/
         x_update_release(x, win);
+        win->backdrop_valid = false;
 
         if(win->ws_g != NULL) {
-            graph_free(win->ws_g);
+            x_free_canvas(x, win->ws_g);
             win->ws_g = NULL;
         }
         win->xinfo->ws_g_shm_id = -1;
         win->xinfo->ws_g_shm_contig = false;
 
         if(win->ws_g2 != NULL) {
-            graph_free(win->ws_g2);
+            x_free_canvas(x, win->ws_g2);
             win->ws_g2 = NULL;
         }
         win->xinfo->ws_g2_shm_id = -1;
@@ -429,7 +430,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->xinfo->ws_g_buffer_shm_contig = false;
 
         if(win->frame_g != NULL) {
-            graph_free(win->frame_g);
+            x_free_canvas(x, win->frame_g);
             win->frame_g = NULL;
         }
         win->xinfo->frame_g_shm_id = -1;
@@ -517,12 +518,12 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             klog("xserverd: window '%s' frame shm %dx%d failed: "
                     "shm window exhausted\n", win->xinfo->title,
                     win->xinfo->winr.w, win->xinfo->winr.h);
-            graph_free(win->ws_g);
+            x_free_canvas(x, win->ws_g);
             win->ws_g = NULL;
             win->xinfo->ws_g_shm_id = -1;
             win->xinfo->ws_g_shm_contig = false;
             if(win->ws_g2 != NULL) {
-                graph_free(win->ws_g2);
+                x_free_canvas(x, win->ws_g2);
                 win->ws_g2 = NULL;
                 win->xinfo->ws_g2_shm_id = -1;
                 win->xinfo->ws_g2_shm_contig = false;

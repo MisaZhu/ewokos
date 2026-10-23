@@ -312,18 +312,26 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
     static int _mask_fw[SHADOW_MASK_SLOTS], _mask_fh[SHADOW_MASK_SLOTS];
     static int _mask_round[SHADOW_MASK_SLOTS], _mask_shadow[SHADOW_MASK_SLOTS];
     static uint32_t _mask_evict;
+    static uint8_t* _shadow_alpha[SHADOW_MASK_SLOTS];
+    static uint8_t _shadow_strength[SHADOW_MASK_SLOTS];
+    int selected = -1;
     graph_t* m = NULL;
     for(int i = 0; i < SHADOW_MASK_SLOTS; i++) {
         if(_mask_slot[i] != NULL && _mask_fw[i] == fw && _mask_fh[i] == fh &&
                 _mask_round[i] == round && _mask_shadow[i] == shadow) {
             m = _mask_slot[i];
+            selected = i;
             break;
         }
     }
     if(m == NULL) {
         int slot = _mask_evict++ % SHADOW_MASK_SLOTS;
+        selected = slot;
+        free(_shadow_alpha[slot]);
+        _shadow_alpha[slot] = NULL;
         if(_mask_slot[slot] != NULL)
             graph_free(_mask_slot[slot]);
+        _mask_slot[slot] = NULL;
         m = graph_new_shm(mw, mh);
         if(m == NULL)
             return;
@@ -355,6 +363,24 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
         _mask_round[slot] = round;
         _mask_shadow[slot] = shadow;
     }
+
+    int cached_x0 = fw - round;
+    int cached_y0 = fh - round;
+    if(_shadow_alpha[selected] != NULL && _shadow_strength[selected] == color_a(color)) {
+        const uint8_t* levels = _shadow_alpha[selected];
+        for(int py = 0; py < h; py++)
+            for(int px = py < cached_y0 ? cached_x0 : 0; px < w; px++) {
+                uint32_t alpha = *levels++;
+                if(alpha != 0)
+                    graph_pixel(g, x+px, y+py, (alpha << 24) | (color & 0x00ffffff));
+            }
+        return;
+    }
+    size_t level_count = (size_t)cached_y0 * (w-cached_x0) + (size_t)(h-cached_y0)*w;
+    if(_shadow_alpha[selected] == NULL)
+        _shadow_alpha[selected] = malloc(level_count);
+    uint8_t* levels = _shadow_alpha[selected];
+    _shadow_strength[selected] = color_a(color);
 
     /*calibrate on the straight right band at mid height: the innermost
       column gets the full shadow colour, the outermost fades to nothing, so
@@ -400,6 +426,8 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
           them; below y0 the row extends over the bottom strip as well*/
         int px = (py < y0) ? x0 : 0;
         for(; px < x1; px++) {
+            uint8_t* level = levels;
+            if(levels != NULL) { *levels++ = 0; }
             int PX = px*2 + 1;
             int dx = (PX > fw2 - r2) ? PX - (fw2 - r2) : ((PX < r2) ? r2 - PX : 0);
             int dd = dx*dx + dy*dy;
@@ -408,6 +436,8 @@ void graph_shadow_round(graph_t* g, int x, int y, int w, int h, int round, uint8
 
             uint32_t alpha =
                 alpha_lut[color_r(m->buffer[(py+pad)*mw + px + pad])];
+            if(level != NULL)
+                *level = alpha;
             if(alpha == 0)
                 continue;
             graph_pixel(g, x + px, y + py, (alpha << 24) | (color & 0x00ffffff));
@@ -489,6 +519,37 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
                                         int32_t cx, int32_t cy, int32_t r, int32_t rw,
                                         uint32_t upper_color, uint32_t lower_color,
                                         int mirror_x, int mirror_y, bool swap_45deg) {
+    /*Cache raster source samples, not their blend against a destination:
+      applying the same AA operation preserves the integer rounding exactly.*/
+    typedef struct {
+        int r, rw;
+        uint32_t upper, lower;
+        bool swap;
+        uint32_t* pixels;
+    } corner_cache_t;
+    static corner_cache_t cache[8];
+    static unsigned evict;
+    corner_cache_t* slot = NULL;
+    for(unsigned i = 0; i < 8; i++) {
+        corner_cache_t* c = &cache[i];
+        if(c->pixels != NULL && c->r == r && c->rw == rw &&
+                c->upper == upper_color && c->lower == lower_color && c->swap == swap_45deg) {
+            for(int dy = 0; dy < r; dy++)
+                for(int dx = 0; dx < r; dx++) {
+                    uint32_t p = c->pixels[dy*r+dx];
+                    draw_aa_pixel_int_ex(g, corner_x+cx+(mirror_x ? -dx : dx),
+                            corner_y+cy+(mirror_y ? -dy : dy), p | 0xff000000, p >> 24);
+                }
+            return;
+        }
+    }
+    if(r > 0 && r <= 256) {
+        slot = &cache[evict++ % 8];
+        free(slot->pixels);
+        slot->pixels = calloc((size_t)r*r, sizeof(uint32_t));
+        slot->r = r; slot->rw = rw;
+        slot->upper = upper_color; slot->lower = lower_color; slot->swap = swap_45deg;
+    }
     uint8_t upper_alpha = (upper_color >> 24) & 0xFF;
     uint8_t lower_alpha = (lower_color >> 24) & 0xFF;
 
@@ -515,7 +576,8 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
             int py = corner_y + cy + (mirror_y ? -dy : dy);
 
             // Check if within clip bounds (like graph_fill_cpu)
-            if (px < clip_min_x || px > clip_max_x || py < clip_min_y || py > clip_max_y) continue;
+            bool clipped = px < clip_min_x || px > clip_max_x || py < clip_min_y || py > clip_max_y;
+            if(clipped && (slot == NULL || slot->pixels == NULL)) continue;
 
             float outer_cov = round_disk_coverage_3d((float)dx, (float)dy, outer_radius);
             if (outer_cov <= 0.0f) continue;
@@ -545,7 +607,9 @@ static inline void draw_round_corner_3d(graph_t* g, int32_t corner_x, int32_t co
             uint8_t fg_alpha = (uint8_t)((float)a_near + ((float)a_far - (float)a_near) * t);
 
             uint8_t alpha = (uint8_t)(fg_alpha * cov);
-            if (alpha > 0) {
+            if(slot != NULL && slot->pixels != NULL)
+                slot->pixels[dy*r+dx] = (color & 0x00ffffff) | ((uint32_t)alpha << 24);
+            if (alpha > 0 && !clipped) {
                 draw_aa_pixel_int_ex(g, px, py, color, alpha);
             }
         }

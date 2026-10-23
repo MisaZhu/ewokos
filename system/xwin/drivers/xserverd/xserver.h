@@ -45,6 +45,11 @@ typedef struct st_xwin {
 	  (frosted) frame, so xwm never has to sample its own output. NULL unless
 	  the theme enables frame_blur.*/
 	graph_t* backdrop;
+	bool backdrop_valid;
+	grect_t backdrop_rect;
+	grect_t backdrop_visible;
+	uint32_t backdrop_generation;
+	uint32_t backdrop_drawn_generation;
 
 	xinfo_t* xinfo;
 	bool dirty;
@@ -210,6 +215,7 @@ typedef struct {
 	int xwm_pid;
 	uint32_t xwm_uuid;
 	bool xwm_changed; //a new xwm registered: window geometry must be revalidated
+	bool xwm_retained_decorations;
 
 	bool show_cursor;
 	cursor_t cursor;
@@ -264,14 +270,14 @@ static inline bool win_edge_to_edge(xwin_t* win) {
 static inline bool win_alpha_inplace_ok(xwin_t* win) {
 	if(win->xinfo == NULL || !win->xinfo->alpha)
 		return false;
-	if(win->backdrop == NULL || !win->shadow_valid)
+	if(win->backdrop == NULL || !win->backdrop_valid)
 		return false;
-	if(!win_edge_to_edge(win))
-		return false;
-	return win->shadow_rect.x == win->xinfo->winr.x &&
-			win->shadow_rect.y == win->xinfo->winr.y &&
-			win->shadow_rect.w == win->xinfo->winr.w &&
-			win->shadow_rect.h == win->xinfo->winr.h;
+	return win->backdrop->w == win->xinfo->winr.w &&
+			win->backdrop->h == win->xinfo->winr.h &&
+			win->backdrop_rect.x == win->xinfo->winr.x &&
+			win->backdrop_rect.y == win->xinfo->winr.y &&
+			win->backdrop_rect.w == win->xinfo->winr.w &&
+			win->backdrop_rect.h == win->xinfo->winr.h;
 }
 
 /*theme alpha here only means the frame has translucent edge/corner pixels;
@@ -338,6 +344,8 @@ static inline bool rect_clip_to_graph(graph_t* g, grect_t* r) {
 
 /*core state helpers living in xserverd.c*/
 bool check_xwm(x_t* x);
+void x_release_canvases(x_t* x, ewokos_addr_t win, const int32_t* ids, int count);
+void x_free_canvas(x_t* x, graph_t* g);
 void x_dirty(x_t* x, int32_t display_index);
 void x_repaint_req(x_t* x, int32_t display_index);
 

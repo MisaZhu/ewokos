@@ -30,6 +30,7 @@ void x_del_win(x_t* x, xwin_t* win);
 void check_wins(x_t* x);
 
 /*dirty/repaint predicates and propagation*/
+void x_prepare_repaint(x_t* x, uint32_t display_index);
 bool need_repaint_frame(x_t* x, xwin_t* win);
 bool need_repaint_desktop(x_t* x, xwin_t* win);
 bool covered_by_opaque_win(x_t* x, xwin_t* from, uint32_t display_index, const grect_t* r);

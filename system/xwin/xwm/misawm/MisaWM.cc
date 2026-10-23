@@ -45,7 +45,11 @@ inline bool MisaWM::decontam(graph_t* sharp, graph_t* pred, graph_t* desktop_g, 
 	int dw = desktop_g->w;
 	bool changed = false;
 	for(int py = gy; py < gy+gh; py++) {
+		if(py < 0 || py >= sharp->h || info->winr.y+py < 0 || info->winr.y+py >= desktop_g->h)
+			continue;
 		for(int px = gx; px < gx+gw; px++) {
+			if(px < 0 || px >= sharp->w || info->winr.x+px < 0 || info->winr.x+px >= desktop_g->w)
+				continue;
 			uint32_t disp = desktop_g->buffer[(info->winr.y+py)*dw + (info->winr.x+px)];
 			uint32_t own = blendPixel(tint, pred->buffer[py*pred->w + px]);
 			if(disp != own) {
@@ -75,6 +79,7 @@ void MisaWM::frostSlotFree(FrostSlot* s) {
 	s->frostX = s->frostY = s->frostW = s->frostH = 0;
 	s->frostValid = false;
 	s->lastUse = 0;
+	s->lastDraw = 0;
 }
 
 MisaWM::FrostSlot* MisaWM::frostSlotFor(ewokos_addr_t win) {
@@ -130,6 +135,20 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	FrostSlot* slot = frostSlotFor(info->win);
 	if(slot == NULL)
 		return;
+	if(xwm.draw.serial != 0 && slot->lastDraw == xwm.draw.serial)
+		return;
+	slot->lastDraw = xwm.draw.serial;
+	bool sameSource = slot->sourceId == xwm.draw.backdrop_id &&
+			slot->sourceW == desktop_g->w && slot->sourceH == desktop_g->h &&
+			slot->alpha == info->alpha &&
+			memcmp(&slot->theme, &xwm.theme, sizeof(xwm.theme)) == 0;
+	if(!sameSource)
+		slot->frostValid = false;
+	slot->sourceId = xwm.draw.backdrop_id;
+	slot->sourceW = desktop_g->w;
+	slot->sourceH = desktop_g->h;
+	slot->theme = xwm.theme;
+	slot->alpha = info->alpha;
 	graph_t* backdropSharp = slot->backdropSharp;
 	graph_t* frostCache = slot->frostCache;
 
@@ -139,9 +158,9 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 		  so it can be blurred straight away. Re-blur only when the snapshot
 		  actually changed, so idle frames cost a compare only. Only the top fhM
 		  rows (the region the glass reads) are kept, compared and blurred.*/
-		bool sameSize = slot->frostValid && backdropSharp != NULL && frostCache != NULL &&
-				slot->frostX == info->winr.x && slot->frostY == info->winr.y &&
-				slot->frostW == fw && slot->frostH == fhM;
+		bool sameSize = backdropSharp != NULL && frostCache != NULL &&
+				backdropSharp->w == fw && backdropSharp->h == fhM &&
+				frostCache->w == fw && frostCache->h == fhM;
 		if(!sameSize) {
 			if(backdropSharp != NULL) { graph_free(backdropSharp); backdropSharp = NULL; }
 			if(frostCache != NULL) { graph_free(frostCache); frostCache = NULL; }
@@ -156,34 +175,16 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 				return;
 			}
 		}
-		else {
-			/*xserverd guarantees this snapshot is byte-identical to the one the
-			  previous DRAW_FRAME carried (it was not recaptured, and the window
-			  kept its own clean backdrop). The frost already matches it, so the
-			  change scan - the dominant idle-frame cost when a foreground app
-			  repaints over an unchanged desktop - is skipped.*/
-			if(info->backdrop_unchanged)
-				return;
-			/*Sampled change detection. Both caches are contig shm, mapped
-			  PTE_ATTR_NOCACHE, so a full-window scan runs uncached through DRAM
-			  and is the dominant per-frame WM cost (run twice per DRAW_FRAME).
-			  The frost is a BLURRED copy, so a change confined to a few unsampled
-			  rows is invisible and the next sampled change re-syncs the whole
-			  region; scanning every 8th row of a tall (client-area glass,
-			  ws_blur>0) region cuts that scan ~8x. Short strips (title bar,
-			  ws_blur=0) stay fully scanned - they are cheap enough.*/
-			int step = (fhM >= 128) ? 8 : 1;
-			bool changed = false;
-			for(int y = 0; y < fhM; y += step) {
-				if(memcmp(&backdropSharp->buffer[y*fw],
-						&desktop_g->buffer[y*desktop_g->w], (size_t)fw*4) != 0) {
-					changed = true;
-					break;
-				}
+		if(sameSize && slot->frostValid &&
+				slot->frostX == info->winr.x && slot->frostY == info->winr.y) {
+			if(xwm.draw.frame.clean_snapshot) {
+				if(slot->generation == xwm.draw.frame.backdrop_generation)
+					return;
 			}
-			if(!changed)
-				return; //backdrop identical: the frost already matches it
+			else if(info->backdrop_unchanged)
+				return;
 		}
+		slot->generation = xwm.draw.frame.backdrop_generation;
 		/*Refresh both caches via graph_blt (routed to g2dd) rather than an
 		  uncached full-window CPU copy, then blur FROM the sharp snapshot,
 		  never from the previous blur.*/
@@ -237,11 +238,11 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 		return;
 	}
 
-	if(frostCache != NULL) {
+	if(frostCache != NULL && (frostCache->w != fw || frostCache->h != fh)) {
 		graph_free(frostCache);
 		frostCache = NULL;
 	}
-	if(backdropSharp != NULL) {
+	if(backdropSharp != NULL && (backdropSharp->w != fw || backdropSharp->h != fh)) {
 		graph_free(backdropSharp);
 		backdropSharp = NULL;
 	}
@@ -254,8 +255,8 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	  frostCache must be shm-backed (graph_new_shm): only those canvases can
 	  route to the g2d device, a plain graph_new here blurs the whole window
 	  on the cpu every placement.*/
-	backdropSharp = graph_new_shm(fw, fh);
-	frostCache = graph_new_shm(fw, fh);
+	if(backdropSharp == NULL) backdropSharp = graph_new_shm(fw, fh);
+	if(frostCache == NULL) frostCache = graph_new_shm(fw, fh);
 	slot->backdropSharp = backdropSharp;
 	slot->frostCache = frostCache;
 	if(backdropSharp == NULL || frostCache == NULL) {
@@ -332,34 +333,40 @@ void MisaWM::markFrameRound(graph_t* frame_g, grect_t* fr, int r) {
 	if(r <= 0)
 		r = 10;
 
-	if(roundMask == NULL || roundMaskSize != r) {
-		if(roundMask != NULL)
-			graph_free(roundMask);
-		roundMask = graph_new(NULL, r, r);
-		roundMaskSize = (roundMask != NULL) ? r : 0;
+	if(roundMaskSize != r) {
+		for(int i = 0; i < 4; i++) {
+			if(roundMask[i] != NULL) graph_free(roundMask[i]);
+			roundMask[i] = NULL;
+		}
+		roundMaskSize = r;
+	}
+	for(int i = 0; i < 4; i++) {
+		if(roundMask[i] != NULL)
+			continue;
+		roundMask[i] = graph_new(NULL, r, r);
+		if(roundMask[i] == NULL || roundMask[i]->buffer == NULL)
+			return;
+		graph_clear(roundMask[i], 0);
+		const int cx[4] = {r, r, 0, 0}, cy[4] = {r, 0, r, 0};
+		const int start[4] = {90, 180, 0, 270};
+		graph_fill_arc(roundMask[i], cx[i], cy[i], r, start[i], start[i]+90, 0xffffffff);
 	}
 
-	graph_t* mask = roundMask;
-	if(mask == NULL)
-		return;
+	graph_t* mask = roundMask[0];
 
 	/*the corners of the frame rect fr, not of frame_g: the graph also holds
 	  the right/bottom shadow bands, masking at its edges would push the
 	  right/bottom corners into the shadow area*/
-	graph_clear(mask, 0);
-	graph_fill_arc(mask, mask->w, mask->h, r, 90, 180, 0xffffffff);
+	mask = roundMask[0];
 	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, fr->x, fr->y, mask->w, mask->h);
 
-	graph_clear(mask, 0);
-	graph_fill_arc(mask, mask->w, 0, r, 180, 270, 0xffffffff);
+	mask = roundMask[1];
 	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, fr->x, fr->y+fr->h-mask->h, mask->w, mask->h);
 
-	graph_clear(mask, 0);
-	graph_fill_arc(mask, 0, mask->h, r, 0, 90, 0xffffffff);
+	mask = roundMask[2];
 	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, fr->x+fr->w-mask->w, fr->y, mask->w, mask->h);
 
-	graph_clear(mask, 0);
-	graph_fill_arc(mask, 0, 0, r, 270, 360, 0xffffffff);
+	mask = roundMask[3];
 	graph_blt_alpha_mask(mask, 0, 0, mask->w, mask->h, frame_g, fr->x+fr->w-mask->w, fr->y+fr->h-mask->h, mask->w, mask->h);
 }
 
@@ -372,6 +379,17 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	  the 3D border arc. The frost cache, the four border bands, the title, the
 	  buttons and the client-area glass are all still valid and must NOT be
 	  touched: re-blending the translucent glass over itself would darken it.*/
+	bool contentOnly = xwm.draw.frame.content_only != 0;
+	grect_t savedClip = frame_g->clip;
+	if(info->corners_only || contentOnly) {
+		grect_t ws = {info->wsr.x-info->winr.x, info->wsr.y-info->winr.y,
+			info->wsr.w, info->wsr.h};
+		grect_t bounds = {0, 0, frame_g->w, frame_g->h};
+		if(!grect_insect(&bounds, &ws) ||
+				(savedClip.w > 0 && savedClip.h > 0 && !grect_insect(&savedClip, &ws)))
+			return;
+		frame_g->clip = ws;
+	}
 	if(info->corners_only) {
 		if((info->style & XWIN_STYLE_NO_FRAME) == 0) {
 			int round = (int)xwm.theme.round;
@@ -380,6 +398,8 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 				graph_round_3d(frame_g, r->x, r->y, r->w, r->h, round, 1, xwm.theme.frameBGColor, false);
 			}
 		}
+		XWM::drawShadow(desktop_g, frame_g, info, top);
+		frame_g->clip = savedClip;
 		return;
 	}
 
@@ -396,7 +416,7 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	  backdrop scan here replaces the five this method used to trigger.*/
 	ensureFrost(desktop_g, info);
 
-    if((info->style & XWIN_STYLE_NO_FRAME) == 0) {
+    if(!contentOnly && (info->style & XWIN_STYLE_NO_FRAME) == 0) {
 		/*the border ring: frost the four bands that make up the frame edge. The
 		title band is frosted in drawTitle, which runs before this and already
 		carries the title text and the buttons, so the ring stops at the title
@@ -436,6 +456,11 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 			markFrameRound(frame_g, r, round);
 			graph_round_3d(frame_g, r->x, r->y, r->w, r->h, round, 1, xwm.theme.frameBGColor, false);
 		}
+	}
+	if(contentOnly) {
+		if((info->style & XWIN_STYLE_NO_FRAME) == 0 && info->state != XWIN_STATE_MAX)
+			XWM::drawShadow(desktop_g, frame_g, info, top);
+		frame_g->clip = savedClip;
 	}
 }
 
@@ -511,15 +536,28 @@ void MisaWM::drawClose(graph_t* g, xinfo_t* info, grect_t* r, bool top) {
 	graph_fill_circle_3d(g, r->x+r->w/2, r->y+r->h/2, r->w/2-3, 1, 0xffdd6666, false);
 }
 
+void MisaWM::releaseWindow(ewokos_addr_t win) {
+	for(int i = 0; i < MISA_FROST_SLOTS; i++)
+		if(win == 0 || frostSlots[i].win == win)
+			frostSlotFree(&frostSlots[i]);
+}
+
+void MisaWM::updateTheme(bool loadFromX) {
+	releaseWindow(0);
+	XWM::updateTheme(loadFromX);
+}
+
 MisaWM::~MisaWM(void) {
-	if(roundMask != NULL)
-		graph_free(roundMask);
+	for(int i = 0; i < 4; i++)
+		if(roundMask[i] != NULL) graph_free(roundMask[i]);
 	for(int i = 0; i < MISA_FROST_SLOTS; i++)
 		frostSlotFree(&frostSlots[i]);
 }
 
 MisaWM::MisaWM(void) {
-	roundMask = NULL;
+	memset(roundMask, 0, sizeof(roundMask));
+	memset(frostSlots, 0, sizeof(frostSlots));
+	xwm.retained_decorations = true;
 	roundMaskSize = 0;
 	for(int i = 0; i < MISA_FROST_SLOTS; i++) {
 		frostSlots[i].win = 0;

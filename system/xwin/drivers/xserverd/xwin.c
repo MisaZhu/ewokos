@@ -259,6 +259,7 @@ void x_del_win(x_t* x, xwin_t* win) {
       below and before shmdt(win->xinfo) at the end.*/
     x_update_release(x, win);
 
+    x_release_canvases(x, win->xinfo != NULL ? win->xinfo->win : 0, NULL, 0);
     remove_win(x, win);
     if(win == x->current.win_drag) {
         x->current.win_drag = NULL;
@@ -282,19 +283,19 @@ void x_del_win(x_t* x, xwin_t* win) {
         x->win_last = NULL;
 
     if(win->ws_g != NULL) {
-        graph_free(win->ws_g);
+        x_free_canvas(x, win->ws_g);
         win->ws_g = NULL;
     }
     if(win->ws_g2 != NULL) {
-        graph_free(win->ws_g2);
+        x_free_canvas(x, win->ws_g2);
         win->ws_g2 = NULL;
     }
     if(win->frame_g != NULL) {
-        graph_free(win->frame_g);
+        x_free_canvas(x, win->frame_g);
         win->frame_g = NULL;
     }
     if(win->backdrop != NULL) {
-        graph_free(win->backdrop);
+        x_free_canvas(x, win->backdrop);
         win->backdrop = NULL;
     }
     if(win->xinfo != NULL) {
@@ -378,7 +379,7 @@ static void mark_dirty_confirm(x_t* x, xwin_t* win) {
                     if(!win_alpha_inplace_ok(v))
                         x_dirty(x, v->xinfo->display_index);
                 }
-                else if(frame_cuts_ws(x, v)) {
+                if(frame_cuts_ws(x, v) || v->xinfo->alpha) {
                     /*a window below v repainted, so what sits under v changed:
                       v's frosted backdrop is stale and its frame has to be built
                       again from scratch, not just re-cornered*/
@@ -402,7 +403,8 @@ static void mark_dirty(x_t* x, xwin_t* win) {
     xwin_t* top = win->next;
     while(top != NULL) {
         grect_t r;
-        if(top->xinfo != NULL && top->xinfo->visible) {
+        if(top->xinfo != NULL && top->xinfo->visible &&
+                top->xinfo->display_index == win->xinfo->display_index) {
             memcpy(&r, &top->xinfo->winr, sizeof(grect_t));
 
             grect_t *check_r;
@@ -435,6 +437,32 @@ static void mark_dirty(x_t* x, xwin_t* win) {
     mark_dirty_confirm(x, win);
     if(win->dirty)
         mark_dirty(x, win_next);
+}
+
+void x_prepare_repaint(x_t* x, uint32_t display_index) {
+    x_display_t* d = &x->displays[display_index];
+    for(xwin_t* w = x->win_head; w != NULL; w = w->next) {
+        if(w->xinfo == NULL || !w->xinfo->visible ||
+                w->xinfo->display_index != display_index)
+            continue;
+        if(w->frame_dirty)
+            w->dirty = true;
+        if(w->backdrop_valid) {
+            grect_t visible = w->xinfo->winr;
+            if(!rect_clip_to_graph(d->g, &visible) ||
+                    memcmp(&w->backdrop_rect, &w->xinfo->winr, sizeof(grect_t)) != 0 ||
+                    memcmp(&w->backdrop_visible, &visible, sizeof(visible)) != 0)
+                w->backdrop_valid = false;
+        }
+        if(w->dirty && w->xinfo->alpha && !win_alpha_inplace_ok(w))
+            x_dirty(x, display_index);
+    }
+    /*Include decoration-only changes in the overlap closure before checking
+      painters. Captures during the pass can dirty exactly this closure.*/
+    mark_dirty(x, x->win_head);
+    for(xwin_t* w = x->win_head; w != NULL; w = w->next)
+        if(w->dirty && w->xinfo != NULL && w->xinfo->display_index == display_index)
+            mark_dirty(x, w);
 }
 
 void check_wins(x_t* x) {
@@ -508,7 +536,7 @@ static void win_dirty(x_t* x, xwin_t* win) {
             if(!win_alpha_inplace_ok(win))
                 x_dirty(x, win->xinfo->display_index);
         }
-        else if(frame_cuts_ws(x, win))
+        if(frame_cuts_ws(x, win) || win->xinfo->alpha)
             /*only this window's own content changed: the decoration ring stays
               valid, so leave frame_full clear and let draw_win take the
               corners-only path. frame_full is whatever an earlier structural

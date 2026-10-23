@@ -39,7 +39,7 @@ class MisaWM : public XWM {
 	void frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
 			int gx, int gy, int gw, int gh, uint32_t tint, int blur);
 
-	graph_t* roundMask;
+	graph_t* roundMask[4];
 	int roundMaskSize;
 
 	/*Per-window frost cache. This used to be a SINGLE shared set of members, so
@@ -61,6 +61,12 @@ class MisaWM : public XWM {
 		int frostX, frostY, frostW, frostH;
 		bool frostValid;
 		uint32_t lastUse;       //LRU stamp
+		uint64_t lastDraw;
+		int32_t sourceId;
+		int sourceW, sourceH;
+		uint32_t generation;
+		xwm_theme_t theme;
+		bool alpha;
 	};
 	FrostSlot frostSlots[MISA_FROST_SLOTS];
 	uint32_t frostTick;
@@ -72,6 +78,8 @@ class MisaWM : public XWM {
 	void frostSlotFree(FrostSlot* s);
 
 protected:
+	void releaseWindow(ewokos_addr_t win);
+	void updateTheme(bool loadFromX);
 	void getMax(xinfo_t* info, grect_t* rect);
 	void getClose(xinfo_t* info, grect_t* rect);
 

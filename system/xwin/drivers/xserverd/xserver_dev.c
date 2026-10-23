@@ -148,12 +148,16 @@ int xserver_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t
         PF->addi(ret, x->display_num);
     }
     else if(cmd == X_DCNTL_SET_XWM) {
+        x_release_canvases(x, 0, NULL, -1);
+        x->xwm_retained_decorations = proto_read_int(in) != 0;
         x->xwm_pid = from_pid;
         x->xwm_uuid = proc_get_uuid(from_pid);
         x->xwm_changed = true;
         x_dirty(x, -1);
     }
     else if(cmd == X_DCNTL_UNSET_XWM) {
+        x_release_canvases(x, 0, NULL, -1);
+        x->xwm_retained_decorations = false;
         x->xwm_pid = -1;
         x->xwm_changed = false;
         x_dirty(x, -1);
