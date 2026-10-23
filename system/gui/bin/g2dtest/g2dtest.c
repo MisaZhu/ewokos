@@ -46,6 +46,7 @@ CHECKED_G2D(g2d_gaussian_blur, g2d_gaussian_blur_req_t)
    driver accepted and bit-exactly matched a blur, gating the PERF row
    (machines without a blur backend skip it) */
 static int g_gauss_ok = 0;
+static int g_gauss_fast = 0;
 
 /* fixed Q16 weights of the backend blur (sigma = radius/2, normalized to
    exactly 65536 with the center weight absorbing the rounding) - must
@@ -106,6 +107,56 @@ static void gauss_ref_scalar(const uint32_t* src, uint32_t* dst,
                              ((sb + 32768) >> 16);
         }
     }
+}
+
+/* Q8B's throughput-first mip blur deliberately uses a different kernel.
+   Test actual smoothing plus DC/alpha preservation instead of CPU equality.
+   Exact backends retain the original Q16 assertions below. */
+static int gauss_fast_check(graph_t* image, graph_t* tmp) {
+    static const int radii[]={1,2,3,4,6,16,64};
+    static const uint32_t colors[]={0x01234567u,0x80123456u,0xffabcdefu};
+    unsigned n=(unsigned)image->w*image->h;
+    for(unsigned ri=0;ri<sizeof(radii)/sizeof(radii[0]);ri++) {
+        g2d_gaussian_blur_req_t req;
+        /* img_canvas is declared later; construct the same descriptor. */
+        g2d_gaussian_blur_req_init(&req,
+            g2d_canvas(image->shm_id,n*4,image->w,image->h,image->shm_contig),
+            g2d_canvas(tmp->shm_id,tmp->w*tmp->h*4,tmp->w,tmp->h,tmp->shm_contig),
+            g2d_rect(0,0,image->w,image->h),radii[ri]);
+        for(unsigned ci=0;ci<sizeof(colors)/sizeof(colors[0]);ci++) {
+            for(unsigned i=0;i<n;i++) image->buffer[i]=colors[ci];
+            int ret=g2d_gaussian_blur(&req);
+            if(ret==G2D_ERR_NOT_SUPPORTED) {
+                printf("SKIP gaussian_fast backend has no blur\n");
+                return 0;
+            }
+            if(ret) { printf("FAIL gaussian_fast r%d ret=%d\n",radii[ri],ret); return 1; }
+            for(unsigned i=0;i<n;i++) if(image->buffer[i]!=colors[ci]) {
+                printf("FAIL gaussian_fast r%d DC/alpha at %u got=%08x want=%08x\n",
+                    radii[ri],i,image->buffer[i],colors[ci]);
+                return 1;
+            }
+        }
+        for(int y=0;y<image->h;y++) for(int x=0;x<image->w;x++)
+            image->buffer[y*image->w+x]=((x+y)&1)?0xffffffffu:0xff000000u;
+        int ret=g2d_gaussian_blur(&req);
+        if(ret) { printf("FAIL gaussian_fast checker r%d ret=%d\n",radii[ri],ret); return 1; }
+        uint64_t mean=0,contrast=0;
+        unsigned pixels=0,alpha_bad=0;
+        for(int y=2;y<image->h-2;y++) for(int x=2;x<image->w-2;x++) {
+            uint32_t p=image->buffer[y*image->w+x];
+            unsigned v=p&255;
+            mean+=v; contrast+=v>128?v-128:128-v;
+            alpha_bad+=(p>>24)!=255 || ((p>>8)&255)!=v || ((p>>16)&255)!=v;
+            pixels++;
+        }
+        if(!pixels || alpha_bad || mean<pixels*96u || mean>pixels*160u || contrast>pixels*96u) {
+            printf("FAIL gaussian_fast r%d smoothing/DC/alpha\n",radii[ri]); return 1;
+        }
+        printf("PASS gaussian_fast_r%d smoothing/DC/alpha (approximate kernel)\n",radii[ri]);
+    }
+    g_gauss_ok=1;
+    return 0;
 }
 
 static uint32_t rotated45_size(uint32_t w, uint32_t h) {
@@ -899,7 +950,8 @@ static void bench_gauss_breakeven(int* failures) {
     uint32_t i;
     int ri;
 
-    printf("--- gaussian gpu/neon break-even ---\n");
+    printf("--- gaussian gpu/neon break-even%s ---\n",
+        g_gauss_fast?" (approximate GPU vs exact CPU)":"");
     printf("GAUSS %-10s %4s %8s %10s %10s %8s\n",
             "size", "r", "iters", "gpu_us", "neon_us", "gpu/sw");
 
@@ -1001,6 +1053,10 @@ int main(int argc, char** argv) {
     if(has_g2d() != 0) {
         printf("g2d device not found\n");
         return -1;
+    }
+    {
+        uint32_t version=0;
+        g_gauss_fast=(g2d_get_version(&version)==0 && version==690);
     }
     /* confirm the g2d engine clock every run: hardware backends pin the
        gpu to its max rate at driver startup, so fps numbers are only
@@ -1386,6 +1442,10 @@ int main(int argc, char** argv) {
     }
     else if(gblur->shm_contig == 0 || gtmp->shm_contig == 0) {
         printf("SKIP %-22s canvas not GPU-visible\n", "gaussian_blur");
+    }
+    else if(g_gauss_fast) {
+        printf("Q8B fast blur: effect/DC/alpha acceptance; GPU/CPU timings use different kernels\n");
+        failures += gauss_fast_check(gblur, gtmp);
     }
     else if((ref = (uint32_t*)malloc(320u * 200u * 4u)) == NULL ||
             (scratch = (uint32_t*)malloc(320u * 200u * 4u)) == NULL) {

@@ -262,20 +262,19 @@ typedef struct {
 	int32_t rotate;
 } g2d_blit_req_t;
 
-/* separable Gaussian blur of a sub-rect of the dst canvas, in place (the
-   default blur algorithm). rect is clamped into dst by the driver; a rect
-   covering the whole canvas blurs everything. the driver is GPU-only
-   (no CPU fallback, same as fill/blit/rotate): the back end runs a
-   whole-canvas blur at a width that is a multiple of 16 with any
-   radius >= 1 (radius 1..4 dispatch their own separable kernel pair
-   with fixed per-radius Q16 weights, sigma = radius/2, so the request
-   carries no coefficients; larger radii compose the same stages), and
-   needs the tmp scratch canvas: same geometry class as dst, size >=
-   dst.w*dst.h*4, GPU-visible like dst (the driver only passes it
-   through and never reads it). a partial rect or a non-aligned width
-   is not runnable - G2D_ERR_FAILED, nothing submitted (run your own
-   software blur); G2D_ERR_FAILED also covers a bad canvas, an empty
-   rect, a non-positive radius or a failed dispatch (transient). */
+/* GPU-only Gaussian-style blur, in place. The driver clips rect to dst;
+   an empty rect or non-positive radius returns FAILED. Geometry/radius
+   eligibility and the filter are backend-specific. Exact backends use
+   fixed Q16 weights at radii 1..4 (sigma=radius/2), composing larger radii.
+   Q8B prioritizes throughput with a bilinear downsample/upsample cascade,
+   radii 1..64, including cropped rectangles on a 64-byte-aligned canvas
+   pitch. Its pixels need not match the CPU Q16 kernel.
+   Both canvases must be GPU-visible. For a clipped rect w*h on canvas
+   pitch dst.w*4, tmp needs at least (h-1)*dst.w*4+w*4 bytes, with logical
+   geometry w*h. A backend can decline if its scratch layout will not fit.
+   A replayable FAILED leaves dst unchanged; tmp is disposable. There is
+   no driver CPU fallback. Submitted timeouts/faults are terminal: retain
+   both buffers and never replay on the CPU. */
 typedef struct {
 	g2d_canvas_t dst;
 	g2d_canvas_t tmp;

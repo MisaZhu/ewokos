@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
+#include <limits.h>
 #include <sys/shm.h>
 
 #ifdef __cplusplus 
@@ -56,6 +57,7 @@ inline uint32_t color_reverse_rgb(uint32_t oc) {
 }
 
 #define GRAPH_MEM_ALIGN 64
+#define GRAPH_SHM_ALIGN 64u
 
 static void* aligned_malloc(uint32_t size, uint32_t alignment) {
     // Check if alignment is a power of 2
@@ -68,7 +70,8 @@ static void* aligned_malloc(uint32_t size, uint32_t alignment) {
     if (!raw_ptr) return NULL;
     // Calculate aligned address
     ewokos_addr_t aligned_addr = (ewokos_addr_t)raw_ptr + sizeof(void*);
-    aligned_addr = (aligned_addr + alignment - 1) & ~(alignment - 1);
+    aligned_addr = (aligned_addr + (ewokos_addr_t)alignment - 1) &
+            ~((ewokos_addr_t)alignment - 1);
     // Save original pointer for free
     *((void**)aligned_addr - 1) = raw_ptr;
     return (void*)aligned_addr;
@@ -143,7 +146,9 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
     graph_t* ret;
     uint32_t* pixels = NULL;
     int shm_id = -1;
-    uint32_t size;
+    uint64_t bytes64;
+    uint64_t alloc64;
+    int size;
 
     if(w <= 0 || h <= 0)
         return NULL;
@@ -157,7 +162,16 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
 
     /* the pixel buffer IS a keyed shm canvas shared with /dev/g2d,
        the id is kept in the graph so g2d ops can use it directly */
-    size = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
+    bytes64 = (uint64_t)(uint32_t)w * (uint32_t)h * sizeof(uint32_t);
+    alloc64 = (bytes64 + GRAPH_SHM_ALIGN - 1u) &
+            ~((uint64_t)GRAPH_SHM_ALIGN - 1u);
+    /* shmget takes an int byte count on this platform.  Reject overflow
+       before the cast so a giant graph cannot wrap into a tiny segment. */
+    if(bytes64 == 0 || alloc64 > (uint64_t)INT_MAX) {
+        aligned_free(ret);
+        return NULL;
+    }
+    size = (int)alloc64;
     /* up to 16 attempts: IPC_EXCL fails on key collisions, so bump the
        sequence counter and retry with a fresh key */
     for(int32_t i = 0; i < 4 && shm_id <= 0; i++) {
@@ -186,6 +200,15 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
         aligned_free(ret);
         return NULL;
     }
+    /* Shared mappings are normally page aligned.  Keep the contract
+       explicit: every contiguous canvas handed to a GPU starts on a
+       64-byte boundary. */
+    if((((ewokos_addr_t)pixels) & (GRAPH_SHM_ALIGN - 1u)) != 0) {
+        shmdt(pixels);
+        shmctl(shm_id, IPC_RMID, NULL);
+        aligned_free(ret);
+        return NULL;
+    }
 
     graph_init(ret, pixels, w, h);
     ret->shm_id = shm_id;
@@ -200,8 +223,15 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
    contig allocation is not available. */
 graph_t* graph_new_shm(int32_t w, int32_t h) {
     graph_t* g = NULL;
+    uint64_t pixels;
 
-	if(has_g2d() == 0 && (w * h) >= G2D_MIN_SIZE)
+	pixels = (uint64_t)(uint32_t)w * (uint32_t)h;
+	/* Q8B A2D consumes a linear canvas with a 64-byte row pitch. Keep
+	   arbitrary logical widths on the ordinary shm path so they cannot be
+	   mistaken for GPU-ready contig surfaces; callers can place an odd visible
+	   rect in a wider aligned canvas when they want GPU blur. */
+	if(has_g2d() == 0 && pixels >= G2D_MIN_SIZE &&
+		((uint64_t)(uint32_t)w * sizeof(uint32_t)) % GRAPH_SHM_ALIGN == 0)
         g = graph_new_shm_row(w, h, true);
 
     if(g == NULL)

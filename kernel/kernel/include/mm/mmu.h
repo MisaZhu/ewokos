@@ -102,7 +102,7 @@
    xwin_repaint.) SHM_CONTIG_VA_MAX is the STATIC reservation that anchors
    KMALLOC_VM below the largest slab a board may configure; sys_info_config caps
    shm_contig.size to it so the physical carve and this window always agree. */
-#define SHM_CONTIG_VA_MAX             (256*MB)
+#define SHM_CONTIG_VA_MAX             (512*MB)
 #define SHM_CONTIG_BASE               (SHM_BASE - SHM_CONTIG_VA_MAX)
 
 #define KMALLOC_VM_SIZE               (64*MB)

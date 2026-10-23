@@ -166,6 +166,11 @@ static inline void g2d_prng_unlock(void) {
 #error G2D_PITCH_ALIGN must be a positive multiple of 4 (whole pixels)
 #endif
 #define G2D_PITCH_ALIGN_PX (G2D_PITCH_ALIGN / 4)
+#define G2D_DATA_ALIGN 64u
+
+static int g2d_addr_aligned(ewokos_addr_t addr) {
+	return addr != 0 && (addr & (G2D_DATA_ALIGN - 1u)) == 0;
+}
 
 typedef struct {
 	uint32_t* buffer;
@@ -436,11 +441,16 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		   sys_dma v window; map it into this process before use.
 		   Serialized by _g2d_dma_lock (not map_lock) so different
 		   dma addresses still overlap with shm cache work. */
-		if(canvas->addr == 0)
+		if(!g2d_addr_aligned(canvas->addr))
 			return G2D_ERR_FAILED;
 		g2d_dma_lock();
 		rc = g2d_dma_map(canvas->addr, canvas->size, &at->phy);
 		if(rc != 0) {
+			g2d_dma_unlock();
+			return G2D_ERR_FAILED;
+		}
+		if(!g2d_addr_aligned(at->phy)) {
+			syscall1(SYS_DMA_UNMAP, (ewokos_addr_t)canvas->addr);
 			g2d_dma_unlock();
 			return G2D_ERR_FAILED;
 		}
@@ -475,10 +485,13 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		at->phy = canvas->phy;
 		if(at->contig != 0 && at->phy == 0)
 			at->phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
+		if(!g2d_addr_aligned((ewokos_addr_t)p) ||
+				(at->contig != 0 && !g2d_addr_aligned(at->phy))) {
+			shmdt(p);
+			return G2D_ERR_FAILED;
+		}
 		return 0;
 	}
-
-	g2d_cache_sweep(now_ms);
 
 	/* a standing entry is authoritative: its own shmat pins the segment
 	   in the kernel (see the attach-cache comment above), so there is
@@ -500,6 +513,15 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		g2d_map_unlock();
 		return 0;
 	}
+
+	/* Reclaim stale mappings only after the lookup misses.  The compositor's
+	   steady-state requests hit persistent frame canvases; sweeping before
+	   every lookup made an otherwise cheap hit occasionally execute shmdt()
+	   for an idle full-frame mapping while holding the map lock.  That page
+	   table teardown can dominate dispatch latency and blocks other requesters.
+	   Misses still sweep before choosing an eviction slot, so reclamation is
+	   retained where it can affect allocation. */
+	g2d_cache_sweep(now_ms);
 
 	/* Cache miss: make room inside the pin budget, then reserve a
 	   placeholder slot BEFORE releasing the lock for shmat. The
@@ -553,6 +575,15 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 			g2d_map_unlock();
 			return G2D_ERR_FAILED;
 		}
+		if(!g2d_addr_aligned((ewokos_addr_t)p) ||
+				(canvas->contig != 0 && !g2d_addr_aligned(phy))) {
+			shmdt(p);
+			e->used = 0;
+			e->filling = 0;
+			_g2d_cache_bytes -= canvas->size;
+			g2d_map_unlock();
+			return G2D_ERR_FAILED;
+		}
 		/* fill the entry and wake anyone waiting on this id */
 		e->buffer = (uint32_t*)p;
 		e->phy = phy;
@@ -585,6 +616,11 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 	at->phy = canvas->phy;
 	if(at->contig != 0 && at->phy == 0)
 		at->phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
+	if(!g2d_addr_aligned((ewokos_addr_t)p) ||
+			(at->contig != 0 && !g2d_addr_aligned(at->phy))) {
+		shmdt(p);
+		return G2D_ERR_FAILED;
+	}
 	return 0;
 }
 
@@ -742,6 +778,12 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	surf->shm_id = shm_id;
 	if(contig != 0)
 		surf->phy = shm_contig_phy_addr(shm_id, (ewokos_addr_t)p);
+	if(!g2d_addr_aligned((ewokos_addr_t)p) ||
+			(contig != 0 && !g2d_addr_aligned(surf->phy))) {
+		shmdt(p);
+		shmctl(shm_id, IPC_RMID, NULL);
+		return G2D_ERR_FAILED;
+	}
 	return 0;
 }
 
@@ -1502,21 +1544,18 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 	return NULL;
 }
 
-/* gaussian blur of a sub-rect of the dst canvas, in place.  GPU-only
-   semantics, same as fill/blit/rotate: the back end runs ANY rect of
-   the canvas (clipped like the arch engine does) with any radius >= 1
-   (radius 1..4 dispatch their own separable kernel pair, larger radii
-   compose the same stages) and needs the caller's tmp scratch - a
-   pitch-strided (h - 1)-row region of the canvas pitch plus one rect
-   row.  a request the back end cannot run answers G2D_ERR_FAILED
-   directly, with no driver-level CPU fallback and nothing submitted
-   (the caller keeps its own software blur).  a non-positive radius or
-   an empty (fully clipped) rect answers G2D_ERR_FAILED too. */
+/* GPU-only blur of a clipped canvas rect, in place. Exact backends use
+   separable Q16 stages; Q8B uses a throughput-first bilinear mip cascade.
+   Scratch guarantees (h-1) canvas-pitch rows plus one rect row. Backend
+   geometry/radius restrictions return FAILED with dst unchanged (scratch
+   is disposable); the client may then run its software blur. Submitted
+   faults/timeouts are terminal and must not be replayed. */
 static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 	g2d_gaussian_blur_req_t req;
 	g2d_attached_t dst;
 	g2d_attached_t tmp;
 	int32_t x, y, w, h;
+	int64_t left, top, right, bottom;
 	int32_t gpu_eligible;
 	int32_t ret;
 
@@ -1535,28 +1574,26 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 
 	/* clamp the requested rect into the dst canvas (same rule the arch
 	   engine and graph_gaussian_cpu use) */
-	x = req.rect.x; y = req.rect.y; w = req.rect.w; h = req.rect.h;
-	if(x < 0) { w += x; x = 0; }
-	if(y < 0) { h += y; y = 0; }
-	if(x + w > (int32_t)dst.width) w = (int32_t)dst.width - x;
-	if(y + h > (int32_t)dst.height) h = (int32_t)dst.height - y;
-	if(w <= 0 || h <= 0) {
+	left = req.rect.x; top = req.rect.y;
+	right = left + (int64_t)req.rect.w;
+	bottom = top + (int64_t)req.rect.h;
+	if(left < 0) left = 0;
+	if(top < 0) top = 0;
+	if(right > dst.width) right = dst.width;
+	if(bottom > dst.height) bottom = dst.height;
+	if(right <= left || bottom <= top || dst.width > INT32_MAX || dst.height > INT32_MAX) {
 		g2d_detach(&dst);
 		return G2D_ERR_FAILED;
 	}
+	x = (int32_t)left; y = (int32_t)top;
+	w = (int32_t)(right-left); h = (int32_t)(bottom-top);
 
-	/* the GPU back end runs any rect of the canvas at any width (the
-	   kernels tail-mask the final partial 16-px group of each row
-	   through the driver scratch) with a big enough scratch - a
-	   pitch-strided (h - 1)-row region plus one rect row (radius 1..4
-	   dispatch their own kernel pair; larger radii compose the same
-	   stages) - on machines whose back end has no GPU blur the bsp
-	   answers in software at any rect; everything else answers -1 with
-	   nothing submitted */
+	/* Check the portable minimum with wide arithmetic. Each BSP proves
+	   its own layout fits this budget before submitting a GPU write. */
 	gpu_eligible = (req.radius >= 1 &&
 			req.tmp.size >=
-				(uint32_t)(h - 1) * (uint32_t)dst.width * 4u +
-				(uint32_t)w * 4u);
+				(uint64_t)(h - 1) * (uint32_t)dst.width * 4u +
+				(uint64_t)w * 4u);
 
 	if(gpu_eligible) {
 		if(g2d_attach(&req.tmp, &tmp) != 0) {

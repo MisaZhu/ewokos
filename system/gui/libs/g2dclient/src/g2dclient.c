@@ -8,8 +8,10 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/klog.h>
 #include <unistd.h>
+#include <limits.h>
 
 #define G2D_DEFAULT_DEV "/dev/g2d"
+#define G2D_SHM_ALIGN 64u
 static char _g2d_dev[FS_FULL_NAME_MAX] = { 0 };
 static int  _dev_pid = 0;
 
@@ -91,8 +93,19 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
     key_t key;
     int id;
     void* addr;
+    uint64_t alloc64;
 
     if(size == 0 || shm_id == NULL || pixels == NULL)
+        return G2D_ERR_FAILED;
+
+    *shm_id = -1;
+    *pixels = NULL;
+    if(phy != NULL)
+        *phy = 0;
+
+    alloc64 = ((uint64_t)size + G2D_SHM_ALIGN - 1u) &
+            ~((uint64_t)G2D_SHM_ALIGN - 1u);
+    if(alloc64 > (uint64_t)INT_MAX)
         return G2D_ERR_FAILED;
 
     id = -1;
@@ -103,21 +116,30 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
 
         /* GPU canvases must come from the physically-contiguous IPC slab;
            ordinary scattered shm cannot be represented by one VC4 address. */
-        id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
+        id = shmget(key, (int)alloc64,
+                0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
         if(id > 0)
             break;
     }
     if(id <= 0)
         return G2D_ERR_FAILED;
     addr = shmat(id, 0, 0);
-    if(addr == (void*)-1)
+    if(addr == (void*)-1) {
+        shmctl(id, IPC_RMID, NULL);
         return G2D_ERR_FAILED;
+    }
+    if((((ewokos_addr_t)addr) & (G2D_SHM_ALIGN - 1u)) != 0) {
+        shmdt(addr);
+        shmctl(id, IPC_RMID, NULL);
+        return G2D_ERR_FAILED;
+    }
     *shm_id = id;
     *pixels = (uint32_t*)addr;
     if(phy != NULL) {
         *phy = shm_contig_phy_addr(id, (ewokos_addr_t)addr);
-        if(*phy == 0) {
+        if(*phy == 0 || ((*phy) & (G2D_SHM_ALIGN - 1u)) != 0) {
             shmdt(addr);
+            shmctl(id, IPC_RMID, NULL);
             *pixels = NULL;
             *shm_id = -1;
             return G2D_ERR_FAILED;
