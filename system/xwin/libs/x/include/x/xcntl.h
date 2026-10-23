@@ -61,20 +61,21 @@ enum {
 #define X_UPDATE_REFRESH 0x2
 
 #define XWIN_STYLE_NORMAL         0x0
-#define XWIN_STYLE_NO_FRAME       0x1
-#define XWIN_STYLE_NO_TITLE       0x2
-#define XWIN_STYLE_NO_RESIZE      0x4
-#define XWIN_STYLE_LAZY           0x8 //ignore all event
-#define XWIN_STYLE_NO_FOCUS       0x10
-#define XWIN_STYLE_SYSTOP         0x20
-#define XWIN_STYLE_SYSBOTTOM      0x40
-#define XWIN_STYLE_XIM            0x80
-#define XWIN_STYLE_LAUNCHER       0x100
-#define XWIN_STYLE_PROMPT         0x200 //prompt win
-#define XWIN_STYLE_NO_BG_EFFECT   0x400
-#define XWIN_STYLE_MAX            0x800
+#define XWIN_STYLE_NO_FRAME       0x0001
+#define XWIN_STYLE_NO_TITLE       0x0002
+#define XWIN_STYLE_NO_RESIZE      0x0004
+#define XWIN_STYLE_LAZY           0x0008 //ignore all event
+#define XWIN_STYLE_NO_FOCUS       0x0010
+#define XWIN_STYLE_SYSTOP         0x0020
+#define XWIN_STYLE_SYSBOTTOM      0x0040
+#define XWIN_STYLE_XIM            0x0080
+#define XWIN_STYLE_LAUNCHER       0x0100
+#define XWIN_STYLE_PROMPT         0x0200 //prompt win
+#define XWIN_STYLE_NO_BG_EFFECT   0x0400
+#define XWIN_STYLE_MAX            0x0800
+#define XWIN_STYLE_NO_WS_EFFECT   0x1000
 
-#define XWIN_STYLE_SPRITE         (XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT)
+#define XWIN_STYLE_SPRITE         (XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_NO_WS_EFFECT)
 
 #define XWIN_TITLE_MAX 32
 #define X_APP_NAME_MAX 128
