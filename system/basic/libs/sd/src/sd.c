@@ -155,6 +155,31 @@ static inline void* sector_buf_get(uint32_t index) {
     return (void*)_sd_buffer.sector_buf[block_index].data[index];
 }
 
+/* Drop any cached sectors covering [sector, sector+count). A failed card
+ * write may have programmed a prefix of the range while the cache still
+ * holds the pre-write bytes, so those sectors must be re-fetched from the
+ * device on the next read instead of serving stale data (same discipline
+ * as the bsp-level write cache's invalidate-on-failure). */
+static inline void sector_buf_invalidate(uint32_t sector, uint32_t count) {
+    if(_sd_buffer.sector_buf == NULL || _sd_buffer.max_sector_index == 0)
+        return;
+    for(uint32_t i = 0; i < count; i++) {
+        uint32_t index = (sector + i) - _partition.start_sector;
+        if(index >= _sd_buffer.max_sector_index)
+            continue;
+        uint32_t block_index = index / BUF_BLOCK_SIZE;
+        uint32_t slot = index % BUF_BLOCK_SIZE;
+        if(_sd_buffer.sector_buf[block_index].data == NULL)
+            continue;
+        if(_sd_buffer.sector_buf[block_index].data[slot] != 0) {
+            free((void*)_sd_buffer.sector_buf[block_index].data[slot]);
+            _sd_buffer.sector_buf[block_index].data[slot] = 0;
+            if(_sd_buffer.sector_buffered > 0)
+                _sd_buffer.sector_buffered--;
+        }
+    }
+}
+
 //sd arch functions 
 static int32_t (*sd_init_arch)(void);
 static int32_t (*sd_flush_arch)(void);
@@ -266,6 +291,11 @@ int32_t sd_write_sector(int32_t sector, const void* buf) {
             sector_buf_set(sector, buf);
         ret = SECTOR_SIZE;
     }
+    else if(_sd_buffer.enabled) {
+        /* the write may have left the sector partly programmed: drop any
+         * cached copy so a later read re-fetches the device truth */
+        sector_buf_invalidate((uint32_t)sector, 1);
+    }
     sd_io_unlock();
     return ret;
 }
@@ -286,12 +316,19 @@ int32_t sd_write_sectors(int32_t sector, const void* buf, uint32_t count) {
             }
             ret = (int32_t)(count * SECTOR_SIZE);
         }
+        else if(_sd_buffer.enabled) {
+            /* the card may have programmed a prefix before failing:
+             * invalidate the whole range so no stale sector is served */
+            sector_buf_invalidate((uint32_t)sector, count);
+        }
         sd_io_unlock();
         return ret;
     }
 
     while(count > 0) {
         if(sd_write_sector_arch(sector, p) != 0) {
+            if(_sd_buffer.enabled)
+                sector_buf_invalidate((uint32_t)sector, 1);
             sd_io_unlock();
             return 0;
         }
