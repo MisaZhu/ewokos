@@ -315,6 +315,13 @@ vfs_node_t* vfs_find_kid_raw(vfs_node_t* father, const char* name) {
  * itself: each component lookup is a short locked section; the (possibly
  * sleeping) kids-loading step runs unlocked in between. A component whose
  * directory vanished mid-walk resolves as "not found".
+ *
+ * Empty components are skipped ("a//b", "a/"), and "."/".." are resolved
+ * here rather than looked up in the father's kid list: the VFS never
+ * materializes dot entries. This is what keeps paths built by userland as
+ * "<dir>/<name>" working when <dir> already ends with a '/', e.g. ls on
+ * "system/" or shell redirection from the root directory.
+ *
  * Returns true with *node_id_out set (possibly 0 for "not found") when the
  * walk completed.
  */
@@ -324,7 +331,7 @@ bool vfs_resolve_path(const char* name, uint32_t* node_id_out) {
     if(node_id_out == NULL)
         return false;
     *node_id_out = 0;
-    if(name == NULL)
+    if(name == NULL || name[0] == 0)
         return false;
 
     pthread_rwlock_rdlock(&_vfs_lock);
@@ -353,25 +360,41 @@ bool vfs_resolve_path(const char* name, uint32_t* node_id_out) {
         bool is_end = (n[i] == 0);
         n[i] = 0;
 
+        /* collapse runs of '/' and accept a trailing one */
+        if(i == j) {
+            if(is_end) {
+                *node_id_out = cur_id;
+                return true;
+            }
+            j = i+1;
+            continue;
+        }
+
+        const char* comp = n+j;
+        bool is_dot = (strcmp(comp, ".") == 0);
+        bool is_dotdot = (strcmp(comp, "..") == 0);
+
         /* make sure the current dir's kids are loaded (sleeps, unlocked) */
-        vfs_ensure_kids_loaded(cur_id);
+        if(!is_dot && !is_dotdot)
+            vfs_ensure_kids_loaded(cur_id);
 
         uint32_t kid_id = 0;
         pthread_rwlock_rdlock(&_vfs_lock);
         cur = vfs_get_node_by_id(cur_id);
         if(cur != NULL) {
-            vfs_node_t* kid = vfs_find_kid_raw(cur, n+j);
+            vfs_node_t* kid = NULL;
+            if(is_dot)
+                kid = cur;
+            else if(is_dotdot)
+                kid = (cur->father != NULL) ? cur->father : cur;
+            else
+                kid = vfs_find_kid_raw(cur, comp);
             if(kid != NULL)
                 kid_id = vfs_get_node_id(kid);
         }
         pthread_rwlock_unlock(&_vfs_lock);
 
         if(is_end) {
-            *node_id_out = kid_id;
-            return true;
-        }
-        /* separator */
-        if(name[i+1] == 0) { //trailing slash: return what was found
             *node_id_out = kid_id;
             return true;
         }

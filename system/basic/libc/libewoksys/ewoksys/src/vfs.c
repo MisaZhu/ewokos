@@ -352,7 +352,10 @@ void vfs_fullname(const char* fname, char* ret, uint32_t len) {
     char pwd[FS_FULL_NAME_MAX+1] = {0};
     getcwd(pwd, FS_FULL_NAME_MAX);
     str_cpy(fullname, pwd);
-    if(pwd[1] != 0)
+    /* Do not create "//" when cwd is "/" or already carries a trailing
+     * slash (chdir stores the path it was given, unnormalized). */
+    size_t plen = strlen(pwd);
+    if(plen > 0 && pwd[plen-1] != '/')
         str_addc(fullname, '/');
     str_add(fullname, fname);
 
@@ -1159,7 +1162,10 @@ const char* vfs_full_file_name(const char* fname, const char* ref_fname, char* r
 
     char dir_name[FS_FULL_NAME_MAX] = {0};
     vfs_dir_name(ref_fname, dir_name, FS_FULL_NAME_MAX);
-    snprintf(ret, len-1, "%s/%s", dir_name, fname);
+    if(strcmp(dir_name, "/") == 0)
+        snprintf(ret, len-1, "/%s", fname);
+    else
+        snprintf(ret, len-1, "%s/%s", dir_name, fname);
     return ret;
 }
 
