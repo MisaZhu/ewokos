@@ -27,14 +27,21 @@
   } while (0)
 #endif
 
-#define SOCKS_MAX 128
+/*
+ * Socket table capacity. Must be >= TCP_PCB_SIZE + UDP_PCB_SIZE plus
+ * headroom for RAW/ICMP sockets (ping, DHCP, loopback); at exactly
+ * TCP(64)+UDP(64)==128 a fully subscribed stream/datagram table left no
+ * slot for a RAW socket. MUST equal task.c's SOCKS_MAX: sock_to_task[] there
+ * is indexed by the socket ids allocated from socks[] here.
+ */
+#define SOCKS_MAX 160
 static struct sock socks[SOCKS_MAX];
 
 #ifndef TCP_PCB_SIZE
 #define TCP_PCB_SIZE 64
 #endif
 #ifndef UDP_PCB_SIZE
-#define UDP_PCB_SIZE 16
+#define UDP_PCB_SIZE 64
 #endif
 static int tcp_desc_to_sock[TCP_PCB_SIZE];
 static int udp_desc_to_sock[UDP_PCB_SIZE];

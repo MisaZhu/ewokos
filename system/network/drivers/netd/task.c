@@ -75,8 +75,10 @@ static int task_deadline_expired(const struct timeval *deadline) {
 pthread_mutex_t task_list_lock;
 net_task_t *task_list = NULL;
 
+/* MUST equal stack/sock.c's SOCKS_MAX: sock_to_task[] is indexed by the
+ * socket ids sock.c allocates from socks[SOCKS_MAX]. */
 #ifndef SOCKS_MAX
-#define SOCKS_MAX 128
+#define SOCKS_MAX 160
 #endif
 static net_task_t* sock_to_task[SOCKS_MAX];
 static uint32_t task_total_created = 0;
@@ -100,7 +102,7 @@ static uint32_t task_active_count = 0;
  * coalesce per VFS node, which also rate-limits per-segment wakeup storms
  * into single edges.
  */
-#define WAKEUP_QUEUE_MAX 64
+#define WAKEUP_QUEUE_MAX SOCKS_MAX
 typedef struct {
     uint32_t node;
     uint32_t events;
@@ -126,8 +128,12 @@ static void task_queue_vfs_wakeup(uint32_t node, uint32_t events) {
             wakeup_queue[i].events = events;
             wakeup_queue_num++;
         } else {
-            /* Unreachable in practice: entries coalesce per node. Merge
-             * rather than drop. */
+            /* Now genuinely unreachable: the queue is sized to SOCKS_MAX and
+             * every queued node maps to a distinct socket-bound task, so the
+             * distinct-node count can never exceed the queue depth. Merging
+             * (never dropping) stays as a defensive backstop; were it ever
+             * hit it would misdirect the edge to node[0] and stall the real
+             * node's client, so WAKEUP_QUEUE_MAX must stay >= SOCKS_MAX. */
             wakeup_queue[0].events |= events;
         }
     }
