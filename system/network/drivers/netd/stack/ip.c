@@ -8,6 +8,7 @@
 
 #include "util.h"
 #include "net.h"
+#include "ether.h"
 #include "arp.h"
 #include "ip.h"
 
@@ -296,7 +297,28 @@ int ip_iface_update(struct ip_iface *iface, uint32_t ipaddr, uint32_t netmask, u
             return -1;
         }
     }
-    
+
+    /*
+     * The lease may have been reused from a previous owner, or the board may
+     * have moved to a different port/VLAN, so the neighbour cache upstream
+     * can still map this address to an old MAC.  Announce the binding and
+     * prime the gateway entry right away instead of waiting for the first
+     * ping to expose the stale cache.
+     */
+    arp_announce(NET_IFACE(iface));
+    if (gateway != IP_ADDR_ANY) {
+        uint8_t ha[ETHER_ADDR_LEN];
+        int ret;
+
+        ret = arp_resolve(NET_IFACE(iface), gateway, ha);
+        if (ret == ARP_RESOLVE_ERROR)
+            errorf("gateway ARP resolve failed");
+        else if (ret == ARP_RESOLVE_FOUND) {
+            /* cached from an earlier link/lease: revalidate the MAC now */
+            arp_probe(NET_IFACE(iface), gateway);
+        }
+    }
+
     return 0;
 }
 

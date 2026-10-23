@@ -270,6 +270,67 @@ arp_request(struct net_iface *iface, ip_addr_t tpa)
     return net_device_output(iface->dev, ETHER_TYPE_ARP, (uint8_t *)&request, sizeof(request), iface->dev->broadcast);
 }
 
+/*
+ * Force a resolution round for pa even when the cache still holds a
+ * RESOLVED entry.  A neighbour that changed its MAC (VRRP failover, new
+ * router, or a stale entry learned on another link) is otherwise trusted
+ * for ARP_CACHE_TIMEOUT, i.e. 10 minutes of blackholed traffic.
+ */
+int
+arp_probe(struct net_iface *iface, ip_addr_t pa)
+{
+    return arp_request(iface, pa);
+}
+
+/*
+ * Announce our IP->MAC binding to the link.
+ *
+ * A DHCP client that only answers ARP can leave the router's (or switch's)
+ * neighbour cache pointing at the MAC that used the leased address before.
+ * The board then transmits fine, but every reply is delivered to the stale
+ * MAC, which looks exactly like "got an address but cannot ping the
+ * gateway".  A gratuitous request (RFC 5227) updates implementations that
+ * learn from requests; a gratuitous reply updates those that only accept
+ * replies.  Both are best effort: a busy TX ring must not fail DHCP.
+ */
+int
+arp_announce(struct net_iface *iface)
+{
+    struct arp_ether packet;
+    ip_addr_t addr;
+    int ret = 0;
+
+    if (!iface || iface->dev->type != NET_DEVICE_TYPE_ETHERNET ||
+        iface->family != NET_IFACE_FAMILY_IP)
+        return -1;
+    addr = ((struct ip_iface *)iface)->unicast;
+    if (addr == IP_ADDR_ANY)
+        return -1;
+
+    memset(&packet, 0, sizeof(packet));
+    packet.hdr.hrd = hton16(ARP_HRD_ETHER);
+    packet.hdr.pro = hton16(ARP_PRO_IP);
+    packet.hdr.hln = ETHER_ADDR_LEN;
+    packet.hdr.pln = IP_ADDR_LEN;
+    memcpy(packet.sha, iface->dev->addr, ETHER_ADDR_LEN);
+    memcpy(packet.spa, &addr, IP_ADDR_LEN);
+    memcpy(packet.tpa, &addr, IP_ADDR_LEN);
+
+    packet.hdr.op = hton16(ARP_OP_REQUEST);
+    if (net_device_output(iface->dev, ETHER_TYPE_ARP,
+            (const uint8_t *)&packet, sizeof(packet),
+            iface->dev->broadcast) != 0)
+        ret = -1;
+
+    packet.hdr.op = hton16(ARP_OP_REPLY);
+    memcpy(packet.tha, iface->dev->broadcast, ETHER_ADDR_LEN);
+    if (net_device_output(iface->dev, ETHER_TYPE_ARP,
+            (const uint8_t *)&packet, sizeof(packet),
+            iface->dev->broadcast) != 0)
+        ret = -1;
+    return ret;
+}
+
 static int
 arp_reply(struct net_iface *iface, const uint8_t *tha, ip_addr_t tpa, const uint8_t *dst)
 {

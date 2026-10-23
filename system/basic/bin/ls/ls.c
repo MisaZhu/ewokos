@@ -19,6 +19,18 @@ static inline const char* get_show_name(const char* name, int32_t type) {
     return ret;
 }
 
+/* Join a directory argument and an entry name without producing "//" when
+ * the argument already ends with '/' ("ls system/" used to stat
+ * "system//<name>", which the VFS could not resolve). */
+static inline void join_path(char* out, size_t out_size,
+        const char* dir, const char* name) {
+    size_t len = strlen(dir);
+    if(len > 0 && dir[len-1] == '/')
+        snprintf(out, out_size, "%s%s", dir, name);
+    else
+        snprintf(out, out_size, "%s/%s", dir, name);
+}
+
 static inline char get_show_type(uint32_t mode, int32_t type) {
     if(S_ISBLK(mode) || type == DT_BLK)
         return 'b';
@@ -97,8 +109,11 @@ int main(int argc, char* argv[]) {
 
     if(argind < argc)
         r = argv[argind];
-    else
+    else {
         r = getcwd(cwd, FS_FULL_NAME_MAX);
+        if(r == NULL)
+            return -1;
+    }
 
     DIR* dirp = opendir(r);
     if(dirp == NULL)
@@ -112,10 +127,7 @@ int main(int argc, char* argv[]) {
         if(it->d_name[0] == '.' && !_show_hide)
             continue;
 
-        if(strcmp(r, "/") == 0)
-            snprintf(fname, FS_FULL_NAME_MAX, "/%s", it->d_name);
-        else
-            snprintf(fname, FS_FULL_NAME_MAX, "%s/%s", r, it->d_name);
+        join_path(fname, FS_FULL_NAME_MAX, r, it->d_name);
 
         struct stat st;
         if(stat(fname, &st) != 0)
