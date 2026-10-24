@@ -31,8 +31,8 @@ Recent work visible in the current branch includes:
 - Ext3 ported as the default root filesystem: `sdfsd` now serves journaled, crash-safe ext3, with automatic ext2-compatible fallback when no journal is present; the kernel boot loader reads ext2/ext3 directly
 - SD card write performance improvements, including Raspberry Pi SD driver speed-ups, removal of per-write verification, and write-cache flushing tuned for ext3
 - Display rotation speed-ups via arch-accelerated `graph_rotate_to_arch` paths (ARM, AArch64, x86) and a faster display daemon
-- Larger projects (browser, `macemu`, `minivmac`, `nesemu`, `soft3d`, `video`, `saver`) moved into the new `projects/` tree
-- The `soft3d` stack now exposes a standard **OpenGL ES 2.0 / EGL** API (`libGLESv2`/`libEGL`) over `portablegl`, with real GPU acceleration on Raspberry Pi 5 that stays engaged across window resizes
+- Larger projects (browser, `macemu`, `minivmac`, `nesemu`, `opengl`, `video`, `saver`) moved into the new `projects/` tree
+- The `opengl` stack now exposes a standard **OpenGL ES 2.0 / EGL** API (`libGLESv2`/`libEGL`) over `portablegl`, with real GPU acceleration on Raspberry Pi 5 that stays engaged across window resizes
 - `macemu` HiDPI mode support
 - Simplified, rewritten Makefiles across the `system/` build trees
 
@@ -101,7 +101,7 @@ ewokos/
 │   ├── x2lite.rk3128/        # RK3128 target
 │   └── x86/                  # x86 PC-style target
 ├── projects/                 # Larger standalone projects: browser, macemu,
-│                             # minivmac, nesemu, soft3d, video, saver
+│                             # minivmac, nesemu, opengl, video, saver
 ├── sw.extra/                 # Extra apps, SDL-based software, alternate WMs
 └── apps/                     # Additional apps and libraries (submodule)
 ```
@@ -183,24 +183,24 @@ The tree already includes a large amount of board-specific and peripheral work.
 - X client libraries in both C and C++ forms
 - Desktop apps such as `xterm`, `xread`, `ximg`, `xlog`, `xapps`, `clock`, `cards`, and `mine`
 - Alternate window managers and demos in `sw.extra/`
-- A software **OpenGL ES 2.0 / EGL** stack (`soft3d`) with an on-device GLSL compiler and, on Raspberry Pi 5, real GPU offload — see [3D Graphics and OpenGL](#3d-graphics-and-opengl)
+- A software **OpenGL ES 2.0 / EGL** stack (`opengl`) with an on-device GLSL compiler and, on Raspberry Pi 5, real GPU offload — see [3D Graphics and OpenGL](#3d-graphics-and-opengl)
 
 ### 3D Graphics and OpenGL
 
-The `projects/soft3d` tree provides a real **OpenGL ES 2.0 / EGL** stack that runs on EwokOS without a hosted GPU driver. Apps write standard GLES2/EGL code — `<GLES2/gl2.h>` + `<EGL/egl.h>`, `glCreateShader`/`glDrawArrays`/`eglSwapBuffers` — and never touch the back end directly:
+The `projects/opengl` tree provides a real **OpenGL ES 2.0 / EGL** stack that runs on EwokOS without a hosted GPU driver. Apps write standard GLES2/EGL code — `<GLES2/gl2.h>` + `<EGL/egl.h>`, `glCreateShader`/`glDrawArrays`/`eglSwapBuffers` — and never touch the back end directly:
 
 - **`gles`** (`libs/gles`) — the standard API front end, built as **`libGLESv2.a` + `libEGL.a`** and shipping the usual `GLES2`/`GLES3`/`EGL`/`KHR` headers. It layers a CPU GLSL ES interpreter (`src/glsl`) and a single engine adapter (`src/engine/pgl_engine.c`) over `portablegl`. An app links only `-lEGL -lGLESv2` (plus `glcommon` and the system X/graph libs); `portablegl` and `v3dcompiler` are merged into `libGLESv2.a` as private intermediates and stay invisible.
 - **`portablegl`** (`libs/gles/portablegl`) — a small, self-contained OpenGL ES 2.x-style rasterizer (vertex/fragment shaders, VBOs, textures, depth test) that renders into an EwokOS framebuffer. It is the engine behind the GLES API.
 - **`glcommon`** (`libs/glcommon`) — math and GL helper utilities shared by the apps.
 - **`v3dcompiler`** (`libs/gles/v3dcompiler`) — a vendored copy of the **mesa** Broadcom V3D compiler back end (upstream `mesa` pin `f45825a0`, see `libs/gles/v3dcompiler/VENDORED.txt`). It compiles GLSL ES 3.10 shaders through mesa's `GLSL → NIR → VIR → QPU` pipeline into V3D 7.1 QPU code **on the device**, built as `libv3dcompiler.a`.
 
-On most targets the GLES calls rasterize entirely on the CPU (`portablegl` with NEON acceleration where available, driven by the interpreter in `gles/src/glsl`). On **Raspberry Pi 5** the *same* app binary additionally offloads geometry to the VideoCore VII (V3D 7.1 / BCM2712) GPU: the engine adapter picks CPU vs GPU per draw, so no app-side change is needed. Because the V3D 7.1 binner cannot rasterize real primitives on BCM2712, `soft3d` transforms, lights, and rasterizes geometry in **CSD compute shaders** compiled by the vendored mesa compiler, dispatched through the `g2dd` daemon (`pgl_g3d → g2dclient → g2dd → bsp_g3d → vc_pgl3d`). This GPU path is gated by `PGL_G3D=yes`, exported only from `machines/raspi5/system/make.inc`; its two-pass compute rasterizer (a per-vertex transform pass plus a one-lane-per-triangle raster pass) makes it faster than the CPU rasterizer for scenes such as the `teapot` demo. The GPU also stays engaged across window resizes — the offload framebuffer is allocated with grow-only geometric headroom, so a drag-to-resize collapses into a handful of reallocations instead of one per event and never exhausts the kernel's contiguous shared-memory pool (which would otherwise silently latch the app back to CPU).
+On most targets the GLES calls rasterize entirely on the CPU (`portablegl` with NEON acceleration where available, driven by the interpreter in `gles/src/glsl`). On **Raspberry Pi 5** the *same* app binary additionally offloads geometry to the VideoCore VII (V3D 7.1 / BCM2712) GPU: the engine adapter picks CPU vs GPU per draw, so no app-side change is needed. Because the V3D 7.1 binner cannot rasterize real primitives on BCM2712, `opengl` transforms, lights, and rasterizes geometry in **CSD compute shaders** compiled by the vendored mesa compiler, dispatched through the `g2dd` daemon (`pgl_g3d → g2dclient → g2dd → bsp_g3d → vc_pgl3d`). This GPU path is gated by `PGL_G3D=yes`, exported only from `machines/raspi5/system/make.inc`; its two-pass compute rasterizer (a per-vertex transform pass plus a one-lane-per-triangle raster pass) makes it faster than the CPU rasterizer for scenes such as the `teapot` demo. The GPU also stays engaged across window resizes — the offload framebuffer is allocated with grow-only geometric headroom, so a drag-to-resize collapses into a handful of reallocations instead of one per event and never exhausts the kernel's contiguous shared-memory pool (which would otherwise silently latch the app back to CPU).
 
-The `soft3d` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`, `imgui_demo`) and the `shadertoy`-style fullscreen-compute demos exercise both paths through the same GLES2/EGL front end. The compiler is validated on the host by the `dump_uniforms` oracle (`libs/gles/v3dcompiler`, `make -f Makefile.host`), which compiles every shader and checks the QPU output before it is ever run on the device.
+The `opengl` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`, `imgui_demo`) and the `shadertoy`-style fullscreen-compute demos exercise both paths through the same GLES2/EGL front end. The compiler is validated on the host by the `dump_uniforms` oracle (`libs/gles/v3dcompiler`, `make -f Makefile.host`), which compiles every shader and checks the QPU output before it is ever run on the device.
 
 ### Extra Software
 
-- `projects/` holds the larger standalone projects: a web browser, `macemu` and `minivmac` Macintosh emulators, `nesemu`, the `soft3d` software 3D stack, `video`, and `saver`
+- `projects/` holds the larger standalone projects: a web browser, `macemu` and `minivmac` Macintosh emulators, `nesemu`, the `opengl` software 3D stack, `video`, and `saver`
 - `sw.extra/` contains demos and larger apps such as `doom`, `calculator`, `calendar`, and SDL-related pieces
 - `apps/` may hold additional applications and libraries depending on your checkout
 - Some installations depend on submodules being checked out locally

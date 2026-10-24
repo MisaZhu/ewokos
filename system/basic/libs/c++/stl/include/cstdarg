@@ -11,7 +11,7 @@
  * with EWOK_STL the way <chrono>, <mutex> and <future> do.  With the C++ include
  * path closed off it has to be provided here.
  *
- * projects/soft3d/libs/glcommon/include/glcommon/glslprogram.h:8 is the only
+ * projects/opengl/libs/glcommon/include/glcommon/glslprogram.h:8 is the only
  * includer in the tree, and it never actually names va_list - but the include
  * still has to resolve.
  *

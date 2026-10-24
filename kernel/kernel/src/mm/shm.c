@@ -58,14 +58,14 @@ static share_mem_t* _shm_tail = NULL;
    overlapping copies are needed. always called with the shm lock held.
 
    Best-fit (smallest sufficient free run) instead of first-fit: a large
-   request - e.g. the full-screen framebuffer+depth pair a soft3d app needs
+   request - e.g. the full-screen framebuffer+depth pair a opengl app needs
    the moment its window is maximized - is far more likely to find one
    contiguous run when small allocations do not carve up the biggest free
    runs front-to-back.  The entry table is sized generously, and a split with
    no free slot for its remainder grants the whole run rather than failing, so
    a request that physically fits is never refused just because the table
    momentarily filled - the old first-fit + hard 64-entry cap did exactly
-   that, which the soft3d GPU path latched into a permanent CPU fallback on
+   that, which the opengl GPU path latched into a permanent CPU fallback on
    window resize even with hundreds of MB of slab free. */
 #define SHM_POOL_MAX 128
 typedef struct {
