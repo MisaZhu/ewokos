@@ -8,6 +8,7 @@
 
 typedef struct st_dma {
     int32_t  pid;
+    uint32_t pins;
     uint32_t size;
     ewokos_addr_t base;
     struct st_dma* next;
@@ -68,6 +69,78 @@ static dma_t* dma_new(ewokos_addr_t base, uint32_t size) {
     return ret;
 }
 
+static bool dma_reusable(const dma_t* d) {
+    return d != NULL && d->pid == 0 && d->pins == 0;
+}
+
+/* Caller must not keep a node pointer across this operation. A free request
+ * may remove its CPU/owner lifetime while a device still holds a reference. */
+static void dma_coalesce(dma_t* d) {
+    if(!dma_reusable(d))
+        return;
+    if(dma_reusable(d->prev)) {
+        dma_t* prev = d->prev;
+        prev->size += d->size;
+        prev->next = d->next;
+        if(d->next != NULL)
+            d->next->prev = prev;
+        kfree(d);
+        d = prev;
+    }
+    while(dma_reusable(d->next)) {
+        dma_t* next = d->next;
+        d->size += next->size;
+        d->next = next->next;
+        if(d->next != NULL)
+            d->next->prev = d;
+        kfree(next);
+    }
+}
+
+int32_t dma_pin(int32_t dma_block_id, int32_t pid,
+        ewokos_addr_t phy_addr, uint32_t size) {
+    if(dma_block_id < 0 || dma_block_id >= (int32_t)_dma_block_count ||
+            pid == 0 || size == 0)
+        return -1;
+    for(dma_t* d = _dma_blocks[dma_block_id].head; d != NULL; d = d->next) {
+        if(d->pid == pid && d->base == phy_addr && size <= d->size) {
+            if(d->pins == UINT32_MAX)
+                return -1;
+            d->pins++;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int32_t dma_pin_query(int32_t dma_block_id, ewokos_addr_t phy_addr,
+        int32_t *owner, uint32_t *pins) {
+    if(dma_block_id < 0 || dma_block_id >= (int32_t)_dma_block_count ||
+            !owner || !pins)
+        return -1;
+    for(dma_t* d = _dma_blocks[dma_block_id].head; d != NULL; d = d->next) {
+        if(d->base == phy_addr && d->pins != 0) {
+            *owner = d->pid;
+            *pins = d->pins;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int32_t dma_unpin(int32_t dma_block_id, ewokos_addr_t phy_addr) {
+    if(dma_block_id < 0 || dma_block_id >= (int32_t)_dma_block_count)
+        return -1;
+    for(dma_t* d = _dma_blocks[dma_block_id].head; d != NULL; d = d->next) {
+        if(d->base == phy_addr && d->pins != 0) {
+            d->pins--;
+            dma_coalesce(d);
+            return 0;
+        }
+    }
+    return -1;
+}
+
 void dma_init(void) {
     _dma_block_count = 0;
     for(uint32_t i=0; i<DMA_BLOCK_MAX; i++) {
@@ -95,13 +168,7 @@ void dma_free(int32_t dma_block_id, int32_t pid, ewokos_addr_t phy_addr) {
         dma_t* next = d->next;
         if(d->pid == pid && d->base == phy_addr) {
             d->pid = 0;
-            if(d->prev != NULL && d->prev->pid == 0) { //merge
-                d->prev->next = next; 
-                if(next != NULL)
-                next->prev = d->prev;
-                d->prev->size += d->size;
-                kfree(d);
-            }
+            dma_coalesce(d);
             return;
         }
         d = next;
@@ -145,7 +212,7 @@ void dma_release(int32_t pid) {
             /* only merge FREE nodes; merging a live allocation into a free
              * prev would mark it reusable and hand the same physical range
              * to the next dma_alloc caller (scan-out/XHCI corruption). */
-            if(d->pid == 0 && d->prev != NULL && d->prev->pid == 0) { //merge
+            if(dma_reusable(d) && dma_reusable(d->prev)) { //merge
                 d->prev->next = next; 
                 if(next != NULL)
                 next->prev = d->prev;
@@ -279,7 +346,7 @@ ewokos_addr_t dma_alloc(int32_t dma_block_id, int32_t pid, uint32_t size) {
     size = ALIGN_UP(size, PAGE_SIZE);
     dma_t* d = _dma_blocks[dma_block_id].head;
     while(d != NULL) {
-        if(d->pid != 0 || d->size < size) {
+        if(!dma_reusable(d) || d->size < size) {
             d = d->next;
             continue;
         }
@@ -321,7 +388,6 @@ int32_t  dma_set(int32_t pid, ewokos_addr_t phy_base, ewokos_addr_t v_base, uint
     }
 
     ewokos_addr_t pbase = ALIGN_UP(phy_base, PAGE_SIZE);
-    ewokos_addr_t vbase = ALIGN_UP(v_base, PAGE_SIZE);
     size = ALIGN_DOWN(size, PAGE_SIZE);
 
     if(pbase != phy_base) {
@@ -352,6 +418,11 @@ int32_t  dma_set(int32_t pid, ewokos_addr_t phy_base, ewokos_addr_t v_base, uint
     for(uint32_t i=0; i<_dma_block_count; i++) {
         if(_dma_blocks[i].phy_base != phy_base || _dma_blocks[i].size != size)
             continue;
+        /* A dead/recycled block owner does not revoke device access. Do
+         * not destroy the only records retaining its physical storage. */
+        for(dma_t* d = _dma_blocks[i].head; d != NULL; d = d->next)
+            if(d->pins != 0)
+                return -1;
         int32_t prev_owner = _dma_blocks[i].owner_pid;
         if(prev_owner < 0)
             continue; // kernel-owned block (sys_dma pool), never reclaim
