@@ -93,10 +93,30 @@ static int32_t map_allocable_pages(page_dir_entry_t* vm) {
                 _sys_info.shm_contig.size, AP_RW_D,
                 PTE_ATTR_NOCACHE) != 0)
         return -1;
-    if(map_pages(vm,
-            P2V(_sys_info.allocable_phy_mem_base),
-            _sys_info.allocable_phy_mem_base,
-            _sys_info.allocable_phy_mem_top,
+    /* A BSP may reserve pools inside the allocable span. Keep their direct
+     * mappings separate: remapping SHM as WB would disagree with its user
+     * mappings, and DMA must not acquire a cached alias. */
+    ewokos_addr_t pool_base[2] = {_sys_info.sys_dma.phy_base,
+            _sys_info.shm_contig.phy_base};
+    ewokos_addr_t pool_top[2] = {pool_base[0] + _sys_info.sys_dma.size,
+            pool_base[1] + _sys_info.shm_contig.size};
+    if(pool_base[0] > pool_base[1]) {
+        ewokos_addr_t tmp = pool_base[0];
+        pool_base[0] = pool_base[1]; pool_base[1] = tmp;
+        tmp = pool_top[0]; pool_top[0] = pool_top[1]; pool_top[1] = tmp;
+    }
+    ewokos_addr_t cur = _sys_info.allocable_phy_mem_base;
+    ewokos_addr_t top = _sys_info.allocable_phy_mem_top;
+    for(uint32_t i = 0; i < 2; i++) {
+        if(pool_top[i] <= cur || pool_base[i] >= top)
+            continue;
+        if(pool_base[i] > cur && map_pages(vm, P2V(cur), cur,
+                pool_base[i], AP_RW_D, PTE_ATTR_WRBACK) != 0)
+            return -1;
+        if(pool_top[i] > cur)
+            cur = pool_top[i];
+    }
+    if(cur < top && map_pages(vm, P2V(cur), cur, top,
             AP_RW_D, PTE_ATTR_WRBACK) != 0)
         return -1;
     flush_tlb();

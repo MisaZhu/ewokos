@@ -1,9 +1,9 @@
 # Q8B offscreen GPU regression
 
 `make -C tools/q8b_gpu_bench -j4` builds AArch64 `bench`, `clock`,
-`input-latency` and a texture shader in `/tmp/q8b-gpu-bench`. It uses the Q8B
-SDK and current GLSL frontend/Adreno backend. `make ... check` runs the native
-clock-anchor regression with ASan/UBSan.
+`input-latency`, `shm-pool` and a texture shader in `/tmp/q8b-gpu-bench`.
+It uses the Q8B SDK and current GLSL frontend/Adreno backend. `make ... check` runs the native
+clock-anchor and physical memory pool regressions with ASan/UBSan.
 
 The offscreen benchmark must be the **only GPU owner**: boot without g2dd,
 fbdisplayd or X, and run it once after a board reset. Do not launch a second
@@ -80,7 +80,8 @@ The hardware fault/restart reported earlier was not reproduced by these
 bounded runs. After the SD update below, the user reported reproducing a
 reset with glmatrix; the serial cache confirms a PSHOLD warm reset followed
 by Sahara/EDL, without a preceding GPU fault or kernel exception message.
-Its cause remains under investigation; see `evidence/glmatrix-reset.log`.
+The later instrumented reproduction located an unsafe physical memory pool,
+described below. The original reset excerpt is in `evidence/glmatrix-reset.log`.
 
 After restoring the original desktop startup files and installing g2dd,
 the mouse IPC baseline completed 393 requests over 20 seconds (mean 4µs,
@@ -115,3 +116,61 @@ started successfully. The old files remain in
 passed 100,000 samples with no regressions. A new 60-second mouse test was
 interrupted by the glmatrix reset and is not counted as a passing run.
 See `evidence/sd-rootfs.json` and `evidence/sd-rootfs.log`.
+
+## glmatrix + fullscreen xapps reset
+
+The generic boot layout reserved 256MB DMA and 512MB contiguous SHM directly
+above kmalloc, ignoring the final UEFI memory map. The normal page allocator
+already filtered that map, but these two pools did not. Instrumented SHM
+allocation stopped at `memset(P2V(0xba790000), 0, 2025 * 16384)`: its end
+`0xbc734000` crosses the first physical RAM bank end `0xbb700000`. The old
+SHM pool also covered firmware-owned memory beginning at `0xaeb00000`.
+The last GPU submissions had retired; no kernel zero-completion message
+appeared, and a warm reset into Sahara followed about 44 seconds later.
+
+Q8B now chooses both pools from reclaimable final UEFI descriptors, joining
+physically adjacent descriptors regardless of allocation type/order, excluding
+firmware reservations, GOP framebuffer, ramdisk and GPU ZAP. Pools stay below
+4GB and use full 16KB CPU pages. An invalid map or unavailable safe range stops
+boot instead of reverting to the unsafe carve. The ordinary page allocator
+excludes both pools; the kernel direct map also skips them so it cannot
+replace SHM's uncached mapping or create a cached DMA alias. Other BSPs retain
+their existing layout through a weak hook.
+
+The board selected DMA `0xc8600000..0xd8600000` and contiguous SHM
+`0xd8600000..0xf8600000`. Both glmatrix and xapps ran at 3840×2160 with about
+460MB SHM in use. A 90-second run including xapps startup completed 746 mouse
+IPCs with no errors/reset; two startup requests exceeded 200ms (maximum
+239.339ms). This startup latency remains a limitation. In the reverse launch
+order, a steady 60-second run completed 833 requests, maximum 64.006ms,
+with no requests at/above 200ms or IPC errors. These IPC tests do not measure
+physical USB or scanout latency.
+
+`shm-pool` uses exclusive per-process keys (EwokOS IPC_PRIVATE discards
+IPC_CONTIG), verifies the contiguous backing flag and physical bounds, fills
+available memory in 8MB chunks, checks initial zero and one word per 16KB page,
+then checks retained patterns and frees/reuses the allocations for three rounds.
+The board allocated 400MB each round with zero errors. Run it separately from
+latency measurements: allocation/zeroing deliberately adds synchronous work.
+Native tests cover the actual reserved ranges, unsorted adjacent descriptors,
+physical gaps, alignment, overflow and 20,000 cases against a brute-force oracle.
+
+Temporary per-allocation kernel tracing was removed after diagnosis. Optional
+GPU tracing remains disabled at boot: `devcmd /dev/g2d trace 4` records the next
+four submissions (0 disables; maximum 256), including fence retirement and
+fault-check completion, without additional GX register reads. See
+`evidence/glmatrix-memory.log` and `evidence/glmatrix-memory.json` for the
+instrumented failure and final validation/deployment details.
+
+The final kernel was deployed to PXE and booted through MCP, followed by two
+complete app open/ESC-close cycles in opposite launch orders. Both processes
+were present with 459–460MB SHM, no unexpected reset followed, and the three
+400MB pool rounds passed again on that boot. The final 100,000-sample clock
+check had no regressions/failures. The actual SD rootfs and rebuilt 320MB image
+each matched all 446 staged files; SD verification was repeated after the final
+MCP reboot. `e2fsck -fn` returned 0. The normal desktop remains running with
+test apps closed. Final kernel SHA-256:
+`218b8d6633140c8801209a603572fb47c69a5349b3e917a33f4f8ccb3a8cbde9`.
+The installed/image g2dd (optional bounded trace, default off) SHA-256 is
+`4cb73731009b42701adbbd38ccef93cd47f7f644163c40a2c9ef328e689f6a0d`.
+The Q8B BSP/driver changes are in machines commit `00ca0c57`.

@@ -1,0 +1,184 @@
+Instrumented failing reproduction (16KB kernel pages):
+[2026-10-26 06:55:54.247]   sys_dma_base         Phy:0x00000000987a8000 ~ 0x00000000a87a8000 (256 MB)
+[2026-10-26 06:55:54.247]   sys_shm_contig_base  Phy:0x00000000a87a8000 ~ 0x00000000c87a8000 (512 MB)
+[2026-10-26 06:55:54.247]   allocable mem info   Phy:0x00000000c87a8000 ~ 0x0000000280000000 (7028 MB)
+
+Last allocation trace before loss of response:
+[2026-10-26 06:56:48.890] shm_trace: contig-map-done pid=71 addr=3fcc09c000 pages=2003
+[2026-10-26 06:56:48.941] shm_trace: get-done pid=71 addr=b6 pages=2002
+[2026-10-26 06:56:48.941] shm_trace: attach-begin pid=71 addr=b6 pages=2003
+[2026-10-26 06:56:48.941] shm_trace: attach-done pid=71 addr=b6 pages=2003
+[2026-10-26 06:56:49.001] shm_trace: get-begin pid=71 addr=47995043 pages=2002
+[2026-10-26 06:56:49.001] shm_trace: contig-zero-begin pid=71 addr=b8844000 pages=2003
+[2026-10-26 06:56:49.001] shm_trace: contig-zero-done pid=71 addr=b8844000 pages=2003
+[2026-10-26 06:56:49.001] shm_trace: contig-map-begin pid=71 addr=3fcc09c000 pages=2003
+[2026-10-26 06:56:49.001] shm_trace: contig-map-done pid=71 addr=3fcdfe8000 pages=2003
+[2026-10-26 06:56:49.001] shm_trace: get-done pid=71 addr=b7 pages=2002
+[2026-10-26 06:56:49.001] shm_trace: attach-begin pid=71 addr=b7 pages=2003
+[2026-10-26 06:56:49.001] shm_trace: attach-done pid=71 addr=b7 pages=2003
+[2026-10-26 06:56:49.051] shm_trace: get-begin pid=71 addr=47995044 pages=2025
+[2026-10-26 06:56:49.051] shm_trace: contig-zero-begin pid=71 addr=ba790000 pages=2025
+[2026-10-26 06:55:15.546] B -    357094 - PM: Reset by PSHOLD
+[2026-10-26 06:55:19.060] B -   2424384 - Sahara Init
+[2026-10-26 06:55:30.806] B -    353129 - PM: Reset by PSHOLD
+[2026-10-26 06:57:31.724] B -    338245 - PM: Reset by PSHOLD
+[2026-10-26 06:57:31.724] B -    342210 - PM: Reset Type: Warm Reset
+[2026-10-26 06:57:31.781] B -    349469 - PM: Reset by PSHOLD
+[2026-10-26 06:57:31.781] B -    353220 - PM: Reset Type: Warm Reset
+[2026-10-26 06:57:31.781] B -    360479 - PM: Reset by PSHOLD
+[2026-10-26 06:57:31.781] B -    364231 - PM: Reset Type: Warm Reset
+[2026-10-26 06:57:31.781] B -    371490 - PM: Reset by PSHOLD
+[2026-10-26 06:57:31.781] B -    375241 - PM: Reset Type: Warm Reset
+[2026-10-26 06:57:33.825] B -   2415325 - Sahara Init
+
+Independent bounded GPU trace: final 49th submission completed before hang
+[2026-10-26 06:50:20.387] adreno_trace: checked fence=5552
+[2026-10-26 06:50:20.439] adreno_trace: CS bin=99a74000 desc=99a80000 grid=36x1x1 local=8x8x1 words=147
+[2026-10-26 06:50:20.439] adreno_trace: begin next=5553 words=147 shadow=827 wptr=827
+[2026-10-26 06:50:20.439] adreno_trace: doorbell fence=5553 wptr=836
+[2026-10-26 06:50:20.439] adreno_trace: wait fence=5553
+[2026-10-26 06:50:20.439] adreno_trace: retired fence=5553 shadow=836; check GX
+[2026-10-26 06:50:20.439] adreno_trace: checked fence=5553
+[2026-10-26 06:50:20.439] adreno_trace: begin next=5554 words=57 shadow=836 wptr=836
+[2026-10-26 06:50:20.439] adreno_trace: doorbell fence=5554 wptr=845
+[2026-10-26 06:50:20.500] adreno_trace: wait fence=5554
+[2026-10-26 06:50:20.500] adreno_trace: retired fence=5554 shadow=845; check GX
+[2026-10-26 06:50:20.500] adreno_trace: checked fence=5554
+
+First fixed boot and overlap tests:
+[2026-10-26 07:03:32.682] kernel: load kernel config     ... q8b: DMA/SHM pools reserved from final UEFI memory map
+[2026-10-26 07:03:32.682]   sys_dma_base         Phy:0x00000000c8600000 ~ 0x00000000d8600000 (256 MB)
+[2026-10-26 07:03:32.682]   sys_shm_contig_base  Phy:0x00000000d8600000 ~ 0x00000000f8600000 (512 MB)
+[2026-10-26 07:03:32.682]   allocable mem info   Phy:0x00000000987a8000 ~ 0x0000000280000000 (6617 MB)
+[2026-10-26 07:04:28.211] gpu-input begin seconds=90 xserver=73
+[2026-10-26 07:04:33.247] gpu-input progress n=69 max_interval=200765 us over200=1 errors=0
+[2026-10-26 07:04:38.305] gpu-input progress n=108 max_interval=239339 us over200=2 errors=0
+[2026-10-26 07:04:43.329] gpu-input progress n=149 max_interval=82757 us over200=2 errors=0
+[2026-10-26 07:04:48.439] gpu-input progress n=189 max_interval=87165 us over200=2 errors=0
+[2026-10-26 07:04:53.502] gpu-input progress n=230 max_interval=86622 us over200=2 errors=0
+[2026-10-26 07:04:58.599] gpu-input progress n=270 max_interval=83774 us over200=2 errors=0
+[2026-10-26 07:05:03.601] gpu-input progress n=310 max_interval=86622 us over200=2 errors=0
+[2026-10-26 07:05:08.654] gpu-input progress n=350 max_interval=83375 us over200=2 errors=0
+[2026-10-26 07:05:13.796] gpu-input progress n=390 max_interval=89568 us over200=2 errors=0
+[2026-10-26 07:05:18.855] gpu-input progress n=431 max_interval=81791 us over200=2 errors=0
+[2026-10-26 07:05:23.876] gpu-input progress n=472 max_interval=82704 us over200=2 errors=0
+[2026-10-26 07:05:28.927] gpu-input progress n=512 max_interval=86675 us over200=2 errors=0
+[2026-10-26 07:05:34.025] gpu-input progress n=552 max_interval=82646 us over200=2 errors=0
+[2026-10-26 07:05:39.076] gpu-input progress n=592 max_interval=83930 us over200=2 errors=0
+[2026-10-26 07:05:44.124] gpu-input progress n=632 max_interval=82740 us over200=2 errors=0
+[2026-10-26 07:05:49.246] gpu-input progress n=673 max_interval=86007 us over200=2 errors=0
+[2026-10-26 07:05:54.296] gpu-input progress n=713 max_interval=83752 us over200=2 errors=0
+[2026-10-26 07:05:58.264] gpu-input DONE n=746 mean=70342 max=239339 us over200=2 errors=0
+[2026-10-26 07:07:52.831] shm-pool round=0 chunks=50 MB=400 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:07:53.053] shm-pool round=1 chunks=50 MB=400 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:07:53.282] shm-pool round=2 chunks=50 MB=400 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:07:53.282] shm-pool DONE rounds=3
+[2026-10-26 07:08:57.647] gpu-input begin seconds=60 xserver=73
+[2026-10-26 07:09:02.740] gpu-input progress n=69 max_interval=64006 us over200=0 errors=0
+[2026-10-26 07:09:07.754] gpu-input progress n=139 max_interval=56879 us over200=0 errors=0
+[2026-10-26 07:09:12.793] gpu-input progress n=208 max_interval=57864 us over200=0 errors=0
+[2026-10-26 07:09:17.863] gpu-input progress n=276 max_interval=39279 us over200=0 errors=0
+[2026-10-26 07:09:22.912] gpu-input progress n=344 max_interval=55917 us over200=0 errors=0
+[2026-10-26 07:09:28.010] gpu-input progress n=412 max_interval=33367 us over200=0 errors=0
+[2026-10-26 07:09:33.069] gpu-input progress n=485 max_interval=56902 us over200=0 errors=0
+[2026-10-26 07:09:38.068] gpu-input progress n=559 max_interval=46496 us over200=0 errors=0
+[2026-10-26 07:09:43.068] gpu-input progress n=629 max_interval=41242 us over200=0 errors=0
+[2026-10-26 07:09:48.164] gpu-input progress n=701 max_interval=51023 us over200=0 errors=0
+[2026-10-26 07:09:53.223] gpu-input progress n=773 max_interval=58521 us over200=0 errors=0
+[2026-10-26 07:09:57.686] gpu-input DONE n=833 mean=21586 max=64006 us over200=0 errors=0
+
+Final kernel boot, bounded trace and memory-pool regression:
+[2026-10-26 07:11:22.231] === ewokos booting ===
+[2026-10-26 07:11:22.231] kernel: load kernel config     ... q8b: DMA/SHM pools reserved from final UEFI memory map
+[2026-10-26 07:11:22.231]   sys_dma_base         Phy:0x00000000c8600000 ~ 0x00000000d8600000 (256 MB)
+[2026-10-26 07:11:22.231]   sys_shm_contig_base  Phy:0x00000000d8600000 ~ 0x00000000f8600000 (512 MB)
+[2026-10-26 07:11:22.231]   allocable mem info   Phy:0x00000000987a8000 ~ 0x0000000280000000 (6617 MB)
+[2026-10-26 07:12:01.269] adreno_trace: begin next=2373 words=49 shadow=4975 wptr=4975
+[2026-10-26 07:12:01.269] adreno_trace: doorbell fence=2373 wptr=4984
+[2026-10-26 07:12:01.269] adreno_trace: wait fence=2373
+[2026-10-26 07:12:01.269] adreno_trace: retired fence=2373 shadow=4984; check GX
+[2026-10-26 07:12:01.269] adreno_trace: checked fence=2373
+[2026-10-26 07:12:01.269] adreno_trace: CS bin=c97d0000 desc=c98c4000 grid=125x1x1 local=8x8x1 words=159
+[2026-10-26 07:12:01.319] adreno_trace: begin next=2374 words=57 shadow=4984 wptr=4984
+[2026-10-26 07:12:01.319] adreno_trace: doorbell fence=2374 wptr=4993
+[2026-10-26 07:12:01.319] adreno_trace: wait fence=2374
+[2026-10-26 07:12:01.320] adreno_trace: retired fence=2374 shadow=4993; check GX
+[2026-10-26 07:12:01.320] adreno_trace: checked fence=2374
+[2026-10-26 07:12:01.320] adreno_trace: begin next=2375 words=159 shadow=4993 wptr=4993
+[2026-10-26 07:12:01.320] adreno_trace: doorbell fence=2375 wptr=5002
+[2026-10-26 07:12:01.320] adreno_trace: wait fence=2375
+[2026-10-26 07:12:01.380] adreno_trace: retired fence=2375 shadow=5002; check GX
+[2026-10-26 07:12:01.380] adreno_trace: checked fence=2375
+[2026-10-26 07:12:01.380] adreno_trace: CS bin=c97cc000 desc=c98c8000 grid=240x135x1 local=16x16x1 words=151
+[2026-10-26 07:12:01.380] adreno_trace: begin next=2376 words=151 shadow=5002 wptr=5002
+[2026-10-26 07:12:01.380] adreno_trace: doorbell fence=2376 wptr=5011
+[2026-10-26 07:12:01.380] adreno_trace: wait fence=2376
+[2026-10-26 07:12:01.437] adreno_trace: retired fence=2376 shadow=5011; check GX
+[2026-10-26 07:12:01.437] adreno_trace: checked fence=2376
+[2026-10-26 07:12:59.602] shm-pool base=d8600000 size=536870912 page=16384
+[2026-10-26 07:12:59.823] shm-pool round=0 chunks=50 MB=400 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:13:00.054] shm-pool round=1 chunks=50 MB=400 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:13:00.228] shm-pool round=2 chunks=50 MB=400 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:13:00.228] shm-pool DONE rounds=3
+
+Final kernel lifecycle cycles (both apps present in each order):
+cycle=0run: /apps/xapps/xapps [OK]
+run: /apps/glmatrix/glmatrix [OK]
+misa     134  0     5:0%  slp       /apps/xapps/xapps
+misa     147  0     3:6%  blk       /apps/glmatrix/glmatrix
+task_num: 57, memory: total 8192 MB, free 6150 MB, shm 459 MB
+cycle=1run: /apps/glmatrix/glmatrix [OK]
+run: /apps/xapps/xapps [OK]
+misa     197  0     6:6%  run       /apps/glmatrix/glmatrix
+misa     206  0     2:0%  slp       /apps/xapps/xapps
+task_num: 53, memory: total 8192 MB, free 6150 MB, shm 460 MB
+CYCLES_DONEOWNER    PID  FATH  CORE  STATE     PROC
+task_num: 48, memory: total 8192 MB, free 6249 MB, shm 111 MB
+
+Final hardware GPU counters:
+fill 5 avg 1574us
+blit 1059 avg 11266us
+blit_alpha 164 avg 1224us
+blit_phy 248 avg 2699us
+blur 18 avg 3054us
+pgl_clear 1 avg 2896us
+pgl_draw 511 avg 21914us
+pgl_program 2 avg 52us
+version 1 avg 0us
+fill_alpha 127 avg 3479us
+
+Final hardware clock:
+precise rc=0 raw=10781 ns
+precise rc=0 raw=10729 ns
+precise rc=0 raw=10677 ns
+precise rc=0 raw=10729 ns
+precise rc=0 raw=10625 ns
+precise rc=0 raw=10677 ns
+precise rc=0 raw=10729 ns
+precise rc=0 raw=10729 ns
+clock checked=100000 even=99991 backwards=0 max_backwards=0 ns failures=0
+
+Full SD manifest checks, before/after final MCP reboot:
+MATCH a3b386feed97d4e2baf24fa3e4c3e3db 247336 755 /drivers/q8b/g2dd
+SUMMARY checked=446 different_or_missing=0
+MATCH a3b386feed97d4e2baf24fa3e4c3e3db 247336 755 /drivers/q8b/g2dd
+SUMMARY checked=446 different_or_missing=0
+
+Host regressions:
+clang -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
+	 -I/Users/tony/work/ewokos/kernel/kernel/include clock_anchor_test.c -o /tmp/q8b-gpu-bench/clock-anchor-test
+/tmp/q8b-gpu-bench/clock-anchor-test
+clock anchor: 300000 fractional/integer clock samples passed
+clang -std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
+	 memory_pool_test.c -o /tmp/q8b-gpu-bench/memory-pool-test
+/tmp/q8b-gpu-bench/memory-pool-test
+memory pool regression: physical hole, exclusions, alignment, overflow and 20000 oracle cases passed
+
+Rootfs filesystem check:
+e2fsck 1.47.3 (8-Jul-2025)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+machines/q8b/root_aarch64.img: 606/81984 files (0.3% non-contiguous), 68509/81920 blocks

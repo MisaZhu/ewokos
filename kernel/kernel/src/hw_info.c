@@ -17,6 +17,11 @@ int32_t arch_relocate_dma_high(void) {
 }
 
 __attribute__((weak))
+int32_t arch_reserve_memory_pools(void) {
+    return 0;
+}
+
+__attribute__((weak))
 int32_t arch_clone_proc_vm(page_dir_entry_t* vm, page_dir_entry_t* kernel_vm) {
     (void)vm;
     (void)kernel_vm;
@@ -123,6 +128,9 @@ void sys_info_config(void) {
         _sys_info.shm_contig.size = SHM_CONTIG_VA_MAX;
 
     _sys_info.sys_dma.v_base = DMA_V_BASE;
+
+    if(arch_reserve_memory_pools())
+        return;
 
     /*
      * On boards with RAM well above 4GB, optionally carve the

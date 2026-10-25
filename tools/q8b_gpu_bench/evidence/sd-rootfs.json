@@ -26,5 +26,13 @@
     "boot_reason": "Reset by PSHOLD; Warm Reset",
     "subsequent_state": "Sahara/EDL",
     "cause": "Not yet established; no GPU fault or kernel exception printed before reset."
+  },
+  "followup_glmatrix_fix": {
+    "evidence": "glmatrix-memory.json",
+    "kernel_sha256": "218b8d6633140c8801209a603572fb47c69a5349b3e917a33f4f8ccb3a8cbde9",
+    "g2dd_sha256": "4cb73731009b42701adbbd38ccef93cd47f7f644163c40a2c9ef328e689f6a0d",
+    "manifest_sha256": "3710e05f19788df7988dedea6f0fe4995adcc4a643172df96d81fc80aa57cdeb",
+    "files_verified_after_final_reboot": 446,
+    "mismatches": 0
   }
 }

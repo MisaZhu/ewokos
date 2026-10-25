@@ -1,0 +1,108 @@
+{
+  "root_cause": "DMA/contiguous-SHM pools carved without UEFI reservations; CPU zero crossed physical RAM-bank hole",
+  "failing_zero": {
+    "physical_base": "0xba790000",
+    "pages": 2025,
+    "page_bytes": 16384,
+    "exclusive_end": "0xbc734000",
+    "ram_bank0_exclusive_end": "0xbb700000",
+    "next_ram_bank_base": "0xc0000000"
+  },
+  "final_kernel_sha256": "218b8d6633140c8801209a603572fb47c69a5349b3e917a33f4f8ccb3a8cbde9",
+  "final_g2dd_sha256": "4cb73731009b42701adbbd38ccef93cd47f7f644163c40a2c9ef328e689f6a0d",
+  "dma_pool": [
+    "0xc8600000",
+    "0xd8600000"
+  ],
+  "contiguous_shm_pool": [
+    "0xd8600000",
+    "0xf8600000"
+  ],
+  "native_regression": {
+    "oracle_cases": 20000,
+    "asan_ubsan": "passed",
+    "clock_oracle_samples": 300000,
+    "adjacent_descriptors_and_holes": "passed"
+  },
+  "hardware_overlap": [
+    {
+      "order": "glmatrix then xapps",
+      "seconds": 90,
+      "mouse_ipcs": 746,
+      "mean_us": 70342,
+      "max_us": 239339,
+      "at_least_200ms": 2,
+      "ipc_errors": 0,
+      "reset": false,
+      "limitation": "Two startup stalls remain; later five-second interval maxima ~83-87ms"
+    },
+    {
+      "order": "xapps then glmatrix",
+      "seconds": 60,
+      "phase": "steady",
+      "mouse_ipcs": 833,
+      "mean_us": 21586,
+      "max_us": 64006,
+      "at_least_200ms": 0,
+      "ipc_errors": 0,
+      "reset": false
+    }
+  ],
+  "final_boot_cycles": {
+    "orders": [
+      "xapps then glmatrix",
+      "glmatrix then xapps"
+    ],
+    "completed": 2,
+    "resolution": [
+      3840,
+      2160
+    ],
+    "shm_MB_observed": [
+      459,
+      460
+    ],
+    "normal_ESC_close": true,
+    "unexpected_resets_after_kernel_boot": 0
+  },
+  "final_boot_pool_test": {
+    "rounds": 3,
+    "allocated_MB_per_round": 400,
+    "chunks_per_round": 50,
+    "chunk_MB": 8,
+    "zero_phys_and_pattern_errors": 0,
+    "coverage": "initial zero and pattern at one word per 16KB page; verify physical bounds and contiguous flag"
+  },
+  "bounded_gpu_trace": {
+    "requested": 4,
+    "begun": 4,
+    "completed": 4,
+    "default": "off",
+    "limit": 256
+  },
+  "final_boot_clock": {
+    "samples": 100000,
+    "backwards": 0,
+    "failures": 0
+  },
+  "SD_rootfs": {
+    "manifest_files": 446,
+    "before_final_reboot_mismatches": 0,
+    "after_final_reboot_mismatches": 0,
+    "manifest_sha256": "3710e05f19788df7988dedea6f0fe4995adcc4a643172df96d81fc80aa57cdeb",
+    "backup_directory": "/sd-rootfs-update-20261026/backup"
+  },
+  "rootfs_image": {
+    "sha256": "4ca57cdd25e026f6296498b85710a2da5749675dbb9894ff8705ab4c4768ab03",
+    "readback_files": 446,
+    "mismatches": 0,
+    "e2fsck_exit": 0
+  },
+  "deployment": {
+    "kernel": "PXE tftp/q8b/KERNEL.BIN",
+    "rootfs": "actual SD card mounted at / by /sbin/sdfsd",
+    "temporary_kernel_allocation_trace": "removed",
+    "normal_desktop": "restored; test apps closed"
+  },
+  "machines_commit": "00ca0c57"
+}

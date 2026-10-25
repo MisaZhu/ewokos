@@ -5,7 +5,7 @@ FE := $(ROOT)/projects/soft3d/libs/gles/pglcompiler
 OUT ?= /tmp/q8b-gpu-bench
 COMPILER_OUT ?= /tmp/q8b-builtin-shaders
 .PHONY: all shaders check
-all: $(OUT)/bench $(OUT)/clock $(OUT)/input-latency shaders
+all: $(OUT)/bench $(OUT)/clock $(OUT)/input-latency $(OUT)/shm-pool shaders
 $(OUT):
 	mkdir -p $@
 $(OUT)/bench.o: bench.c | $(OUT)
@@ -26,6 +26,12 @@ $(OUT)/input-latency.o: input_latency.c | $(OUT)
 $(OUT)/input-latency: $(OUT)/input-latency.o $(SDK)/lib/libewoksys.a
 	aarch64-none-elf-ld -Ttext=100 $< -o $@ -L$(SDK)/lib \
 	 --start-group -lewoksys -lc -lgloss --end-group
+$(OUT)/shm-pool.o: shm_pool.c | $(OUT)
+	aarch64-none-elf-gcc -O2 -march=armv8-a -mno-outline-atomics -Wall -Wextra \
+	 -I$(SDK)/include -c $< -o $@
+$(OUT)/shm-pool: $(OUT)/shm-pool.o $(SDK)/lib/libewoksys.a
+	aarch64-none-elf-ld -Ttext=100 $< -o $@ -L$(SDK)/lib \
+	 --start-group -lewoksys -lc -lgloss --end-group
 shaders: | $(OUT)
 	$(MAKE) -C $(ADRENO) -f shaders/Makefile.host compiler OUT=$(COMPILER_OUT)
 	clang -O2 -I$(FE)/include -I$(ADRENO)/include -c compile.c -o $(OUT)/compile.o
@@ -37,3 +43,6 @@ check: | $(OUT)
 	clang -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
 	 -I$(ROOT)/kernel/kernel/include clock_anchor_test.c -o $(OUT)/clock-anchor-test
 	$(OUT)/clock-anchor-test
+	clang -std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
+	 memory_pool_test.c -o $(OUT)/memory-pool-test
+	$(OUT)/memory-pool-test
