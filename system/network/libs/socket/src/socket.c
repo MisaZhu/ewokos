@@ -1,12 +1,14 @@
 #include <stdint.h>
 #include "sys/socket.h"
 #include "netinet/in.h"
+#include <netdb.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <ewoksys/vdevice.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <ewoksys/vfs.h>
 #include <sys/time.h>
@@ -743,56 +745,201 @@ struct hostent *gethostbyname(const char *name){
     return NULL;
 }
 
-int getaddrinfo( const char *node, const char *service, 
-                const struct addrinfo *hints, struct addrinfo **res){
-    struct  addrinfo *ret = (struct  addrinfo *)malloc(sizeof(struct addrinfo));
-    struct sockaddr_in *in = (struct  sockaddr_in *)malloc(sizeof(struct sockaddr_in));
+static int addrinfo_service(const char *service, int flags,
+                            uint16_t *port, int *protocol) {
+    char *end;
+    unsigned long value;
 
-    memset(ret, 0, sizeof(struct addrinfo));
-    memset(in, 0, sizeof(IN_ADDR));
-    ret->ai_next = NULL;
-    ret->ai_socktype = hints->ai_socktype;
-    ret->ai_family = hints->ai_family;
-    
-    in->sin_port = 4950;
-    in->sin_family = AF_INET;
-    in->sin_addr.s_un.s_un_b.s_b1 = 0xc0;
-    in->sin_addr.s_un.s_un_b.s_b2 = 0xa8;
-    in->sin_addr.s_un.s_un_b.s_b3 = 0x40;
-    in->sin_addr.s_un.s_un_b.s_b4 = 0x01;
-    ret->ai_addr = (struct sockaddr*)in;
-    ret->ai_addrlen = sizeof(struct sockaddr_in); 
-    ret->ai_protocol = 0x11;
-    ret->ai_socktype = SOCK_DGRAM;
-    *res = ret;
+    *protocol = 0;
+    if (service == NULL || *service == '\0') {
+        *port = 0;
+        return 0;
+    }
+    if (!(flags & AI_NUMERICSERV)) {
+        struct service_ent {
+            const char *name;
+            uint16_t port;
+            int protocol;
+        };
+        static const struct service_ent services[] = {
+            { "domain", 53, IPPROTO_UDP },
+            { "ftp", 21, IPPROTO_TCP },
+            { "git", 9418, IPPROTO_TCP },
+            { "http", 80, IPPROTO_TCP },
+            { "https", 443, IPPROTO_TCP },
+            { "ssh", 22, IPPROTO_TCP },
+            { "telnet", 23, IPPROTO_TCP }
+        };
+        size_t i;
+
+        for (i = 0; i < sizeof(services) / sizeof(services[0]); i++) {
+            if (strcmp(service, services[i].name) == 0) {
+                *port = services[i].port;
+                *protocol = services[i].protocol;
+                return 0;
+            }
+        }
+    }
+
+    errno = 0;
+    value = strtoul(service, &end, 10);
+    if (errno || end == service || *end != '\0' || value > 65535)
+        return EAI_SERVICE;
+    *port = (uint16_t)value;
     return 0;
 }
 
-int freeaddrinfo(struct addrinfo **res){
-    if (res == NULL || *res == NULL) {
-        return 0;
+static int addrinfo_append(struct addrinfo **list, struct in_addr address,
+                           uint16_t port, int socktype, int protocol,
+                           const char *canonname) {
+    struct addrinfo *entry = calloc(1, sizeof(*entry));
+    struct sockaddr_in *in = calloc(1, sizeof(*in));
+
+    if (entry == NULL || in == NULL) {
+        free(entry);
+        free(in);
+        return EAI_MEMORY;
+    }
+    entry->ai_family = AF_INET;
+    entry->ai_socktype = socktype;
+    entry->ai_protocol = protocol;
+    entry->ai_addrlen = sizeof(*in);
+    entry->ai_addr = (struct sockaddr *)in;
+    in->sin_len = sizeof(*in);
+    in->sin_family = AF_INET;
+    in->sin_port = htons(port);
+    in->sin_addr = address;
+    if (canonname != NULL) {
+        size_t len = strlen(canonname) + 1;
+        entry->ai_canonname = malloc(len);
+        if (entry->ai_canonname == NULL) {
+            free(in);
+            free(entry);
+            return EAI_MEMORY;
+        }
+        memcpy(entry->ai_canonname, canonname, len);
+    }
+    entry->ai_next = *list;
+    *list = entry;
+    return 0;
+}
+
+void freeaddrinfo(struct addrinfo *res) {
+    while (res != NULL) {
+        struct addrinfo *next = res->ai_next;
+        free(res->ai_addr);
+        free(res->ai_canonname);
+        free(res);
+        res = next;
+    }
+}
+
+int getaddrinfo(const char *node, const char *service,
+                const struct addrinfo *hints, struct addrinfo **res) {
+    struct in_addr address;
+    struct hostent *host;
+    uint16_t port;
+    int flags = hints != NULL ? hints->ai_flags : 0;
+    int family = hints != NULL ? hints->ai_family : AF_UNSPEC;
+    int socktype = hints != NULL ? hints->ai_socktype : 0;
+    int protocol = hints != NULL ? hints->ai_protocol : 0;
+    int service_protocol;
+    int ret;
+
+    if (res == NULL || (node == NULL && service == NULL))
+        return EAI_NONAME;
+    *res = NULL;
+    if (family != AF_UNSPEC && family != AF_INET)
+        return EAI_FAMILY;
+    if (socktype != 0 && socktype != SOCK_STREAM && socktype != SOCK_DGRAM)
+        return EAI_SOCKTYPE;
+    if (protocol != 0 && protocol != IPPROTO_TCP && protocol != IPPROTO_UDP)
+        return EAI_SERVICE;
+    ret = addrinfo_service(service, flags, &port, &service_protocol);
+    if (ret != 0)
+        return ret;
+    if (protocol != 0 && service_protocol != 0 && protocol != service_protocol)
+        return EAI_SERVICE;
+    if (protocol == 0)
+        protocol = service_protocol;
+    if (socktype == SOCK_STREAM && protocol == IPPROTO_UDP)
+        return EAI_SOCKTYPE;
+    if (socktype == SOCK_DGRAM && protocol == IPPROTO_TCP)
+        return EAI_SOCKTYPE;
+
+    if (node == NULL) {
+        address.s_un.s_addr = (flags & AI_PASSIVE) ? INADDR_ANY : htonl((in_addr_t)0x7f000001);
+    } else if (inet_pton(AF_INET, node, &address) != 1) {
+        if (flags & AI_NUMERICHOST)
+            return EAI_NONAME;
+        host = gethostbyname(node);
+        if (host == NULL || host->h_addrtype != AF_INET ||
+            host->h_length != sizeof(address) || host->h_addr_list[0] == NULL)
+            return EAI_NONAME;
+        memcpy(&address, host->h_addr_list[0], sizeof(address));
     }
 
-    struct addrinfo *current = *res;
-    while (current) {
-        struct addrinfo *next = current->ai_next;
-        
-        // free the memory pointed to by ai_addr
-        if (current->ai_addr) {
-            free(current->ai_addr);
+    if ((socktype == 0 || socktype == SOCK_STREAM) &&
+        (protocol == 0 || protocol == IPPROTO_TCP)) {
+        ret = addrinfo_append(res, address, port, SOCK_STREAM, IPPROTO_TCP,
+                              (flags & AI_CANONNAME) ? node : NULL);
+        if (ret != 0) {
+            freeaddrinfo(*res);
+            *res = NULL;
+            return ret;
         }
-        
-        // free the memory pointed to by ai_canonname
-        if (current->ai_canonname) {
-            free(current->ai_canonname);
-        }
-        
-        // free the current addrinfo struct
-        free(current);
-        
-        current = next;
     }
-    
-    *res = NULL;
+    if ((socktype == 0 || socktype == SOCK_DGRAM) &&
+        (protocol == 0 || protocol == IPPROTO_UDP)) {
+        ret = addrinfo_append(res, address, port, SOCK_DGRAM, IPPROTO_UDP,
+                              (flags & AI_CANONNAME) ? node : NULL);
+        if (ret != 0) {
+            freeaddrinfo(*res);
+            *res = NULL;
+            return ret;
+        }
+    }
+    return *res != NULL ? 0 : EAI_SOCKTYPE;
+}
+
+const char *gai_strerror(int errcode) {
+    switch (errcode) {
+    case 0: return "success";
+    case EAI_BADFLAGS: return "invalid flags";
+    case EAI_NONAME: return "name or service not known";
+    case EAI_AGAIN: return "temporary name resolution failure";
+    case EAI_FAIL: return "name resolution failure";
+    case EAI_FAMILY: return "address family not supported";
+    case EAI_SOCKTYPE: return "socket type not supported";
+    case EAI_SERVICE: return "service not supported for socket type";
+    case EAI_MEMORY: return "out of memory";
+    case EAI_OVERFLOW: return "buffer too small";
+    default: return "unknown name resolution error";
+    }
+}
+
+int getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
+                char *host, socklen_t hostlen,
+                char *serv, socklen_t servlen, int flags) {
+    const struct sockaddr_in *in;
+
+    if (addr == NULL || addrlen < sizeof(struct sockaddr_in) ||
+        addr->sa_family != AF_INET)
+        return EAI_FAMILY;
+    in = (const struct sockaddr_in *)addr;
+    if (host != NULL) {
+        if (!(flags & NI_NUMERICHOST))
+            return EAI_NONAME;
+        if (inet_ntop(AF_INET, &in->sin_addr, host, hostlen) == NULL)
+            return EAI_OVERFLOW;
+    }
+    if (serv != NULL) {
+        int len;
+        if (!(flags & NI_NUMERICSERV))
+            return EAI_NONAME;
+        len = snprintf(serv, servlen, "%u", (unsigned)ntohs(in->sin_port));
+        if (len < 0 || (socklen_t)len >= servlen)
+            return EAI_OVERFLOW;
+    }
     return 0;
 }

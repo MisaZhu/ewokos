@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -151,28 +152,26 @@ int dev_open(int dev_pid, int fd, fsinfo_t* info, int oflag) {
 /*
  * Per-fd persistent transfer buffer cache.
  *
- * Previously dev_read/dev_write created (shmget IPC_EXCL), mapped (shmat) and
- * destroyed (shmdt) a shared-memory segment on *every* large IO. Each map/unmap
- * triggers a global TLB flush plus page alloc/free in the kernel, so a single
- * 64KB transfer paid a full segment create/map/unmap/destroy lifecycle and
- * 4-6 TLB flushes. Cache one segment per fd and reuse it across calls; the
- * segment is freed on close (dev_io_on_close) and its stale pointer dropped
- * after fork (dev_io_on_fork), mirroring vfs.c's _pipe_shm[] handling.
+ * Reads and writes need distinct segments: a socket can have one thread
+ * receiving while another is sending. The per-direction lock also keeps two
+ * same-direction calls from overwriting a segment while its IPC is in flight.
+ * Segments are freed on close and their stale pointers dropped after fork.
  */
+#define IO_SHM_READ  0
+#define IO_SHM_WRITE 1
+#define IO_SHM_DIRS  2
+
 typedef struct {
     int32_t  shm_id;
     void*    addr;
     uint32_t size;
+    pthread_mutex_t lock;
 } io_shm_t;
 
-static io_shm_t _io_shm[MAX_OPEN_FILE_PER_PROC];
+static io_shm_t _io_shm[MAX_OPEN_FILE_PER_PROC][IO_SHM_DIRS];
 
-static void* get_io_shm(int fd, uint32_t size) {
-    if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
-        return NULL;
-    (void)size;
-
-    io_shm_t* c = &_io_shm[fd];
+/* Caller holds c->lock. */
+static void* get_io_shm(io_shm_t* c, int fd, int dir) {
     if(c->addr != NULL)
         return c->addr;
 
@@ -185,17 +184,16 @@ static void* get_io_shm(int fd, uint32_t size) {
      *
      * Keyed (non-private) 0666 segment: the fs/device server is an unrelated
      * process and cannot map an IPC_PRIVATE (family-only) segment. Key is
-     * unique per (fd, pid) and stable across calls so the server-side mapping
-     * cache stays warm. Drop IPC_EXCL so a re-get returns the existing id.
+     * unique per (fd, direction, pid) and stable across calls so the
+     * server-side mapping cache stays warm.
      */
-    key_t key = ((key_t)(fd + 1) << 16) | (getpid() & 0xffff);
+    key_t key = ((key_t)(fd * IO_SHM_DIRS + dir + 1) << 16) |
+            (getpid() & 0xffff);
     int32_t shm_id = shmget(key, SHM_MAX, 0666|IPC_CREAT);
     if(shm_id == -1)
         return NULL;
     void* shm = shmat(shm_id, 0, 0);
     if(shm == (void*)-1) {
-        /* destroy the segment when nobody has it attached (a leftover
-           from an earlier failed attempt gets cleaned up the same way) */
         shmctl(shm_id, IPC_RMID, NULL);
         return NULL;
     }
@@ -209,32 +207,47 @@ static void* get_io_shm(int fd, uint32_t size) {
 void dev_io_on_close(int fd) {
     if(fd < 0 || fd >= MAX_OPEN_FILE_PER_PROC)
         return;
-    io_shm_t* c = &_io_shm[fd];
-    if(c->addr != NULL)
-        shmdt(c->addr);
-    c->addr = NULL;
-    c->shm_id = -1;
-    c->size = 0;
+    for(int dir=0; dir<IO_SHM_DIRS; dir++) {
+        io_shm_t* c = &_io_shm[fd][dir];
+        pthread_mutex_lock(&c->lock);
+        if(c->addr != NULL)
+            shmdt(c->addr);
+        c->addr = NULL;
+        c->shm_id = -1;
+        c->size = 0;
+        pthread_mutex_unlock(&c->lock);
+    }
 }
 
 void dev_io_on_fork(void) {
-    /* child never mapped these pages; just drop the stale pointers */
+    /* The child is single-threaded and never mapped these pages. */
     for(uint32_t i=0; i<MAX_OPEN_FILE_PER_PROC; i++) {
-        _io_shm[i].addr = NULL;
-        _io_shm[i].shm_id = -1;
-        _io_shm[i].size = 0;
+        for(int dir=0; dir<IO_SHM_DIRS; dir++) {
+            io_shm_t* c = &_io_shm[i][dir];
+            c->addr = NULL;
+            c->shm_id = -1;
+            c->size = 0;
+            c->lock = PTHREAD_MUTEX_INITIALIZER;
+        }
     }
 }
 
 int dev_read(int dev_pid, int fd, fsinfo_t* info, off_t offset, void* buf, uint32_t size) {
     int32_t shm_id = -1;
     void* shm = NULL;
-    if(size > SHM_ON) {
-        if(size > SHM_MAX)
-            size = SHM_MAX;
-        shm = get_io_shm(fd, size);
+    io_shm_t* io = NULL;
+    if(size > SHM_MAX)
+        size = SHM_MAX;
+    if(size > SHM_ON && fd >= 0 && fd < MAX_OPEN_FILE_PER_PROC) {
+        io = &_io_shm[fd][IO_SHM_READ];
+        pthread_mutex_lock(&io->lock);
+        shm = get_io_shm(io, fd, IO_SHM_READ);
         if(shm != NULL)
-            shm_id = _io_shm[fd].shm_id;
+            shm_id = io->shm_id;
+        else {
+            pthread_mutex_unlock(&io->lock);
+            io = NULL;
+        }
     }
 
     proto_t in, out;
@@ -263,19 +276,28 @@ int dev_read(int dev_pid, int fd, fsinfo_t* info, off_t offset, void* buf, uint3
     }
     PF->clear(&in);
     PF->clear(&out);
+    if(io != NULL)
+        pthread_mutex_unlock(&io->lock);
     return res;
 }
 
 int dev_write(int dev_pid, int fd, fsinfo_t* info, off_t offset, const void* buf, uint32_t size) {
     int32_t shm_id = -1;
     void* shm = NULL;
-    if(size >= SHM_ON) {
-        if(size > SHM_MAX)
-            size = SHM_MAX;
-        shm = get_io_shm(fd, size);
+    io_shm_t* io = NULL;
+    if(size > SHM_MAX)
+        size = SHM_MAX;
+    if(size >= SHM_ON && fd >= 0 && fd < MAX_OPEN_FILE_PER_PROC) {
+        io = &_io_shm[fd][IO_SHM_WRITE];
+        pthread_mutex_lock(&io->lock);
+        shm = get_io_shm(io, fd, IO_SHM_WRITE);
         if(shm != NULL) {
-            shm_id = _io_shm[fd].shm_id;
+            shm_id = io->shm_id;
             memcpy(shm, buf, size);
+        }
+        else {
+            pthread_mutex_unlock(&io->lock);
+            io = NULL;
         }
     }
 
@@ -303,6 +325,8 @@ int dev_write(int dev_pid, int fd, fsinfo_t* info, off_t offset, const void* buf
     }
     PF->clear(&in);
     PF->clear(&out);
+    if(io != NULL)
+        pthread_mutex_unlock(&io->lock);
     return res;
 }
 

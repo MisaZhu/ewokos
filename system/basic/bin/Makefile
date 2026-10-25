@@ -1,7 +1,7 @@
 all: builtin_apps
 	@echo "all done."
 
-DIRS = cp fan ipcserv bgrun tsaver clear echo sleep ps top devcmd svcinfo cat shell ls login sudo md5 session mount umount df uname pwd dump kill killall rm chmod chown chgrp whoami mkdir mkfifo grep head more rx elfinfo json sysinfo mmio date vi stltest test malloc4g concat
+DIRS = cp fan ipcserv bgrun tsaver clear echo sleep ps top devcmd svcinfo cat shell ls login sudo md5 md5sum session mount umount df uname pwd dump kill killall rm chmod chown chgrp whoami mkdir mkfifo grep head more rx elfinfo json sysinfo mmio date vi stltest test malloc4g concat
 #	test
 # apps are independent of each other, build them in parallel under -j
 builtin_apps: $(DIRS)

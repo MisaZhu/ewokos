@@ -274,21 +274,14 @@ static void close_on_exec_fds(void) {
     }
 }
 
-int proc_exec(const char *name) {
-    char fpath[64];
+int proc_exec_with_cmdline(const char *path, const char *cmd_line) {
     int sz = 0;
-    const char *p = name;
-    saveenv();
-    memset(fpath, 0, sizeof(fpath));
-    for(int i = 0; i < sizeof(fpath); i++){
-        if(name[i] == '\0' || name[i] == ' ' || name[i] == '\t' || name[i] == '\n')
-            break;
-        fpath[i] = name[i];
-    }
-
-    /* Get file size first */
     fsinfo_t info;
-    if(vfs_get_by_name(fpath, &info) != 0 || info.stat.size <= 0)
+
+    if(path == NULL || path[0] == 0 || cmd_line == NULL)
+        return -1;
+    saveenv();
+    if(vfs_get_by_name(path, &info) != 0 || info.stat.size <= 0)
         return -1;
     sz = (int)info.stat.size;
 
@@ -302,7 +295,7 @@ int proc_exec(const char *name) {
         return -1;
     }
 
-    int rd = vfs_readfile_to_buf(fpath, shm_buf, sz);
+    int rd = vfs_readfile_to_buf(path, shm_buf, sz);
     if(rd < 0) {
         shmdt(shm_buf);
         shmctl(shm_id, IPC_RMID, NULL);
@@ -310,11 +303,35 @@ int proc_exec(const char *name) {
     }
 
     close_on_exec_fds();
-    proc_exec_elf(name, shm_id, sz);
+    proc_exec_elf(cmd_line, shm_id, sz);
     /* If exec fails, clean up shm */
     shmdt(shm_buf);
     shmctl(shm_id, IPC_RMID, NULL);
     return 0;
+}
+
+int proc_exec(const char *name) {
+    char fpath[FS_FULL_NAME_MAX];
+    int quoted = 0;
+    int out = 0;
+    int in = 0;
+
+    if(name == NULL)
+        return -1;
+    while(name[in] != 0 && out < (int)sizeof(fpath) - 1) {
+        char c = name[in++];
+        if(c == '"') {
+            quoted = !quoted;
+            continue;
+        }
+        if(!quoted && (c == ' ' || c == '\t' || c == '\n'))
+            break;
+        if(c == '\\' && name[in] != 0)
+            c = name[in++];
+        fpath[out++] = c;
+    }
+    fpath[out] = 0;
+    return proc_exec_with_cmdline(fpath, name);
 }
 
 inline uint32_t proc_check_uuid(int32_t pid, uint32_t uuid) {

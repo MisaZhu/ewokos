@@ -2686,9 +2686,14 @@ static void drain_child_output(sshd_session_t* s) {
          */
         if(!s->pipe_hup) {
             if(s->child_pid > 1) {
-                pid_t wrc = waitpid(s->child_pid, NULL, WNOHANG);
+                pid_t child = s->child_pid;
+                pid_t wrc = waitpid(child, NULL, WNOHANG);
                 if(wrc == 0)
                     break;  /* child still running: temporarily no data */
+                /* Only a successful reap proves child exit. Wait errors must
+                 * not turn an empty pipe into EOF and truncate future output. */
+                if(wrc != child)
+                    break;
                 s->child_pid = -1;
             }
         }

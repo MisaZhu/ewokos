@@ -53,6 +53,7 @@
 #define TCP_PCB_STATE_LAST_ACK    11
 
 #define TCP_DEFAULT_RTO 200000 /* micro seconds */
+#define TCP_TX_RETRY 1000 /* local TX backpressure is not wire loss */
 #define TCP_RETRANSMIT_DEADLINE 60 /* seconds - increased for better reliability */
 #define TCP_TIMEWAIT_SEC 30 /* substitute for 2MSL */
 /*
@@ -65,6 +66,7 @@
  * ~550KB/s plateau while still keeping worst-case per-connection memory sane.
  */
 #define TCP_RETRANSMIT_QUEUE_MAX 512 /* max queued segments per connection */
+#define TCP_OUTPUT_NO_QUEUE (-2) /* no retransmission copy was created */
 #define TCP_PERSIST_RTO_MAX 60000000 /* max persist backoff: 60 seconds */
 #define TCP_DELACK_TIMEOUT_USEC 40000 /* RFC 1122 delayed-ACK ceiling */
 #define TCP_DELACK_SEGS 2 /* ACK every 2nd in-order data segment */
@@ -158,6 +160,8 @@ struct tcp_pcb {
     struct sched_ctx recv_ctx;
     struct queue_head queue; /* retransmit queue */
     struct timeval tw_timer;
+    struct timeval close_timer;   /* delayed FIN queue retry */
+    int close_state;              /* state to enter after FIN is queued */
     struct timeval persist_timer; /* zero-window probe timer */
     unsigned int persist_rto;    /* current persist backoff (usec) */
     uint8_t persist_probing;     /* persist timer armed */
@@ -179,6 +183,7 @@ struct tcp_queue_entry {
     unsigned int rto; /* micro seconds */
     uint32_t seq;
     uint8_t flg;
+    uint8_t tx_pending; /* last local output attempt failed before the wire */
     size_t len;
 };
 
@@ -580,23 +585,24 @@ tcp_log_close_event(const char *tag, struct tcp_pcb *pcb)
  *
  * NOTE: TCP Retransmit functions must be called after mutex locked
  */
-static int
+static struct tcp_queue_entry *
 tcp_retransmit_queue_add(struct tcp_pcb *pcb, uint32_t seq, uint8_t flg, uint8_t *data, size_t len)
 {
     struct tcp_queue_entry *entry;
     if (pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
         errorf("retransmit queue full (%u), dropping segment seq=%u",
                pcb->queue.num, seq);
-        return -1;
+        return NULL;
     }
     entry = memory_alloc(sizeof(*entry) + len);
     if (!entry) {
         errorf("memory_alloc() failure");
-        return -1;
+        return NULL;
     }
     entry->rto = TCP_DEFAULT_RTO;
     entry->seq = seq;
     entry->flg = flg;
+    entry->tx_pending = 0;
     entry->len = len;
     memcpy(entry + 1, data, entry->len);
     gettimeofday(&entry->first, NULL);
@@ -604,9 +610,9 @@ tcp_retransmit_queue_add(struct tcp_pcb *pcb, uint32_t seq, uint8_t flg, uint8_t
     if (!queue_push(&pcb->queue, entry)) {
         errorf("queue_push() failure");
         memory_free(entry);
-        return -1;
+        return NULL;
     }
-    return 0;
+    return entry;
 }
 
 static void
@@ -615,14 +621,21 @@ tcp_retransmit_queue_cleanup(struct tcp_pcb *pcb)
     struct tcp_queue_entry *entry;
 
     while ((entry = queue_peek(&pcb->queue))) {
+        uint32_t end = entry->seq + (uint32_t)entry->len;
+
+        if (TCP_FLG_ISSET(entry->flg, TCP_FLG_SYN | TCP_FLG_FIN)) {
+            if (TCP_FLG_ISSET(entry->flg, TCP_FLG_SYN))
+                end++;
+            if (TCP_FLG_ISSET(entry->flg, TCP_FLG_FIN))
+                end++;
+        }
         /*
-         * Serial (mod 2^32) comparison. iss = random(), so snd.una can wrap
-         * within a session; a raw `entry->seq >= pcb->snd.una` then keeps
-         * fully-ACKed entries queued forever, the queue sticks at
-         * TCP_RETRANSMIT_QUEUE_MAX, every send returns EAGAIN and the
-         * connection stalls permanently while probe/wake churn spins netd.
+         * A cumulative ACK can stop in the middle of a segment. Keep the
+         * original entry until its complete sequence range is acknowledged;
+         * otherwise the unacknowledged tail has no retransmission copy.
+         * Serial comparison also handles snd.una wrapping within a session.
          */
-        if ((int32_t)(entry->seq - pcb->snd.una) >= 0) {
+        if ((int32_t)(end - pcb->snd.una) > 0) {
             break;
         }
         entry = queue_pop(&pcb->queue);
@@ -653,9 +666,21 @@ tcp_retransmit_queue_emit(void *arg, void *data)
     timeout = entry->last;
     timeval_add_usec(&timeout, entry->rto);
     if (timercmp(&now, &timeout, >)) {
-        tcp_output_segment(entry->seq, pcb->rcv.nxt, entry->flg, tcp_wire_window(pcb, entry->flg), (uint8_t *)(entry+1), entry->len, &pcb->local, &pcb->foreign);
+        ssize_t ret = tcp_output_segment(entry->seq, pcb->rcv.nxt, entry->flg,
+            tcp_wire_window(pcb, entry->flg), (uint8_t *)(entry+1), entry->len,
+            &pcb->local, &pcb->foreign);
         entry->last = now;
-        entry->rto *= 2;
+        if (ret < 0) {
+            entry->tx_pending = 1;
+            entry->rto = TCP_TX_RETRY;
+        } else if (entry->tx_pending) {
+            /* This successful attempt is the first one that actually reached
+             * the wire after local backpressure; start a normal RTO now. */
+            entry->tx_pending = 0;
+            entry->rto = TCP_DEFAULT_RTO;
+        } else {
+            entry->rto *= 2;
+        }
     }
 }
 
@@ -800,16 +825,56 @@ tcp_output_segment(uint32_t seq, uint32_t ack, uint8_t flg, uint16_t wnd, uint8_
 static ssize_t
 tcp_output(struct tcp_pcb *pcb, uint8_t flg, uint8_t *data, size_t len)
 {
+    struct tcp_queue_entry *entry = NULL;
     uint32_t seq;
+    ssize_t ret;
 
     seq = pcb->snd.nxt;
     if (TCP_FLG_ISSET(flg, TCP_FLG_SYN)) {
         seq = pcb->iss;
     }
     if (TCP_FLG_ISSET(flg, TCP_FLG_SYN | TCP_FLG_FIN) || len) {
-        tcp_retransmit_queue_add(pcb, seq, flg, data, len);
+        entry = tcp_retransmit_queue_add(pcb, seq, flg, data, len);
+        if (!entry)
+            return TCP_OUTPUT_NO_QUEUE;
     }
-    return tcp_output_segment(seq, pcb->rcv.nxt, flg, tcp_wire_window(pcb, flg), data, len, &pcb->local, &pcb->foreign);
+    ret = tcp_output_segment(seq, pcb->rcv.nxt, flg, tcp_wire_window(pcb, flg),
+            data, len, &pcb->local, &pcb->foreign);
+    if (entry && ret < 0) {
+        /* The segment never reached the wire. Retry promptly when the local
+         * device drains instead of charging a wireless-loss RTO. */
+        entry->tx_pending = 1;
+        entry->rto = TCP_TX_RETRY;
+        gettimeofday(&entry->last, NULL);
+    }
+    return ret;
+}
+
+static void
+tcp_queue_fin(struct tcp_pcb *pcb)
+{
+    int next_state = pcb->close_state;
+
+    if (!next_state)
+        return;
+    /* A peer FIN can arrive while our own FIN is waiting for queue room. */
+    if (pcb->state == TCP_PCB_STATE_CLOSE_WAIT)
+        next_state = TCP_PCB_STATE_LAST_ACK;
+    if (pcb->queue.num < TCP_RETRANSMIT_QUEUE_MAX &&
+            tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0) != TCP_OUTPUT_NO_QUEUE) {
+        /* A queued FIN is reliable even when its first wire attempt fails. */
+        pcb->snd.nxt++;
+        pcb->state = next_state;
+        pcb->close_state = 0;
+        pcb->close_timer.tv_sec = 0;
+        pcb->close_timer.tv_usec = 0;
+        return;
+    }
+
+    /* The socket may already be gone, so the timer must finish the close once
+     * an ACK frees a queue slot or memory becomes available. */
+    gettimeofday(&pcb->close_timer, NULL);
+    timeval_add_usec(&pcb->close_timer, TCP_DEFAULT_RTO);
 }
 
 static void
@@ -1190,9 +1255,11 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 if (pcb->dupacks == 3) {
                     struct tcp_queue_entry *re = queue_peek(&pcb->queue);
                     if (re) {
-                        tcp_output_segment(re->seq, pcb->rcv.nxt, re->flg, tcp_wire_window(pcb, re->flg),
-                                           (uint8_t *)(re + 1), re->len, &pcb->local, &pcb->foreign);
-                        gettimeofday(&re->last, NULL);
+                        if (tcp_output_segment(re->seq, pcb->rcv.nxt, re->flg,
+                                tcp_wire_window(pcb, re->flg), (uint8_t *)(re + 1),
+                                re->len, &pcb->local, &pcb->foreign) >= 0) {
+                            gettimeofday(&re->last, NULL);
+                        }
                     }
                 }
             }
@@ -1627,6 +1694,13 @@ tcp_timer(void)
                 }
             }
         }
+        if (pcb->close_state &&
+                (pcb->state == TCP_PCB_STATE_SYN_RECEIVED ||
+                 pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+                 pcb->state == TCP_PCB_STATE_CLOSE_WAIT) &&
+                timercmp(&now, &pcb->close_timer, >) != 0) {
+            tcp_queue_fin(pcb);
+        }
         /*
          * Only the oldest unacknowledged segment gates forward progress:
          * cumulative ACK cannot pass a hole before that head segment is
@@ -1767,8 +1841,10 @@ tcp_open_rfc793(struct ip_endpoint *local, struct ip_endpoint *foreign, int acti
         pcb->foreign = *foreign;
         pcb->rcv.wnd = sizeof(pcb->buf);
         pcb->iss = random();
-        if (tcp_output(pcb, TCP_FLG_SYN, NULL, 0) == -1) {
-            errorf("tcp_output() failure");
+        if (tcp_output(pcb, TCP_FLG_SYN, NULL, 0) == TCP_OUTPUT_NO_QUEUE) {
+            /* A queued SYN whose first local output attempt failed remains
+             * reliable and is retried by the timer in SYN_SENT. */
+            errorf("tcp_output() no retransmit queue entry");
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 3; /* output failure */
             tcp_pcb_release(pcb);
@@ -2000,7 +2076,7 @@ tcp_connect(int id, struct ip_endpoint *foreign)
     pcb->foreign.port = foreign->port;
     pcb->rcv.wnd = sizeof(pcb->buf);
     pcb->iss = random();
-    if (tcp_output(pcb, TCP_FLG_SYN, NULL, 0) == -1) {
+    if (tcp_output(pcb, TCP_FLG_SYN, NULL, 0) < 0) {
         errorf("tcp_output() failure");
         pcb->state = TCP_PCB_STATE_CLOSED;
         tcp_pcb_release(pcb);
@@ -2079,23 +2155,21 @@ tcp_poll_readable(int id)
     struct tcp_pcb *pcb;
     int readable;
 
-    if (pthread_mutex_trylock(&mutex) != 0) {
-        return -1;
-    }
+    mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        pthread_mutex_unlock(&mutex);
+        mutex_unlock(&mutex);
         return 0;
     }
     if (pcb->state == TCP_PCB_STATE_LISTEN) {
         readable = (pcb->backlog.num > 0) ? 1 : 0;
-        pthread_mutex_unlock(&mutex);
+        mutex_unlock(&mutex);
         return readable;
     }
     readable = (((size_t)sizeof(pcb->buf) - pcb->rcv.wnd) > 0 ||
                 pcb->state == TCP_PCB_STATE_CLOSE_WAIT ||
                 pcb->state == TCP_PCB_STATE_CLOSED) ? 1 : 0;
-    pthread_mutex_unlock(&mutex);
+    mutex_unlock(&mutex);
     return readable;
 }
 
@@ -2175,12 +2249,10 @@ tcp_poll_writable(int id)
     int writable = 1;
     uint32_t inflight = 0;
 
-    if (pthread_mutex_trylock(&mutex) != 0) {
-        return -1;
-    }
+    mutex_lock(&mutex);
     pcb = tcp_pcb_get(id);
     if (!pcb) {
-        pthread_mutex_unlock(&mutex);
+        mutex_unlock(&mutex);
         return 1;
     }
     if (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
@@ -2191,7 +2263,7 @@ tcp_poll_writable(int id)
             writable = 0;
         }
     }
-    pthread_mutex_unlock(&mutex);
+    mutex_unlock(&mutex);
     return writable;
 }
 
@@ -2495,32 +2567,29 @@ RETRY:
             if (sent + slen >= (ssize_t)len || cap - slen < mss) {
                 flg |= TCP_FLG_PSH;
             }
-            if (tcp_output(pcb, flg, data + sent, slen) == -1) {
-                /*
-                 * A failed wire send is packet loss, not a dead connection.
-                 * tcp_output() already put this segment on the retransmit
-                 * queue (cap==0 above guarantees a free slot), and the RTO
-                 * timer resends it - tcp_retransmit_queue_emit() likewise
-                 * ignores tcp_output_segment() failures.
-                 *
-                 * The device reports -1 for transient link congestion: wl0
-                 * answers VFS_ERR_RETRY while the driver TX queue is full and
-                 * ether_tap_write() gives up after ETHER_TAP_TX_WAIT_MS.
-                 * Closing the PCB here turned every such hiccup into a
-                 * mid-transfer reset, so a bulk transfer was torn down and
-                 * restarted by the peer instead of recovering by
-                 * retransmission - the dominant throughput limit on wifi.
-                 *
-                 * Account the segment as sent so snd.nxt stays in step with
-                 * the queued entry; retrying with the same seq would push a
-                 * duplicate entry for every attempt. Stop pipelining: the
-                 * link has no room right now.
-                 */
-                debugf("tx deferred (link backpressure), retransmit pending seq=%u len=%zu",
-                       pcb->snd.nxt, slen);
-                pcb->snd.nxt += slen;
-                sent += slen;
-                break;
+            {
+                ssize_t out = tcp_output(pcb, flg, data + sent, slen);
+
+                if (out == TCP_OUTPUT_NO_QUEUE) {
+                    /* Never acknowledge bytes to the application without a
+                     * retransmission copy. The caller retries this same data
+                     * after a short write or EAGAIN. */
+                    if (sent > 0)
+                        break;
+                    mutex_unlock(&mutex);
+                    errno = EAGAIN;
+                    return -1;
+                }
+                if (out < 0) {
+                    /* The copy is queued, so a failed wire attempt is ordinary
+                     * packet loss/TX backpressure. Account the segment once
+                     * and let the RTO path retransmit it. */
+                    debugf("tx deferred (link backpressure), retransmit pending seq=%u len=%zu",
+                           pcb->snd.nxt, slen);
+                    pcb->snd.nxt += slen;
+                    sent += slen;
+                    break;
+                }
             }
             pcb->snd.nxt += slen;
             sent += slen;
@@ -2674,26 +2743,12 @@ tcp_close(int id)
         pcb->close_reason = 0; /* normal close */
         break;
     case TCP_PCB_STATE_SYN_RECEIVED:
-        /*
-         * Same discipline as tcp_send(): tcp_output() queued the FIN on the
-         * retransmit queue BEFORE the wire attempt, so a failed send is TX
-         * backpressure, not a failed close -- the RTO timer delivers the
-         * FIN. Returning -1 without advancing state/snd.nxt made
-         * sock_close() retry: every retry queued a duplicate FIN entry at
-         * the same seq, and when the wl0 congestion at sshd-upload end
-         * outlived the retries the pcb was abandoned in ESTABLISHED/
-         * CLOSE_WAIT with no owning socket -- leaked until "no free PCB"
-         * refused every new connection.
-         */
-        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);
-        pcb->snd.nxt++;
-        pcb->state = TCP_PCB_STATE_FIN_WAIT1;
+        pcb->close_state = TCP_PCB_STATE_FIN_WAIT1;
+        tcp_queue_fin(pcb);
         break;
     case TCP_PCB_STATE_ESTABLISHED:
-        /* FIN rides the retransmit queue; wire failure is backpressure. */
-        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);
-        pcb->snd.nxt++;
-        pcb->state = TCP_PCB_STATE_FIN_WAIT1;
+        pcb->close_state = TCP_PCB_STATE_FIN_WAIT1;
+        tcp_queue_fin(pcb);
         break;
     case TCP_PCB_STATE_FIN_WAIT1:
     case TCP_PCB_STATE_FIN_WAIT2:
@@ -2701,10 +2756,8 @@ tcp_close(int id)
         mutex_unlock(&mutex);
         return 0;
     case TCP_PCB_STATE_CLOSE_WAIT:
-        /* FIN rides the retransmit queue; wire failure is backpressure. */
-        tcp_output(pcb, TCP_FLG_ACK | TCP_FLG_FIN, NULL, 0);
-        pcb->snd.nxt++;
-        pcb->state = TCP_PCB_STATE_LAST_ACK;
+        pcb->close_state = TCP_PCB_STATE_LAST_ACK;
+        tcp_queue_fin(pcb);
         break;
     case TCP_PCB_STATE_CLOSING:
     case TCP_PCB_STATE_LAST_ACK:

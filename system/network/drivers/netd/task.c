@@ -804,15 +804,17 @@ int task_write(uint32_t node, const char* buf, int size) {
     }
 
     int ret;
+    int saved_errno = 0;
     if (sock < 0) {
-        errno = EBADF;
+        saved_errno = EBADF;
         ret = -1;
     } else if (size <= 0) {
         ret = 0;
     } else {
         errno = 0;
         ret = sock_send(sock, buf, size);
-        if (ret < 0 && (errno == 0 || errno == EAGAIN || errno == EINTR)) {
+        saved_errno = errno;
+        if (ret < 0 && (saved_errno == 0 || saved_errno == EAGAIN || saved_errno == EINTR)) {
             /* Send window full: the ACK-driven WR wakeup re-arms. Partial
              * writes return the accepted byte count; libc loops on it. */
             ret = VFS_ERR_RETRY;
@@ -850,7 +852,6 @@ int task_write(uint32_t node, const char* buf, int size) {
         net_tx_tryflush();
     }
 
-    int saved_errno = errno;
     task_end_op(task);
     errno = saved_errno;
     return ret;
@@ -885,23 +886,15 @@ uint32_t task_poll_events(uint32_t node) {
         events = VFS_EVT_WR;
     } else {
         /*
-         * tcp_poll_readable()/tcp_poll_writable() take the stack mutex with a
-         * trylock and return -1 when it is held elsewhere -- e.g. the main
-         * thread is mid packet-burst during a bulk download. -1 means
-         * "readiness UNKNOWN right now", NOT "buffer empty" / "window closed".
-         * vfsd REPLACES the sticky RD/WR bits with this result, so the old
-         * `> 0` test folded -1 into "not ready" and ERASED a pending edge that
-         * already-buffered data (or an opened window) had earned. The parked
-         * reader then slept forever with a full receive buffer -- the xBrowser
-         * stall right after a large HTTP response, where tens of KB sat
-         * undrained in netd and no further segment arrived to re-raise the
-         * edge. Treat any nonzero (ready OR unknown) as ready: a spurious wake
-         * costs one blocking recv()/send() -- which takes the mutex properly,
-         * sees the true state, and re-parks via VFS_ERR_RETRY if genuinely not
-         * ready -- whereas a dropped edge hangs the connection permanently.
+         * Sample both directions under the stack mutex. Returning a false
+         * ready event when the mutex is busy is not harmless for sshd: its
+         * relay can then block reading an empty socket while a child-pipe
+         * response waits for the same thread. Stack-originated VFS wakeups are
+         * deferred until after the mutex is released, so taking it here cannot
+         * wait on a reverse vfsd IPC held by the stack owner.
          */
         int pr = sock_poll_readable(sock);
-        if (timeout_rd || pr != 0)
+        if (timeout_rd || pr > 0)
             events |= VFS_EVT_RD;
         /*
          * tcp_poll_writable() already reports 1 while a connect() is still
@@ -909,7 +902,7 @@ uint32_t task_poll_events(uint32_t node) {
          * blocked connect() retry loop. Suppress WR until the handshake
          * resolves (the stack raises a WR edge on establishment).
          */
-        if (sock_poll_writable(sock) != 0 && !sock_connect_pending(sock))
+        if (sock_poll_writable(sock) > 0 && !sock_connect_pending(sock))
             events |= VFS_EVT_WR;
     }
 

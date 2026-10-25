@@ -1209,6 +1209,7 @@ int access(const char *path, int mode) {
     fsinfo_t info;
 
     if (vfs_get_by_name(path, &info) != 0) {
+        errno = ENOENT;
         return -1;
     }
 
@@ -1222,12 +1223,15 @@ int access(const char *path, int mode) {
     }
 
     if ((mode & R_OK) != 0 && vfs_check_access(getpid(), &info, R_OK) != 0) {
+        errno = EACCES;
         return -1;
     }
     if ((mode & W_OK) != 0 && vfs_check_access(getpid(), &info, W_OK) != 0) {
+        errno = EACCES;
         return -1;
     }
     if ((mode & X_OK) != 0 && vfs_check_access(getpid(), &info, X_OK) != 0) {
+        errno = EACCES;
         return -1;
     }
     return 0;

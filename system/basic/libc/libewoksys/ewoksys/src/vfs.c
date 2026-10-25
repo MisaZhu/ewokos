@@ -1045,7 +1045,7 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
     fsinfo_t info_to;
     if(vfs_get_by_name(dir, &info_to) != 0) {
         int res_dir = -1;
-        if(autodir)
+        if(autodir && strcmp(dir, "/") != 0 && strcmp(dir, fname) != 0)
             res_dir = vfs_create_uid(dir, &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir, uid, gid);
         if(res_dir != 0)
             return -1;
@@ -1092,7 +1092,9 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
 }
 
 int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir) {
-    return vfs_create_uid(fname, ret, type, mode, vfs_node_only, autodir, -1, -1);
+    char fullname[FS_FULL_NAME_MAX+1] = {0};
+    vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
+    return vfs_create_uid(fullname, ret, type, mode, vfs_node_only, autodir, -1, -1);
 }
 
 const char* vfs_dir_name(const char* fname, char* ret, uint32_t len) {

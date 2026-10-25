@@ -28,34 +28,36 @@ static int _off_cmd;
 static const char* _argv0;
 
 static char* read_cmain_arg(void) {
-    char* p = NULL;
-    uint8_t quotes = 0;
+    int quoted = 0;
+    int read_off = _off_cmd;
+    int write_off;
+    char* arg;
 
-    while(_cmd[_off_cmd] != 0) {
-        char c = _cmd[_off_cmd];
-        _off_cmd++;
-        if(quotes) { //read whole quotes content.
-            if(c == '"') {
-                _cmd[_off_cmd-1] = 0;
-                return p;
-            }
+    while(_cmd[read_off] == ' ' || _cmd[read_off] == '\t' ||
+          _cmd[read_off] == '\n')
+        read_off++;
+    if(_cmd[read_off] == 0) {
+        _off_cmd = read_off;
+        return NULL;
+    }
+
+    arg = _cmd + read_off;
+    write_off = read_off;
+    while(_cmd[read_off] != 0) {
+        char c = _cmd[read_off++];
+        if(!quoted && (c == ' ' || c == '\t' || c == '\n'))
+            break;
+        if(c == '"') {
+            quoted = !quoted;
             continue;
         }
-        if(c == ' ') { //read next arg.
-            if(p == NULL) //skip begin spaces.
-                continue;
-            _cmd[_off_cmd-1] = 0;
-            break;
-        }
-        else if(p == NULL) {
-            if(c == '"') { //if start of quotes.
-                quotes = 1;
-                _off_cmd++;
-            }
-            p = _cmd + _off_cmd - 1;
-        }
+        if(c == '\\' && _cmd[read_off] != 0)
+            c = _cmd[read_off++];
+        _cmd[write_off++] = c;
     }
-    return p;
+    _cmd[write_off] = 0;
+    _off_cmd = read_off;
+    return arg;
 }
 
 const char* cmain_get_own_dir(char* ret, uint32_t len) {
@@ -91,7 +93,7 @@ static void init_cmd(void) {
     syscall3(SYS_PROC_GET_CMD, (ewokos_addr_t)getpid(), (ewokos_addr_t)_cmd, PROC_INFO_MAX_CMD_LEN);
 }
 
-#define ARG_MAX 16
+#define ARG_MAX 64
 extern int __bss_start__;
 extern int __bss_end__;
 
@@ -221,7 +223,7 @@ void _start(void) {
 
     while(argc < ARG_MAX) {
         char* arg = read_cmain_arg(); 
-        if(arg == NULL || arg[0] == 0)
+        if(arg == NULL)
             break;
         if(argc == 0)
             _argv0 = arg;

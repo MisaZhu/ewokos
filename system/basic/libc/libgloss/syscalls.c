@@ -26,6 +26,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/core.h>
+#include <ewoksys/proc.h>
 
 #define EBADF 9
 #define ENOSYS 88
@@ -428,6 +429,7 @@ _open (const char * fname, int oflag, ...)
             created = true;
         }
         else  {
+            errno = ENOENT;
             dbg_kout(" fsinfo err");
             return -1;
         }
@@ -594,6 +596,7 @@ _stat (const char *fname, struct stat *st)
      then we can guess a few things about it.  */
     fsinfo_t info;
     if(vfs_get_by_name(fname, &info) != 0) {
+    errno = ENOENT;
     return -1;
     }
   st->st_uid = info.stat.uid;
@@ -867,14 +870,94 @@ void _fini(void){
   dbg_kout(__func__);
 }
 
+static int exec_append_arg(char *cmd, size_t *len, const char *arg) {
+    if(*len != 0) {
+        if(*len + 1 >= PROC_INFO_MAX_CMD_LEN)
+            return -1;
+        cmd[(*len)++] = ' ';
+    }
+    if(*len + 1 >= PROC_INFO_MAX_CMD_LEN)
+        return -1;
+    cmd[(*len)++] = '"';
+    while(*arg != 0) {
+        if(*arg == '"' || *arg == '\\') {
+            if(*len + 1 >= PROC_INFO_MAX_CMD_LEN)
+                return -1;
+            cmd[(*len)++] = '\\';
+        }
+        if(*len + 1 >= PROC_INFO_MAX_CMD_LEN)
+            return -1;
+        cmd[(*len)++] = *arg++;
+    }
+    if(*len + 1 >= PROC_INFO_MAX_CMD_LEN)
+        return -1;
+    cmd[(*len)++] = '"';
+    cmd[*len] = 0;
+    return 0;
+}
+
 int
 _execve(const char *name, char *const argv[], char *const env[])
 {
-    return proc_exec(name);
+    extern char **environ;
+    char cmd[PROC_INFO_MAX_CMD_LEN] = {0};
+    char **old_environ = environ;
+    static char *empty_env[] = { NULL };
+    size_t len = 0;
+    int argc = 0;
+    int ret;
+
+    if(name == NULL || name[0] == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    while(argv != NULL && argv[argc] != NULL) {
+        if(argc >= 64 || exec_append_arg(cmd, &len, argv[argc]) != 0) {
+            errno = E2BIG;
+            return -1;
+        }
+        argc++;
+    }
+    if(argc == 0 && exec_append_arg(cmd, &len, name) != 0) {
+        errno = E2BIG;
+        return -1;
+    }
+    environ = env != NULL ? (char **)env : empty_env;
+    ret = proc_exec_with_cmdline(name, cmd);
+    environ = old_environ;
+    return ret;
 }
 
 int execl(const char *name, const char* arg0, ...) {
-    return proc_exec(name);
+    extern char **environ;
+    va_list ap;
+    const char *arg;
+    char **argv;
+    int argc = 1;
+    int ret;
+    int saved_errno;
+
+    if(arg0 == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    va_start(ap, arg0);
+    while((arg = va_arg(ap, const char *)) != NULL)
+        argc++;
+    va_end(ap);
+    argv = calloc(argc + 1, sizeof(*argv));
+    if(argv == NULL)
+        return -1;
+    argv[0] = (char *)arg0;
+    va_start(ap, arg0);
+    for(int i = 1; i < argc; i++)
+        argv[i] = (char *)va_arg(ap, const char *);
+    va_end(ap);
+    ret = _execve(name, argv, environ);
+    saved_errno = errno;
+    free(argv);
+    errno = saved_errno;
+    return ret;
 }
 
 int _fork()

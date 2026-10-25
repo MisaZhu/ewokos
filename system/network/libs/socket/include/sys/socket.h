@@ -8,6 +8,7 @@
 #define SO_SNDTIMEO 0x1005
 #define SO_RCVTIMEO 0x1006
 #define SO_ERROR    0x1007
+#define SO_KEEPALIVE 0x0008
 
 struct sockaddr
 {
@@ -85,9 +86,9 @@ struct msghdr {
 };
 
 
-#define SHUT_RD		SHUT_RD
-#define SHUT_WR		SHUT_WR
-#define SHUT_RDWR	SHUT_RDWR
+#define SHUT_RD   0
+#define SHUT_WR   1
+#define SHUT_RDWR 2
 
 #define SOCK_STREAM   1
 #define SOCK_DGRAM    2
@@ -162,6 +163,10 @@ struct hostent *gethostbyname(const char *name);
 
 int getaddrinfo( const char *node, const char *service, 
                 const struct addrinfo *hints, struct addrinfo **res);
-int freeaddrinfo(struct addrinfo **res);
+void freeaddrinfo(struct addrinfo *res);
+const char *gai_strerror(int errcode);
+int getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
+                char *host, socklen_t hostlen,
+                char *serv, socklen_t servlen, int flags);
 
 #endif /* sys/socket.h */

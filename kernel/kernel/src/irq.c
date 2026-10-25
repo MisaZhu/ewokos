@@ -59,7 +59,7 @@ static void dump_user_addr_words_internal(proc_t* proc, ewokos_addr_t addr, cons
         return;
     }
 
-    page_phy = resolve_phy_address(proc->space->vm, addr);
+    page_phy = resolve_phy_address(proc->space->vm, ALIGN_DOWN(addr, PAGE_SIZE));
     if(page_phy == 0) {
         printf("%s: addr=0x%llX not mapped\n", tag, (unsigned long long)addr);
         return;
