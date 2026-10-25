@@ -33,7 +33,6 @@
  *     lock; the lock itself is a leaf — never sleep or issue IPC under it.
  */
 #include <stdio.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
@@ -44,7 +43,6 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/vdevice.h>
 #include <ewoksys/proc.h>
-#include <ewoksys/klog.h>
 #include <ewoksys/shm_pipe.h>
 #include "piped.h"
 
@@ -74,16 +72,6 @@ typedef struct {
 
 static pipe_entry_t _pipes[MAX_PIPES];
 static pthread_mutex_t _pipes_lock;
-
-static void pipe_debug(const char* format, ...) {
-    char buf[256];
-    va_list ap;
-    va_start(ap, format);
-    int len = vsnprintf(buf, sizeof(buf), format, ap);
-    va_end(ap);
-    if(len > 0)
-        kout(buf, len < (int)sizeof(buf) ? len : (int)sizeof(buf) - 1);
-}
 
 /* wake snapshot: filled under _pipes_lock, delivered after unlocking */
 #define WAKE_MAX (MAX_PIPE_WAITERS + 1)
@@ -259,9 +247,6 @@ static int pipe_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int o
      * after fork and as the PIPE_ATTACH key for the write end. */
     info->type = FS_TYPE_PIPE;
     info->data = (uint32_t)shm_id;
-    if(from_pid >= 112)
-        pipe_debug("pipe-debug: open pid=%d fd=%d node=%u shm=%d refs=1/0\n",
-                from_pid, fd, (uint32_t)info->node, shm_id);
     return 0;
 }
 
@@ -294,10 +279,6 @@ static int pipe_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, int d
         }
     }
     pthread_mutex_unlock(&_pipes_lock);
-    if(e != NULL && (from_pid >= 112 || dup_pid >= 112))
-        pipe_debug("pipe-debug: dup from=%d:%d to=%d:%d node=%u end=%d refs=%d/%d\n",
-                from_pid, from_fd, dup_pid, dup_fd, (uint32_t)node, end,
-                e->read_refs, e->write_refs);
     return 0;
 }
 
@@ -363,10 +344,6 @@ static int pipe_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t node,
     }
     pthread_mutex_unlock(&_pipes_lock);
 
-    if(from_pid >= 112)
-        pipe_debug("pipe-debug: close pid=%d fd=%d node=%u end=%d refs=%d/%d wake=%d\n",
-                from_pid, fd, (uint32_t)node, end,
-                e->read_refs, e->write_refs, stamp_pid);
     ewokos_addr_t token = (ewokos_addr_t)ring->node_id;
     if(stamp_pid > 0)
         proc_wakeup_by(stamp_pid, token);
@@ -400,10 +377,6 @@ static int pipe_fcntl(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int 
         e->write_node = info->node;
         e->write_refs = 1;
         pthread_mutex_unlock(&_pipes_lock);
-        if(from_pid >= 112)
-            pipe_debug("pipe-debug: attach pid=%d fd=%d node=%u shm=%d refs=%d/%d\n",
-                    from_pid, fd, (uint32_t)info->node, shm_id,
-                    e->read_refs, e->write_refs);
         info->data = (uint32_t)shm_id;
         return 0;
     }

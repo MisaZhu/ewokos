@@ -68,6 +68,7 @@ typedef struct st_proc {
 	int64_t           sleep_counter; //sleep usec
 	uint64_t          run_usec_counter; //runtime usec in current accounting window
 	uint64_t          run_last_start_usec; //last runtime accounting start
+	uint64_t          zombie_since_usec;
 	bool              run_accounting_active;
 
 	proc_space_t*     space; //threads share the space from owner proc
@@ -174,7 +175,7 @@ extern void          arch_fpu_init(void* state);
 #endif
 
 extern void    proc_funeral(proc_t* proc);
-extern void    proc_zombie_funeral(void);
+extern void    proc_zombie_funeral(bool force);
 extern void    proc_exit(context_t* ctx, proc_t *proc, int32_t res);
 extern proc_t *proc_create(int32_t type, proc_t* parent);
 

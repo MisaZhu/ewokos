@@ -55,7 +55,11 @@ static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
     fsinfo_t info;
     pthread_rwlock_rdlock(&_vfs_lock);
     vfs_node_t* node = vfs_get_node_by_id(node_id);
-    if(node == NULL || vfsd_check_access(pid, &node->fsinfo, R_OK) != 0) {
+    /* The mounting driver needs metadata access even when a client created
+     * the node with a restrictive mode such as mkstemp's 0600. This lookup
+     * is part of the storage backend's operation, not the client's access. */
+    if(node == NULL || (get_mount_pid(node) != vfs_fd_owner_pid(pid) &&
+            vfsd_check_access(pid, &node->fsinfo, R_OK) != 0)) {
         pthread_rwlock_unlock(&_vfs_lock);
         return;
     }
