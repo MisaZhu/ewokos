@@ -22,6 +22,8 @@
 #include <stddef.h>
 #include <signals.h>
 
+#define ZOMBIE_TIMEOUT 3000000ULL
+
 static proc_t **_task_table;//[_kernel_config.max_task_num];
 
 typedef struct {
@@ -1224,6 +1226,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
     if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
         return;
     proc_unready(proc, ZOMBIE);
+    proc->zombie_since_usec = proc_account_now_usec();
     proc_untrack_interrupt_timeout(proc);
     proc_untrack_ipc_timeout(proc);
     /*
@@ -1296,7 +1299,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
             }
             proc->space->interrupt.state = INTR_STATE_IDLE;
         }
-        proc->info.father_pid = 0;
+        /* Keep waitpid() ownership until the bounded zombie grace expires. */
     }
     else if(proc->info.type == TASK_TYPE_THREAD) {
         /*
@@ -1592,7 +1595,7 @@ static proc_t* proc_take_zombie_by_pid(int32_t pid) {
     return proc;
 }
 
-static proc_t* proc_take_next_zombie(void) {
+static proc_t* proc_take_next_zombie(bool force) {
     proc_t* proc = NULL;
 
     proc_lock_enter();
@@ -1600,6 +1603,15 @@ static proc_t* proc_take_next_zombie(void) {
         proc_t* candidate = _task_table[i];
         if(!proc_can_reap_locked(candidate))
             continue;
+        if(candidate->info.type == TASK_TYPE_PROC &&
+                candidate->info.father_pid > 0 &&
+                candidate->info.father_pid < _kernel_config.max_task_num) {
+            proc_t *parent = _task_table[candidate->info.father_pid];
+            if(!force && parent != NULL && parent->info.state != UNUSED &&
+                    parent->info.state != ZOMBIE &&
+                    proc_account_now_usec() - candidate->zombie_since_usec < ZOMBIE_TIMEOUT)
+                continue;
+        }
         proc = candidate;
         _task_table[i] = NULL;
         break;
@@ -1608,9 +1620,9 @@ static proc_t* proc_take_next_zombie(void) {
     return proc;
 }
 
-void proc_zombie_funeral(void) {
+void proc_zombie_funeral(bool force) {
     proc_t* proc = NULL;
-    while((proc = proc_take_next_zombie()) != NULL) {
+    while((proc = proc_take_next_zombie(force)) != NULL) {
         proc_funeral(proc);
     }
 }
@@ -2280,6 +2292,7 @@ void proc_block_by_timeout(context_t* ctx, proc_t* proc, ewokos_addr_t token,
 void proc_waitpid(context_t* ctx, int32_t pid) {
     proc_t* cproc = get_current_proc();
     proc_t* p;
+    ctx->gpr[0] = -1;
     if(cproc == NULL || pid < 0 || pid >= _kernel_config.max_task_num)
         return;
 
@@ -2294,6 +2307,7 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
         p = proc_take_zombie_by_pid(pid);
         if(p != NULL)
             proc_funeral(p);
+        ctx->gpr[0] = 0;
         return;
     }
 
@@ -2310,9 +2324,9 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
     proc_account_resume_current();
 
     p = proc_take_zombie_by_pid(pid);
-    if(p != NULL) {
+    if(p != NULL)
         proc_funeral(p);
-    }
+    ctx->gpr[0] = 0;
 }
 
 static void proc_wakeup_all_state(proc_t* proc) {
@@ -2519,7 +2533,7 @@ proc_t* kfork_raw(context_t* ctx, int32_t type, proc_t* parent) {
          * ipc worker threads at boot) can exhaust the table before then.
          * Bury the waiting zombies now and retry once before giving up.
          */
-        proc_zombie_funeral();
+        proc_zombie_funeral(true);
         child = proc_create(type, parent);
     }
     if(child == NULL) {
@@ -2832,8 +2846,9 @@ int32_t get_proc(int32_t pid, procinfo_t *info) {
     if(!user_ptr_ok(proc_get_proc(get_current_proc()), (ewokos_addr_t)info, sizeof(procinfo_t)))
         return -1;
     proc_lock_enter();
-    proc_t* proc = proc_get(pid);
-    if(proc == NULL) {
+    proc_t* proc = (pid >= 0 && pid < _kernel_config.max_task_num) ?
+        _task_table[pid] : NULL;
+    if(proc == NULL || proc->info.state == UNUSED) {
         proc_lock_leave();
         return -1;
     }
@@ -3283,7 +3298,7 @@ int32_t renew_kernel_tic(uint32_t usec, uint64_t fine_cnt, uint32_t fine_hz) {
 }
 
 void renew_kernel_sec(void) {
-    proc_zombie_funeral();
+    proc_zombie_funeral(false);
     proc_refresh_runtime_stats();
     /*
      * Retire multi_task IPC pool members that sat parked and idle long

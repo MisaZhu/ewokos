@@ -606,8 +606,12 @@ typedef struct {
 	 * V3D 7.1 CSD charges ~3us fixed overhead per workgroup, which at
 	 * 6400 workgroups (teapot) was the entire ~19-20ms raster-pass cost.
 	 * Old daemons ignore the byte and over-dispatch; the kernels' uTriCount
-	 * guard keeps that correct (just slow).  Ignored for non-geom. */
-	uint8_t  cs_geom_tpw;
+	 * guard keeps that correct (just slow).  Ignored for non-geom.
+	 * uint16_t (NOT uint8_t): the V5 16x16 kernel covers 256 triangles per
+	 * workgroup and 256 does not fit in a byte -- a uint8_t here silently
+	 * truncated 256 to 0 and fell back to the one-workgroup-per-triangle grid.
+	 * The Adreno twin (adreno_prog_blob_t.geom_tpw) is likewise uint16_t. */
+	uint16_t cs_geom_tpw;
 	/* VERSION 4: SECOND compute stage (cs2) for the two-pass geometry
 	   rasterizer.  cs2 is the VERTEX-TRANSFORM pass (pass 1): one invocation
 	   per vertex, applies uMVP (+ lighting for gouraud) and writes a packed

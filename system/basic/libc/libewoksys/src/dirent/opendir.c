@@ -7,8 +7,10 @@
 
 DIR* opendir(const char* name) {
     fsinfo_t info;
-    if(vfs_get_by_name(name, &info) != 0)
+    if(vfs_get_by_name(name, &info) != 0) {
+        errno = ENOENT;
         return NULL;
+    }
     if(!FS_IS_TYPE(info.type, FS_TYPE_DIR)) {
         errno = ENOTDIR;
         return NULL;

@@ -423,6 +423,8 @@ _open (const char * fname, int oflag, ...)
             umask(mask);
             mode &= ~mask;
             if(vfs_create(fname, &info, FS_TYPE_FILE, mode, false, false) != 0){
+                if(errno == 0)
+                    errno = EIO;
                 dbg_kout(" create error");
                 return -1;
             }
@@ -434,8 +436,12 @@ _open (const char * fname, int oflag, ...)
             return -1;
         }
     }
+    else if((oflag & (O_CREAT | O_EXCL)) == (O_CREAT | O_EXCL)) {
+        errno = EEXIST;
+        return -1;
+    }
 
-    fd = vfs_open(&info, oflag);
+    fd = vfs_open(&info, oflag & ~O_EXCL);
     if(fd < 0) {
         if(created)
             vfs_del_node(info.node);

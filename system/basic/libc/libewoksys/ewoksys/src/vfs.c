@@ -33,6 +33,7 @@ extern "C" {
 #define PIPE_POLL_WAIT     0x101
 #define PIPE_POLL_UNWAIT   0x102
 #define PIPE_EDGE          0x103
+#define VFS_PIPE_BLOCK_RETRY_US 20000U
 
 
 static fsfile_t _fsfiles[MAX_OPEN_FILE_PER_PROC];
@@ -531,7 +532,7 @@ static int read_pipe(int fd, void* buf, uint32_t size, bool block) {
             __atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
             continue;
         }
-        proc_block_by(token);
+        proc_block_timeout(token, VFS_PIPE_BLOCK_RETRY_US);
         __atomic_store_n(&ring->reader_pid, 0, __ATOMIC_RELAXED);
     }
 }
@@ -584,7 +585,7 @@ static int write_pipe(int fd, const void* buf, uint32_t size, bool block) {
                 __atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
                 continue;
             }
-            proc_block_by(token);
+            proc_block_timeout(token, VFS_PIPE_BLOCK_RETRY_US);
             __atomic_store_n(&ring->writer_pid, 0, __ATOMIC_RELAXED);
         }
     }

@@ -500,7 +500,6 @@ unsigned long strtoul(const char *nptr, char **endptr, int base) {
             s += 2;
         } else if (s[0] == '0') {
             base = 8;
-            ++s;
         } else {
             base = 10;
         }
