@@ -1,0 +1,30 @@
+{
+  "target": "Q8B SD-card rootfs mounted at /",
+  "source_commit": "f23ce2ab1",
+  "machines_commit": "60adaad9",
+  "total_manifest_files": 446,
+  "replaced_files": 129,
+  "added_files": 22,
+  "mode_mismatches_before": [],
+  "update_bytes": 43657894,
+  "backup_directory": "/sd-rootfs-update-20261026/backup",
+  "manifest_sha256": "1487e5f9074685c9a2fcb99f2e2d10d74e4b5ef4104764a3a0b36ac0a5a6ebdf",
+  "bundle_sha256": "ff25b79761dd2c350dbc4b479420fe33b78ca52b6a55949b5351d2f3148bc8ed",
+  "reboot_started_at": "2026-10-26T06:36:50.271058+08:00",
+  "post_install_validation": "446 files match content, size and permissions",
+  "post_reboot_validation": "446 files match content, size and permissions",
+  "root_mount": "/sbin/sdfsd mounted at /; /tmp uses ramfsd",
+  "kernel_sha256": "f7b3d64bc8008a6a7842dba64e287a1255ab7e8c4791ceecf56e7c1ac2d41548",
+  "clock_validation": {
+    "samples": 100000,
+    "backwards": 0,
+    "failures": 0
+  },
+  "gui_validation": "SD rootfs services running after reboot. New 60-second input test was interrupted by the user-reported glmatrix reset; no completion result.",
+  "glmatrix_reset": {
+    "observed_at": "2026-10-26T06:39:15+08:00",
+    "boot_reason": "Reset by PSHOLD; Warm Reset",
+    "subsequent_state": "Sahara/EDL",
+    "cause": "Not yet established; no GPU fault or kernel exception printed before reset."
+  }
+}

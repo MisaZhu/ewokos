@@ -1,0 +1,650 @@
+=== before.log ===
+DIFF 7110bd9a9485dc9d40a9609916ecbc87 1142848 755 /apps/SndPlayer/SndPlayer
+DIFF 09949e23bf4ca0fad56e915fea2b9de7 277552 755 /apps/clock/clock
+DIFF 15a793c2bd49f8f1b0cb04a0f6eacfa8 563152 755 /apps/wDemo/wDemo
+DIFF 442e95bfaa50110ae7d58de605b2cc5d 804776 755 /apps/xDemo/xDemo
+DIFF c23f1bf7b28d96464c9cebbc4897f04f 884744 755 /apps/xapps/xapps
+DIFF 974095158795b44f40afff844a280990 329968 755 /apps/xbt/xbt
+DIFF 9ff3fa35f8cc7dda01d05ad52c4fae15 300160 755 /apps/xcores/xcores
+DIFF ee2d794de279c164b0f4a59bb4d42282 893488 755 /apps/xfinder/xfinder
+DIFF d32c8f994a042c8b6366a9cc0434e140 313296 755 /apps/xfonts/xfonts
+DIFF 71e6aecfc3563051a41a72f9a2efa62a 278832 755 /apps/xg2dtest/xg2dtest
+DIFF 6cba6d38686045b1d8939a085980f9e6 933992 755 /apps/ximg/ximg
+DIFF 14ce1f68f73e731de5ed27048dc5d1b0 311720 755 /apps/xlog/xlog
+DIFF 199ff52df1316a3a7edaf57955dccdb1 330584 755 /apps/xprocs/xprocs
+DIFF a7f81f14e5e9b80b155435337f2a1960 930496 755 /apps/xread/xread
+DIFF 38a04b1719d9a320b12ef7042a16d54b 367104 755 /apps/xterm/xterm
+DIFF d80771c74d7b26f13675959d28943ecd 929736 755 /apps/xtheme/xtheme
+DIFF c38f7c2da5da81a6e3ea16652f77ed00 327144 755 /apps/xwifi/xwifi
+DIFF a0f7c1c3ece2616bb9e93d6f4578587e 951920 755 /apps/xwm_theme/xwm_theme
+DIFF cd3c7ef02aa2eb438bc7ea08be7bcb80 121720 755 /bin/bgrun
+DIFF 2a78fe5e4eb9a8b2142805bf6175ff72 122064 755 /bin/cat
+DIFF 4a5b7f76c462edce6281705c81fd3a8a 123992 755 /bin/chgrp
+DIFF 3777c65df982aeeadaf12784ad61914b 121704 755 /bin/chmod
+DIFF 40769ae53a7b6cab23d4743f468f4165 124432 755 /bin/chown
+DIFF 54b183d1a9a4836b76043f234a2f712f 121384 755 /bin/clear
+DIFF 285a3b627ebe397ed141f923e0c916bc 122040 755 /bin/concat
+DIFF 2c37326fe1ebbadb8b9b2a66d03d76d1 123176 755 /bin/cp
+DIFF 527d9baaa166b31bdc98ef647ad1d60b 121496 755 /bin/date
+DIFF dbce1a8e6b9e01b638bca568298eff1b 122656 755 /bin/devcmd
+DIFF 13c6a688aea2700b2d3d391b9c121eb9 122288 755 /bin/df
+DIFF b11a9d36a675b0eb81a4a742ebed7626 223152 755 /bin/disptest
+DIFF 949ba3079e8c7ee417a0dc31c2a27be9 122504 755 /bin/dump
+DIFF 7c60a8b156f505bd0bd86a1942ddf441 121856 755 /bin/echo
+DIFF a2f65d64343827d37869995328d22218 121776 755 /bin/elfinfo
+DIFF a46a855e856c608fde9ddc1d22252396 121800 755 /bin/fan
+DIFF 1358bde5bb56417b591ff66501c36a90 236592 755 /bin/g2dtest
+DIFF 18124bc8586cccff1a1faefeaacd222b 121968 755 /bin/grep
+DIFF f55a6ac7f8e8a8b28686e3a1ce8c470b 122176 755 /bin/head
+DIFF 023488465a47c82c2238162635891f99 132440 755 /bin/host
+DIFF 9e5e9459aa3d1fee210474a800fae504 122488 755 /bin/ipconfig
+DIFF e6968bb5bc54f88075d312381abf8f7c 121800 755 /bin/ipcserv
+DIFF 9c99fe5ef6fbb9e0f2a3ffb9f405f68a 140672 755 /bin/json
+DIFF 502363e00871aa97addcfcb61f5eb754 121680 755 /bin/kill
+DIFF 3b6b1ed49c0dd35dea99c83561b7571c 122392 755 /bin/killall
+DIFF c60f88521ace2852097214cdd893e71c 142560 755 /bin/load_font
+DIFF b96ac1275af44f24a79f152d497de2e2 125568 755 /bin/login
+DIFF 5d253b6f40de257509d73bd45788c960 125480 755 /bin/ls
+DIFF a31dc9772a46a3859edfe7786aaa966e 122560 755 /bin/malloc4g
+DIFF ab1bc45046fde23240e0f8e8a3bcb0a0 123448 755 /bin/md5
+DIFF 246a303b562171a2865574e525a135c2 128824 755 /bin/md5sum
+DIFF ea76726aae6aae04e932ad541462f79b 121736 755 /bin/mkdir
+DIFF 73cd85be4d4c6b99251735cfc0a2a8cd 121640 755 /bin/mkfifo
+DIFF fc25b3184facf289382753913a6cc08c 122472 755 /bin/mmio
+DIFF a90b1b9b512ea79a691ed84700c435bf 122520 755 /bin/more
+DIFF 263cf1a6dcdf77d91a39e6a7de176ec1 121560 755 /bin/mount
+DIFF be8f073e251faece840540a50ff6f3c9 147672 755 /bin/mp3player
+DIFF 3eaf74840e5f136970a7067bcaf7414e 223112 755 /bin/nputest
+DIFF 1583ecf756d0eb813530986d804e0936 320504 755 /bin/oggplayer
+DIFF b7e483f4a499a00085e501266ca88f86 133304 755 /bin/ping
+DIFF c62ec3bd7459c701f38d844213c20ec0 126616 755 /bin/ps
+DIFF a13e8bae4962bbe84fcba6b1eaea44a4 121360 755 /bin/pwd
+DIFF 2a36ceb2ebdd4e15cdf38d6b7d0eeaf4 123464 755 /bin/rm
+DIFF 68cb6ff3442ea88021c060483d648457 124448 755 /bin/rx
+DIFF a8f1bd22bf6aa11a37afb865946f656d 1397416 755 /bin/scp
+DIFF dc0e4a6d5a2bcf70e46c9c5c7f158af1 152440 755 /bin/sdprobe
+DIFF 5eea119a9a2ded963fef76198d5f62b1 124520 755 /bin/session
+DIFF b9deeb1915ce90e43211d70d59682a39 133928 755 /bin/shell
+DIFF 1c236f69901416c328c9f810c0d320cc 121488 755 /bin/sleep
+DIFF fa7c605dba614cae67cfa1a1a3103784 122080 755 /bin/splash
+DIFF fe42b32161502e8a2b3b25d900df75de 1390584 755 /bin/ssh
+DIFF 1a7d519ed05ee53d731cb80fc1bea3dd 188112 755 /bin/stltest
+DIFF c211492b16827a970c95a1fd96be1b54 128592 755 /bin/sudo
+DIFF e418402172c79d82f92393fa82d62bf4 123632 755 /bin/svcinfo
+DIFF b6459fb7ab70e53256ac920271f2f58b 122632 755 /bin/sysinfo
+DIFF 9a246b613dfc4fae8677e0b3a99c6901 139576 755 /bin/telnet
+DIFF f37e28320bb4e10464f4beb03ad5c583 121328 755 /bin/test
+DIFF b1f980173feb259df7013f0fdbc12e9b 129976 755 /bin/top
+DIFF 5fa4b1c69fae64944d0c6bd58ec186cf 123584 755 /bin/tsaver
+DIFF f2a2ce7c40f3a5152acb04f6880cc8cb 121720 755 /bin/umount
+DIFF 5d00ccb8b34ef75f7409593947229297 121752 755 /bin/uname
+DIFF 4b5619bf490b8fc6019017fcf4e15df7 174720 755 /bin/vi
+DIFF 04c7096e119b992a7bd3cd9379b565d6 127680 755 /bin/wavplayer
+DIFF 5b00861d835e961709f54708b492b1ee 123480 755 /bin/whoami
+DIFF 1564842065baaefd72317f36642d4ac3 1389168 755 /bin/ws_test
+DIFF 3fedc1f22e27adade63b0399df574dfd 508176 755 /bin/x/anim
+DIFF a66889dcf6729a291cf8ceb663ca5664 300648 755 /bin/x/statusbar
+DIFF c71c3a59b6761eb30409979b3d43afe3 913184 755 /bin/x/wlayout
+DIFF 7a96129227af008175c431ed8dbfce77 264456 755 /bin/x/xfont
+DIFF fad502abedc15c1bb88bf7d49a7330ad 883024 755 /bin/x/xlauncher
+DIFF e20ebcdaf0b52a654d15cd05c9179b31 832504 755 /bin/x/xsession
+MISSING /data/media/model/f22.obj
+MISSING /data/media/qwerty_controls.config
+MISSING /data/media/textures/f22.png
+MISSING /data/media/textures/marble.tga
+MISSING /data/media/textures/mars.tga
+MISSING /data/media/textures/moon.tga
+MISSING /data/media/textures/skybox/back.jpg
+MISSING /data/media/textures/skybox/bottom.jpg
+MISSING /data/media/textures/skybox/front.jpg
+MISSING /data/media/textures/skybox/left.jpg
+MISSING /data/media/textures/skybox/right.jpg
+MISSING /data/media/textures/skybox/top.jpg
+MISSING /data/media/textures/tex00.jpg
+MISSING /data/media/textures/tex01.jpg
+MISSING /data/media/textures/tex02.jpg
+MISSING /data/media/textures/tex03.jpg
+MISSING /data/media/textures/tex04.jpg
+MISSING /data/media/textures/tex05.jpg
+MISSING /data/media/textures/tex06.jpg
+MISSING /data/media/textures/tex07.jpg
+MISSING /data/media/textures/tex08.jpg
+MISSING /data/media/textures/tex09.jpg
+DIFF cda8bf13c3ad9043e1628aa819ad1a37 460968 755 /drivers/consoled
+DIFF b7d34b23650503b1fe9a0f753771ad90 121960 755 /drivers/displaymand
+DIFF eb0a4faf89fc9c80c91cbcf812106006 839592 755 /drivers/fontd
+DIFF 389998c9f1f0e78ca4dd56ab296d7f87 123352 755 /drivers/logd
+DIFF ccd0344bf681f616324ec1a21b159049 220872 755 /drivers/netd
+DIFF 38b122055085174319d46ba8217eb68a 121616 755 /drivers/nulld
+DIFF c885c27620acd326ae63e1dce6785af5 125728 755 /drivers/piped
+DIFF 687d08693910454d0da1e376d8120daa 126328 755 /drivers/q8b/fand
+DIFF 5278086912cf33f9ef0e1930a978b455 820368 755 /drivers/q8b/fbdisplayd
+DIFF cab3f1f9d38dc1c1941a6c138d223c51 125424 755 /drivers/q8b/hid_keybd
+DIFF fbfbd71852b1f18c4815ba577e7f845c 124864 755 /drivers/q8b/hid_moused
+DIFF e02c0be28594d7515d774653d7f2db7d 133320 755 /drivers/q8b/net
+DIFF f8046d2be829f3b4d48b1f7597e12263 162272 755 /drivers/q8b/sdfat32fsd
+DIFF e9968b16b9c95b933e9eeb3b2cb9ece4 124848 755 /drivers/q8b/uartd
+DIFF 1c5517ded587c8bc7e6c909c031ba048 164608 755 /drivers/q8b/usbfat32fsd
+DIFF 9847c867494410f1ccf844075e960a01 169176 755 /drivers/q8b/usbhostd
+DIFF 9c050b14de747fb0f74944cd612c0984 122240 755 /drivers/ramfsd
+DIFF c68e3b2c8bfe2f0a208110813695c73c 133384 755 /drivers/timed
+DIFF 07962806fd0a78d80113576a4d5591da 123544 755 /drivers/timerd
+DIFF d8b5b3331cb291b934779ad20dbb812b 124272 755 /drivers/vjoystickd
+DIFF 9860e1dc2bef10cd70c58306bad5140e 123672 755 /drivers/vkeybd
+DIFF b066d61ac4a5b733e4aeed553cc00e86 511152 755 /drivers/xserverd
+DIFF d82541af61cab990b0eca3539cca01c4 126144 755 /sbin/core
+DIFF 86739260750d34c7d2e129b28d2a04c8 129280 755 /sbin/cron
+DIFF 21e2afd03f382605e5b06ac7e7b4652d 134896 755 /sbin/httpd
+DIFF 2ff9313e1797089e3a42c5cc2479fc43 193896 755 /sbin/init
+DIFF 2f731a7186312ab791b4710d4b0a005e 179232 755 /sbin/sdfsd
+DIFF 4bd0328802a53c8ac5a3241347cb2e26 127224 755 /sbin/sessiond
+DIFF 6e0444b96c0a3f5f436722fb2c78250c 136688 755 /sbin/sftp-server
+DIFF e87d974633b9f3183db27b32f9d23d16 790712 755 /sbin/splashd
+DIFF 3b797dfe4f7753260f54e3b217654237 1413488 755 /sbin/sshd
+DIFF e57c06ae220e61910d4d107805b7c549 138016 755 /sbin/telnetd
+DIFF 6c9a04279c32ef12235c100d39991792 152608 755 /sbin/vfsd
+DIFF baf37950941e68b58fe5ce0c4484da74 123584 755 /sbin/x/xim_none
+DIFF fb5ce177eb334697221a69dafd2a867e 232232 755 /sbin/x/xim_vkey
+DIFF eebf15af7f9b05c94dcc887547897b7f 190240 755 /sbin/x/xmouse
+DIFF e79d2db2066f4745d239136e2035d433 209800 755 /sbin/x/xtouch
+DIFF 97c00d69b7bb0ca4123afb2b25d261df 823936 755 /sbin/x/xwm_ewok
+DIFF ba398560e4224cca2bc8696f76cafd72 829056 755 /sbin/x/xwm_misa
+DIFF 7b3b7fcda2b12beee952cbec96fbd408 822920 755 /sbin/x/xwm_opencde
+SUMMARY checked=424 different_or_missing=151
+
+=== stage.log ===
+STAGE_OK files=151
+
+=== install.log ===
+BACKUP_OK files=129 new=22
+INSTALL_OK files=151 backups=129 new=22
+
+=== after-install.log ===
+SUMMARY checked=446 different_or_missing=0
+
+=== after-reboot.log ===
+MATCH ebcadacd7a3fba1e1aa0b35821be2097 6006480 755 /apps/3ddemo/3ddemo
+MATCH b8c63bb56bd5f30e98b12414b497051a 3297 644 /apps/3ddemo/res/icon.png
+MATCH 7caeba8dec34ef898a327a37fd1d0fb0 50802 755 /apps/3ddemo/res/obj2c
+MATCH ebd3c91ed28fe614086cdc28e3957104 5737112 755 /apps/Fireworks/Fireworks
+MATCH a13c82dab46583855f92e192c5186d89 10778 644 /apps/Fireworks/res/icon.png
+MATCH 4766d052d5ad2c623cfe4ba348ff31f8 1142816 755 /apps/SndPlayer/SndPlayer
+MATCH 883b46f3aec54828612609a73320eb58 60909 644 /apps/SndPlayer/res/icon.png
+MATCH 0712fa096d240a8d98b9c507c260993d 5785888 755 /apps/blender/blender
+MATCH b7e1cd12a10e2da516cfeb5b21c4f8c0 74788 644 /apps/blender/res/icon.png
+MATCH b3201242095b9709b1abaa5f4f125296 533064 755 /apps/cards/cards
+MATCH e5620edd0849b6ec72e33870dc6c35a5 164824 644 /apps/cards/res/card_back.png
+MATCH 7913cc3e61fefc4b03f7415edd5f6725 100172 644 /apps/cards/res/icon.png
+MATCH db640e88cb5948ff65984bb3edb23fc5 7929 644 /apps/cards/res/suit_club.png
+MATCH afd1fedf81187caaf514f05ddb4d48a5 32774 644 /apps/cards/res/suit_diamond.png
+MATCH 2f376356fe86cdd3d29cd463ae25a027 38208 644 /apps/cards/res/suit_heart.png
+MATCH 8b52035e50f31485994675d14465c017 6225 644 /apps/cards/res/suit_spade.png
+MATCH 85a46d7a492404d4894f5486e65a1c4e 277520 755 /apps/clock/clock
+MATCH b1306308d39c834764290a729b285288 5840 644 /apps/clock/res/icon.png
+MATCH 5195585665fca010511e521cd51de81a 5827376 755 /apps/colorglass/colorglass
+MATCH b441d3a2ce7f9a2f0b34ca94f2caea69 104672 644 /apps/colorglass/res/icon.png
+MATCH 9fbf390b43318de68c775e5c4038498b 68242 644 /apps/colorglass/res/rock_tiles.jpg
+MATCH 7f5c0c4162df85a05a61638c41982859 93210 644 /apps/colorglass/res/uffizi_0.jpg
+MATCH 5acfede81f0567809154c40463d9a7a8 93974 644 /apps/colorglass/res/uffizi_1.jpg
+MATCH 25a42c2c4f11c0159d5b1cfdc41530b3 85646 644 /apps/colorglass/res/uffizi_2.jpg
+MATCH 853a0a7421e3aee0949c37ed6de5131b 57933 644 /apps/colorglass/res/uffizi_3.jpg
+MATCH 4307dd5c335917477f20f1dd4a955ba6 75294 644 /apps/colorglass/res/uffizi_4.jpg
+MATCH 5392e6d879a17cea6b7fcea3c9d6ef87 79957 644 /apps/colorglass/res/uffizi_5.jpg
+MATCH c570e9e72478a0e39517ea8d717f0fd7 223016 755 /apps/doom/doom
+MATCH bc5a55e150c64c1dc7075d17ea9f5993 183 644 /apps/doom/res/README.txt
+MATCH e236c7f6c07ce028ab72945097ef04c2 47757 644 /apps/doom/res/icon.png
+MATCH b91013916c7bfb782a3973b7fcd5d1ce 5737320 755 /apps/glmatrix/glmatrix
+MATCH 50ffa13b85499138b2623e702114c1c8 97553 644 /apps/glmatrix/res/icon.png
+MATCH 4c92cca5afbbdb6cc0305fe212bc1981 5855688 755 /apps/grass/grass
+MATCH 02a752387b73730a24a07eae7cd202e4 4241 644 /apps/grass/res/gray_noise_small.png
+MATCH 48abf9a379ba9dfe68a93415ff2018df 57377 644 /apps/grass/res/icon.png
+MATCH 7c756fce1f89f24b100bd4f08b36383d 264082 644 /apps/grass/res/rgba_noise_medium.png
+MATCH f3830f8856a080f149bc693519b0a5dd 6021016 755 /apps/imgui_demo/imgui_demo
+MATCH 891eadf5f014d1cc5b1a215f3ea04a25 66709 644 /apps/imgui_demo/res/icon.png
+MATCH fbf6a958518e4f0e0299fa0e43b4d5c6 1171768 755 /apps/macemu/macemu
+MATCH 1ab12242fa7810e03d4de375a19ae494 189 644 /apps/macemu/res/.basilisk_ii_prefs
+MATCH 8ed150066820d5963e0288b992e25fd0 30663485 644 /apps/macemu/res/disks/system8.0.dsk.zip
+MATCH 0f7abb7077073a0ce70be8d41307bb72 40199 644 /apps/macemu/res/icon.png
+MATCH af343f3f1362bf29cefd630687efaa25 1048576 644 /apps/macemu/res/roms/Performa-580.ROM
+MATCH 48554c09a7527af1b04891eb5b03b306 5779624 755 /apps/macgl/macgl
+MATCH 8a968536c354042dfd8455ade16a721f 10696 644 /apps/macgl/res/common.glsl
+MATCH 9ad1b8b91fe87ee27478e8d7962f01a7 13473 644 /apps/macgl/res/icon.png
+MATCH 77fd414ef765deb8fafcc2b140f48494 11191 644 /apps/macgl/res/image.glsl
+MATCH 3376cb0809cb795b61af1e985765f5c1 1163 644 /apps/macgl/res/source.json
+MATCH f56a93b02372266f3813abd7f89f4d27 5785480 755 /apps/matrix/matrix
+MATCH ac8d1e80022dc75606ec4ca9a2c64b9b 97137 644 /apps/matrix/res/icon.png
+MATCH 0192d27952f41a8a5579a612fb409358 309144 755 /apps/mine/mine
+MATCH 4239b89b0d3b0b6766eddd1e736734c0 41422 644 /apps/mine/res/icon.png
+MATCH fca34290866ef6d9f661cbaf44e8d263 1149800 755 /apps/nesemu/nesemu
+MATCH ef5a51df7064a51e8ce072905d6f3c60 16063 644 /apps/nesemu/res/icon.png
+MATCH 30f3737871e02a02d2e6d44d2537bac9 58525 644 /apps/nesemu/res/logo.png
+MATCH 3452906c1c1d7a2760bf7a91652a7ccf 24592 644 /apps/nesemu/res/roms/MJ.nes
+MATCH 97ddb647898b01065f395eb64c3d131f 24592 644 /apps/nesemu/res/roms/boomman.nes
+MATCH 7bdad8b4a7a56a634c9649d20bd3011b 131088 644 /apps/nesemu/res/roms/contra.nes
+MATCH 5350456efcf0de00b47a9e0ba0a57693 262160 644 /apps/nesemu/res/roms/contra2.nes
+MATCH 8b8fcc26bd106708410551a0a104215b 262160 644 /apps/nesemu/res/roms/dead_fox.nes
+MATCH b94be0bf2e861bca19339920cd786f53 262160 644 /apps/nesemu/res/roms/double_dragon_2.nes
+MATCH a5484da6feadc9c8fdb2b1a8edf97ee2 262160 644 /apps/nesemu/res/roms/double_dragon_3.nes
+MATCH 36d2761cdb328ca87777d4ee3ba02324 262160 644 /apps/nesemu/res/roms/downtown.nes
+MATCH cde1ae9569472aed9dbf8e550ba9708d 262160 644 /apps/nesemu/res/roms/gun_nac.nes
+MATCH fc85ac27d2d7131f5c59ad64d956ba4b 131088 644 /apps/nesemu/res/roms/highway.nes
+MATCH 7d02d7a6d89ef993589d1f1d58e2bcda 131088 644 /apps/nesemu/res/roms/jackal.nes
+MATCH b2f72c70cff7890458bb7a26d59177b4 262160 644 /apps/nesemu/res/roms/kage.nes
+MATCH 1360c486cf2de14c465390bffa34d68f 131088 644 /apps/nesemu/res/roms/legend_of_pokemon.nes
+MATCH 33dda7e987741f587b2df710fef10ea7 40976 644 /apps/nesemu/res/roms/mario.nes
+MATCH 4d4ffdfe7979b5f06dec2cf3563440ad 131088 644 /apps/nesemu/res/roms/mega_man.nes
+MATCH 71e59f76b0afa699a8c45b1e0e70d026 131088 644 /apps/nesemu/res/roms/metal_gear.nes
+MATCH 3e2ffd3ad12644dbb2fec0bfb85f9990 524304 644 /apps/nesemu/res/roms/nes1200in1.nes
+MATCH c14e760c4d5a086e4186d2e1fc9b7743 262160 644 /apps/nesemu/res/roms/ninja_turtles.nes
+MATCH c954564bbc435b44fdfadadbd8503b2f 196624 644 /apps/nesemu/res/roms/orb3d.nes
+MATCH 3ddca58c51dd38d59f9271d24e7105f9 24592 644 /apps/nesemu/res/roms/pac_man.nes
+MATCH 881c4b626630ff1dd3737ed2c4af5ce7 655376 644 /apps/nesemu/res/roms/street_fighter_3.nes
+MATCH 78f97d58af93493976e810d02b40fa30 262160 644 /apps/nesemu/res/roms/super_c.nes
+MATCH fd86f0c65852503a5c1d817e83fdf504 40976 644 /apps/nesemu/res/roms/tank.nes
+MATCH 15cfa89611dce3f6b5438482cbae806c 49168 644 /apps/nesemu/res/roms/tetris.nes
+MATCH 483695de094f4dd49652c5bc78bdba19 524304 644 /apps/nesemu/res/roms/tmnt3.nes
+MATCH fc76d367573c3059cc7f4be7bfc2af39 131088 644 /apps/nesemu/res/roms/top_gun.nes
+MATCH ab63665058bad04094161fe1b03afe9c 524304 644 /apps/nesemu/res/roms/tstd.nes
+MATCH 31b79fea43089a702ae6ad1c6835a58b 49168 644 /apps/nesemu/res/roms/yzcs.nes
+MATCH f4095791987351be68674a9355b266bc 131088 644 /apps/nesemu/res/roms/zelda.nes
+MATCH 99a01ade2eb619a1471ed069238faa3c 5760440 755 /apps/ocean/ocean
+MATCH 80326b74cc92fc5dd36eeb8a75f84b3a 101498 644 /apps/ocean/res/icon.png
+MATCH 36c21179e55bfd0a441128ad27f19302 5876472 755 /apps/pixar/pixar
+MATCH 02a752387b73730a24a07eae7cd202e4 4241 644 /apps/pixar/res/gray_noise_small.png
+MATCH 4ee81521634b79d84f659051feedb39e 30517 644 /apps/pixar/res/icon.png
+MATCH f410c1009c3220486e03543970ea723c 154431 644 /apps/pixar/res/wood.jpg
+MATCH 4316867ca9d82923c9d8c46a82380d60 5757144 755 /apps/rainwin/rainwin
+MATCH 1324ad7af4faae67333e9cda6931cc89 101247 644 /apps/rainwin/res/icon.png
+MATCH a9acc444072959adde01972e531533b1 25728 644 /apps/teapot/res/icon.png
+MATCH 6f9d7b763d5f730c71b0301a9c038ecc 5744040 755 /apps/teapot/teapot
+MATCH d07beaf8637a9e099cc3adfc67967078 9610 644 /apps/tuner/res/icon.png
+MATCH 6594c9204eaff8a29be2e41c5e4ded2b 11656 644 /apps/tuner/res/image.glsl
+MATCH 3bd4c865110384058c9c5a95e85ef823 1747 644 /apps/tuner/res/source.json
+MATCH 3cd03eea0288da5c58f52830bc857c27 5762808 755 /apps/tuner/tuner
+MATCH 319b318b529e91e1166d33d83ce69e10 24932 644 /apps/wDemo/res/data/walk.png
+MATCH 4f963948a39d99c41c55ef1a56a05967 16782 644 /apps/wDemo/res/icon.png
+MATCH 92f12b61d69ea321c8ab3b0c0bcdc114 563120 755 /apps/wDemo/wDemo
+MATCH 18331c9bc87045901c2b5f3f7b4d5d87 12532 644 /apps/xDemo/res/data/rokid.png
+MATCH 5444f0cb72c6552e87a30967a9b1e837 5965 644 /apps/xDemo/res/data/rokid_small.png
+MATCH 9a53583660076db05a48bdd499e00cc9 24017 644 /apps/xDemo/res/icon.png
+MATCH b6ee1873f2ee58c0db39afb9e6882bb3 804744 755 /apps/xDemo/xDemo
+MATCH 47793790c7ca1f2281dbedba8f4fb448 38276 644 /apps/xapps/res/data/walk.png
+MATCH 031682096e1278bf44ddaf93e2d3c3e2 33842 644 /apps/xapps/res/icon.png
+MATCH 7fc4cbc01df64c568007dd5bb5bb87af 884712 755 /apps/xapps/xapps
+MATCH 195b01c23268b3e57f0ab89c98d917b2 1192 644 /apps/xbt/res/icon.png
+MATCH 20f52a9f8add332a2a126786179cbce0 329936 755 /apps/xbt/xbt
+MATCH 6ab30ce9bda01928e0f82fe9eefd0c1f 13981 644 /apps/xcores/res/icon.png
+MATCH 5e5d63fc1e65ab71843aee6e91ddcc01 300128 755 /apps/xcores/xcores
+MATCH 340a863dcfa1dcd31c25107acb1478cb 9324 644 /apps/xfinder/res/icon.png
+MATCH d0a36e48d3e2a7ad574ba2fd7d3ec937 45863 644 /apps/xfinder/res/icons/device.png
+MATCH dcd7e13a861af9959bdfbf409833c4f9 19080 644 /apps/xfinder/res/icons/file.png
+MATCH 340a863dcfa1dcd31c25107acb1478cb 9324 644 /apps/xfinder/res/icons/folder.png
+MATCH 35bf80d7a473d70828b88421357262f3 893456 755 /apps/xfinder/xfinder
+MATCH 8b157c9ab88be65a7dc6fd775d6c633d 35923 644 /apps/xfonts/res/icon.png
+MATCH d024436ec3525ab5d7759c617973c70c 313264 755 /apps/xfonts/xfonts
+MATCH d73e8e920222ce07907d380adccab787 53817 644 /apps/xg2dtest/res/icon.png
+MATCH 183b279857f8985c88757d8ecb7a404f 278800 755 /apps/xg2dtest/xg2dtest
+MATCH cce43caa86c108451d56f06850ff1de3 22301 644 /apps/ximg/res/icon.png
+MATCH fe55a76871613825c09852b9ed19b628 933960 755 /apps/ximg/ximg
+MATCH 6664fae15027f147202f52295a4b2454 10854 644 /apps/xlog/res/icon.png
+MATCH c60247b9e99d95af103ee7d9bb97e49d 190 644 /apps/xlog/res/theme.json
+MATCH c55fda99f57fdee7b3398811117a9ef1 311688 755 /apps/xlog/xlog
+MATCH 1dffc8ce32da520be09bafedbedf29f5 19027 644 /apps/xprocs/res/icon.png
+MATCH 7899c616c3eeb0b9fb4ac86a3a337de5 330552 755 /apps/xprocs/xprocs
+MATCH 86df8aab9b4fd4efd7129383ade280fd 27 644 /apps/xread/res/config.json
+MATCH e6305f0dca15b5c1eb6fc5387ac5938a 44667 644 /apps/xread/res/icon.png
+MATCH 1c6af7711c8eb91bc0e8c1de345de513 930464 755 /apps/xread/xread
+MATCH 923e2bdb1290ace28302d02622de5a8e 213 644 /apps/xterm/res/config.json
+MATCH 5d657dabe180828cebef7dfd2b84c1c6 2747 644 /apps/xterm/res/icon.png
+MATCH bcfafc74fc79c9e5051248e4badfacc3 367072 755 /apps/xterm/xterm
+MATCH e79d53334394b814306c506908fd87bc 11872 644 /apps/xtheme/res/icon.png
+MATCH d3eb92e9533e0b5fa76799a428dcad9c 2781 644 /apps/xtheme/res/layout.xwl
+MATCH 5db3f697839defe64fee0f803afd75e0 929704 755 /apps/xtheme/xtheme
+MATCH 2fd43635de7a33b6cb35dd900d7fd934 28805 644 /apps/xwifi/res/icon.png
+MATCH 106d580e56e2001070ed6285d9d43310 327112 755 /apps/xwifi/xwifi
+MATCH 51948c56a9608ad27f76ae7e4a9f4c4c 7764 644 /apps/xwm_theme/res/icon.png
+MATCH e95eea27271b42de99bc1bfc86bd6049 2795 644 /apps/xwm_theme/res/layout.xwl
+MATCH 4b4c5fcbbde63e2100cf659c29277a6d 951888 755 /apps/xwm_theme/xwm_theme
+MATCH 30ae73299d3cb461dfcf41b23af4c4bc 121688 755 /bin/bgrun
+MATCH fd9a17354ecb544278cde576de2b7176 122032 755 /bin/cat
+MATCH 046dead6a16de873bb3c111880376bc0 123960 755 /bin/chgrp
+MATCH cda618337b38df72dc8443ac06650b42 121672 755 /bin/chmod
+MATCH 460f27007c4f4960f5b4d53edc700fbb 124400 755 /bin/chown
+MATCH 6acfba1032a9aee5934742767c1f4760 121352 755 /bin/clear
+MATCH 0e7baf17885fe7ab9c91c5fc0e492e0c 122008 755 /bin/concat
+MATCH 4026d1db622eec783d2900ba9a12d373 123144 755 /bin/cp
+MATCH 5bc64842f03dc012a2de68328175e744 121464 755 /bin/date
+MATCH b3a7314b1e235f2d93d878f586ca8ead 122624 755 /bin/devcmd
+MATCH ac2d90a4680a32a8dcbd9402a4e18db8 122256 755 /bin/df
+MATCH 0bd634e892a30136aafcbf6f48f6578c 223120 755 /bin/disptest
+MATCH feabc05edb9c823e30b46e5c04cd95e7 122472 755 /bin/dump
+MATCH 42de55bfa5eef48d1dbfe576a839e32c 121824 755 /bin/echo
+MATCH 4af7d079e9143e96f012822a4a2724ea 121744 755 /bin/elfinfo
+MATCH 42d739b6f13c7244d5e8c3fb55ab6651 121768 755 /bin/fan
+MATCH 073fd87151066b87cc849ef89140dbae 236560 755 /bin/g2dtest
+MATCH 0f73c8a7198664af3512bd15a1b863eb 121936 755 /bin/grep
+MATCH adcddb2e6a09d81ba6bfb6df3dff373f 122144 755 /bin/head
+MATCH 62500594d388af11ac45434ee378fcd1 132408 755 /bin/host
+MATCH 815cc980dd2663a35a6051ab356df0fa 122456 755 /bin/ipconfig
+MATCH 100904d545dc4a7995f3c9de4c6b06bf 121768 755 /bin/ipcserv
+MATCH 3f944a0dd50a2e2415667e9eaef7e18f 140640 755 /bin/json
+MATCH 3017fdddc8639aada10132e5edd3fe26 121648 755 /bin/kill
+MATCH 351bc7b68045c0bebd2daf84db053360 122360 755 /bin/killall
+MATCH cca5e7d419f4461d087818670664517d 142528 755 /bin/load_font
+MATCH 64839ec339c372acff8493d0b218c4be 125536 755 /bin/login
+MATCH c649380ce79f3df9069e1fbe4acbc51e 125448 755 /bin/ls
+MATCH 0fba2372cf2eba7b72b048251412419a 122528 755 /bin/malloc4g
+MATCH 568e484c4ec8c75512d0cfb24843c97c 123416 755 /bin/md5
+MATCH 7c37b0676533c6320b5d14d77d3b7c94 128792 755 /bin/md5sum
+MATCH 418a56b80a35d795ba78221e63dce568 121704 755 /bin/mkdir
+MATCH 48bae9fe95a2f3c1fbe86d44c13d18ba 121608 755 /bin/mkfifo
+MATCH ee5af5ea113e9e3d3f452918ff8fe16d 122440 755 /bin/mmio
+MATCH f71868e847af9339a6381cb3a8fa7c09 122488 755 /bin/more
+MATCH e2476e818f770790bea5441d15c33f99 121528 755 /bin/mount
+MATCH c3e4f2e9907d93389c1daffec80d910a 147640 755 /bin/mp3player
+MATCH 233fc68ce16dacd3794b4fa8bc5238e1 223080 755 /bin/nputest
+MATCH ea2bdcdc52b28a089662b5646c8c867c 320472 755 /bin/oggplayer
+MATCH 0894904392abaf47f9891777ad2dfb4f 133272 755 /bin/ping
+MATCH 8681696e4b11b71b2c6b62e17e3800e7 126584 755 /bin/ps
+MATCH e5a3473e73240223e8ad039908dd3e5f 121328 755 /bin/pwd
+MATCH a0fb4a05b124b8cc9b926643aa5b1849 123432 755 /bin/rm
+MATCH 731cd7651443f15526083cb937dddd3c 124416 755 /bin/rx
+MATCH cf0f2dd9c090a1c327f7b8cec74d8f16 1397384 755 /bin/scp
+MATCH 89c5c216ec8f63e8a8be060f7b47ac86 152408 755 /bin/sdprobe
+MATCH 31272f7706b1bd3e95bbfd3b28d0dcbd 124488 755 /bin/session
+MATCH ba1ebe397a1ae4c8e1a0a5f6d31103d1 133896 755 /bin/shell
+MATCH 35c577bebb9889b23f155dbf4286b1b5 121456 755 /bin/sleep
+MATCH b7228f380ee7e19258fafc2975ba6285 122048 755 /bin/splash
+MATCH 7cad5342415e79cd409f57f1e02ab005 1390552 755 /bin/ssh
+MATCH 4b77e1707cb70fd9f1731aabb17c01db 188080 755 /bin/stltest
+MATCH 6b981b93bd7c846304d25cbea548b13d 128560 755 /bin/sudo
+MATCH a4dc80c46ff7ff252f0c5d63f52a8940 123600 755 /bin/svcinfo
+MATCH 2d1b740b4185c2b79e43ba167d3cd877 122600 755 /bin/sysinfo
+MATCH 67fbda86304a93fb328809d93bc72acd 139544 755 /bin/telnet
+MATCH 5bfe78e5295c6fd00e1c8fc208d5a881 121296 755 /bin/test
+MATCH 45fb55eddb780c86458ce6ff74ceff91 129944 755 /bin/top
+MATCH f9637036112d387b663995c10ae191cf 123552 755 /bin/tsaver
+MATCH 969552ef662e6b6d73f627cc3ad7e92c 121688 755 /bin/umount
+MATCH 5cd37eb07af25304107ddb53442d317b 121720 755 /bin/uname
+MATCH d2ef2678251573205e8ad282f8e9993d 174688 755 /bin/vi
+MATCH c5b56eeaa04c9037fa6583cc012fa73a 127648 755 /bin/wavplayer
+MATCH f5f078f166ca45c4af90e5fca69364b6 123448 755 /bin/whoami
+MATCH 7d85f7d052c1a04f5d0912719128671e 1389136 755 /bin/ws_test
+MATCH 2aedffdef99c4cce47a8a01162478a43 508144 755 /bin/x/anim
+MATCH 967b7daf1da379e8e68ffa2a47f8795e 5001976 755 /bin/x/balls
+MATCH f4d8cd3f538b9e4c4dfbe94976685d80 5092600 755 /bin/x/cubemap
+MATCH 61a6655f483a3dc9d331c2f06da4bee1 4998632 755 /bin/x/grass
+MATCH bdb8dc1052eb064368ce031c4ab8bc8d 5106336 755 /bin/x/shadertoy
+MATCH e7a5632b6b3e10a549fb998ff436aebf 5008752 755 /bin/x/sphere
+MATCH df356ab34eda17afe6183491bffe1dbd 300616 755 /bin/x/statusbar
+MATCH 705003e576b0cc377f6931ea1644258e 913152 755 /bin/x/wlayout
+MATCH f86133403ad23ae36f0aa8dce1ff429f 264424 755 /bin/x/xfont
+MATCH df38a57391bb1dd8802633b7bf45cbf1 882992 755 /bin/x/xlauncher
+MATCH 32bfb3edff7d839288b27ce372dea6e4 832472 755 /bin/x/xsession
+MATCH dedccbd2e8d8f57c701d02452e0dc9f1 743300 644 /data/books/steve_jobs.txt
+MATCH f6f11f8289ea89c2bf77706ec120a54a 18622 755 /data/media/model/f22.obj
+MATCH d2e85c420e08c9d9565af9a5aee58d68 217 644 /data/media/qwerty_controls.config
+MATCH b23402005ce7fd55d07fed2fb38f8848 48543 755 /data/media/textures/f22.png
+MATCH a1bf921c94d4283622b215ab47365eca 49196 644 /data/media/textures/marble.tga
+MATCH 412b38edffeb79d6072508fbe11465e4 98348 644 /data/media/textures/mars.tga
+MATCH 230b1abb8bd6b61126cf9ac6f8a543a2 98348 644 /data/media/textures/moon.tga
+MATCH 16f4afbdb4c32ad1358e6708484f5989 740068 644 /data/media/textures/skybox/back.jpg
+MATCH b0e58843805fa234658c194fb94d9199 280589 644 /data/media/textures/skybox/bottom.jpg
+MATCH 70eb3102e95b7fd3b18c7da800c6bc39 473329 644 /data/media/textures/skybox/front.jpg
+MATCH 4675318cf90646921a342f5fadf60c58 601885 644 /data/media/textures/skybox/left.jpg
+MATCH b48b94c1b0978eb919474dcd51fc2ecc 538038 644 /data/media/textures/skybox/right.jpg
+MATCH e683604e77a7836047821f6a091faf92 346139 644 /data/media/textures/skybox/top.jpg
+MATCH 9fbf390b43318de68c775e5c4038498b 68242 644 /data/media/textures/tex00.jpg
+MATCH 415c95ff643adb6f3613711f43e4b933 213664 644 /data/media/textures/tex01.jpg
+MATCH 632e0a184183dd13ad6a23fc88a5f49b 49498 644 /data/media/textures/tex02.jpg
+MATCH 9c5db60dac5368487c5d24229d9e221b 87562 644 /data/media/textures/tex03.jpg
+MATCH ce7ff99a92567aba5694b66d01e2059f 87761 644 /data/media/textures/tex04.jpg
+MATCH f410c1009c3220486e03543970ea723c 154431 644 /data/media/textures/tex05.jpg
+MATCH f49e50a8b3626f759f858d117146707c 232067 644 /data/media/textures/tex06.jpg
+MATCH 7b94f293f76b8b2aa311f2ffc27587cf 112578 644 /data/media/textures/tex07.jpg
+MATCH 3f78868552f5e31bc5a0cdc87bb4b419 149508 644 /data/media/textures/tex08.jpg
+MATCH 1eeeb8afa7bfa8c8d5e4e6dadeddf0c9 204869 644 /data/media/textures/tex09.jpg
+MATCH 4cfd87ced149d741047f5ba3b98d4fb2 2048835 644 /data/sounds/test.mp3
+MATCH a7d102500ffba7abd7cd90f0ed5c8320 1032948 644 /data/sounds/test.ogg
+MATCH eb948a728b1efee9f617780371062e89 19667182 644 /data/sounds/test.wav
+MATCH 868cccab978df118b622cb541c759b0d 233485 644 /data/sprites/explosion/explosion.png
+MATCH aad171ab614d13b42057ddf931f1889f 81 644 /data/sprites/explosion/explosion.spr
+MATCH 5a10e3c3c1a2579a347e50573382d713 136032 644 /data/sprites/run/run.png
+MATCH 9e9270547e33087bb8489d24fbc340d2 74 644 /data/sprites/run/run.spr
+MATCH e70e7d41a4a2af947f551aa49b1236d2 107631 644 /data/sprites/walk/walk.png
+MATCH 283db81269a2af34e2c339905a51f398 75 644 /data/sprites/walk/walk.spr
+MATCH 39ebb9eb5d371e60024917d71d68be33 7099 644 /data/test/apple.png
+MATCH 50a9afb66f0c2363152c009fe48f9f94 24690 644 /data/test/apple_ad.png
+MATCH 50d0a2fafd88973d800032e8668d767c 1936893 644 /data/test/images/Nathan_Fillion_awesome_smaller2.gif
+MATCH da499b8537ee3ce0ed8469c0a73ecc2c 67585 644 /data/test/images/crate.gif
+MATCH 978c7375f3c21cb023b3fde79465c27f 42416 644 /data/test/images/w3c.svg
+MATCH 94081519f23cdde88db77b9e595746b8 1499 644 /data/test/layout.xwl
+MATCH 6eb43d9cbb20bd8aad64b29e1765f0ca 460936 755 /drivers/consoled
+MATCH f74251a55aa94ba1bc4c8a8a4301e15e 121928 755 /drivers/displaymand
+MATCH 90ed2955e2c207faa09d30b12f9329f5 839560 755 /drivers/fontd
+MATCH 81f2299697cebe6e5f1cd694389f129e 123320 755 /drivers/logd
+MATCH c362df47cc7b770a2e9c68e6fb5f5c41 220840 755 /drivers/netd
+MATCH ddb6e8e59b1b19d71d43aaa373cbbc28 121584 755 /drivers/nulld
+MATCH d8fe37c9e9e5e98e796954a1d12a69ef 125696 755 /drivers/piped
+MATCH c06cf5df6320a89e39f0cc14f40962e0 126296 755 /drivers/q8b/fand
+MATCH 3825c2a399ae9ab39a522b2eb83c88c4 820336 755 /drivers/q8b/fbdisplayd
+MATCH 820347210f2d2a6e1e8bbefda097af9b 246176 755 /drivers/q8b/g2dd
+MATCH bcb13dfc68152ebf4ae92b001078a036 125392 755 /drivers/q8b/hid_keybd
+MATCH 8c9d05000a557d704dee18698e36717e 124832 755 /drivers/q8b/hid_moused
+MATCH c7e3a62d475f80f994838e83bdb820cb 133288 755 /drivers/q8b/net
+MATCH 5255f271ba8c884cc486194e49ba7374 162240 755 /drivers/q8b/sdfat32fsd
+MATCH c463c23b1cc83b97764c2c26a9369d7f 124816 755 /drivers/q8b/uartd
+MATCH bdd0223be23bdaf69c0874842696babb 164576 755 /drivers/q8b/usbfat32fsd
+MATCH 704f38e942c38d8e735bdc8c01225984 169144 755 /drivers/q8b/usbhostd
+MATCH 85f616ed4977d11f80ef5447ed20c16a 122208 755 /drivers/ramfsd
+MATCH 22c0f099a246d41a8fc806ea25923d3d 133352 755 /drivers/timed
+MATCH c7dad06be95184cf4b1198f01696f31b 123512 755 /drivers/timerd
+MATCH 2b9270ffefb71a09223a1204e82e4f98 124240 755 /drivers/vjoystickd
+MATCH d4b82caadc17c26efe4f2b0dd38d1f5d 123640 755 /drivers/vkeybd
+MATCH 9c94102c21279634b76ea85060560f1c 511120 755 /drivers/xserverd
+MATCH d41d8cd98f00b204e9800998ecf8427e 0 644 /etc/.keep
+MATCH 5c6231968738a06274701074789e99d1 188 644 /etc/console.json
+MATCH 0a3e81457907cb7e2c5b8a59ec70d2e5 1437 644 /etc/crontab
+MATCH 164e3362a538eb11d3ac51e8e134294b 13962 644 /etc/firmware/adreno/LICENSE.qcom
+MATCH cd3a235218418f51360888637c1cb2ac 55252 644 /etc/firmware/adreno/a660_gmu.bin
+MATCH aef1fcec7a927d0ceb2bc5d8903eb298 43292 644 /etc/firmware/adreno/a660_sqe.fw
+MATCH 7315a508384872b908323a775a19221f 14392 644 /etc/firmware/adreno/sc8280xp/LENOVO/21BX/qcdxkmsuc8280.mbn
+MATCH aa794aee23732765ca1ab8a97c069adc 3571712 644 /etc/firmware/qccdsp8280.mbn
+MATCH aa794aee23732765ca1ab8a97c069adc 3571712 644 /etc/firmware/qcom/sc8280xp/LENOVO/21BX/qccdsp8280.mbn
+MATCH aa794aee23732765ca1ab8a97c069adc 3571712 644 /etc/firmware/qcom/sc8280xp/qccdsp8280.mbn
+MATCH 78d043e9f6113de6b5557f769b988799 45 644 /etc/group
+MATCH 3283f2ed253df86a1b20fd5d74379546 1172 644 /etc/init.rd
+MATCH 20af335a36dcb42f12240e6ada65f1a5 481 644 /etc/kernel/kernel.conf
+MATCH b1353cc0d91938e2bbe7cad87b094db6 237 644 /etc/passwd
+MATCH 277c81e00219a2047e8e1e87ba32ccd2 1192 644 /etc/ssh_host_rsa_key.der
+MATCH 7fd339d6ef91d5d4a1cf24849d9d5db5 1218 644 /etc/sudoers
+MATCH c77bb7b540f4724992d7f3d46d1010e1 449 644 /etc/x/x.json
+MATCH 89831dca1df15b48221f0a1c6f6660f3 94 644 /etc/x/xinit.rd
+MATCH a31f7e2983d950ab2964a4a22cd09c3f 126112 755 /sbin/core
+MATCH 1068ac1198f2d8ddaf305c460bc4f423 129248 755 /sbin/cron
+MATCH e68a906713524e375ba0ef8b53ad7f7a 134864 755 /sbin/httpd
+MATCH 59ebcfe589539bd5c173e0286a6acd92 193864 755 /sbin/init
+MATCH 14ab7cf0ae1a0e65dcbbb3ae51ddd023 179200 755 /sbin/sdfsd
+MATCH 344a4c7a1a53996718927f2a6b33a4a6 127192 755 /sbin/sessiond
+MATCH d1d099942bc781ffd4d14e051ffc1868 136656 755 /sbin/sftp-server
+MATCH 75929d420fccfedca720a3f6d74b1222 790680 755 /sbin/splashd
+MATCH 0f635e8dc97a09fef0d98cf977e24aa5 1413456 755 /sbin/sshd
+MATCH 0b5cf965f5c9367afda03c50b6c5fc29 137984 755 /sbin/telnetd
+MATCH d16f007d7e7bc6eaf890fadc935943c9 152576 755 /sbin/vfsd
+MATCH 5e77375ba1430c29ab6b8e9460ad9cf4 123552 755 /sbin/x/xim_none
+MATCH 7985b17abd07d23ea9a3899b07c0e5a9 232200 755 /sbin/x/xim_vkey
+MATCH 7282890514c129b72e870bc58fbf45db 190208 755 /sbin/x/xmouse
+MATCH 94be25709e228a3be2f76bb4e347c3a3 209768 755 /sbin/x/xtouch
+MATCH e716f90b67e205784f33f1875e67efd8 823904 755 /sbin/x/xwm_ewok
+MATCH 92fe3c2abb071d841ec56878af376b68 829024 755 /sbin/x/xwm_misa
+MATCH 783bd5a5d5aafb8f9f9f56187e7d3600 822888 755 /sbin/x/xwm_opencde
+MATCH fad0fb1db51acb44f1108579863ea6ec 1601 644 /usr/system/filetypes.json
+MATCH c94e49765ec47b72f1cec8a8c4ef14c5 98156 644 /usr/system/fonts/Courier-Prime.ttf
+MATCH b06686925a0ce39e55db2ed8adf3cb10 383104 644 /usr/system/fonts/Hack-Regular.ttf
+MATCH 9f94dc20bb2a09c15241d3a880b7ad01 475160 644 /usr/system/fonts/Menlo.ttf
+MATCH 1e4c00e45e6c6e086f49383cc0020b1f 216932 644 /usr/system/fonts/decterm.ttf
+MATCH e04f76b1aac1aee9d39cab0374619e8f 3490596 644 /usr/system/fonts/smallpixel.ttf
+MATCH 0918ca4766af7cdb165d2d477d9ae5d0 10550044 644 /usr/system/fonts/system-cn.ttf
+MATCH dba33561cc5cc70e325dd0c0e78930af 47676 644 /usr/system/fonts/system.ttf
+MATCH c6db60347a59327bdc123c3b74bbc974 490 644 /usr/system/fonts.json
+MATCH 7feab9ecb1ee235b6ec5499c8769ec86 7428 644 /usr/system/icons/64bits.png
+MATCH 38cb48f605fcd4fb49b66bafbdf4427b 2442 644 /usr/system/icons/apple.png
+MATCH 2fbf1fca620bf53eb880b67b0d7627d4 6158 644 /usr/system/icons/core32.png
+MATCH 86e1e443c9862ea7e31fd38e97fecab5 6087 644 /usr/system/icons/cpu.png
+MATCH 988327e928f703c5e48a7b77e41b7a44 8797 644 /usr/system/icons/ewok.png
+MATCH 109c6f877ee14dace51e58ad7351ecb9 11516 644 /usr/system/icons/lego.png
+MATCH d0ddf6ba62f1edaaf884e63f83c07457 2191 644 /usr/system/icons/os.png
+MATCH 45a4726edfee56d7b87cf3b69c6d4a62 7467 644 /usr/system/icons/storm.png
+MATCH fc7629f56a501439da22ca73a4899387 2759 644 /usr/system/icons/xlogo.png
+MATCH dd4641154f3585597edbd68ecdd813c8 23788 644 /usr/system/images/logos/ewok.png
+MATCH 1540afba1abb6dd0aef0f7ffd3e4d4e2 13605 644 /usr/system/images/logos/ewokos.png
+MATCH 5dc71a0146d635416f5ceb0d81a93088 21267 644 /usr/system/images/logos/gameboy.png
+MATCH 2b32fe23dd6ffc8ca38e6ce0a1600e4f 54073 644 /usr/system/images/logos/storm.png
+MATCH 1f2e77b05519c45abc7a9cb980fae14b 23544 644 /usr/system/images/patterns/pattern1.png
+MATCH 53713651429a05882ecae4986e14138a 27015 644 /usr/system/images/patterns/pattern2.png
+MATCH 1bff657ecae100c035a2bb325c601278 42106 644 /usr/system/images/patterns/pattern3.png
+MATCH 03afdbeb36c5c75c31fe31f808b3e8ba 66753 644 /usr/system/images/patterns/pattern4.png
+MATCH df8dd07b3b38378ae9c16c236b7a35ec 719314 644 /usr/system/images/wallpapers/wallpaper1.png
+MATCH c65497359a5fa5e5800489057dfbb3e9 101760 644 /usr/system/sounds/start.mp3
+MATCH bcb128c9fd568cbf7cbf00c5592d201f 394 644 /usr/x/themes/default/x/theme.json
+MATCH d0a36e48d3e2a7ad574ba2fd7d3ec937 45863 644 /usr/x/themes/default/xfinder/icons/device.png
+MATCH 9087f1c8d2e434248f68527176a7adc4 45167 644 /usr/x/themes/default/xfinder/icons/emu.png
+MATCH dcd7e13a861af9959bdfbf409833c4f9 19080 644 /usr/x/themes/default/xfinder/icons/file.png
+MATCH 340a863dcfa1dcd31c25107acb1478cb 9324 644 /usr/x/themes/default/xfinder/icons/folder.png
+MATCH 8b157c9ab88be65a7dc6fd775d6c633d 35923 644 /usr/x/themes/default/xfinder/icons/font.png
+MATCH b7b4aa267720d0d5e0969b39a68555e9 19840 644 /usr/x/themes/default/xfinder/icons/html.png
+MATCH 394c1b7e0fe7a9f001e4400531aa2bd3 32988 644 /usr/x/themes/default/xfinder/icons/js.png
+MATCH e1ee4f812060c6016896abe86fdc7f5a 13972 644 /usr/x/themes/default/xfinder/icons/json.png
+MATCH a82dea6a0f31cedee7b5851fe5f157ae 32569 644 /usr/x/themes/default/xfinder/icons/mp3.png
+MATCH f187860208162fb21ef487923c1e1117 21682 644 /usr/x/themes/default/xfinder/icons/ogg.png
+MATCH cce43caa86c108451d56f06850ff1de3 22301 644 /usr/x/themes/default/xfinder/icons/pic.png
+MATCH 10738bfa300a850abf8d3e0774ee65d8 62886 644 /usr/x/themes/default/xfinder/icons/sound.png
+MATCH 9e3ed77ae90fb8dd58d5b18dd725062d 54981 644 /usr/x/themes/default/xfinder/icons/sprite.png
+MATCH ed24383eb7e6b67919ea4275aa498596 30121 644 /usr/x/themes/default/xfinder/icons/video.png
+MATCH f4ce068dc23c99a3f8d0b4b04fe1b5c1 17551 644 /usr/x/themes/default/xfinder/icons/wav.png
+MATCH af8a1b80188829920080a2d7ad6b4819 20545 644 /usr/x/themes/default/xfinder/icons/wjs.png
+MATCH e6305f0dca15b5c1eb6fc5387ac5938a 44667 644 /usr/x/themes/default/xfinder/icons/xread.png
+MATCH 654456b508dcfd538a8c73d74d4dc64a 76 644 /usr/x/themes/default/xwm/cursors/busy.json
+MATCH e739f24aadaed3792d0d1449d77a2a8a 1972 644 /usr/x/themes/default/xwm/cursors/busy.png
+MATCH 7f37c2165206bc101a3c591f18eb5e39 75 644 /usr/x/themes/default/xwm/cursors/mouse.json
+MATCH d503adc7fa969db3a42e61583b13b7ea 1055 644 /usr/x/themes/default/xwm/cursors/mouse.png
+MATCH 654456b508dcfd538a8c73d74d4dc64a 76 644 /usr/x/themes/default/xwm/cursors/mouse_busy.json
+MATCH e739f24aadaed3792d0d1449d77a2a8a 1972 644 /usr/x/themes/default/xwm/cursors/mouse_busy.png
+MATCH 2e40fbaa8a370b1b3f993d116aa9fd18 76 644 /usr/x/themes/default/xwm/cursors/touch.json
+MATCH 0689e0e406b13f1a555321f2091a1aa2 1590 644 /usr/x/themes/default/xwm/cursors/touch.png
+MATCH d37964a915c63304514ef9deceebb74d 485 644 /usr/x/themes/default/xwm/theme.json
+MATCH 48dc06e6fd67ed91621729f3ca34161c 394 644 /usr/x/themes/ewokwm/x/theme.json
+MATCH d0a36e48d3e2a7ad574ba2fd7d3ec937 45863 644 /usr/x/themes/ewokwm/xfinder/icons/device.png
+MATCH 9087f1c8d2e434248f68527176a7adc4 45167 644 /usr/x/themes/ewokwm/xfinder/icons/emu.png
+MATCH dcd7e13a861af9959bdfbf409833c4f9 19080 644 /usr/x/themes/ewokwm/xfinder/icons/file.png
+MATCH 340a863dcfa1dcd31c25107acb1478cb 9324 644 /usr/x/themes/ewokwm/xfinder/icons/folder.png
+MATCH 8b157c9ab88be65a7dc6fd775d6c633d 35923 644 /usr/x/themes/ewokwm/xfinder/icons/font.png
+MATCH b7b4aa267720d0d5e0969b39a68555e9 19840 644 /usr/x/themes/ewokwm/xfinder/icons/html.png
+MATCH 394c1b7e0fe7a9f001e4400531aa2bd3 32988 644 /usr/x/themes/ewokwm/xfinder/icons/js.png
+MATCH e1ee4f812060c6016896abe86fdc7f5a 13972 644 /usr/x/themes/ewokwm/xfinder/icons/json.png
+MATCH a82dea6a0f31cedee7b5851fe5f157ae 32569 644 /usr/x/themes/ewokwm/xfinder/icons/mp3.png
+MATCH f187860208162fb21ef487923c1e1117 21682 644 /usr/x/themes/ewokwm/xfinder/icons/ogg.png
+MATCH cce43caa86c108451d56f06850ff1de3 22301 644 /usr/x/themes/ewokwm/xfinder/icons/pic.png
+MATCH 10738bfa300a850abf8d3e0774ee65d8 62886 644 /usr/x/themes/ewokwm/xfinder/icons/sound.png
+MATCH 9e3ed77ae90fb8dd58d5b18dd725062d 54981 644 /usr/x/themes/ewokwm/xfinder/icons/sprite.png
+MATCH ed24383eb7e6b67919ea4275aa498596 30121 644 /usr/x/themes/ewokwm/xfinder/icons/video.png
+MATCH f4ce068dc23c99a3f8d0b4b04fe1b5c1 17551 644 /usr/x/themes/ewokwm/xfinder/icons/wav.png
+MATCH af8a1b80188829920080a2d7ad6b4819 20545 644 /usr/x/themes/ewokwm/xfinder/icons/wjs.png
+MATCH e6305f0dca15b5c1eb6fc5387ac5938a 44667 644 /usr/x/themes/ewokwm/xfinder/icons/xread.png
+MATCH 654456b508dcfd538a8c73d74d4dc64a 76 644 /usr/x/themes/ewokwm/xwm/cursors/busy.json
+MATCH e739f24aadaed3792d0d1449d77a2a8a 1972 644 /usr/x/themes/ewokwm/xwm/cursors/busy.png
+MATCH 7f37c2165206bc101a3c591f18eb5e39 75 644 /usr/x/themes/ewokwm/xwm/cursors/mouse.json
+MATCH d503adc7fa969db3a42e61583b13b7ea 1055 644 /usr/x/themes/ewokwm/xwm/cursors/mouse.png
+MATCH 2e40fbaa8a370b1b3f993d116aa9fd18 76 644 /usr/x/themes/ewokwm/xwm/cursors/touch.json
+MATCH 0689e0e406b13f1a555321f2091a1aa2 1590 644 /usr/x/themes/ewokwm/xwm/cursors/touch.png
+MATCH 219d8f14c9d24f255b547b1810f4a9b8 568 644 /usr/x/themes/ewokwm/xwm/theme.json
+MATCH c8a0a02c17182603142f6a741e9c8fe2 418 644 /usr/x/themes/misawm/x/theme.json
+MATCH d0a36e48d3e2a7ad574ba2fd7d3ec937 45863 644 /usr/x/themes/misawm/xfinder/icons/device.png
+MATCH 9087f1c8d2e434248f68527176a7adc4 45167 644 /usr/x/themes/misawm/xfinder/icons/emu.png
+MATCH dcd7e13a861af9959bdfbf409833c4f9 19080 644 /usr/x/themes/misawm/xfinder/icons/file.png
+MATCH 340a863dcfa1dcd31c25107acb1478cb 9324 644 /usr/x/themes/misawm/xfinder/icons/folder.png
+MATCH 8b157c9ab88be65a7dc6fd775d6c633d 35923 644 /usr/x/themes/misawm/xfinder/icons/font.png
+MATCH b7b4aa267720d0d5e0969b39a68555e9 19840 644 /usr/x/themes/misawm/xfinder/icons/html.png
+MATCH 394c1b7e0fe7a9f001e4400531aa2bd3 32988 644 /usr/x/themes/misawm/xfinder/icons/js.png
+MATCH e1ee4f812060c6016896abe86fdc7f5a 13972 644 /usr/x/themes/misawm/xfinder/icons/json.png
+MATCH a82dea6a0f31cedee7b5851fe5f157ae 32569 644 /usr/x/themes/misawm/xfinder/icons/mp3.png
+MATCH f187860208162fb21ef487923c1e1117 21682 644 /usr/x/themes/misawm/xfinder/icons/ogg.png
+MATCH cce43caa86c108451d56f06850ff1de3 22301 644 /usr/x/themes/misawm/xfinder/icons/pic.png
+MATCH 10738bfa300a850abf8d3e0774ee65d8 62886 644 /usr/x/themes/misawm/xfinder/icons/sound.png
+MATCH 9e3ed77ae90fb8dd58d5b18dd725062d 54981 644 /usr/x/themes/misawm/xfinder/icons/sprite.png
+MATCH ed24383eb7e6b67919ea4275aa498596 30121 644 /usr/x/themes/misawm/xfinder/icons/video.png
+MATCH f4ce068dc23c99a3f8d0b4b04fe1b5c1 17551 644 /usr/x/themes/misawm/xfinder/icons/wav.png
+MATCH af8a1b80188829920080a2d7ad6b4819 20545 644 /usr/x/themes/misawm/xfinder/icons/wjs.png
+MATCH e6305f0dca15b5c1eb6fc5387ac5938a 44667 644 /usr/x/themes/misawm/xfinder/icons/xread.png
+MATCH 654456b508dcfd538a8c73d74d4dc64a 76 644 /usr/x/themes/misawm/xwm/cursors/busy.json
+MATCH e739f24aadaed3792d0d1449d77a2a8a 1972 644 /usr/x/themes/misawm/xwm/cursors/busy.png
+MATCH 7f37c2165206bc101a3c591f18eb5e39 75 644 /usr/x/themes/misawm/xwm/cursors/mouse.json
+MATCH d503adc7fa969db3a42e61583b13b7ea 1055 644 /usr/x/themes/misawm/xwm/cursors/mouse.png
+MATCH 2e40fbaa8a370b1b3f993d116aa9fd18 76 644 /usr/x/themes/misawm/xwm/cursors/touch.json
+MATCH 0689e0e406b13f1a555321f2091a1aa2 1590 644 /usr/x/themes/misawm/xwm/cursors/touch.png
+MATCH 5cdbcadcbb40d7944595b2e1a57217d8 1002 644 /usr/x/themes/misawm/xwm/theme.json
+MATCH bcb128c9fd568cbf7cbf00c5592d201f 394 644 /usr/x/themes/opencde/x/theme.json
+MATCH d0a36e48d3e2a7ad574ba2fd7d3ec937 45863 644 /usr/x/themes/opencde/xfinder/icons/device.png
+MATCH 9087f1c8d2e434248f68527176a7adc4 45167 644 /usr/x/themes/opencde/xfinder/icons/emu.png
+MATCH dcd7e13a861af9959bdfbf409833c4f9 19080 644 /usr/x/themes/opencde/xfinder/icons/file.png
+MATCH 340a863dcfa1dcd31c25107acb1478cb 9324 644 /usr/x/themes/opencde/xfinder/icons/folder.png
+MATCH 8b157c9ab88be65a7dc6fd775d6c633d 35923 644 /usr/x/themes/opencde/xfinder/icons/font.png
+MATCH b7b4aa267720d0d5e0969b39a68555e9 19840 644 /usr/x/themes/opencde/xfinder/icons/html.png
+MATCH 394c1b7e0fe7a9f001e4400531aa2bd3 32988 644 /usr/x/themes/opencde/xfinder/icons/js.png
+MATCH e1ee4f812060c6016896abe86fdc7f5a 13972 644 /usr/x/themes/opencde/xfinder/icons/json.png
+MATCH a82dea6a0f31cedee7b5851fe5f157ae 32569 644 /usr/x/themes/opencde/xfinder/icons/mp3.png
+MATCH f187860208162fb21ef487923c1e1117 21682 644 /usr/x/themes/opencde/xfinder/icons/ogg.png
+MATCH cce43caa86c108451d56f06850ff1de3 22301 644 /usr/x/themes/opencde/xfinder/icons/pic.png
+MATCH 10738bfa300a850abf8d3e0774ee65d8 62886 644 /usr/x/themes/opencde/xfinder/icons/sound.png
+MATCH 9e3ed77ae90fb8dd58d5b18dd725062d 54981 644 /usr/x/themes/opencde/xfinder/icons/sprite.png
+MATCH ed24383eb7e6b67919ea4275aa498596 30121 644 /usr/x/themes/opencde/xfinder/icons/video.png
+MATCH f4ce068dc23c99a3f8d0b4b04fe1b5c1 17551 644 /usr/x/themes/opencde/xfinder/icons/wav.png
+MATCH af8a1b80188829920080a2d7ad6b4819 20545 644 /usr/x/themes/opencde/xfinder/icons/wjs.png
+MATCH e6305f0dca15b5c1eb6fc5387ac5938a 44667 644 /usr/x/themes/opencde/xfinder/icons/xread.png
+MATCH 654456b508dcfd538a8c73d74d4dc64a 76 644 /usr/x/themes/opencde/xwm/cursors/busy.json
+MATCH e739f24aadaed3792d0d1449d77a2a8a 1972 644 /usr/x/themes/opencde/xwm/cursors/busy.png
+MATCH 7f37c2165206bc101a3c591f18eb5e39 75 644 /usr/x/themes/opencde/xwm/cursors/mouse.json
+MATCH d503adc7fa969db3a42e61583b13b7ea 1055 644 /usr/x/themes/opencde/xwm/cursors/mouse.png
+MATCH 2e40fbaa8a370b1b3f993d116aa9fd18 76 644 /usr/x/themes/opencde/xwm/cursors/touch.json
+MATCH 0689e0e406b13f1a555321f2091a1aa2 1590 644 /usr/x/themes/opencde/xwm/cursors/touch.png
+MATCH d37964a915c63304514ef9deceebb74d 485 644 /usr/x/themes/opencde/xwm/theme.json
+MATCH 630a8b447f73cbb3a6320f8370565bd1 379 644 /usr/x/xlauncher/xlauncher.json
+SUMMARY checked=446 different_or_missing=0
+
+=== clock.log ===
+clock raw_hz=19200000 fine_available=1 fine_hz=19200000 tick_us=981
+fine[0]=0000b48a
+fine[1]=0124f800
+fine[2]=00000034
+fine[3]=15555555
+fine[4]=000003d5
+fine[5]=00000000
+fine[6]=418c6bc0
+fine[7]=00000000
+precise rc=0 raw=10885 ns
+precise rc=0 raw=38697 ns
+precise rc=0 raw=10729 ns
+precise rc=0 raw=11250 ns
+precise rc=0 raw=10677 ns
+precise rc=0 raw=11302 ns
+precise rc=0 raw=10729 ns
+precise rc=0 raw=10729 ns
+clock checked=100000 even=99991 backwards=0 max_backwards=0 ns failures=0
+
+=== mount-after.log ===
+Filesystem                   Used    iused  Mounted on
+/sbin/sdfsd                  364M      964  /
+/drivers/ramfsd              592K      133  /tmp
+
+=== ps-after.log ===
+root     12   0     4:0%  slp       /sbin/sdfsd [4t]
+root     34   0     6:0%  slp       /drivers/ramfsd
+root     43   0     7:28% slp       /drivers/q8b/g2dd [4t]
+root     66   0     4:2%  slp       /drivers/q8b/fbdisplayd
+root     71   0     7:1%  slp       /drivers/xserverd
+root     74   0     1:0%  blk       /sbin/x/xmouse
+misa     82   0     0:0%  rdy       /sbin/x/xwm_misa
+misa     85   0     6:2%  slp       /bin/x/xlauncher
+
+=== ps-xapps.log ===
+

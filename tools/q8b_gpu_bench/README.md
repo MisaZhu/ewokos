@@ -77,7 +77,10 @@ Installed g2dd was read back and matched the local build, SHA-256:
 `80e2a6086c0142c0e927195eb07bfa612988419d296551eae3f2c3088c6045a5`.
 
 The hardware fault/restart reported earlier was not reproduced by these
-runs; successful bounded stress testing cannot establish its cause.
+bounded runs. After the SD update below, the user reported reproducing a
+reset with glmatrix; the serial cache confirms a PSHOLD warm reset followed
+by Sahara/EDL, without a preceding GPU fault or kernel exception message.
+Its cause remains under investigation; see `evidence/glmatrix-reset.log`.
 
 After restoring the original desktop startup files and installing g2dd,
 the mouse IPC baseline completed 393 requests over 20 seconds (mean 4µs,
@@ -102,3 +105,13 @@ The normal desktop startup files contain no temporary GPU benchmark or
 GUI tracing configuration. The image's g2dd matches the hardware-tested
 build. See `evidence/rootfs.json` for image and key-file hashes.
 The generated image remains an ignored local build artifact.
+
+The actual board SD-card rootfs was also updated: 129 existing files were
+backed up and replaced, and 22 missing resources were added. All 446 manifest
+files matched content, size and permissions both before and after an MCP
+reboot. `/` remains mounted by `/sbin/sdfsd`, and the normal desktop services
+started successfully. The old files remain in
+`/sd-rootfs-update-20261026/backup` on the SD card. The post-reboot clock check
+passed 100,000 samples with no regressions. A new 60-second mouse test was
+interrupted by the glmatrix reset and is not counted as a passing run.
+See `evidence/sd-rootfs.json` and `evidence/sd-rootfs.log`.

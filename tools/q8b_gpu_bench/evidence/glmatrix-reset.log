@@ -1,0 +1,251 @@
+[2026-10-26 06:38:27.970] gpu-input begin seconds=60 xserver=71
+[2026-10-26 06:38:32.721] pipe-debug: dup from=49:5 to=172:5 node=1188 end=1 refs=2/1
+[2026-10-26 06:38:32.722] pipe-debug: dup from=49:6 to=172:6 node=1189 end=2 refs=2/2
+[2026-10-26 06:38:32.722] pipe-debug: close pid=172 fd=5 node=1188 end=1 refs=1/1 wake=0
+[2026-10-26 06:38:32.722] pipe-debug: close pid=172 fd=6 node=1189 end=2 refs=1/0 wake=0
+[2026-10-26 06:38:32.722] pipe-debug: open pid=172 fd=3 node=1190 shm=241 refs=1/0
+[2026-10-26 06:38:32.722] pipe-debug: attach pid=172 fd=5 node=1191 shm=241 refs=1/1
+[2026-10-26 06:38:32.775] pipe-debug: open pid=172 fd=6 node=1192 shm=244 refs=1/0
+[2026-10-26 06:38:32.776] pipe-debug: attach pid=172 fd=7 node=1193 shm=244 refs=1/1
+[2026-10-26 06:38:32.776] pipe-debug: open pid=172 fd=8 node=1194 shm=245 refs=1/0
+[2026-10-26 06:38:32.831] pipe-debug: attach pid=172 fd=9 node=1195 shm=245 refs=1/1
+[2026-10-26 06:38:32.831] pipe-debug: dup from=172:3 to=176:3 node=1190 end=1 refs=2/1
+[2026-10-26 06:38:32.831] pipe-debug: dup from=172:5 to=176:5 node=1191 end=2 refs=2/2
+[2026-10-26 06:38:32.831] pipe-debug: dup from=172:6 to=176:6 node=1192 end=1 refs=2/1
+[2026-10-26 06:38:32.831] pipe-debug: dup from=172:7 to=176:7 node=1193 end=2 refs=2/2
+[2026-10-26 06:38:32.831] pipe-debug: dup from=172:8 to=176:8 node=1194 end=1 refs=2/1
+[2026-10-26 06:38:32.831] pipe-debug: dup from=172:9 to=176:9 node=1195 end=2 refs=2/2
+[2026-10-26 06:38:32.831] pipe-debug: close pid=172 fd=6 node=1192 end=1 refs=1/2 wake=0
+[2026-10-26 06:38:32.831] pipe-debug: close pid=176 fd=7 node=1193 end=2 refs=1/1 wake=0
+[2026-10-26 06:38:32.886] pipe-debug: close pid=172 fd=9 node=1195 end=2 refs=2/1 wake=0
+[2026-10-26 06:38:32.886] pipe-debug: close pid=176 fd=8 node=1194 end=1 refs=1/1 wake=0
+[2026-10-26 06:38:32.886] pipe-debug: close pid=176 fd=3 node=1190 end=1 refs=1/2 wake=0
+[2026-10-26 06:38:32.886] pipe-debug: close pid=176 fd=5 node=1191 end=2 refs=1/1 wake=0
+[2026-10-26 06:38:32.886] pipe-debug: dup from=176:6 to=176:0 node=1192 end=1 refs=2/1
+[2026-10-26 06:38:32.886] pipe-debug: dup from=176:9 to=176:1 node=1195 end=2 refs=1/2
+[2026-10-26 06:38:32.886] pipe-debug: dup from=176:9 to=176:2 node=1195 end=2 refs=1/3
+[2026-10-26 06:38:32.886] pipe-debug: dup from=176:6 to=176:125 node=1192 end=1 refs=3/1
+[2026-10-26 06:38:32.886] pipe-debug: close pid=176 fd=6 node=1192 end=1 refs=2/1 wake=0
+[2026-10-26 06:38:32.940] pipe-debug: close pid=176 fd=9 node=1195 end=2 refs=1/2 wake=0
+[2026-10-26 06:38:32.940] pipe-debug: dup from=176:0 to=180:0 node=1192 end=1 refs=3/1
+[2026-10-26 06:38:32.940] pipe-debug: dup from=176:1 to=180:1 node=1195 end=2 refs=1/3
+[2026-10-26 06:38:32.940] pipe-debug: dup from=176:2 to=180:2 node=1195 end=2 refs=1/4
+[2026-10-26 06:38:32.940] pipe-debug: dup from=176:125 to=180:125 node=1192 end=1 refs=4/1
+[2026-10-26 06:38:32.940] pipe-debug: dup from=180:0 to=182:0 node=1192 end=1 refs=5/1
+[2026-10-26 06:38:32.992] pipe-debug: dup from=180:1 to=182:1 node=1195 end=2 refs=1/5
+[2026-10-26 06:38:32.992] gpu-input progress n=69 max_interval=55534 us over200=0 errors=0
+[2026-10-26 06:38:32.992] pipe-debug: dup from=180:2 to=182:2 node=1195 end=2 refs=1/6
+[2026-10-26 06:38:32.992] pipe-debug: dup from=180:125 to=182:125 node=1192 end=1 refs=6/1
+[2026-10-26 06:38:32.992] pipe-debug: close pid=180 fd=0 node=1192 end=1 refs=5/1 wake=0
+[2026-10-26 06:38:32.992] pipe-debug: close pid=180 fd=1 node=1195 end=2 refs=1/5 wake=0
+[2026-10-26 06:38:32.992] pipe-debug: close pid=180 fd=2 node=1195 end=2 refs=1/4 wake=0
+[2026-10-26 06:38:32.993] pipe-debug: close pid=180 fd=125 node=1192 end=1 refs=4/1 wake=0
+[2026-10-26 06:38:32.993] pipe-debug: close pid=176 fd=0 node=1192 end=1 refs=3/1 wake=0
+[2026-10-26 06:38:33.047] pipe-debug: close pid=176 fd=1 node=1195 end=2 refs=1/3 wake=0
+[2026-10-26 06:38:33.047] pipe-debug: close pid=176 fd=2 node=1195 end=2 refs=1/2 wake=0
+[2026-10-26 06:38:33.047] pipe-debug: close pid=176 fd=125 node=1192 end=1 refs=2/1 wake=0
+[2026-10-26 06:39:15.518] S - Format: Log Type - Time(microsec) - Message - Optional Info
+[2026-10-26 06:39:15.518] S - Log Type: B - Since Boot(Power On Reset),  D - Delta,  S - Statistic
+[2026-10-26 06:39:15.519] S - QC_IMAGE_VERSION_STRING=BOOT.MXF.1.1.c1-00167-MAKENA-1
+[2026-10-26 06:39:15.519] S - IMAGE_VARIANT_STRING=SocMakenaWP
+[2026-10-26 06:39:15.519] S - OEM_IMAGE_VERSION_STRING=c86602af196c
+[2026-10-26 06:39:15.519] S - Boot Interface: SPI
+[2026-10-26 06:39:15.519] S - Secure Boot: Off
+[2026-10-26 06:39:15.519] S - Boot Config @ 0x00786064 = 0x00000045
+[2026-10-26 06:39:15.519] S - JTAG ID @ 0x00786130 = 0x2014a0e1
+[2026-10-26 06:39:15.571] S - OEM ID @ 0x00786138 = 0x00000000
+[2026-10-26 06:39:15.571] S - Serial Number @ 0x00786134 = 0x3d97b18f
+[2026-10-26 06:39:15.571] S - OEM Config Row 0 @ 0x007841c8 = 0x0000000000000000
+[2026-10-26 06:39:15.571] S - OEM Config Row 1 @ 0x007841d0 = 0x0000000000000001
+[2026-10-26 06:39:15.571] S - Feature Config Row 0 @ 0x00784148 = 0x0000000000000000
+[2026-10-26 06:39:15.571] S - Feature Config Row 1 @ 0x00784150 = 0x0000000000000000
+[2026-10-26 06:39:15.571] S - Core 0 Frequency, 1440 MHz
+[2026-10-26 06:39:15.571] S - PBL Patch Ver: 0
+[2026-10-26 06:39:15.571] D -      7664 - pbl_apps_init_timestamp
+[2026-10-26 06:39:15.571] D -      5916 - bootable_media_detect_timestamp
+[2026-10-26 06:39:15.571] D -       776 - bl_elf_metadata_loading_timestamp
+[2026-10-26 06:39:15.571] D -       564 - bl_hash_seg_auth_timestamp
+[2026-10-26 06:39:15.626] D -     25773 - bl_elf_loadable_segment_loading_timestamp
+[2026-10-26 06:39:15.626] D -      3930 - bl_elf_segs_hash_verify_timestamp
+[2026-10-26 06:39:15.626] D -     16444 - bl_sec_hash_seg_auth_timestamp
+[2026-10-26 06:39:15.626] D -       722 - bl_sec_segs_hash_verify_timestamp
+[2026-10-26 06:39:15.626] D -        14 - pbl_populate_shared_data_and_exit_timestamp
+[2026-10-26 06:39:15.626] S -     61803 - PBL, End
+[2026-10-26 06:39:15.626] B -     72346 - SBL1, Start
+[2026-10-26 06:39:15.626] B -    201513 - SBL1 BUILD @ 07:35:36 on Aug 18 2026
+[2026-10-26 06:39:15.626] B -    205783 - usb: usb_eud_is_active , 0x1
+[2026-10-26 06:39:15.626] B -    208955 - usb: eud_serial_upd , 0x3d97b18f
+[2026-10-26 06:39:15.626] B -    213073 - usb: usb_eud_is_active , 0x1
+[2026-10-26 06:39:15.626] D -    217526 - sbl1_hw_init
+[2026-10-26 06:39:15.681] B -    228750 - Radxa EEPROM: vendor='Radxa Computer' product='RS782-D8S32W0X110'
+[2026-10-26 06:39:15.682] B -    234484 - Radxa EEPROM: ver='V1.305' sn='H4COCZ50'
+[2026-10-26 06:39:15.682] B -    236222 - SMSS Load: disabled
+[2026-10-26 06:39:15.682] D -      5155 - smss_load_cancel
+[2026-10-26 06:39:15.682] D -     11560 - boot_media_init
+[2026-10-26 06:39:15.682] D -        30 - boot_check_recoveryinfo_partition
+[2026-10-26 06:39:15.682] D -         0 - boot_recovery_partitions_info_imem_init
+[2026-10-26 06:39:15.682] D -         0 - boot_save_sbl_recovery_partition_info
+[2026-10-26 06:39:15.682] D -         0 - boot_update_sbl_recovery_partition_ids
+[2026-10-26 06:39:15.682] B -    273798 - SMSS -  Image Load, Start
+[2026-10-26 06:39:15.682] D -      5002 - SMSS -  Image Loaded, Delta - (0 Bytes)
+[2026-10-26 06:39:15.733] D -         0 - boot_recovery_media_partial_init_return
+[2026-10-26 06:39:15.733] D -       671 - Auth Metadata
+[2026-10-26 06:39:15.733] D -      5917 - sbl1_xblconfig_init
+[2026-10-26 06:39:15.733] B -    295606 - XBL Config -  Image Load, Start
+[2026-10-26 06:39:15.733] D -         0 - shrm_load_cancel
+[2026-10-26 06:39:15.733] B -    303322 - SHRM -  Image Load, Start
+[2026-10-26 06:39:15.733] D -         0 - boot_default_cdt_init
+[2026-10-26 06:39:15.733] D -       366 - boot_cdt_init
+[2026-10-26 06:39:15.733] B -    313692 - CDT -  Image Load, Start
+[2026-10-26 06:39:15.733] B -    316468 - CDT Version:3,Platform ID:11,Major ID:1,Minor ID:0,Subtype:0
+[2026-10-26 06:39:15.733] D -      9485 - sbl1_hw_platform_pre_ddr
+[2026-10-26 06:39:15.733] D -         0 - devcfg init
+[2026-10-26 06:39:15.733] B -    336628 - PMIC A:2.0 B:2.2 C:2.2 D:2.2 E:2.3 I:2.2 K:2.2
+[2026-10-26 06:39:15.784] B -    338397 - PM: Reset by PSHOLD
+[2026-10-26 06:39:15.785] B -    342362 - PM: Reset Type: Warm Reset
+[2026-10-26 06:39:15.785] B -    345656 - PM: Warm reset count:0x4
+[2026-10-26 06:39:15.785] B -    349591 - PM: Reset by PSHOLD
+[2026-10-26 06:39:15.785] B -    353373 - PM: Reset Type: Warm Reset
+[2026-10-26 06:39:15.785] B -    356667 - PM: Warm reset count:0x3
+[2026-10-26 06:39:15.785] B -    360632 - PM: Reset by PSHOLD
+[2026-10-26 06:39:15.785] B -    364353 - PM: Reset Type: Warm Reset
+[2026-10-26 06:39:15.785] B -    367677 - PM: Warm reset count:0x2
+[2026-10-26 06:39:15.785] B -    371612 - PM: Reset by PSHOLD
+[2026-10-26 06:39:15.785] B -    375394 - PM: Reset Type: Warm Reset
+[2026-10-26 06:39:15.785] B -    378688 - PM: Warm reset count:0x1
+[2026-10-26 06:39:15.785] B -    389393 - PM: PBS_RAM 0 reloading
+[2026-10-26 06:39:15.837] B -    428677 - PM: PBS_RAM 1 reloading
+[2026-10-26 06:39:15.948] B -    547810 - PM: PBS_RAM 2 reloading
+[2026-10-26 06:39:16.002] B -    591730 - PM: SET_VAL:Skip
+[2026-10-26 06:39:16.002] B -    591974 - PM: PSI: b0x03_v0x5b
+[2026-10-26 06:39:16.002] B -    597312 - PM: Device Init # RTC: 0, #SDAM: 0
+[2026-10-26 06:39:16.002] B -    598196 - PM: Device Init # SPMI Transn: 13418
+[2026-10-26 06:39:16.054] D -    275598 - pm_device_init, Delta
+[2026-10-26 06:39:16.054] B -    607651 - pm_driver_init, Start
+[2026-10-26 06:39:16.054] B -    622444 - PM: Driver Init # SPMI Transn: 737
+[2026-10-26 06:39:16.054] D -     11316 - pm_driver_init, Delta
+[2026-10-26 06:39:16.054] B -    627263 - PM: ChgConfigDone
+[2026-10-26 06:39:16.054] B -    630587 - vsense_init, Start
+[2026-10-26 06:39:16.054] D -         0 - vsense_init, Delta
+[2026-10-26 06:39:16.054] B -    636931 - cpr_init, Start
+[2026-10-26 06:39:16.108] D -     43066 - cpr_init, Delta
+[2026-10-26 06:39:16.108] B -    683261 - PM: Powering on USB-A VBUS and eth phy
+[2026-10-26 06:39:16.108] B -    686677 - PM: Configuring PWM fan GPIO
+[2026-10-26 06:39:16.108] D -    365573 - sbl1_hw_pre_ddr_init
+[2026-10-26 06:39:16.108] D -         0 - boot_dload_handle_forced_dload_timeout
+[2026-10-26 06:39:16.108] B -    698724 - Pre_DDR_clock_init, Start
+[2026-10-26 06:39:16.108] D -         0 - Pre_DDR_clock_init, Delta
+[2026-10-26 06:39:16.108] D -      8845 - sbl1_ddr_set_params
+[2026-10-26 06:39:16.163] B -    711412 - sbl1_ddr_init, Start
+[2026-10-26 06:39:16.163] B -    714798 - 8 channel DDR configuration
+[2026-10-26 06:39:16.163] B -    718122 - PASS1 Cookie =  0xcafe1111
+[2026-10-26 06:39:16.163] B -    722148 - HAL_DDR_SDI_Recover() start:  DBG PDC Tr = 0x1, First Pass expire = 0x0, First Pass complete = 0x1 , BIMC Alt ARES  = 0x0 , PASS2 Cookie = 0xcafecab0 
+[2026-10-26 06:39:16.163] B -    737490 - SHRM run state = 0x1 
+[2026-10-26 06:39:16.163] B -    741180 - HAL_DDR_SDI_Recover() end : DBG PDC Tr = 0x1, First Pass expire = 0x0, First Pass complete = 0x1 , BIMC Alt ARES  = 0x0 , PASS2 Cookie = 0xcafebabe 
+[2026-10-26 06:39:16.163] B -    755973 - SHRM run state = 0x1 
+[2026-10-26 06:39:16.163] D -     44683 - sbl1_ddr_init, Delta
+[2026-10-26 06:39:16.163] D -     51576 - sbl1_ddr_init
+[2026-10-26 06:39:16.216] D -         0 - boot_pre_ddi_entry
+[2026-10-26 06:39:16.217] B -    769027 - do_ddr_training, Start
+[2026-10-26 06:39:16.217] D -         0 - do_ddr_training, Delta
+[2026-10-26 06:39:16.217] D -      6801 - sbl1_do_ddr_training
+[2026-10-26 06:39:16.217] D -         0 - boot_ddi_entry
+[2026-10-26 06:39:16.217] B -    782813 - Pimem init cmd, entry
+[2026-10-26 06:39:16.217] D -       122 - Pimem init cmd, exit
+[2026-10-26 06:39:16.217] B -    789889 - External heap init, Start
+[2026-10-26 06:39:16.217] B -    792573 - External heap init, End
+[2026-10-26 06:39:16.217] D -     18757 - sbl1_post_ddr_init
+[2026-10-26 06:39:16.217] D -        61 - sbl1_hw_init_secondary
+[2026-10-26 06:39:16.217] B -    804803 - DDR -  Image Load, Start
+[2026-10-26 06:39:16.217] B -    809805 - usb: EUD enabled on user request
+[2026-10-26 06:39:16.217] B -    812123 - usb: ser_str_cookie_pid - 3d97b18f
+[2026-10-26 06:39:16.217] D -      8205 - boot_fedl_check
+[2026-10-26 06:39:16.271] B -    821243 - APDP -  Image Load, Start
+[2026-10-26 06:39:16.271] B -    824384 - Load recovery partition: 82000035
+[2026-10-26 06:39:16.272] D -      6801 - APDP -  Image Loaded, Delta - (0 Bytes)
+[2026-10-26 06:39:16.272] D -       396 - boot_dload_dump_security_regions
+[2026-10-26 06:39:16.272] B -    837682 - TCSR reg value 0x10 
+[2026-10-26 06:39:16.272] D -      4453 - ramdump_load_cancel
+[2026-10-26 06:39:16.272] B -    845551 - RamDump -  Image Load, Start
+[2026-10-26 06:39:16.272] D -       702 - Auth Metadata
+[2026-10-26 06:39:16.272] D -      2348 - Segments hash check
+[2026-10-26 06:39:16.326] D -     28792 - RamDump -  Image Loaded, Delta - (465996 Bytes)
+[2026-10-26 06:39:16.327] B -    883371 - boot_dload_entry
+[2026-10-26 06:39:16.327] B -    885140 - External heap deinit, Start
+[2026-10-26 06:39:16.327] B -    886543 - External heap init, End
+[2026-10-26 06:39:16.327] B -    890539 - External heap init, Start
+[2026-10-26 06:39:16.327] B -    894229 - External heap init, End
+[2026-10-26 06:39:17.118] B -   1706170 - OCIMEM.BIN
+[2026-10-26 06:39:17.119] B -   1706170 - CODERAM.BIN
+[2026-10-26 06:39:17.119] B -   1708701 - DATARAM.BIN
+[2026-10-26 06:39:17.119] B -   1711294 - MSGRAM0.BIN
+[2026-10-26 06:39:17.119] B -   1713886 - MSGRAM1.BIN
+[2026-10-26 06:39:17.119] B -   1716479 - MSGRAM2.BIN
+[2026-10-26 06:39:17.173] B -   1719071 - MSGRAM3.BIN
+[2026-10-26 06:39:17.174] B -   1721694 - MSGRAM4.BIN
+[2026-10-26 06:39:17.174] B -   1724287 - MSGRAM5.BIN
+[2026-10-26 06:39:17.174] B -   1726879 - MSGRAM6.BIN
+[2026-10-26 06:39:17.174] B -   1729472 - MSGRAM7.BIN
+[2026-10-26 06:39:17.174] B -   1732095 - MSGRAM8.BIN
+[2026-10-26 06:39:17.174] B -   1734687 - MSGRAM9.BIN
+[2026-10-26 06:39:17.174] B -   1737280 - MSGRAM10.BIN
+[2026-10-26 06:39:17.174] B -   1739872 - MSGRAM11.BIN
+[2026-10-26 06:39:17.174] B -   1742556 - MSGRAM12.BIN
+[2026-10-26 06:39:17.174] B -   1745240 - MSGRAM13.BIN
+[2026-10-26 06:39:17.174] B -   1747955 - MSGRAM14.BIN
+[2026-10-26 06:39:17.174] B -   1750639 - MSGRAM15.BIN
+[2026-10-26 06:39:17.174] B -   1753323 - SHRM_MEM.BIN
+[2026-10-26 06:39:17.174] B -   1756007 - DCC_SRAM.BIN
+[2026-10-26 06:39:17.174] B -   1758691 - DCC_CFG.BIN
+[2026-10-26 06:39:17.174] B -   1761375 - CD_STRCT.BIN
+[2026-10-26 06:39:17.174] B -   1763967 - CD_BTDDR.BIN
+[2026-10-26 06:39:17.174] B -   1766682 - CD_BTIMM.BIN
+[2026-10-26 06:39:17.174] B -   1769366 - CD_SHIMM.BIN
+[2026-10-26 06:39:17.174] B -   1772050 - PMIC_PON.BIN
+[2026-10-26 06:39:17.174] B -   1774734 - PMON_HIS.BIN
+[2026-10-26 06:39:17.225] B -   1777418 - RST_STAT.BIN
+[2026-10-26 06:39:17.226] B -   1780102 - IPA_IU.BIN
+[2026-10-26 06:39:17.226] B -   1782786 - IPA_SRAM.BIN
+[2026-10-26 06:39:17.226] B -   1785287 - IPA_HRAM.BIN
+[2026-10-26 06:39:17.226] B -   1788001 - IPA_MBOX.BIN
+[2026-10-26 06:39:17.227] B -   1790685 - IPA_GSI.BIN
+[2026-10-26 06:39:17.227] B -   1793369 - IPA_SEQ.BIN
+[2026-10-26 06:39:17.227] B -   1795962 - PmicDump.bin
+[2026-10-26 06:39:17.227] B -   1798554 - DDR_DATA.BIN
+[2026-10-26 06:39:17.227] B -   1801238 - PIMEM.BIN
+[2026-10-26 06:39:17.227] B -   1803953 - FSM_STS.BIN
+[2026-10-26 06:39:17.227] B -   1806362 - FSM_CTRL.BIN
+[2026-10-26 06:39:17.227] B -   1808955 - DBG_EN.BIN
+[2026-10-26 06:39:17.227] B -   1811639 - DDRCS0_0.BIN
+[2026-10-26 06:39:17.227] B -   1814170 - DDRCS0_1.BIN
+[2026-10-26 06:39:17.227] B -   1816854 - DDRCS0_2.BIN
+[2026-10-26 06:39:17.227] B -   1819538 - DDRCS0_3.BIN
+[2026-10-26 06:39:17.227] B -   1822222 - load.cmm
+[2026-10-26 06:39:17.227] B -   1824937 - rd_media_if.media_hw_init
+[2026-10-26 06:39:17.496] B -   2063965 - Found PCIe dev 15B7:5003 on port 2
+[2026-10-26 06:39:17.496] B -   2063996 -   BAR0 : 0x3C204000  0x4000
+[2026-10-26 06:39:17.497] B -   2073939 - get rd_format_if.init failed
+[2026-10-26 06:39:17.497] B -   2073969 - HFAT Dump Init
+[2026-10-26 06:39:17.497] B -   2078178 - NVMe FAT Partition Dump Init
+[2026-10-26 06:39:17.497] B -   2080954 - get rd_format_if.init failed
+[2026-10-26 06:39:17.497] B -   2085041 - Boot device check, skipping [2]
+[2026-10-26 06:39:17.497] B -   2089158 - Boot device check, skipping [3]
+[2026-10-26 06:39:17.497] B -   2093520 - HFAT Dump Init
+[2026-10-26 06:39:17.497] B -   2098003 - SD Dump Init
+[2026-10-26 06:39:17.552] B -   2127771 - get rd_format_if.init failed
+[2026-10-26 06:39:17.552] B -   2127802 - rd_media_if.media_hw_init
+[2026-10-26 06:39:17.552] B -   2131889 - usb: init start
+[2026-10-26 06:39:17.552] B -   2135793 - usb: qusb_dci_platform , 0xb
+[2026-10-26 06:39:17.552] B -   2138843 - usb: ss_lane_2nd
+[2026-10-26 06:39:17.552] B -   2142960 - usb: usb_eud_is_active , 0x1
+[2026-10-26 06:39:17.552] B -   2148115 - usb: usb3phy: PRIM success: lane_B , 0x91
+[2026-10-26 06:39:17.607] B -   2149975 - usb: usb_eud_is_active , 0x1
+[2026-10-26 06:39:17.607] B -   2156014 - usb: ID:0x108, value: 0x1d90
+[2026-10-26 06:39:17.607] B -   2159339 - usb: timer_start , 0x4c4b40
+[2026-10-26 06:39:17.607] B -   2163487 - usb: ID:0xe0, value: 0x1
+[2026-10-26 06:39:17.607] B -   2167452 - usb: VBUS High!
+[2026-10-26 06:39:17.766] B -   2357802 - usb: HIGH , 0x900e
+[2026-10-26 06:39:17.823] B -   2397483 - usb: ID:0x20d, value: 0x0
+[2026-10-26 06:39:17.824] B -   2414563 - usb: ENUM success
+[2026-10-26 06:39:17.824] B -   2414563 - Sahara Init
+[2026-10-26 06:39:17.825] B -   2417704 - Sahara Open
