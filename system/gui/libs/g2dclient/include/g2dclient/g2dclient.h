@@ -528,7 +528,7 @@ typedef struct {
    program's own linker pass, so the client looks a uniform name up in the
    COMPUTE stage too when packing the per-draw blob. */
 #define G2D_PGL_PROGRAM_MAGIC   0x33445047u   /* 'G','P','D','3' little-endian */
-#define G2D_PGL_PROGRAM_VERSION 5u
+#define G2D_PGL_PROGRAM_VERSION 6u
 #define G2D_PGL_MAX_VS_ATTRS    64            /* mirrors V3D_MAX_VS_INPUTS */
 #define G2D_PGL_MAX_FS_INPUTS   64            /* mirrors V3D_MAX_FS_INPUTS */
 
@@ -592,7 +592,12 @@ typedef struct {
 	uint32_t cs_spill_size;
 	uint8_t  cs_threads;          /* compute SIMD dispatch width */
 	uint8_t  cs_single_seg;
-	uint8_t  cs_is_geom;          /* 1 = gouraud geom, 2 = textured geom */
+	uint8_t  cs_is_geom;          /* geom kernel family: 1 gouraud, 2 textured,
+	                                 3 instanced, 4 texcol, 5 = Vulkan user
+	                                 shader (transpiler-generated two-pass
+	                                 kernels, arbitrary location interface;
+	                                 strides carried in cs2_vout_stride /
+	                                 vk_attr_stride, VERSION 6) */
 	/* VERSION 3 reserved byte, now assigned: raster-pass TRIANGLES PER
 	 * WORKGROUP for geom programs.  0 = legacy grid of one workgroup per
 	 * triangle; 64/256 = the one-lane-per-triangle kernels
@@ -621,6 +626,15 @@ typedef struct {
 	uint8_t  cs2_threads;         /* compute SIMD dispatch width */
 	uint8_t  cs2_single_seg;
 	uint8_t  cs2_reserved[2];
+	/* VERSION 6: per-vertex stream strides for the geom_kind == 5 (Vulkan
+	   user-shader) two-pass kernels, in FLOATS.  cs2_vout_stride is the pass-1
+	   vout record stride (8 + 4*ceil(nvarfloats/4)); vk_attr_stride is the
+	   pass-1 attribute stream stride (the per-vertex float count the client
+	   gathers).  The daemon uses them to size the pass-1 dst_span and to
+	   validate the attr canvas span (nverts * vk_attr_stride * 4) in place of
+	   the per-kind hard-coded pstride table.  Zero / ignored for kind != 5. */
+	uint32_t cs2_vout_stride;
+	uint32_t vk_attr_stride;
 	/* variable payload follows immediately after this header */
 } g2d_pgl_program_blob_t;
 

@@ -2154,10 +2154,6 @@ static int32_t g2dd_handle_cl_dispatch(proto_t* in) {
 	}
 
 	ret = bsp_cl_dispatch(req.prog_handle, &d);
-	if(req.wg_count[0] == 1 && req.num_args > 0 && have[0] &&
-			req.args[0].size >= sizeof(uint32_t))
-		slog("g2dd: CLsmall rc=%d phy=0x%llx value=0x%x\r\n",
-			ret, (unsigned long long)at[0].phy, at[0].buffer[0]);
 done:
 	if(have_unif)
 		g2d_detach(&unif);
