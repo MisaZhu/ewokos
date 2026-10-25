@@ -278,7 +278,7 @@ __attribute__((weak)) uint32_t timer_fine_cnt(uint64_t* cnt) {
     if(frq == 0)
         return 0;
     if(cnt != NULL)
-        __asm__ volatile("mrs %0, CNTVCT_EL0" : "=r" (*cnt) : : "memory");
+        __asm__ volatile("isb; mrs %0, CNTVCT_EL0" : "=r" (*cnt) : : "memory");
     return (uint32_t)frq;
 }
 

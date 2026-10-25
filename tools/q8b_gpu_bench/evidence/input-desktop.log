@@ -1,0 +1,5 @@
+[2026-10-26 02:21:08.416] gpu-input begin seconds=20 xserver=71
+[2026-10-26 02:21:13.422] gpu-input progress n=100 max_interval=6 us over200=0 errors=0
+[2026-10-26 02:21:18.490] gpu-input progress n=199 max_interval=10 us over200=0 errors=0
+[2026-10-26 02:21:23.515] gpu-input progress n=298 max_interval=12 us over200=0 errors=0
+[2026-10-26 02:21:28.428] gpu-input DONE n=393 mean=4 max=19 us over200=0 errors=0

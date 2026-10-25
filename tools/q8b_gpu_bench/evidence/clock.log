@@ -1,0 +1,18 @@
+clock raw_hz=19200000 fine_available=1 fine_hz=19200000 tick_us=6001
+fine[0]=0003395a
+fine[1]=0124f800
+fine[2]=00000034
+fine[3]=15555555
+fine[4]=00001771
+fine[5]=00000000
+fine[6]=9b142cc0
+fine[7]=00000000
+precise rc=0 raw=10833 ns
+precise rc=0 raw=10729 ns
+precise rc=0 raw=10677 ns
+precise rc=0 raw=10677 ns
+precise rc=0 raw=10781 ns
+precise rc=0 raw=10729 ns
+precise rc=0 raw=10885 ns
+precise rc=0 raw=10729 ns
+clock checked=100000 even=99977 backwards=0 max_backwards=0 ns failures=0

@@ -7,6 +7,8 @@
  */
 inline uint64_t fine_cnt_read(void) {
     uint64_t v;
-    __asm__ volatile("mrs %0, CNTVCT_EL0" : "=r"(v) :: "memory");
+    /* CNTVCT is not self-synchronising.  DMB orders the seqlock loads but
+     * cannot stop this system-register read executing ahead of base_cnt. */
+    __asm__ volatile("isb; mrs %0, CNTVCT_EL0" : "=r"(v) :: "memory");
     return v;
 }

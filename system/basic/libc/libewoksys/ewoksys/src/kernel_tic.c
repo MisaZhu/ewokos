@@ -79,7 +79,11 @@ uint64_t kernel_tic_ms(int zone){
  * time slightly behind real time. A deadline computed from this clock is then
  * met a hair late rather than early, which is the safe direction for a sleep.
  */
-#define KERNEL_TIC_SEQ_RETRY 16
+/* Readers on another CPU can exhaust 16 loads while the publisher is
+ * writing the device-mapped page.  Allow the short publication to finish
+ * before degrading to the previous coarse tick (which can move backwards).
+ * Keep a bound for a stopped writer or an incompatible older kernel. */
+#define KERNEL_TIC_SEQ_RETRY 1024
 
 int32_t kernel_tic_nsec(uint64_t* nsec) {
     uint64_t ns;

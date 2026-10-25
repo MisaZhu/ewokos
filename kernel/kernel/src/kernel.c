@@ -132,6 +132,13 @@ static void init_kernel_vm(void) {
     set_kernel_vm(_kernel_info.kernel_vm);
     //Use physical address of kernel virtual memory as the new virtual memory page dir table base.
     set_translation_table_base(V2P((ewokos_addr_t)_kernel_info.kernel_vm));
+
+    /* This reserved region is outside the image's BSS.  In particular, the
+     * fine-clock seqlock must start even; stale odd RAM would make every
+     * userspace clock read and precise sleep reject the published clock.
+     * Initialise only at boot, not in set_kernel_vm(), which is also used
+     * when creating per-process mappings on some architectures. */
+    memset(_kernel_info.vsyscall_info, 0, sizeof(*_kernel_info.vsyscall_info));
 }
 
 static void init_allocable_mem(void) {

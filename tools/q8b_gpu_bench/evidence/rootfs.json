@@ -1,0 +1,18 @@
+{
+  "image": "machines/q8b/root_aarch64.img",
+  "image_bytes": 335544320,
+  "image_sha256": "9e94804f2e2da119c32e6121fdb338aedd78218f66609bae6ab091e3c5cbc25d",
+  "readback_files_checked": 446,
+  "readback_mismatches": [],
+  "staged_file_bytes": 250172213,
+  "filesystem_check": "e2fsck -fn, exit 0",
+  "key_file_sha256": {
+    "drivers/q8b/g2dd": "80e2a6086c0142c0e927195eb07bfa612988419d296551eae3f2c3088c6045a5",
+    "drivers/q8b/fbdisplayd": "4a501d22300898302f6703ded349bc07e145e9f1ac9516928cd829c0eaad90ec",
+    "drivers/xserverd": "001819c7e87146f6f4e0bdb1badbbf8e176c062519d852c947c43256e271f7fd",
+    "sbin/x/xmouse": "587909879dcf6e389d8d56223fb1d0fca9dc619603bd26f44178c4eb3ab4d7fc",
+    "apps/xapps/xapps": "539166f289e624a68a4ebfc65cf43528dd667b0112af423b80b9faae89c27c2a",
+    "etc/init.rd": "ad6eef5ce673669bbf0f7201c27e9ac2f529cb0d9d0f044da58e4bc99303895b",
+    "etc/x/xinit.rd": "38d99beb2de86a1d789b72c2bfc413c66fb7897de8f6270d3c8a1560335d41d1"
+  }
+}

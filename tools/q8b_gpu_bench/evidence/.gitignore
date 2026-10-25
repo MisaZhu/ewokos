@@ -1,0 +1,2 @@
+# Keep the bounded serial excerpts referenced by the regression report.
+!*.log

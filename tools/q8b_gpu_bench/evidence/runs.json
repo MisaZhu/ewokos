@@ -1,0 +1,44 @@
+{
+  "kernel_sha256": "f7b3d64bc8008a6a7842dba64e287a1255ab7e8c4791ceecf56e7c1ac2d41548",
+  "g2dd_sha256": "80e2a6086c0142c0e927195eb07bfa612988419d296551eae3f2c3088c6045a5",
+  "gpu_runs": {
+    "baseline": {
+      "begin_count": 1,
+      "done": [
+        "[2026-10-26 01:58:31.897] gpu-bench DONE failures=0 stress_frames=4601 fence=118436 wedged=0 t=113931487"
+      ],
+      "reset_markers_after_test_begin": []
+    },
+    "clockfix": {
+      "begin_count": 1,
+      "done": [
+        "[2026-10-26 02:06:29.143] gpu-bench DONE failures=0 stress_frames=7148 fence=180677 wedged=0 t=113101572"
+      ],
+      "reset_markers_after_test_begin": []
+    },
+    "pooled": {
+      "begin_count": 1,
+      "done": [
+        "[2026-10-26 02:13:04.630] gpu-bench DONE failures=0 stress_frames=35716 fence=466760 wedged=0 t=352456599"
+      ],
+      "reset_markers_after_test_begin": []
+    },
+    "final": {
+      "begin_count": 1,
+      "done": [
+        "[2026-10-26 02:19:18.764] gpu-bench DONE failures=0 stress_frames=27500 fence=386754 wedged=0 t=235492062"
+      ],
+      "reset_markers_after_test_begin": []
+    }
+  },
+  "gui": {
+    "reset_or_gpu_fault_markers_after_input_test_begin": [],
+    "desktop_seconds": 20,
+    "xapps_seconds": 60,
+    "xapps_requests": 1096,
+    "xapps_mean_usec": 3811,
+    "xapps_max_usec": 122678,
+    "xapps_over200ms": 0,
+    "xapps_ipc_errors": 0
+  }
+}

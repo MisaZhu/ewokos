@@ -17,6 +17,7 @@
 #include <kernel/hw_info.h>
 #include <kernel/core.h>
 #include <kernel/irq.h>
+#include <kernel/fine_clock.h>
 #include <dev/timer.h>
 #include <stddef.h>
 #include <signals.h>
@@ -3180,21 +3181,7 @@ static int32_t renew_priority_counter(uint32_t usec) {
 
 static uint32_t _fine_cnt_hz = 0xffffffffU;  /* 0xffffffff = not probed yet */
 static uint64_t _fine_nsec_q32 = 0;
-static uint32_t _fine_cnt_div = 0;           /* counter ticks per microsecond */
-
-/*
- * Slack for the instructions between timer_read_sys_usec() and
- * timer_fine_cnt() in irq_do_timer0. The sample is therefore a few ticks past
- * the counter value uptime_usec was truncated from, so without this allowance
- * the alignment check below fails whenever that truncation remainder happens to
- * land at the top of its range - roughly one tick in div, which at div=24 is
- * often enough to leave a visible microsecond step in the user clock.
- *
- * Widening the upper bound does not weaken detection of a BSP whose usec is not
- * a true division: those compute an `aligned` that runs away from the sample as
- * uptime grows, so they trip the bound within milliseconds and stay tripped.
- */
-#define FINE_ALIGN_SKEW 64
+static uint32_t _fine_period_usec = 0;
 
 /*
  * Release barrier for the vsyscall publication below. A plain compiler
@@ -3251,34 +3238,14 @@ static void renew_vsyscall_info(uint32_t usec_gap, uint64_t fine_cnt, uint32_t f
          * userland clock read.
          */
         _fine_nsec_q32 = (fine_hz != 0) ? ((0x100000000ULL * 1000000000ULL) / fine_hz) : 0;
-        _fine_cnt_div = (fine_hz >= 1000000) ? (fine_hz / 1000000) : 0;
+        _fine_period_usec = fine_clock_period_usec(fine_hz);
     }
 
-    /*
-     * Anchor the interpolation on a counter value derived from uptime_usec
-     * rather than on the raw sample, whenever the BSP's timer_read_sys_usec()
-     * really is counter/div.
-     *
-     * uptime_usec truncates. Anchoring on the raw sample therefore leaves the
-     * user clock lagging real time by (counter mod div), and because the tick
-     * period is not a whole number of div ticks that remainder differs on every
-     * tick. The lag is re-latched ~1000 times a second, so the clock steps by
-     * up to a microsecond - forwards AND backwards - at each tick boundary,
-     * which breaks CLOCK_MONOTONIC and shows up as nanosleep() waking early.
-     * Anchoring on uptime_usec*div cancels the truncation instead: the
-     * published clock becomes a deterministic function of the counter alone, so
-     * it is strictly monotone with no step at all.
-     *
-     * The range check is what makes this safe on boards whose usec is not a
-     * true division - the fast_div64_24 magic-multiplier BSPs are ~0.2% off, so
-     * there `aligned` overshoots the sample, the check fails, and the raw
-     * sample is kept (today's behaviour, no regression).
-     */
-    if(_fine_cnt_div != 0) {
-        uint64_t aligned = uptime_usec * (uint64_t)_fine_cnt_div;
-        if(fine_cnt >= aligned && (fine_cnt - aligned) < _fine_cnt_div + FINE_ALIGN_SKEW)
-            base_cnt = aligned;
-    }
+    /* Align the pair at an integral counter/usec boundary.  Truncating
+     * 19.2 MHz to 19 ticks/us rejects alignment and re-latches a varying
+     * sub-microsecond sampling lag every tick.  Q8B instead uses 5 us/96
+     * ticks; integer-MHz platforms retain their original 1 us boundary. */
+    fine_clock_anchor(fine_hz, _fine_period_usec, &uptime_usec, &base_cnt);
 
     uint32_t seq = v->fine.seq;
     v->fine.seq = seq | 1u;

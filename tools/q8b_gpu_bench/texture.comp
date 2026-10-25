@@ -1,0 +1,14 @@
+#version 310 es
+precision highp float;
+precision highp int;
+layout(local_size_x=8,local_size_y=8,local_size_z=1) in;
+layout(std430,binding=0) buffer Output { uint pixels[]; };
+uniform uvec4 uFrame;
+uniform highp sampler2D uImage;
+void main() {
+    uvec2 p=gl_GlobalInvocationID.xy;
+    if (any(greaterThanEqual(p,uFrame.xy))) return;
+    vec2 uv=(vec2(p)+vec2(0.5))/vec2(uFrame.xy);
+    uvec4 c=uvec4(round(texture(uImage,uv)*255.0));
+    pixels[p.y*uFrame.x+p.x]=(c.x|(c.y<<8)|(c.z<<16)|(c.w<<24))^uFrame.z;
+}
