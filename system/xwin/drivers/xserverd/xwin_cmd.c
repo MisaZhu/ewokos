@@ -17,9 +17,11 @@ static int x_update_frame_areas(x_t* x, xwin_t* win) {
         return -1;
     }
 
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0) {
-        /*no frame, no areas: get_win_frame_pos bails out on the same style
-          bit, so an empty (zeroed) set is the correct content here*/
+    if((win->xinfo->style & XWIN_STYLE_NO_TITLE) != 0) {
+        /*no title, no buttons: there are no frame hit areas to describe, so an
+          empty (zeroed) set is the correct content here. A NO_FRAME window
+          that keeps its title still gets its title/close/min/max areas (its
+          resize corner stays empty, see get_frame_areas).*/
         memset(&win->r_title, 0, sizeof(grect_t));
         memset(&win->r_close, 0, sizeof(grect_t));
         memset(&win->r_min, 0, sizeof(grect_t));
@@ -131,7 +133,7 @@ static int get_xwm_win_space(x_t* x, int style, int state, grect_t* rin, grect_t
 void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
     if(win->xinfo == NULL)
         return;
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+    if(win_decoration_less(win))
         return;
 
     bool need_frame = (win->frame_g == NULL);
@@ -142,7 +144,8 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
         bool edge = win->xinfo->state == XWIN_STATE_MAX;
         bool deco = ((win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0 &&
                 x->config.xwm_theme.titleH > 0) ||
-                (!edge && (x->config.xwm_theme.frameW > 0 ||
+                (!edge && (win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+                (x->config.xwm_theme.frameW > 0 ||
                 x->config.xwm_theme.shadow > 0));
 
         if(deco &&
@@ -355,8 +358,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
     int winr_w = win->xinfo->winr.w;
     int winr_h = win->xinfo->winr.h;
     
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
-      (win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0) {
+    if((win->xinfo->style & XWIN_STYLE_NO_TITLE) == 0) {
         int minw = 0, minh = 0;
         x_get_min_size(x, win, &minw, &minh);
         if(win->xinfo->wsr.w < minw)

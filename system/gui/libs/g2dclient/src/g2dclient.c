@@ -18,9 +18,10 @@ static int  _dev_pid = 0;
 void g2d_quiesce_on_fault(int result) {
     if(result != G2D_ERR_TIMEOUT && result != G2D_ERR_MMU_FAULT)
         return;
-    klog("g2d: terminal GPU result %d; retaining buffers until reboot\n", result);
-    while(1)
-        proc_nsleep_precise(1000000000);
+    /* A terminal job may still own GPU-visible buffers.  Never park the client:
+       display callers retry on the CPU, and OpenCL retains the failed job's
+       staging buffers before its CPU replay. */
+    klog("g2d: terminal GPU result %d; using CPU fallback\n", result);
 }
 
 static int g2d_dev_pid(void) {

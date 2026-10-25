@@ -261,8 +261,14 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
         xwm->get_frame(&info, &rframe, xwm->data);
     }
     bool framed = false;
-    
-    if((info.style & XWIN_STYLE_NO_FRAME) == 0) {
+    /*NO_FRAME only drops the border ring and shadow; the title bar and the
+      window buttons survive unless NO_TITLE is set. So the two concerns are
+      gated separately: title/buttons on hasTitle, border/resize/shadow on
+      hasFrame.*/
+    bool hasTitle = (info.style & XWIN_STYLE_NO_TITLE) == 0;
+    bool hasFrame = (info.style & XWIN_STYLE_NO_FRAME) == 0;
+
+    if(hasTitle || hasFrame) {
         grect_t rtitle, rclose, rmax, rmin, rresize;
         memset(&rtitle, 0, sizeof(grect_t));
         memset(&rclose, 0, sizeof(grect_t));
@@ -270,18 +276,22 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
         memset(&rmin, 0, sizeof(grect_t));
         memset(&rresize, 0, sizeof(grect_t));
 
-        if(xwm->get_title != NULL)
-            xwm->get_title(&info, &rtitle, xwm->data);
-        if(xwm->get_close != NULL)
-            xwm->get_close(&info, &rclose, xwm->data);
-        if(xwm->get_max != NULL)
-            xwm->get_max(&info, &rmax, xwm->data);
-        if(xwm->get_min != NULL)
-            xwm->get_min(&info, &rmin, xwm->data);
-        if(xwm->get_resize != NULL)
+        if(hasTitle) {
+            if(xwm->get_title != NULL)
+                xwm->get_title(&info, &rtitle, xwm->data);
+            if(xwm->get_close != NULL)
+                xwm->get_close(&info, &rclose, xwm->data);
+            if(xwm->get_max != NULL)
+                xwm->get_max(&info, &rmax, xwm->data);
+            if(xwm->get_min != NULL)
+                xwm->get_min(&info, &rmin, xwm->data);
+        }
+        /*the resize corner lives in the border ring, so it only exists on a
+          framed window*/
+        if(hasFrame && xwm->get_resize != NULL)
             xwm->get_resize(&info, &rresize, xwm->data);
 
-        if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !keep_decor) {
+        if(hasTitle && !keep_decor) {
             if(xwm->draw_title != NULL && rtitle.w > 0 && rtitle.h > 0)
                 xwm->draw_title(&desktop_g, &frame_g, &info, &rtitle, top, xwm->data);
 
@@ -296,13 +306,13 @@ static void draw_frame(xwm_t* xwm, proto_t* in) {
                 xwm->draw_close(&frame_g, &info, &rclose, top, xwm->data);
         }
 
-        if(info.state != XWIN_STATE_MAX) {
+        if(hasFrame && info.state != XWIN_STATE_MAX) {
             if(xwm->draw_frame != NULL) {
                 xwm->draw_frame(&desktop_g, &frame_g, &ws_g, &info, &rframe, top, xwm->data);
                 framed = true;
             }
 
-            if((info.style & XWIN_STYLE_NO_TITLE) == 0 && !keep_decor) {
+            if(hasTitle && !keep_decor) {
                 if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
                     if(xwm->draw_resize != NULL && rresize.w > 0 && rresize.h > 0)
                         xwm->draw_resize(&frame_g, &info, &rresize, top, xwm->data);
@@ -342,8 +352,7 @@ static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
     memset(&rmin, 0, sizeof(grect_t));
     memset(&rresize, 0, sizeof(grect_t));
 
-    if((info.style & XWIN_STYLE_NO_TITLE) == 0 &&
-            (info.style & XWIN_STYLE_NO_FRAME) == 0) {
+    if((info.style & XWIN_STYLE_NO_TITLE) == 0) {
 
         if(xwm->get_title != NULL)
             xwm->get_title(&info, &rtitle, xwm->data);
@@ -355,7 +364,9 @@ static void get_frame_areas(xwm_t* xwm, proto_t* in, proto_t* out) {
         if((info.style & XWIN_STYLE_NO_RESIZE) == 0) {
             if(xwm->get_max != NULL)
                 xwm->get_max(&info, &rmax, xwm->data);
-            if(xwm->get_resize != NULL)
+            /*the resize corner is part of the border ring: a frameless window
+              has none, so its hit area stays empty*/
+            if((info.style & XWIN_STYLE_NO_FRAME) == 0 && xwm->get_resize != NULL)
                 xwm->get_resize(&info, &rresize, xwm->data);
         }
     }

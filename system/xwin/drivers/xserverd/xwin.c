@@ -490,7 +490,7 @@ void xwin_top(x_t* x, xwin_t* win) {
 }
 
 bool need_repaint_frame(x_t* x, xwin_t* win) {
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 && !win->xinfo->alpha)
+    if(win_decoration_less(win) && !win->xinfo->alpha)
         return false;
 
     if(win_bg_effect_active(x, win))
@@ -511,7 +511,7 @@ bool need_repaint_frame(x_t* x, xwin_t* win) {
 bool need_repaint_desktop(x_t* x, xwin_t* win) {
     if(win->xinfo->alpha)
         return true;
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+    if(win_decoration_less(win))
         return false;
     /*win_bg_effect_active, not a bare bgEffect test: xwm skips the blend for
       XWIN_STYLE_NO_BG_EFFECT windows (as does xrender.c), and most system

@@ -118,7 +118,7 @@ static void blur_fallback_klog(const char* why, uint32_t n) {
 	uint64_t now = kernel_tic_ms(0);
 
 	if(_last_ms[slot] != 0 && now - _last_ms[slot] >= 1000) {
-		klog("graph: blur fell back to cpu (%s) x%u in the last %ums\n",
+		slog("graph: blur fell back to cpu (%s) x%u in the last %ums\n",
 				why, n - _last_cnt[slot],
 				(unsigned)(now - _last_ms[slot]));
 	}

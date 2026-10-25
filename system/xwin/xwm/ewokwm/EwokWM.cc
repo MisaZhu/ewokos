@@ -124,15 +124,17 @@ void EwokWM::drawTitle(graph_t* desktop_g, graph_t* g, xinfo_t* info, grect_t* r
 */
 
 void EwokWM::getClose(xinfo_t* info, grect_t* rect) {
-	rect->x = xwm.theme.frameW;
-	rect->y = xwm.theme.frameW;// - titleH;
+	int frameW = (info->style & XWIN_STYLE_NO_FRAME) ? 0 : (int)xwm.theme.frameW;
+	rect->x = frameW;
+	rect->y = frameW;// - titleH;
 	rect->w = xwm.theme.titleH;
 	rect->h = xwm.theme.titleH;
 }
 
 void EwokWM::getMax(xinfo_t* info, grect_t* rect) {
-	rect->x = xwm.theme.frameW + xwm.theme.titleH;
-	rect->y = xwm.theme.frameW;
+	int frameW = (info->style & XWIN_STYLE_NO_FRAME) ? 0 : (int)xwm.theme.frameW;
+	rect->x = frameW + xwm.theme.titleH;
+	rect->y = frameW;
 	rect->w = xwm.theme.titleH;
 	rect->h = xwm.theme.titleH;
 }

@@ -280,14 +280,14 @@ int main(int argc, char** argv) {
 
 	if(_launcher) {
 		if(!win.open(&x, -1, 0, 0, 0, 0, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT, false)) {
+			XWIN_STYLE_NO_FRAME | XWIN_STYLE_LAUNCHER | XWIN_STYLE_NO_BG_EFFECT, false)) {
 			fprintf(stderr, "xapps: cannot open window\n");
 			return 1;
 		}
 	}
 	else {
 		if(!win.open(&x, -1, 0, 0, 0, 0, "xapps", 
-			XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT, false)) {
+			XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT, false)) {
 			fprintf(stderr, "xapps: cannot open window\n");
 			return 1;
 		}
@@ -296,7 +296,12 @@ int main(int argc, char** argv) {
 	/*show window first so the alpha background appears right away,
 	  apps are then loaded and drawn progressively in the event loop*/
 	apps->startLoadApps();
-	win.fullscreen();
+
+	if(_launcher)
+		win.fullscreen();
+	else
+		win.max();
+
 	win.setVisible(true);
 
 	widgetXRun(&x, &win);

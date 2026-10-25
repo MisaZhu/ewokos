@@ -7,9 +7,10 @@
 #include "xrepaint.h" //hide_cursor
 
 static int get_win_frame_pos(x_t* x, xwin_t* win) {
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
-        return -1;
-
+    /*a decoration-less window (NO_FRAME|NO_TITLE) has empty hit areas, so the
+      rect tests below simply match nothing and return -1. A NO_FRAME window
+      that keeps its title still exposes its title/close/min/max areas (its
+      resize area is empty), so it hit-tests like a normal window here.*/
     int res = -1;
     if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_close))
         res = FRAME_R_CLOSE;
@@ -119,7 +120,11 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
         else if(pos == FRAME_R_MAX || pos == FRAME_R_CLOSE) {
             return;
         }
-        else if(win->xinfo->style & XWIN_STYLE_NO_FRAME) {
+        else if(win_decoration_less(win)) {
+            /*a decoration-less window (sprite/statusbar) has no title to grab,
+              so a press anywhere in it drags the whole window. A NO_FRAME
+              window that keeps its title falls through to the plain client
+              grab below, so its client-area presses reach the app.*/
             x->current.old_pos.x = x->cursor.cpos.x;
             x->current.old_pos.y = x->cursor.cpos.y;
             x->current.win_drag = win;

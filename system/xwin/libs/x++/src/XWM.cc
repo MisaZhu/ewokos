@@ -25,11 +25,20 @@ static inline int effectiveShadow(const xwm_theme_t& theme, int state) {
 	return edgeToEdgeState(state) ? 0 : theme.shadow;
 }
 
+/*the border ring only sits in winr where getWinSpace reserved it: framed
+  windows only, and never edge-to-edge (maximized) ones. A frameless window
+  (XWIN_STYLE_NO_FRAME) carries no border, so its decoration rects start flush
+  at the window edge instead of being inset by frameW*/
+static inline int effectiveFrameWFor(const xwm_theme_t& theme, int style, int state) {
+	if((style & XWIN_STYLE_NO_FRAME) != 0)
+		return 0;
+	return effectiveFrameW(theme, state);
+}
+
 /*the shadow bands only sit in winr where getWinSpace reserved them: framed
   windows only, and never edge-to-edge (maximized) ones. A frameless window
-  (XWIN_STYLE_NO_FRAME) carries no decoration at all - its winr is the
-  workspace rect as is, so nothing may be subtracted from its extents nor
-  stamped onto its right/bottom edges*/
+  (XWIN_STYLE_NO_FRAME) carries no shadow - nothing may be subtracted from its
+  extents nor stamped onto its right/bottom edges*/
 static inline int effectiveShadowFor(const xwm_theme_t& theme, int style, int state) {
 	if((style & XWIN_STYLE_NO_FRAME) != 0)
 		return 0;
@@ -44,9 +53,9 @@ void XWM::getWinSpace(int style, int state, grect_t* xr, grect_t* winr) {
 	winr->h = xr->h;
 
 	/*fullscreen windows fill the display edge to edge, so they get no title
-	  either; maximized ones keep theirs*/
-	if((style & XWIN_STYLE_NO_TITLE) == 0 &&
-			(style & XWIN_STYLE_NO_FRAME) == 0) {
+	  either; maximized ones keep theirs. A frameless window (NO_FRAME) keeps
+	  its title band too - only the border ring and shadow are dropped below*/
+	if((style & XWIN_STYLE_NO_TITLE) == 0) {
 		winr->y = xr->y - xwm.theme.titleH;
 		winr->h = xr->h + xwm.theme.titleH;
 	}
@@ -71,7 +80,7 @@ static void get_win_space(int style, int state, grect_t* xr, grect_t* winr, void
 }
 
 void XWM::getTitle(xinfo_t* info, grect_t* rect) {
-	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int frameW = effectiveFrameWFor(xwm.theme, info->style, info->state);
 	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = frameW;
 	rect->y = frameW;
@@ -84,7 +93,7 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMin(xinfo_t* info, grect_t* rect) {
-	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int frameW = effectiveFrameWFor(xwm.theme, info->style, info->state);
 	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = info->winr.w - xwm.theme.titleH*2 - frameW - shadow;
 	rect->y = frameW;
@@ -97,7 +106,7 @@ static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getMax(xinfo_t* info, grect_t* rect) {
-	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int frameW = effectiveFrameWFor(xwm.theme, info->style, info->state);
 	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = info->winr.w - xwm.theme.titleH - frameW - shadow;
 	rect->y = frameW;
@@ -110,7 +119,7 @@ static void get_max(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getClose(xinfo_t* info, grect_t* rect) {
-	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int frameW = effectiveFrameWFor(xwm.theme, info->style, info->state);
 	rect->x = frameW;
 	rect->y = frameW;// - titleH;
 	rect->w = xwm.theme.titleH;
@@ -134,7 +143,7 @@ static void get_frame(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
-	int frameW = effectiveFrameW(xwm.theme, info->state);
+	int frameW = effectiveFrameWFor(xwm.theme, info->style, info->state);
 	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = info->winr.w - 20 - frameW - shadow;
 	rect->y = info->winr.h - 20 - frameW - shadow;

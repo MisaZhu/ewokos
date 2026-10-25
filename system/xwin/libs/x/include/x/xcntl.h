@@ -61,8 +61,8 @@ enum {
 #define X_UPDATE_REFRESH 0x2
 
 #define XWIN_STYLE_NORMAL         0x0
-#define XWIN_STYLE_NO_FRAME       0x0001
-#define XWIN_STYLE_NO_TITLE       0x0002
+#define XWIN_STYLE_NO_FRAME       0x0001 //no border ring and no shadow; title/buttons kept unless NO_TITLE
+#define XWIN_STYLE_NO_TITLE       0x0002 //no title bar and no window buttons
 #define XWIN_STYLE_NO_RESIZE      0x0004
 #define XWIN_STYLE_LAZY           0x0008 //ignore all event
 #define XWIN_STYLE_NO_FOCUS       0x0010
@@ -75,7 +75,7 @@ enum {
 #define XWIN_STYLE_MAX            0x0800
 #define XWIN_STYLE_NO_WS_EFFECT   0x1000
 
-#define XWIN_STYLE_SPRITE         (XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_NO_WS_EFFECT)
+#define XWIN_STYLE_SPRITE         (XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_NO_WS_EFFECT)
 
 #define XWIN_TITLE_MAX 32
 #define X_APP_NAME_MAX 128

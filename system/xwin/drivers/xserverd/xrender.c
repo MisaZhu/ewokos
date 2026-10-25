@@ -221,11 +221,12 @@ static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
     if(!win->frame_dirty && !ws_blur_active(x, win))
         return;
 
-    /*a frameless window only visits xwm for the background effect;
-      without it there are no decorations to draw, so the DRAW_FRAME
-      round trip is skipped. A fullscreen window is edge to edge and has
-      no decorations at all, so it gets the same treatment.*/
-    if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 &&
+    /*a decoration-less window (no frame AND no title) only visits xwm for the
+      background effect; without it there is nothing to draw, so the DRAW_FRAME
+      round trip is skipped. A fullscreen window is decoration-less too (it
+      carries NO_FRAME|NO_TITLE), so it gets the same treatment; a plain
+      maximized window keeps its title band and buttons and is NOT skipped.*/
+    if(win_decoration_less(win) &&
             !win_bg_effect_active(x, win) && !ws_blur_active(x, win))
         return;
 

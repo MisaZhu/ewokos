@@ -254,6 +254,16 @@ static inline bool win_edge_to_edge(xwin_t* win) {
 	return win->xinfo->state == XWIN_STATE_MAX;
 }
 
+/*a window carrying both NO_FRAME and NO_TITLE has nothing for xwm to draw:
+  no border ring, no shadow, no title bar and no buttons, so its winr is the
+  workspace rect as is and the compositor keeps no frame_g-mediated path for
+  it. NO_FRAME alone is NOT decoration-less: it only drops the border/shadow
+  while the title band and buttons remain (see XWIN_STYLE_NO_FRAME).*/
+static inline bool win_decoration_less(xwin_t* win) {
+	return (win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0 &&
+			(win->xinfo->style & XWIN_STYLE_NO_TITLE) != 0;
+}
+
 /*whether an alpha window can be re-blended in place over its clean backdrop
   snapshot instead of forcing a whole-display rebuild. All of these must hold:
   - the window is translucent (alpha) and edge-to-edge (no decoration ring
@@ -288,7 +298,7 @@ static inline bool win_alpha_inplace_ok(xwin_t* win) {
   frame_dirty for them), so their ws part has to live inside frame_g:
   xserverd copies it there and xwm draws the decorations over it.*/
 static inline bool frame_cuts_ws(x_t* x, xwin_t* win) {
-	if((win->xinfo->style & XWIN_STYLE_NO_FRAME) != 0)
+	if(win_decoration_less(win))
 		return false;
 	if(win_edge_to_edge(win))
 		return false;
