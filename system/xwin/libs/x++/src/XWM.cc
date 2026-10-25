@@ -25,6 +25,17 @@ static inline int effectiveShadow(const xwm_theme_t& theme, int state) {
 	return edgeToEdgeState(state) ? 0 : theme.shadow;
 }
 
+/*the shadow bands only sit in winr where getWinSpace reserved them: framed
+  windows only, and never edge-to-edge (maximized) ones. A frameless window
+  (XWIN_STYLE_NO_FRAME) carries no decoration at all - its winr is the
+  workspace rect as is, so nothing may be subtracted from its extents nor
+  stamped onto its right/bottom edges*/
+static inline int effectiveShadowFor(const xwm_theme_t& theme, int style, int state) {
+	if((style & XWIN_STYLE_NO_FRAME) != 0)
+		return 0;
+	return effectiveShadow(theme, state);
+}
+
 /*-------get area functions.----------*/
 void XWM::getWinSpace(int style, int state, grect_t* xr, grect_t* winr) {
 	winr->x = xr->x;
@@ -61,7 +72,7 @@ static void get_win_space(int style, int state, grect_t* xr, grect_t* winr, void
 
 void XWM::getTitle(xinfo_t* info, grect_t* rect) {
 	int frameW = effectiveFrameW(xwm.theme, info->state);
-	int shadow = effectiveShadow(xwm.theme, info->state);
+	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = frameW;
 	rect->y = frameW;
 	rect->w = info->winr.w - frameW*2 - shadow;
@@ -74,7 +85,7 @@ static void get_title(xinfo_t* info, grect_t* rect, void* p) {
 
 void XWM::getMin(xinfo_t* info, grect_t* rect) {
 	int frameW = effectiveFrameW(xwm.theme, info->state);
-	int shadow = effectiveShadow(xwm.theme, info->state);
+	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = info->winr.w - xwm.theme.titleH*2 - frameW - shadow;
 	rect->y = frameW;
 	rect->w = xwm.theme.titleH;
@@ -87,7 +98,7 @@ static void get_min(xinfo_t* info, grect_t* rect, void* p) {
 
 void XWM::getMax(xinfo_t* info, grect_t* rect) {
 	int frameW = effectiveFrameW(xwm.theme, info->state);
-	int shadow = effectiveShadow(xwm.theme, info->state);
+	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = info->winr.w - xwm.theme.titleH - frameW - shadow;
 	rect->y = frameW;
 	rect->w = xwm.theme.titleH;
@@ -107,7 +118,7 @@ void XWM::getClose(xinfo_t* info, grect_t* rect) {
 }
 
 void XWM::getFrame(xinfo_t* info, grect_t* rect) {
-	int shadow = effectiveShadow(xwm.theme, info->state);
+	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = 0;
 	rect->y = 0;// - titleH;
 	rect->w = info->winr.w - shadow;
@@ -124,7 +135,7 @@ static void get_frame(xinfo_t* info, grect_t* rect, void* p) {
 
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
 	int frameW = effectiveFrameW(xwm.theme, info->state);
-	int shadow = effectiveShadow(xwm.theme, info->state);
+	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
 	rect->x = info->winr.w - 20 - frameW - shadow;
 	rect->y = info->winr.h - 20 - frameW - shadow;
 	rect->w = 20 + frameW;
@@ -183,13 +194,18 @@ static void draw_frame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 }
 
 void XWM::drawShadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top) {
-    if(xwm.theme.shadow == 0)
-        return;
+	/*a maximized window fills the display edge to edge: getWinSpace reserved
+	  no shadow band in its winr, so there is nowhere to put the shadow -
+	  drawing it would stamp the bands over the window's own right/bottom
+	  edge pixels (the title bar included)*/
+	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
+	if(shadow == 0)
+		return;
 	/*the shadow lives in the right/bottom bands getWinSpace reserved in
 	  winr; the silhouette follows the theme's corner radius*/
 	uint32_t color = 0x88000000;
 	graph_shadow_round(g, 0, 0, info->winr.w, info->winr.h,
-			(int)xwm.theme.round, xwm.theme.shadow, color);
+			(int)xwm.theme.round, shadow, color);
 }
 
 void draw_shadow(graph_t* desktop_g, graph_t* g, xinfo_t* info, bool top, void* p) {

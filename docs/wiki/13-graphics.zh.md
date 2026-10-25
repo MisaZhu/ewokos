@@ -169,15 +169,15 @@ xwm 本身是一个独立的用户态进程，它与 xserverd 之间的 IPC 协�
   `@/bin/splash -m "..." -p xx`）；
 - `consoled`：图形控制台（全屏终端），配置在 `/etc/console.json`。
 
-### ⑤ 3D 与 OpenGL：soft3d + 内置的 mesa 编译器
+### ⑤ 3D 与 OpenGL：opengl + 内置的 mesa 编译器
 
-上面讲的都是 2D。`projects/soft3d` 目录在同一套 framebuffer + g2d 管道之上
+上面讲的都是 2D。`projects/opengl` 目录在同一套 framebuffer + g2d 管道之上
 又搭了一个 **带真正 OpenGL ES 2.0 / EGL API 的 3D 栈**，也是 EwokOS 里唯一
 携带真正 GPU 着色器编译器的地方。应用写的是标准 GLES2/EGL 代码
 （`<GLES2/gl2.h>` + `<EGL/egl.h>`、`glCreateShader` / `glDrawArrays` /
 `eglSwapBuffers`），完全不直接接触后端。
 
-四个部件都在 [projects/soft3d/libs/](../../projects/soft3d/libs/) 下：
+四个部件都在 [projects/opengl/libs/](../../projects/opengl/libs/) 下：
 
 - **`gles`**（`libs/gles`）——标准 API 前端，编成 **`libGLESv2.a` +
   `libEGL.a`**，并安装常规的 `GLES2`/`GLES3`/`EGL`/`KHR` 头文件。它在光栅器
@@ -192,7 +192,7 @@ xwm 本身是一个独立的用户态进程，它与 xserverd 之间的 IPC 协�
 - **`glcommon`**（`libs/glcommon`）——应用共用的矩阵/向量数学与 GL 辅助工具。
 - **`pglcompiler`**（`libs/gles/pglcompiler`）——**内置（vendored）的 mesa
   GLSL → NIR 编译器前端**（上游锁定 commit `f45825a0`，记录在
-  [VENDORED.txt](../../projects/soft3d/libs/gles/pglcompiler/VENDORED.txt)），
+  [VENDORED.txt](../../projects/opengl/libs/gles/pglcompiler/VENDORED.txt)），
   通过与 GPU 无关的 `pglcompiler.h` 契约（`pglc_*`）被所有带 GPU 的板子共用。
   NIR → 机器码的**后端**跟各机器的 GPU 驱动放在一起：
   `machines/raspi5|raspix/system/libs/v3dcompiler`（mesa Broadcom
@@ -206,7 +206,7 @@ xwm 本身是一个独立的用户态进程，它与 xserverd 之间的 IPC 协�
 **同一个** 应用二进制还会把几何处理 offload 给 VideoCore VII GPU（V3D 7.1 /
 BCM2712）；引擎适配层会在每次 draw 时选择走 CPU 还是 GPU，应用侧无需任何改动。
 关键点在于：V3D 7.1 的 *binner* 在 BCM2712 上无法光栅化真实图元，所以
-`soft3d` 把整个 变换 → 光照 → 光栅化 都放进由内置 mesa 编译器编译的
+`opengl` 把整个 变换 → 光照 → 光栅化 都放进由内置 mesa 编译器编译的
 **CSD compute 着色器** 里做，再经由你在 ② 见过的同一个 `g2dd` 守护进程下发
 （由 `PGL_G3D=yes` 门控，由各 GPU 机器的 `machines/<hw>/system/make.inc` 导出）：
 
@@ -226,7 +226,7 @@ invocation 处理一个顶点，写出紧凑的 32 字节记录）；第二趟�
 拖拽缩放会收敛成寥寥几次真实重分配、而不是每个事件一次，既不会耗尽内核的连续
 共享内存池，也就不会悄悄把应用 latch 回 CPU。
 
-`soft3d` 的应用（`teapot`、`gears`、`3ddemo`、`matrix`、`Fireworks`、
+`opengl` 的应用（`teapot`、`gears`、`3ddemo`、`matrix`、`Fireworks`、
 `imgui_demo`）以及 `shadertoy` 风格的全屏 compute demo 都会走到这些路径。
 同一套两趟内核（`pglcompiler/include/geom_raster_cs.h`）也被 Radxa Dragon Q8B
 的构建送进 Adreno 后端；该移植目前只做了编译验证，尚未在 SC8280XP 实机上跑过。
@@ -265,7 +265,7 @@ invocation 处理一个顶点，写出紧凑的 32 字节记录）；第二趟�
 - g2d 用共享内存实现零拷贝画布，硬件引擎要求物理连续（`shm_contig_phy_addr`）；
 - `xserverd` 用 `IPC_MULTI_TASK` 多线程池并行处理请求，保证鼠标低延迟；
 - 窗口、主题、事件分发都在用户态，崩了也不会带垮系统；
-- 3D/OpenGL 在 `projects/soft3d`：应用用的是标准 **OpenGL ES 2.0 / EGL** API
+- 3D/OpenGL 在 `projects/opengl`：应用用的是标准 **OpenGL ES 2.0 / EGL** API
   （`libs/gles` 产出的 `libGLESv2`/`libEGL`），底层由 `portablegl` 光栅器支撑；
   内置的 **mesa** GLSL 前端（`pglcompiler`）加各机器自己的后端
   （`v3dcompiler` / `adrenocompiler`）在设备上把 GLSL 编成 GPU 代码，树莓派 5

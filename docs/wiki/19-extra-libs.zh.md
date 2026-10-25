@@ -75,7 +75,7 @@
 `projects`（[projects/](../../projects/)）里每个应用往往自带一个 `libs/`，
 放它专属的第三方库。这些库**不在核心构建链里**，跟着各自应用一起编。
 
-> 注意：`projects/Makefile` 的 `DIRS = macemu nesemu soft3d doom cards mine previous`，
+> 注意：`projects/Makefile` 的 `DIRS = macemu nesemu opengl doom cards mine previous`，
 > 即默认构建模拟器和游戏；`browser`、`saver`、`video` 是**可选/实验性**应用，
 > 需要时单独进入其目录构建。
 
@@ -102,9 +102,9 @@
 
 对应应用：[projects/saver/apps/saver](../../projects/saver/apps/)。
 
-### soft3d——软件 3D 渲染
+### opengl——软件 3D 渲染
 
-[projects/soft3d/libs/](../../projects/soft3d/libs/)：
+[projects/opengl/libs/](../../projects/opengl/libs/)：
 
 | 库 | 用途 |
 |----|------|
@@ -112,7 +112,7 @@
 | **imgui** | Dear ImGui：即时模式 GUI，常用于 3D 程序的调试面板/工具界面 |
 | **glcommon** | 配合 portablegl 的通用 GL 辅助（数学、mesh、纹理加载等） |
 
-对应应用（[projects/soft3d/apps/](../../projects/soft3d/apps/)）：`3ddemo`、`gears`、`matrix`、
+对应应用（[projects/opengl/apps/](../../projects/opengl/apps/)）：`3ddemo`、`gears`、`matrix`、
 `Fireworks`、`imgui_demo` 等经典 3D 演示。
 
 ### video——视频播放
@@ -145,8 +145,8 @@
 | 渲染 HTML/CSS 网页 | litehtml + gumbo | `projects/browser/libs` |
 | 做 3D/2D 图形数学运算 | cglm | `projects/saver/libs` |
 | 加 2D 物理（碰撞、刚体） | ferox | `projects/saver/libs` |
-| 无 GPU 跑 3D（软件 OpenGL） | portablegl + glcommon | `projects/soft3d/libs` |
-| 给 3D 程序加调试 UI | imgui（Dear ImGui） | `projects/soft3d/libs` |
+| 无 GPU 跑 3D（软件 OpenGL） | portablegl + glcommon | `projects/opengl/libs` |
+| 给 3D 程序加调试 UI | imgui（Dear ImGui） | `projects/opengl/libs` |
 | 解码/播放音视频 | ffmpeg | `projects/video/libs` |
 
 ## 19.5 怎么用扩展库
@@ -167,10 +167,10 @@
 - **sw.extra**（ewokos_extra 子模块）：`curses`（文本 UI）、`SDL2` 家族
   （SDL2/image/mixer/ttf/gfx 多媒体），外加 vim/计算器/日历等应用与 mario_vm（JS 虚拟机）子模块；
 - **projects**（evokes.apps 子模块）：库随应用走——browser 用 `litehtml`+`gumbo`，
-  saver 用 `cglm`+`ferox`，soft3d 用 `portablegl`+`imgui`+`glcommon`，video 用 `ffmpeg`
+  saver 用 `cglm`+`ferox`，opengl 用 `portablegl`+`imgui`+`glcommon`，video 用 `ffmpeg`
   与 `widget++` 扩展控件（WidgetWebview/WidgetVideo）；模拟器与游戏则直接链接核心库；
 - 扩展库是**选装件**：不进核心构建链，针对已装好的 SDK 交叉编译，按需链接；
 - 至此"ewokos 系列"覆盖了从 libc、核心库到扩展库的完整库版图。
 
-想动手？挑一个扩展应用（比如 `soft3d` 的 `gears`）读它的 Makefile 和源码，
+想动手？挑一个扩展应用（比如 `opengl` 的 `gears`）读它的 Makefile 和源码，
 看它是怎么把 portablegl 接到 EwokOS 的 graph/xwin 上的——这是理解"库如何落地"的最好例子。

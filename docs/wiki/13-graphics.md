@@ -204,16 +204,16 @@ driver — gets its own chapter too: [Ch. 22](22-xserverd-render.md).
 - `consoled`: the graphical console (a fullscreen terminal), configured in
   `/etc/console.json`.
 
-### ⑤ 3D and OpenGL: soft3d + the vendored mesa compiler
+### ⑤ 3D and OpenGL: opengl + the vendored mesa compiler
 
-Everything above is 2D. The `projects/soft3d` tree adds a **3D stack with a
+Everything above is 2D. The `projects/opengl` tree adds a **3D stack with a
 real OpenGL ES 2.0 / EGL API** on top of the same framebuffer + g2d plumbing,
 and it is the one place EwokOS carries a real GPU shader compiler. Apps write
 standard GLES2/EGL code (`<GLES2/gl2.h>` + `<EGL/egl.h>`, `glCreateShader` /
 `glDrawArrays` / `eglSwapBuffers`) and never touch the back end directly.
 
 Four pieces, all under
-[projects/soft3d/libs/](../../projects/soft3d/libs/):
+[projects/opengl/libs/](../../projects/opengl/libs/):
 
 - **`gles`** (`libs/gles`) — the standard API front end, built as
   **`libGLESv2.a` + `libEGL.a`** and installing the usual `GLES2`/`GLES3`/
@@ -232,7 +232,7 @@ Four pieces, all under
   apps share.
 - **`pglcompiler`** (`libs/gles/pglcompiler`) — a **vendored copy of mesa's
   GLSL → NIR compiler front end** (upstream pin `f45825a0`, recorded in
-  [VENDORED.txt](../../projects/soft3d/libs/gles/pglcompiler/VENDORED.txt)),
+  [VENDORED.txt](../../projects/opengl/libs/gles/pglcompiler/VENDORED.txt)),
   shared by every GPU-backed board behind the GPU-neutral `pglcompiler.h`
   contract (`pglc_*`). The NIR → machine-code **back end** lives with each
   machine, next to its GPU driver: `machines/raspi5|raspix/system/libs/`
@@ -249,7 +249,7 @@ mesa compiler is not involved. On **Raspberry Pi 5** the *same* app binary
 also offloads geometry to the VideoCore VII GPU (V3D 7.1 / BCM2712); the
 engine adapter picks CPU vs GPU per draw, so no app-side change is needed.
 The catch: the V3D 7.1 *binner* cannot rasterize real primitives on BCM2712,
-so `soft3d` does the whole transform → light → raster in **CSD compute
+so `opengl` does the whole transform → light → raster in **CSD compute
 shaders** compiled by the vendored mesa compiler, dispatched through the same
 `g2dd` daemon you met in ② (gated by `PGL_G3D=yes`, exported from the GPU
 machines' `machines/<hw>/system/make.inc`):
@@ -274,7 +274,7 @@ reallocations instead of one per event — never exhausting the kernel's
 contiguous shared-memory pool, which would otherwise silently latch the app
 back to CPU.
 
-The `soft3d` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`,
+The `opengl` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`,
 `imgui_demo`) and the `shadertoy`-style fullscreen-compute demos exercise
 these paths. The same two-pass kernels (`pglcompiler/include/geom_raster_cs.h`)
 are what the Radxa Dragon Q8B build feeds through the Adreno back end; that
@@ -325,7 +325,7 @@ routine as Ch. 12, just additionally linking the graphics library.
   parallel, keeping mouse latency low;
 - Windows, themes, and event dispatch all live in userland — a crash won't
   take the system down;
-- 3D/OpenGL lives in `projects/soft3d`: apps use a standard **OpenGL ES 2.0 /
+- 3D/OpenGL lives in `projects/opengl`: apps use a standard **OpenGL ES 2.0 /
   EGL** API (`libGLESv2`/`libEGL` from `libs/gles`), backed by the
   `portablegl` rasterizer; a vendored **mesa** GLSL front end (`pglcompiler`)
   plus a per-machine back end (`v3dcompiler` / `adrenocompiler`) compiles

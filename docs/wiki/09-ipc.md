@@ -184,7 +184,7 @@ typedef struct {
     bool          disabled;      // stop serving (temporarily refuse new requests during upgrade/maintenance)
     bool          multi_task;    // single task? or a thread pool?
     ewokos_addr_t entry;         // ★the address of the ipc entry function (the springboard for context hijacking)
-    ipc_task_t    tasks[IPC_CTX_MAX];  // the task-slot array; IPC_CTX_MAX = 8
+    ipc_task_t    tasks[IPC_CTX_MAX];  // the task-slot array; IPC_CTX_MAX = 16
     uint8_t       task_head, task_tail, task_num;   // ring queue head/tail
     ipc_pool_worker_t* pool;     // multi-task mode's worker thread pool
     bool          do_switch;     // single-task mode: the kernel has hijacked the context, switch pending

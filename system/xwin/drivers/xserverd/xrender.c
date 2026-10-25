@@ -30,8 +30,14 @@ static bool win_backdrop_active(x_t* x, xwin_t* win) {
   into frame_g), and it would pay a DRAW_FRAME IPC on every present for
   nothing. So ws_blur only steers the compositor for alpha windows.*/
 static bool ws_blur_active(x_t* x, xwin_t* win) {
+    /*must mirror MisaWM::drawFrame's gate: a window carrying
+      XWIN_STYLE_NO_WS_EFFECT never gets its published buffer blended into
+      frame_g, so the compositor must not source its client area from
+      frame_g either - otherwise the content is dropped and the window goes
+      invisible (e.g. an alpha XWIN_STYLE_SPRITE window).*/
     return x->config.xwm_theme.wsBlur != 0 &&
-            win->xinfo != NULL && win->xinfo->alpha;
+            win->xinfo != NULL && win->xinfo->alpha &&
+            (win->xinfo->style & XWIN_STYLE_NO_WS_EFFECT) == 0;
 }
 
 /*whether the compositor should maintain a clean per-window backdrop snapshot.
@@ -315,10 +321,17 @@ int draw_desktop(x_t* x, uint32_t display_index) {
 /*the rect the drag frame outline is drawn at: the window rect without
   the shadow band, shifted or sized by the drag delta*/
 void get_drag_frame_rect(x_t* x, grect_t* r) {
-    r->x = x->current.win_drag->xinfo->winr.x;
-    r->y = x->current.win_drag->xinfo->winr.y;
-    r->w = x->current.win_drag->xinfo->winr.w - x->config.xwm_theme.shadow;
-    r->h = x->current.win_drag->xinfo->winr.h - x->config.xwm_theme.shadow;
+    /*the shadow band only sits in winr where getWinSpace reserved it: framed
+      windows only, never edge-to-edge (maximized) ones. A frameless window's
+      winr is its workspace rect as is, with nothing to strip off*/
+    xwin_t* drag_win = x->current.win_drag;
+    int shadow = ((drag_win->xinfo->style & XWIN_STYLE_NO_FRAME) == 0 &&
+            drag_win->xinfo->state != XWIN_STATE_MAX) ?
+            (int)x->config.xwm_theme.shadow : 0;
+    r->x = drag_win->xinfo->winr.x;
+    r->y = drag_win->xinfo->winr.y;
+    r->w = drag_win->xinfo->winr.w - shadow;
+    r->h = drag_win->xinfo->winr.h - shadow;
 
     if(x->current.drag_state == X_win_DRAG_MOVE)  {
         r->x += x->current.pos_delta.x;

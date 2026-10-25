@@ -322,3 +322,47 @@ int g2d_pgl_program(const g2d_pgl_program_req_t* req) {
     PF->clear(&in);
     return ret;
 }
+
+/* OpenCL compute offload.  g2d_cl_program() uses the exact two-int reply
+   pattern g2d_pgl_program() does (status int, then the non-negative program
+   handle) because a handle cannot ride the status int; the raspi5 back end
+   parses the same g2d_pgl_program_blob_t wire format, compute stage only. */
+int g2d_cl_program(const g2d_cl_program_req_t* req) {
+    proto_t in;
+    proto_t out;
+    int pid;
+    int ret;
+
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+
+    pid = g2d_dev_pid();
+    if(pid <= 0)
+        return G2D_ERR_FAILED;
+
+    PF->init(&in)->add(&in, req, sizeof(*req));
+    PF->init(&out);
+    ret = dev_cntl_by_pid(pid, G2D_DEV_CNTL_CL_PROGRAM, &in, &out);
+    if(ret == 0) {
+        ret = proto_read_int(&out);        /* handler status (0 == accepted) */
+        if(ret == 0)
+            ret = proto_read_int(&out);    /* the program handle (>= 0) */
+    }
+    PF->clear(&out);
+    PF->clear(&in);
+    return ret;
+}
+
+/* One NDRange launch: a plain single-int status round trip (no handle comes
+   back), so it rides g2d_send_struct() like every other fire-and-forget op. */
+int g2d_cl_dispatch(const g2d_cl_dispatch_req_t* req) {
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+    return g2d_send_struct(G2D_DEV_CNTL_CL_DISPATCH, req, sizeof(*req));
+}
+
+int g2d_cl_program_free(const g2d_cl_program_free_req_t* req) {
+    if(req == NULL)
+        return G2D_ERR_FAILED;
+    return g2d_send_struct(G2D_DEV_CNTL_CL_PROGRAM_FREE, req, sizeof(*req));
+}

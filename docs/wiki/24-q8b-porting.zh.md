@@ -59,11 +59,11 @@
 | 能力 | RPi5（videocore/v3d） | Q8B 路径 | 工作量评估 |
 |---|---|---|---|
 | 显示/帧缓冲 | mailbox framebuffer（fbdisplayd） | **UEFI GOP 帧缓冲**（初期）→ 后续 msm DP/DPU | GOP 显示 1–2 周（参照 ewokos framebuffer.c 改造） |
-| 2D | bsp_g2d / g2dd | GOP 直写 + graph/soft3d | 几乎白拿 |
+| 2D | bsp_g2d / g2dd | GOP 直写 + graph/opengl | 几乎白拿 |
 | 3D | v3d_3d.c（实验性 CLE） | **Adreno 690 无裸机最小路径**：需 freedreno/mesa 路线（ir3 编译 + MSM ioctl 兼容层） | 最小闭环 4–9 人月（路线 A） |
 | 现状 | — | deepin 25 已在 Q8B 用 freedreno 跑通 3D（实证） | 【官方/社区】 |
 
-**移植顺序建议**：GOP 显示（1–2 周）→ soft3d 3D 功能等价（RPi5 现有能力）→ 内核 GPU 栈（SMMU→ioctl→GMU→GEM/Submit→turnip）。
+**移植顺序建议**：GOP 显示（1–2 周）→ opengl 3D 功能等价（RPi5 现有能力）→ 内核 GPU 栈（SMMU→ioctl→GMU→GEM/Submit→turnip）。
 
 ## 24.4 调试与开发环境（实证）
 

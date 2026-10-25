@@ -92,7 +92,7 @@ carries its own `libs/` with its dedicated third-party libraries. These
 libraries are **not in the core build chain** — they compile together with
 their own applications.
 
-> Note: `projects/Makefile`'s `DIRS = macemu nesemu soft3d doom cards mine
+> Note: `projects/Makefile`'s `DIRS = macemu nesemu opengl doom cards mine
 > previous` — i.e. emulators and games are built by default; `browser`,
 > `saver`, and `video` are **optional/experimental** applications, built by
 > entering their directories separately when needed.
@@ -122,9 +122,9 @@ The corresponding app:
 The corresponding app:
 [projects/saver/apps/saver](../../projects/saver/apps/).
 
-### soft3d — Software 3D Rendering
+### opengl — Software 3D Rendering
 
-[projects/soft3d/libs/](../../projects/soft3d/libs/):
+[projects/opengl/libs/](../../projects/opengl/libs/):
 
 | Library | Purpose |
 |----|------|
@@ -133,7 +133,7 @@ The corresponding app:
 | **glcommon** | general GL helpers to go with portablegl (math, meshes, texture loading, etc.) |
 
 The corresponding apps
-([projects/soft3d/apps/](../../projects/soft3d/apps/)): classic 3D demos
+([projects/opengl/apps/](../../projects/opengl/apps/)): classic 3D demos
 like `3ddemo`, `gears`, `matrix`, `Fireworks`, `imgui_demo`.
 
 ### video — Video Playback
@@ -169,8 +169,8 @@ extension libraries. Their source code itself is a fine example of "porting
 | render HTML/CSS pages | litehtml + gumbo | `projects/browser/libs` |
 | do 3D/2D graphics math | cglm | `projects/saver/libs` |
 | add 2D physics (collisions, rigid bodies) | ferox | `projects/saver/libs` |
-| run 3D without a GPU (software OpenGL) | portablegl + glcommon | `projects/soft3d/libs` |
-| add a debug UI to a 3D program | imgui (Dear ImGui) | `projects/soft3d/libs` |
+| run 3D without a GPU (software OpenGL) | portablegl + glcommon | `projects/opengl/libs` |
+| add a debug UI to a 3D program | imgui (Dear ImGui) | `projects/opengl/libs` |
 | decode/play audio and video | ffmpeg | `projects/video/libs` |
 
 ## 19.5 How to Use the Extension Libraries
@@ -198,7 +198,7 @@ Extension libraries don't go into the core rootfs; the usage is
   `SDL2` family (SDL2/image/mixer/ttf/gfx multimedia), plus apps like
   vim/calculator/calendar and the mario_vm (JS VM) submodule;
 - **projects** (the evokes.apps submodule): libraries travel with their
-  apps — browser uses `litehtml`+`gumbo`, saver uses `cglm`+`ferox`, soft3d
+  apps — browser uses `litehtml`+`gumbo`, saver uses `cglm`+`ferox`, opengl
   uses `portablegl`+`imgui`+`glcommon`, video uses `ffmpeg` and the
   `widget++` extension widgets (WidgetWebview/WidgetVideo); emulators and
   games link the core libraries directly;
@@ -207,7 +207,7 @@ Extension libraries don't go into the core rootfs; the usage is
 - At this point the "ewokos series" has covered the complete library
   landscape from libc through the core libraries to the extensions.
 
-Want hands-on practice? Pick an extension app (say `soft3d`'s `gears`) and
+Want hands-on practice? Pick an extension app (say `opengl`'s `gears`) and
 read its Makefile and source — see how it wires portablegl onto EwokOS's
 graph/xwin. That's the best example for understanding "how a library
 lands".

@@ -19,6 +19,7 @@
 #include <sysinfo.h>
 #include <bsp/bsp_g2d.h>
 #include <bsp/bsp_g3d.h>
+#include <bsp/bsp_cl.h>
 #include <g2d_arch.h>
 #include <g2dclient/g2dclient.h>
 
@@ -51,15 +52,16 @@ static uint64_t _g2dd_req_cnt = 0;
    the attach/clip/CPU share of a request. Plain atomics: a stat, like
    _g2dd_req_cnt. */
 /* FILL_ALPHA is a synthetic slot (fill_triangle with a<0xff), so it must
-   sit past the last real command slot - now GET_VERSION, not PGL_PROGRAM. */
-#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_GET_VERSION + 1) /* FILL_RECT, a<0xff */
+   sit past the last real command slot - now CL_PROGRAM_FREE (the OpenCL
+   compute commands were appended after GET_VERSION), not GET_VERSION. */
+#define G2DD_STAT_FILL_ALPHA (G2D_DEV_CNTL_CL_PROGRAM_FREE + 1) /* FILL_RECT, a<0xff */
 #define G2DD_STAT_CMDS (G2DD_STAT_FILL_ALPHA + 1)
 static uint64_t _g2dd_stat_cnt[G2DD_STAT_CMDS];
 static uint64_t _g2dd_stat_ns[G2DD_STAT_CMDS];
 static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
 	"fill", "blit", "blit_alpha", "rotate", "scale", "clock", "blit_phy", "blur",
 	"rotate_phy", "fill_tri", "pgl_clear", "pgl_draw", "pgl_program", "version",
-	"fill_alpha"
+	"cl_program", "cl_dispatch", "cl_free", "fill_alpha"
 };
 
 /* g2dd runs multi-task (device_run with multi_task=true): dev_cntl
@@ -1992,6 +1994,191 @@ static int32_t g2dd_handle_pgl_program(proto_t* in, int from_pid, int* handle_ou
 	return h; /* negative G2D_ERR_* passes through verbatim */
 }
 
+/* OpenCL compute program upload / dispatch / free.  These mirror the pgl
+   compiled-shader path exactly: the blob is the same g2d_pgl_program_blob_t
+   wire format (compute stage only), the handle rides the reply's second int,
+   and handles are recorded against the uploading pid and swept when it exits.
+   CL programs live in a SEPARATE handle space from pgl programs (bsp_cl vs
+   bsp_g3d), so they get their own owner table and lock; the alive-probe is
+   generic and shared. */
+static g2dd_prog_owner_t _g2dd_cl_prog_owner[G2DD_PROG_OWNERS];
+static pthread_mutex_t _g2dd_cl_prog_lock = PTHREAD_MUTEX_INITIALIZER;
+
+/* release every CL program whose owning client has exited (caller holds
+   _g2dd_cl_prog_lock) */
+static void g2dd_cl_prog_sweep(void) {
+	int h;
+	for(h = 0; h < G2DD_PROG_OWNERS; h++) {
+		g2dd_prog_owner_t* o = &_g2dd_cl_prog_owner[h];
+		if(!o->used || g2dd_prog_owner_alive(o))
+			continue;
+		slog("g2dd: cl_program %d owner pid %d gone, freed (%d)\n",
+			h, o->pid, bsp_cl_program_free(h));
+		memset(o, 0, sizeof(*o));
+	}
+}
+
+static void g2dd_cl_prog_record(int h, int from_pid) {
+	g2dd_prog_owner_t* o;
+	procinfo_t pi;
+	int pid;
+
+	if(h < 0 || h >= G2DD_PROG_OWNERS)
+		return;
+	pid = proc_getpid(from_pid);
+	if(pid < 0)
+		pid = from_pid;
+	o = &_g2dd_cl_prog_owner[h];
+	o->used = 1;
+	o->pid = pid;
+	o->uuid = (proc_info(pid, &pi) == 0) ? pi.uuid : 0;
+}
+
+static int32_t g2dd_handle_cl_program(proto_t* in, int from_pid, int* handle_out) {
+	g2d_cl_program_req_t req;
+	g2d_attached_t blob;
+	int32_t h;
+
+	*handle_out = 0;
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return -10;   /* diag: req struct size mismatch client vs daemon */
+	/* the canvas must at least hold the fixed header so the back end can
+	   dereference it safely; full magic/version/payload validation lives in
+	   bsp_cl_program (the only layer that both knows the blob layout and owns
+	   a compute back end). */
+	if(req.blob.size < sizeof(g2d_pgl_program_blob_t)) {
+		slog("g2dd: cl_program blob %u < header\n", req.blob.size);
+		return -11;
+	}
+
+	if(g2d_attach(&req.blob, &blob) != 0) {
+		slog("g2dd: cl_program attach shm %d size %u failed\n", req.blob.shm_id, req.blob.size);
+		return -12;
+	}
+	if(blob.buffer == NULL) {
+		g2d_detach(&blob);
+		return -13;
+	}
+
+	pthread_mutex_lock(&_g2dd_cl_prog_lock);
+	g2dd_cl_prog_sweep();
+	h = bsp_cl_program(blob.buffer, req.blob.size);
+	if(h >= 0)
+		g2dd_cl_prog_record(h, from_pid);
+	pthread_mutex_unlock(&_g2dd_cl_prog_lock);
+	g2d_detach(&blob);
+
+	if(h >= 0) {
+		*handle_out = h;
+		return G2D_OK;
+	}
+	return h; /* negative G2D_ERR_* passes through verbatim */
+}
+
+/* Resolve each __global buffer argument canvas to its contig physical base
+   (zero copy, exactly like the pgl sampler-unit ctex canvases) and the packed
+   uniform canvas to a CPU buffer, then hand the lot to bsp_cl_dispatch.  A
+   non-contig / unresolvable argument is a per-launch staging problem, not a
+   platform capability gap, so it answers the transient G2D_ERR_FAILED (the
+   client replays that launch on its CPU device) rather than the sticky
+   G2D_ERR_NOT_SUPPORTED that would latch the whole GPU device off. */
+static int32_t g2dd_handle_cl_dispatch(proto_t* in) {
+	g2d_cl_dispatch_req_t req;
+	bsp_cl_dispatch_t d;
+	g2d_attached_t at[G2D_CL_MAX_ARGS];
+	uint8_t have[G2D_CL_MAX_ARGS];
+	g2d_attached_t unif;
+	int have_unif = 0;
+	int32_t ret = G2D_ERR_FAILED;
+	uint32_t i;
+
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return -10;
+	if(req.prog_handle < 0 || req.num_args > G2D_CL_MAX_ARGS)
+		return G2D_ERR_FAILED;
+	if(req.wg_size == 0 || req.wg_size > 256)
+		return G2D_ERR_FAILED;
+
+	memset(&d, 0, sizeof(d));
+	memset(at, 0, sizeof(at));
+	memset(have, 0, sizeof(have));
+	d.wg_count[0] = req.wg_count[0];
+	d.wg_count[1] = req.wg_count[1];
+	d.wg_count[2] = req.wg_count[2];
+	d.wg_size = req.wg_size;
+	d.num_args = req.num_args;
+	d.num_uniforms = req.num_uniforms;
+
+	for(i = 0; i < req.num_args; i++) {
+		if(req.args[i].size == 0) {
+			d.arg_phy[i] = 0;
+			d.arg_size[i] = 0;
+			continue;
+		}
+		if(g2d_attach(&req.args[i], &at[i]) != 0) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		have[i] = 1;
+		if(at[i].contig == 0 || at[i].phy == 0) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		d.arg_phy[i] = at[i].phy;
+		d.arg_size[i] = req.args[i].size;
+	}
+
+	if(req.num_uniforms > 0) {
+		if(req.unif.size < req.num_uniforms * 4u ||
+		   req.unif.w != req.num_uniforms) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		if(g2d_attach(&req.unif, &unif) != 0) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		have_unif = 1;
+		if(unif.buffer == NULL) {
+			ret = G2D_ERR_FAILED;
+			goto done;
+		}
+		d.unif = unif.buffer;
+	}
+
+	ret = bsp_cl_dispatch(req.prog_handle, &d);
+done:
+	if(have_unif)
+		g2d_detach(&unif);
+	for(i = 0; i < req.num_args; i++)
+		if(have[i])
+			g2d_detach(&at[i]);
+	return ret;
+}
+
+static int32_t g2dd_handle_cl_program_free(proto_t* in) {
+	g2d_cl_program_free_req_t req;
+	int32_t ret;
+
+	if(in == NULL)
+		return G2D_ERR_FAILED;
+	if(proto_read_to(in, &req, sizeof(req)) != sizeof(req))
+		return -10;
+	if(req.prog_handle < 0 || req.prog_handle >= G2DD_PROG_OWNERS)
+		return G2D_ERR_NOT_SUPPORTED;
+
+	pthread_mutex_lock(&_g2dd_cl_prog_lock);
+	ret = bsp_cl_program_free(req.prog_handle);
+	memset(&_g2dd_cl_prog_owner[req.prog_handle], 0,
+		sizeof(_g2dd_cl_prog_owner[0]));
+	pthread_mutex_unlock(&_g2dd_cl_prog_lock);
+	return ret;
+}
+
 static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
 	(void)dev;
 	(void)ret;
@@ -2003,6 +2190,7 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	int is_clock = (cmd == G2D_DEV_CNTL_GET_CLOCK);
 	int is_version = (cmd == G2D_DEV_CNTL_GET_VERSION);
 	int is_program = (cmd == G2D_DEV_CNTL_PGL_PROGRAM);
+	int is_cl_program = (cmd == G2D_DEV_CNTL_CL_PROGRAM);
 	int prog_handle = 0;
 	uint64_t t0 = 0, t1 = 0;
 	int slot = cmd;
@@ -2045,7 +2233,7 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		/* report the V3D architecture version x10 pinned at driver
 		   init (21 = V3D 2.1 Pi3, 42 = V3D 4.2 Pi4, 71 = V3D 7.1 Pi5);
 		   0 when the platform has no V3D engine.  Read-only after init,
-		   so no lock is needed.  The soft3d app-side compiler queries
+		   so no lock is needed.  The opengl app-side compiler queries
 		   this once to pick its codegen target on a machine shipping one
 		   binary across chip generations (raspix). */
 		ver = bsp_g2d_version();
@@ -2072,6 +2260,15 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 	case G2D_DEV_CNTL_PGL_PROGRAM:
 		res = g2dd_handle_pgl_program(in, from_pid, &prog_handle);
 		break;
+	case G2D_DEV_CNTL_CL_PROGRAM:
+		res = g2dd_handle_cl_program(in, from_pid, &prog_handle);
+		break;
+	case G2D_DEV_CNTL_CL_DISPATCH:
+		res = g2dd_handle_cl_dispatch(in);
+		break;
+	case G2D_DEV_CNTL_CL_PROGRAM_FREE:
+		res = g2dd_handle_cl_program_free(in);
+		break;
 	default:
 		/* an unknown command is a capability this driver does not
 		   have at all, not an operation that failed */
@@ -2084,7 +2281,7 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		__atomic_add_fetch(&_g2dd_stat_ns[slot], t1 - t0, __ATOMIC_RELAXED);
 	}
 
-	if(res != 0 && !is_clock && !is_version && !is_program) {
+	if(res != 0 && !is_clock && !is_version && !is_program && !is_cl_program) {
 		G2DD_LOG("g2d_dev_cntl: cmd %d res %d\n", cmd, res);
 	}
 	PF->clear(ret)->addi(ret, res);
@@ -2092,10 +2289,11 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		PF->addi(ret, clock_hz);
 	if(is_version && res == 0)
 		PF->addi(ret, ver);
-	/* a successful program upload appends the non-negative handle as the
-	   reply's second int (the client's g2d_pgl_program reads it there);
-	   the status int stays 0 so dev_cntl_by_pid does not normalise it. */
-	if(is_program && res == 0)
+	/* a successful program upload (pgl or cl) appends the non-negative handle
+	   as the reply's second int (the client's g2d_pgl_program / g2d_cl_program
+	   reads it there); the status int stays 0 so dev_cntl_by_pid does not
+	   normalise it. */
+	if((is_program || is_cl_program) && res == 0)
 		PF->addi(ret, prog_handle);
 	return res;
 }
@@ -2113,6 +2311,12 @@ int main(int argc, char** argv) {
 	   back end, every other machine declines with G2D_ERR_NOT_SUPPORTED so
 	   portablegl keeps its own CPU/NEON rasterizer.  Ignore the result. */
 	bsp_g3d_init();
+
+	/* OpenCL compute (V3D CSD) offload is optional on the same terms: only
+	   raspi5 provides a real back end, every other machine declines with
+	   G2D_ERR_NOT_SUPPORTED so libOpenCL keeps its always-present CPU device.
+	   Ignore the result. */
+	bsp_cl_init();
 
 	memset(&dev, 0, sizeof(dev));
 	strcpy(dev.desc, "g2d");

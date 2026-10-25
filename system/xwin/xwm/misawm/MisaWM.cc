@@ -104,7 +104,15 @@ MisaWM::FrostSlot* MisaWM::frostSlotFor(ewokos_addr_t win) {
 }
 
 void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
-	int shadow = (int)xwm.theme.shadow;
+	/*the shadow bands only exist in winr where getWinSpace reserved them: a
+	  maximized window carries none (edge to edge), and a frameless one
+	  (XWIN_STYLE_NO_FRAME, like the statusbar) carries none either - its winr
+	  is the workspace rect as is. Keeping the theme shadow there would size
+	  the cache short of the real window and make frostRegion clip every glass
+	  region (the title band included) shadow pixels short of the right edge,
+	  leaving that strip unfrosted*/
+	int shadow = ((info->style & XWIN_STYLE_NO_FRAME) == 0 &&
+			info->state != XWIN_STATE_MAX) ? (int)xwm.theme.shadow : 0;
 	int fw = (int)info->winr.w - shadow;
 	int fh = (int)info->winr.h - shadow;
 	if(fw <= 0 || fh <= 0)
@@ -292,8 +300,9 @@ void MisaWM::frostRegion(graph_t* desktop_g, graph_t* frame_g, xinfo_t* info,
 	if(slot == NULL || slot->frostCache == NULL)
 		return;
 	/*Clip the region to what the cache actually holds, never read past it.
-	  ensureFrost sizes the cache to (winr - shadow) and, when the client area
-	  is not glass (frame_width<=1, ws_blur=0), to just the title strip. A
+	  ensureFrost sizes the cache to (winr minus the shadow bands - the whole
+	  winr when maximized, where no bands are reserved) and, when the client
+	  area is not glass (frame_width<=1, ws_blur=0), to just the title strip. A
 	  fullscreen window (NO_FRAME, no shadow band) still asks for its whole
 	  client area, which overshoots the cache by the shadow margin - bailing on
 	  that left the entire fullscreen glass unfrosted. Clamp instead so the
@@ -432,7 +441,7 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	  back over it with alpha. Opaque content covers the glass completely and
 	  looks as before; translucent content now blends over the blurred
 	  backdrop instead of the raw copy prepare_win_content put here.*/
-	if(info->alpha && xwm.theme.wsBlur > 0) {
+	if(info->alpha && xwm.theme.wsBlur > 0 && (info->style & XWIN_STYLE_NO_WS_EFFECT) == 0) {
 		grect_t ws = {(int)info->wsr.x - (int)info->winr.x, (int)info->wsr.y - (int)info->winr.y,
 				(int)info->wsr.w, (int)info->wsr.h};
 		grect_t fr = {r->x, r->y, fw, fh};

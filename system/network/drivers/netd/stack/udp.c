@@ -17,7 +17,7 @@
 #include "../task.h"
 #include "sock.h"
 
-#define UDP_PCB_SIZE 16
+#define UDP_PCB_SIZE 64
 
 #define UDP_PCB_STATE_FREE    0
 #define UDP_PCB_STATE_OPEN    1

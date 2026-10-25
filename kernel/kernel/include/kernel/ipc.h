@@ -8,7 +8,19 @@
 
 struct st_proc;
 
-#define IPC_CTX_MAX 8
+/*
+ * Max in-flight IPC requests a server can hold (ipc_server_t.tasks[]).
+ * Keep this SMALL: ipc_task_t embeds a proto_t with a 512-byte inline
+ * buffer, and tasks[IPC_CTX_MAX] is inline in proc_space_t, which is
+ * kmalloc'd for EVERY proc. At 64 each proc_space_t grew to ~40KB (~37KB
+ * just for tasks[]), which exhausts the ~4MB kmalloc arena on small-RAM
+ * boards -- the same class as the Miyoo/picocalc post-logo boot stall.
+ * 16 keeps the per-proc footprint near the original while still letting a
+ * multi_task server serve many connections concurrently: blocked/parked
+ * clients hold NO task slot, so a server's connection ceiling is set by its
+ * own resource tables (e.g. netd's TCP_PCB_SIZE/SOCKS_MAX), not by this.
+ */
+#define IPC_CTX_MAX 16
 /*
  * Worker pool of a multi_task server (ipc_server_t.pool): the pool starts
  * EMPTY - no persistent minimum of worker threads is kept. Workers are

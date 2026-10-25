@@ -24,11 +24,21 @@ enum {
 	G2D_DEV_CNTL_PGL_CLEAR,
 	G2D_DEV_CNTL_PGL_DRAW,
 	G2D_DEV_CNTL_PGL_PROGRAM,
-	/* appended last (never inserted mid-enum) so the existing command
-	   values, and thus the client<->daemon wire protocol for every other
-	   op, stay unchanged. g2dd's synthetic G2DD_STAT_FILL_ALPHA slot is
-	   defined relative to this value. */
-	G2D_DEV_CNTL_GET_VERSION
+	G2D_DEV_CNTL_GET_VERSION,
+	/* OpenCL compute offload, appended last (never inserted mid-enum) so the
+	   existing command values, and thus the client<->daemon wire protocol for
+	   every other op, stay unchanged.  Only the raspi5 back end implements
+	   these; every other machine declines all three with the sticky
+	   G2D_ERR_NOT_SUPPORTED, so libOpenCL latches its GPU device off and
+	   keeps the CPU device.  CL_PROGRAM uploads a mesa-compiled compute blob
+	   (the SAME g2d_pgl_program_blob_t wire format, compute stage only) and
+	   answers a non-negative program handle; CL_DISPATCH runs a work-group
+	   grid against that handle; CL_PROGRAM_FREE releases it.  g2dd's synthetic
+	   G2DD_STAT_FILL_ALPHA slot is defined relative to CL_PROGRAM_FREE (the
+	   new last command), not GET_VERSION. */
+	G2D_DEV_CNTL_CL_PROGRAM,
+	G2D_DEV_CNTL_CL_DISPATCH,
+	G2D_DEV_CNTL_CL_PROGRAM_FREE
 };
 
 /* portablegl GPU (V3D 3D-pipeline) offload.  Only the raspi5 back end
@@ -624,6 +634,66 @@ typedef struct {
 	g2d_canvas_t blob;
 } g2d_pgl_program_req_t;
 
+/* --- OpenCL compute offload (G2D_DEV_CNTL_CL_*) ----------------------------
+   libOpenCL's GPU device transpiles an OpenCL-C kernel to a GLSL-ES 3.10
+   compute shader, compiles it IN THE APP PROCESS with the same mesa
+   pglcompiler portablegl uses (pglc_compile_compute_raw + pglc_program_serialize),
+   and ships the result to g2dd ONCE via CL_PROGRAM.  The blob is byte-for-byte
+   the g2d_pgl_program_blob_t wire format above with ONLY the compute (cs)
+   stage populated (vs/fs/coord word counts zero, cs_qpu_words != 0), so the
+   raspi5 back end reuses its existing blob parser and QPU-into-dma path; a
+   later CL_DISPATCH references the uploaded program by the integer handle
+   CL_PROGRAM returns, so the QPU is never re-sent per launch.
+
+   CL_PROGRAM travels the blob inside a contig-shm canvas exactly like
+   g2d_pgl_program_req_t.blob (blob.size >= sizeof(header) + payload_bytes).
+   It answers a non-negative program handle on the reply's second int (the
+   same two-int pattern g2d_pgl_program uses) or a negative G2D_ERR_* code
+   (G2D_ERR_NOT_SUPPORTED when the platform has no compute-upload path, so
+   libOpenCL keeps the CPU device). */
+typedef struct {
+	g2d_canvas_t blob;
+} g2d_cl_program_req_t;
+
+/* Maximum __global buffer arguments one CL_DISPATCH carries as SSBO bindings.
+   Each arg is a contig-shm or dma canvas so the GPU addresses it by physical
+   base with zero copy (the same model as the pgl pos/col/unif canvases); the
+   back end resolves each canvas' physical base into the compiled program's
+   QUNIFORM_SSBO_OFFSET slots in binding order.  Kernels with more buffer args
+   than this are run on libOpenCL's CPU device instead.  Sized to cover the
+   demo set (vector_add/saxpy/matmul use <= 3) with generous headroom while
+   keeping the request struct modest. */
+#define G2D_CL_MAX_ARGS 16u
+
+/* CL_DISPATCH request: run prog_handle over a wg_count[0] x wg_count[1] x
+   wg_count[2] grid of work-groups, each of wg_size work-items (the
+   local_size product, 1..256 -- the V3D CSD limit).  num_args entries of
+   args[] are the __global buffer SSBOs in binding order (args[i].size == 0
+   marks an unused trailing slot); num_uniforms / unif carry the packed
+   scalar + __constant kernel arguments as an array of num_uniforms u32
+   values in a contig-shm canvas modelled w=num_uniforms h=1 (so the
+   driver's size >= w*h*4 attach check holds, exactly like the pgl unif
+   canvas), which the back end's QUNIFORM interpreter indexes for the
+   non-SSBO uniform slots.  unif.size == 0 (num_uniforms == 0) is valid for
+   a kernel whose uniforms are all SSBO offsets.  Answers G2D_OK, a
+   transient G2D_ERR_FAILED, or the sticky G2D_ERR_NOT_SUPPORTED. */
+typedef struct {
+	int32_t prog_handle;
+	uint32_t wg_count[3];
+	uint32_t wg_size;
+	uint32_t num_args;
+	g2d_canvas_t args[G2D_CL_MAX_ARGS];
+	uint32_t num_uniforms;
+	g2d_canvas_t unif;
+} g2d_cl_dispatch_req_t;
+
+/* CL_PROGRAM_FREE request: release a program handle uploaded via CL_PROGRAM.
+   Carried as a bare int32 handle (no canvas), so the back end can reap the
+   GPU dma the program owns.  Answers G2D_OK or a negative G2D_ERR_* code. */
+typedef struct {
+	int32_t prog_handle;
+} g2d_cl_program_free_req_t;
+
 static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 	g2d_rect_t rect;
 	rect.x = x;
@@ -901,6 +971,45 @@ static inline void g2d_pgl_program_req_init(g2d_pgl_program_req_t* req,
 	req->blob = blob;
 }
 
+/* Fill a CL program upload request.  blob is a contig-shm canvas holding a
+   serialized g2d_pgl_program_blob_t header + compute-stage payload (see the
+   struct comment); blob.size must cover both.  Call g2d_cl_program() to
+   upload; it answers the program handle. */
+static inline void g2d_cl_program_req_init(g2d_cl_program_req_t* req,
+		g2d_canvas_t blob) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->blob = blob;
+}
+
+/* Fill a CL dispatch request.  prog_handle is a handle returned by
+   g2d_cl_program(); wg_count/wg_size describe the NDRange in work-groups and
+   work-items-per-group.  args[]/num_args are the __global buffer SSBO canvases
+   in binding order and unif/num_uniforms the packed scalar+__constant uniform
+   blob (see g2d_cl_dispatch_req_t).  Call g2d_cl_dispatch() to run it. */
+static inline void g2d_cl_dispatch_req_init(g2d_cl_dispatch_req_t* req,
+		int32_t prog_handle, uint32_t wgx, uint32_t wgy, uint32_t wgz,
+		uint32_t wg_size) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->prog_handle = prog_handle;
+	req->wg_count[0] = wgx;
+	req->wg_count[1] = wgy;
+	req->wg_count[2] = wgz;
+	req->wg_size = wg_size;
+}
+
+/* Fill a CL program free request. */
+static inline void g2d_cl_program_free_req_init(g2d_cl_program_free_req_t* req,
+		int32_t prog_handle) {
+	if(req == NULL)
+		return;
+	memset(req, 0, sizeof(*req));
+	req->prog_handle = prog_handle;
+}
+
 int has_g2d(void);
 int g2d_set_dev(const char* dev);
 
@@ -939,6 +1048,17 @@ int g2d_pgl_draw(const g2d_pgl_req_t* req);
    a negative G2D_ERR_* code (G2D_ERR_NOT_SUPPORTED when the platform has no
    3D compiler-upload path, so the caller keeps its CPU rasterizer). */
 int g2d_pgl_program(const g2d_pgl_program_req_t* req);
+
+/* OpenCL compute offload (raspi5 V3D CSD).  All three answer with the G2D_*
+   result codes.  g2d_cl_program() uploads a mesa-compiled compute blob
+   (req->blob) and, on success, returns a NON-NEGATIVE program handle a later
+   g2d_cl_dispatch() references; on failure it returns a negative G2D_ERR_*
+   code (G2D_ERR_NOT_SUPPORTED when the platform has no compute-upload path,
+   so libOpenCL keeps its CPU device).  g2d_cl_dispatch() runs one NDRange
+   launch; g2d_cl_program_free() releases a handle and its GPU dma. */
+int g2d_cl_program(const g2d_cl_program_req_t* req);
+int g2d_cl_dispatch(const g2d_cl_dispatch_req_t* req);
+int g2d_cl_program_free(const g2d_cl_program_free_req_t* req);
 
 /* query the g2d engine clock rate in Hz (as confirmed by the driver at
    startup; hardware backends pin the GPU to its max rate). returns
