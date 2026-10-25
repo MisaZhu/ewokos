@@ -1,14 +1,22 @@
 #include <kernel/system.h>
 #include <kernel/core.h>
 #include <dev/timer.h>
+#include <mm/mmudef.h>
 
 /*
  * Platform-independent helpers only. Every cache / TLB / address-space
  * maintenance primitive (flush_tlb*, dcache_*, invalidate_*cache*,
  * set_translation_table_base*, wfi, ...) is implemented per-architecture under
  * kernel/platform/<arch>/arch/<ver>/system_arch.c so this shared file carries
- * no per-arch conditional compilation.
+ * no per-arch conditional compilation. The range helper defaults to the
+ * established per-page primitive; architectures may override it to batch
+ * barriers without changing their invalidation/cache-coherency semantics.
  */
+
+void __attribute__((weak)) flush_tlb_range(ewokos_addr_t start, uint32_t pages) {
+    for(uint32_t i = 0; i < pages; i++, start += PAGE_SIZE)
+        flush_tlb_addr(start);
+}
 
 void __attribute__((optimize("O0"))) _delay(uint32_t count) {
     while(count > 0) {

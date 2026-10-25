@@ -8,6 +8,7 @@
  */
 #include <kernel/system.h>
 #include <kernel/core.h>
+#include <mm/mmudef.h>
 
 extern void __flush_dcache_all(void);
 extern void __invalidate_dcache_all(void);
@@ -96,6 +97,21 @@ void flush_tlb_addr(ewokos_addr_t addr) {
         "dsb ish\n"
         "isb\n"
         :: "r"(page) : "memory");
+}
+
+void flush_tlb_range(ewokos_addr_t start, uint32_t pages) {
+    if(pages == 0)
+        return;
+    /* PIPT-coherent walks: publish the whole set of PTE stores once, issue
+     * the same all-ASID, all-level, inner-shareable invalidations as the
+     * single-page path, then wait for ALL of them before any page is reused.
+     * VA operands use bits [55:12] even with a 16K/64K translation granule.
+     * No FEAT_TLBIRANGE instruction is required (baseline ARMv8 supported). */
+    ewokos_addr_t page = start >> 12;
+    __asm__ volatile("dsb ishst" ::: "memory");
+    for(uint32_t i = 0; i < pages; i++, page += PAGE_SIZE >> 12)
+        __asm__ volatile("tlbi vaae1is, %0" :: "r"(page) : "memory");
+    __asm__ volatile("dsb ish\n\tisb" ::: "memory");
 }
 
 void set_translation_table_base(ewokos_addr_t tlb_base) {

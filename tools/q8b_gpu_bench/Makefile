@@ -5,7 +5,7 @@ FE := $(ROOT)/projects/soft3d/libs/gles/pglcompiler
 OUT ?= /tmp/q8b-gpu-bench
 COMPILER_OUT ?= /tmp/q8b-builtin-shaders
 .PHONY: all shaders check
-all: $(OUT)/bench $(OUT)/clock $(OUT)/input-latency $(OUT)/shm-pool shaders
+all: $(OUT)/bench $(OUT)/clock $(OUT)/input-latency $(OUT)/shm-pool $(OUT)/shm-map $(OUT)/g2d-ipc shaders
 $(OUT):
 	mkdir -p $@
 $(OUT)/bench.o: bench.c | $(OUT)
@@ -32,6 +32,18 @@ $(OUT)/shm-pool.o: shm_pool.c | $(OUT)
 $(OUT)/shm-pool: $(OUT)/shm-pool.o $(SDK)/lib/libewoksys.a
 	aarch64-none-elf-ld -Ttext=100 $< -o $@ -L$(SDK)/lib \
 	 --start-group -lewoksys -lc -lgloss --end-group
+$(OUT)/shm-map.o: shm_map.c | $(OUT)
+	aarch64-none-elf-gcc -O2 -march=armv8-a -mno-outline-atomics -Wall -Wextra -Werror \
+	 -I$(SDK)/include -c $< -o $@
+$(OUT)/shm-map: $(OUT)/shm-map.o $(SDK)/lib/libewoksys.a
+	aarch64-none-elf-ld -Ttext=100 $< -o $@ -L$(SDK)/lib \
+	 --start-group -lewoksys -lc -lgloss --end-group
+$(OUT)/g2d-ipc.o: g2d_ipc.c | $(OUT)
+	aarch64-none-elf-gcc -O2 -march=armv8-a -mno-outline-atomics -Wall -Wextra -Werror \
+	 -I$(SDK)/include -c $< -o $@
+$(OUT)/g2d-ipc: $(OUT)/g2d-ipc.o $(SDK)/lib/libg2dclient.a $(SDK)/lib/libewoksys.a
+	aarch64-none-elf-ld -Ttext=100 $< -o $@ -L$(SDK)/lib \
+	 --start-group -lg2dclient -lewoksys -lc -lgloss --end-group
 shaders: | $(OUT)
 	$(MAKE) -C $(ADRENO) -f shaders/Makefile.host compiler OUT=$(COMPILER_OUT)
 	clang -O2 -I$(FE)/include -I$(ADRENO)/include -c compile.c -o $(OUT)/compile.o

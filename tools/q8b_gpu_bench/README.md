@@ -1,7 +1,7 @@
 # Q8B offscreen GPU regression
 
 `make -C tools/q8b_gpu_bench -j4` builds AArch64 `bench`, `clock`,
-`input-latency`, `shm-pool` and a texture shader in `/tmp/q8b-gpu-bench`.
+`input-latency`, `shm-pool`, `shm-map`, `g2d-ipc` and a texture shader in `/tmp/q8b-gpu-bench`.
 It uses the Q8B SDK and current GLSL frontend/Adreno backend. `make ... check` runs the native
 clock-anchor and physical memory pool regressions with ASan/UBSan.
 
@@ -174,3 +174,72 @@ test apps closed. Final kernel SHA-256:
 The installed/image g2dd (optional bounded trace, default off) SHA-256 is
 `4cb73731009b42701adbbd38ccef93cd47f7f644163c40a2c9ef328e689f6a0d`.
 The Q8B BSP/driver changes are in machines commit `00ca0c57`.
+
+## Shared canvas mapping, 2026-10-26
+
+The running desktop's attach cache had 4,434 hits, 3,944 misses and 3,874
+evictions, with 130,400KB pinned against its 128MB budget. A 4K canvas spans
+2,025 16KB pages. Each attach/detach previously issued a broadcast TLBI plus
+DSB/ISB barriers for **every page**, while holding the global SHM lock.
+
+SHM attach/detach now changes all PTEs before calling `flush_tlb_range()`.
+AArch64 publishes the stores with one DSB, issues the same all-level,
+all-ASID, inner-shareable VAAE1IS invalidation for each page, and completes
+with one DSB/ISB pair. This uses baseline ARMv8 instructions and the VA >> 12
+operand even with 16KB pages. Invalidation completes before reference counts
+drop or physical pages can be recycled. Other architectures retain their
+existing per-page cache/TLB maintenance through a weak default implementation.
+Partial attach failure now removes the successfully installed mappings and
+clears the attachment slot before returning failure; page-table OOM was not
+injected in the board tests.
+
+Two new tools exercise the common path without becoming another GPU owner:
+
+- `shm-map`: 64KB, 8MB and 32MB segments, ordinary/contiguous backing, one/four
+  child processes with independent address spaces. A parent retains each
+  segment while children repeatedly attach, check/write page markers and
+  detach. Allocation, zeroing and fork are outside the timed samples.
+- `g2d-ipc 1` / `g2d-ipc 5`: 100 synchronous 4K fills through the **running
+  g2dd**, using one or five canvases. Five exceed the mapping cache budget.
+  Every output pixel and all 64 guard words are checked after the timed work.
+  Terminal GPU errors retain all buffers and stop the benchmark until reset.
+
+Upload these executables from `/tmp/q8b-gpu-bench` to the board and run them
+by absolute path. Keep the desktop workload fixed for comparisons. Do not
+confuse them with `bench`, which still requires exclusive GPU ownership.
+
+An empty desktop was used on both kernels, with the same SD userland/driver.
+The original kernel was `218b8d66...`, the new kernel `7148b049...`. Two
+`shm-map` runs per kernel completed 2,400 attaches and 2,400 detaches, with
+zero marker/result errors. Means below average the per-run means:
+
+| Operation | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| 32MB contiguous attach, one worker | 410.029µs | 46.934µs | 88.6% |
+| 32MB contiguous detach, one worker | 377.862µs | 24.229µs | 93.6% |
+| Five 4K canvases, fill IPC round trip | 3.146ms | 1.966ms | 37.5% |
+
+The IPC result uses two successful baseline runs and three new-kernel runs,
+100 requests per run, after warming each canvas. The third baseline five-canvas
+run failed to allocate before issuing a request; it remains visible in the
+raw log and is excluded from timing averages. Single-canvas median latency
+stayed near 1.96ms: tick-based parking in the GPU wait remains a separate
+bottleneck. Four-worker runs still contain scheduling outliers around 30ms;
+these measurements do not establish that every input stall is fixed.
+
+On the new kernel, glmatrix plus fullscreen xapps ran for 60 seconds with 533
+mouse IPCs: mean 62.755ms, maximum 162.937ms, zero >=200ms samples and zero IPC
+errors. This is a bounded integration check, not an input-latency A/B test.
+After normal ESC closes, three pool exhaustion/reuse rounds each allocated
+376MB with zero initial-zero, physical-range or retained-pattern errors.
+No GPU fault, kernel panic or unexpected reboot appeared after desktop boot.
+The native clock/pool ASan/UBSan checks passed. Disassembly confirmed the
+16KB TLBI operand stride of four with barriers outside the loop.
+
+Raw samples and validation logs: `evidence/common-path-{before,after,validation}.log`;
+parsed timings: `evidence/common-path.json`. Kernel built and deployed to the
+existing PXE path, then booted through MCP; SD GPU driver was kept fixed
+(read-back SHA-256 `496d59c35cc9e56da91228a2f13f3e16d5dd9a6ed70602ec099db35b899eb218`).
+No production rootfs binary changes are required by this kernel-only change.
+New kernel SHA-256:
+`7148b0493f3f9e1345452cc8af3ae857f05d408bb75045e4377cbf9b583bdc8e`.

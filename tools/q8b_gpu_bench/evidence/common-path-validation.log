@@ -1,0 +1,18 @@
+[2026-10-26 07:53:44.649] gpu-input begin seconds=60 xserver=73
+[2026-10-26 07:53:49.730] gpu-input progress n=46 max_interval=162937 us over200=0 errors=0
+[2026-10-26 07:53:54.739] gpu-input progress n=90 max_interval=71607 us over200=0 errors=0
+[2026-10-26 07:53:59.824] gpu-input progress n=135 max_interval=67689 us over200=0 errors=0
+[2026-10-26 07:54:04.868] gpu-input progress n=179 max_interval=73557 us over200=0 errors=0
+[2026-10-26 07:54:09.865] gpu-input progress n=228 max_interval=95177 us over200=0 errors=0
+[2026-10-26 07:54:14.975] gpu-input progress n=273 max_interval=89247 us over200=0 errors=0
+[2026-10-26 07:54:20.025] gpu-input progress n=317 max_interval=75526 us over200=0 errors=0
+[2026-10-26 07:54:25.132] gpu-input progress n=361 max_interval=75506 us over200=0 errors=0
+[2026-10-26 07:54:30.203] gpu-input progress n=405 max_interval=75525 us over200=0 errors=0
+[2026-10-26 07:54:35.314] gpu-input progress n=449 max_interval=77492 us over200=0 errors=0
+[2026-10-26 07:54:40.342] gpu-input progress n=494 max_interval=69651 us over200=0 errors=0
+[2026-10-26 07:54:44.763] gpu-input DONE n=533 mean=62755 max=162937 us over200=0 errors=0
+[2026-10-26 07:56:23.273] shm-pool base=d8600000 size=536870912 page=16384
+[2026-10-26 07:56:23.435] shm-pool round=0 chunks=47 MB=376 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:56:23.641] shm-pool round=1 chunks=47 MB=376 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:56:23.854] shm-pool round=2 chunks=47 MB=376 errors=0 zero=0 phys=0 data=0
+[2026-10-26 07:56:23.855] shm-pool DONE rounds=3

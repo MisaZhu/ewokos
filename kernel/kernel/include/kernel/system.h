@@ -28,6 +28,11 @@ extern void flush_tlb(void);
  * board-level table copies, and not a substitute for the switch-time sweep. */
 extern void flush_tlb_nosweep(void);
 extern void flush_tlb_addr(ewokos_addr_t);
+/* Invalidate `pages` PAGE_SIZE-aligned pages after all PTE stores. Completes
+ * before return, including remote CPUs wherever flush_tlb_addr does. Callers
+ * must retain backing pages/tables and serialize map/unmap until completion.
+ * This batches invalidation only; it does not implement break-before-make. */
+extern void flush_tlb_range(ewokos_addr_t start, uint32_t pages);
 extern void flush_tlb_asid(uint32_t asid);
 extern void flush_dcache(void);
 extern void invalidate_dcache(void);

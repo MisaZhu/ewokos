@@ -1,0 +1,226 @@
+[2026-10-26 07:52:02.917] g2d-ipc BEGIN canvases=1 bytes=33177856 n=100
+[2026-10-26 07:52:03.140] g2d-ipc RESULT canvases=1 n=100 mean_ns=1979309 p50_ns=1959011 p95_ns=1967344 max_ns=3928020 errors=0
+[2026-10-26 07:52:03.140] g2d-ipc DONE errors=0
+[2026-10-26 07:52:03.195] g2d-ipc BEGIN canvases=5 bytes=33177856 n=100
+[2026-10-26 07:52:03.572] g2d-ipc RESULT canvases=5 n=100 mean_ns=1959848 p50_ns=1958802 p95_ns=1973906 max_ns=1977500 errors=0
+[2026-10-26 07:52:03.572] g2d-ipc DONE errors=0
+[2026-10-26 07:52:03.627] g2d-ipc BEGIN canvases=1 bytes=33177856 n=100
+[2026-10-26 07:52:03.836] g2d-ipc RESULT canvases=1 n=100 mean_ns=1959759 p50_ns=1958750 p95_ns=2085365 max_ns=2087656 errors=0
+[2026-10-26 07:52:03.837] g2d-ipc DONE errors=0
+[2026-10-26 07:52:03.892] g2d-ipc BEGIN canvases=5 bytes=33177856 n=100
+[2026-10-26 07:52:04.272] g2d-ipc RESULT canvases=5 n=100 mean_ns=1959934 p50_ns=1959114 p95_ns=1968073 max_ns=1979427 errors=0
+[2026-10-26 07:52:04.272] g2d-ipc DONE errors=0
+[2026-10-26 07:52:04.272] g2d-ipc BEGIN canvases=1 bytes=33177856 n=100
+[2026-10-26 07:52:04.542] g2d-ipc RESULT canvases=1 n=100 mean_ns=1959790 p50_ns=1958750 p95_ns=1966823 max_ns=2001041 errors=0
+[2026-10-26 07:52:04.542] g2d-ipc DONE errors=0
+[2026-10-26 07:52:04.542] g2d-ipc BEGIN canvases=5 bytes=33177856 n=100
+[2026-10-26 07:52:04.919] g2d-ipc RESULT canvases=5 n=100 mean_ns=1979651 p50_ns=1959166 p95_ns=1969427 max_ns=3919427 errors=0
+[2026-10-26 07:52:04.919] g2d-ipc DONE errors=0
+[2026-10-26 07:52:04.974] shm-map BEGIN page=16384 rounds=40
+[2026-10-26 07:52:04.974] shm-map op=attach bytes=65536 contig=0 workers=1 worker=0 n=40 mean_ns=1201 p50_ns=989 p95_ns=1093 max_ns=9844
+[2026-10-26 07:52:04.974] shm-map op=detach bytes=65536 contig=0 workers=1 worker=0 n=40 mean_ns=882 p50_ns=885 p95_ns=1042 max_ns=1042
+[2026-10-26 07:52:04.974] shm-map verify bytes=65536 contig=0 workers=1 worker=0 errors=0
+[2026-10-26 07:52:04.974] shm-map case bytes=65536 contig=0 workers=1 errors=0
+[2026-10-26 07:52:05.029] shm-map op=attach bytes=65536 contig=0 workers=4 worker=0 n=40 mean_ns=6389 p50_ns=990 p95_ns=18907 max_ns=186094
+[2026-10-26 07:52:05.029] shm-map op=detach bytes=65536 contig=0 workers=4 worker=0 n=40 mean_ns=1695 p50_ns=886 p95_ns=6198 max_ns=6562
+[2026-10-26 07:52:05.029] shm-map verify bytes=65536 contig=0 workers=4 worker=0 errors=0
+[2026-10-26 07:52:05.029] shm-map op=attach bytes=65536 contig=0 workers=4 worker=1 n=40 mean_ns=1332 p50_ns=1094 p95_ns=1198 max_ns=11146
+[2026-10-26 07:52:05.029] shm-map op=detach bytes=65536 contig=0 workers=4 worker=1 n=40 mean_ns=944 p50_ns=938 p95_ns=990 max_ns=1198
+[2026-10-26 07:52:05.029] shm-map verify bytes=65536 contig=0 workers=4 worker=1 errors=0
+[2026-10-26 07:52:05.084] shm-map op=attach bytes=65536 contig=0 workers=4 worker=2 n=40 mean_ns=38122 p50_ns=3438 p95_ns=121562 max_ns=966355
+[2026-10-26 07:52:05.084] shm-map op=detach bytes=65536 contig=0 workers=4 worker=2 n=40 mean_ns=3677 p50_ns=3021 p95_ns=8959 max_ns=15053
+[2026-10-26 07:52:05.084] shm-map verify bytes=65536 contig=0 workers=4 worker=2 errors=0
+[2026-10-26 07:52:05.084] shm-map op=attach bytes=65536 contig=0 workers=4 worker=3 n=40 mean_ns=556028 p50_ns=2500 p95_ns=10807032 max_ns=11187761
+[2026-10-26 07:52:05.084] shm-map op=detach bytes=65536 contig=0 workers=4 worker=3 n=40 mean_ns=161925 p50_ns=1563 p95_ns=184323 max_ns=6173906
+[2026-10-26 07:52:05.140] shm-map verify bytes=65536 contig=0 workers=4 worker=3 errors=0
+[2026-10-26 07:52:05.140] shm-map case bytes=65536 contig=0 workers=4 errors=0
+[2026-10-26 07:52:05.140] shm-map op=attach bytes=8388608 contig=0 workers=1 worker=0 n=40 mean_ns=16068 p50_ns=12396 p95_ns=27031 max_ns=121354
+[2026-10-26 07:52:05.140] shm-map op=detach bytes=8388608 contig=0 workers=1 worker=0 n=40 mean_ns=10932 p50_ns=8021 p95_ns=11875 max_ns=121458
+[2026-10-26 07:52:05.140] shm-map verify bytes=8388608 contig=0 workers=1 worker=0 errors=0
+[2026-10-26 07:52:05.140] shm-map case bytes=8388608 contig=0 workers=1 errors=0
+[2026-10-26 07:52:05.195] shm-map op=attach bytes=8388608 contig=0 workers=4 worker=0 n=40 mean_ns=48178 p50_ns=20417 p95_ns=73333 max_ns=962500
+[2026-10-26 07:52:05.195] shm-map op=detach bytes=8388608 contig=0 workers=4 worker=0 n=40 mean_ns=54756 p50_ns=23125 p95_ns=121718 max_ns=1073802
+[2026-10-26 07:52:05.195] shm-map verify bytes=8388608 contig=0 workers=4 worker=0 errors=0
+[2026-10-26 07:52:05.250] shm-map op=attach bytes=8388608 contig=0 workers=4 worker=1 n=40 mean_ns=28168 p50_ns=24636 p95_ns=63958 max_ns=67604
+[2026-10-26 07:52:05.250] shm-map op=detach bytes=8388608 contig=0 workers=4 worker=1 n=40 mean_ns=826111 p50_ns=21093 p95_ns=1089114 max_ns=29381511
+[2026-10-26 07:52:05.250] shm-map op=attach bytes=8388608 contig=0 workers=4 worker=2 n=40 mean_ns=499022 p50_ns=22396 p95_ns=1005468 max_ns=18002813
+[2026-10-26 07:52:05.250] shm-map verify bytes=8388608 contig=0 workers=4 worker=1 errors=0
+[2026-10-26 07:52:05.250] shm-map op=detach bytes=8388608 contig=0 workers=4 worker=2 n=40 mean_ns=312097 p50_ns=18958 p95_ns=189219 max_ns=11421823
+[2026-10-26 07:52:05.250] shm-map verify bytes=8388608 contig=0 workers=4 worker=2 errors=0
+[2026-10-26 07:52:05.302] shm-map op=attach bytes=8388608 contig=0 workers=4 worker=3 n=40 mean_ns=768601 p50_ns=24219 p95_ns=121510 max_ns=29579635
+[2026-10-26 07:52:05.302] shm-map op=detach bytes=8388608 contig=0 workers=4 worker=3 n=40 mean_ns=184989 p50_ns=17656 p95_ns=120885 max_ns=6369479
+[2026-10-26 07:52:05.302] shm-map verify bytes=8388608 contig=0 workers=4 worker=3 errors=0
+[2026-10-26 07:52:05.302] shm-map case bytes=8388608 contig=0 workers=4 errors=0
+[2026-10-26 07:52:05.302] shm-map op=attach bytes=33554432 contig=0 workers=1 worker=0 n=40 mean_ns=47241 p50_ns=46667 p95_ns=47917 max_ns=68177
+[2026-10-26 07:52:05.357] shm-map op=detach bytes=33554432 contig=0 workers=1 worker=0 n=40 mean_ns=25981 p50_ns=24635 p95_ns=27031 max_ns=79896
+[2026-10-26 07:52:05.357] shm-map verify bytes=33554432 contig=0 workers=1 worker=0 errors=0
+[2026-10-26 07:52:05.357] shm-map case bytes=33554432 contig=0 workers=1 errors=0
+[2026-10-26 07:52:05.410] shm-map op=attach bytes=33554432 contig=0 workers=4 worker=0 n=40 mean_ns=47406 p50_ns=46667 p95_ns=52291 max_ns=64792
+[2026-10-26 07:52:05.410] shm-map op=detach bytes=33554432 contig=0 workers=4 worker=0 n=40 mean_ns=26638 p50_ns=24740 p95_ns=25782 max_ns=103698
+[2026-10-26 07:52:05.465] shm-map verify bytes=33554432 contig=0 workers=4 worker=0 errors=0
+[2026-10-26 07:52:05.465] shm-map op=attach bytes=33554432 contig=0 workers=4 worker=1 n=40 mean_ns=110050 p50_ns=92083 p95_ns=183959 max_ns=1002188
+[2026-10-26 07:52:05.465] shm-map op=detach bytes=33554432 contig=0 workers=4 worker=1 n=40 mean_ns=97886 p50_ns=70677 p95_ns=142760 max_ns=961406
+[2026-10-26 07:52:05.465] shm-map verify bytes=33554432 contig=0 workers=4 worker=1 errors=0
+[2026-10-26 07:52:05.520] shm-map op=attach bytes=33554432 contig=0 workers=4 worker=2 n=40 mean_ns=379623 p50_ns=96458 p95_ns=124219 max_ns=11680729
+[2026-10-26 07:52:05.520] shm-map op=detach bytes=33554432 contig=0 workers=4 worker=2 n=40 mean_ns=526623 p50_ns=65573 p95_ns=6621094 max_ns=11771250
+[2026-10-26 07:52:05.520] shm-map verify bytes=33554432 contig=0 workers=4 worker=2 errors=0
+[2026-10-26 07:52:05.520] shm-map op=attach bytes=33554432 contig=0 workers=4 worker=3 n=40 mean_ns=1140278 p50_ns=96771 p95_ns=11813490 max_ns=30389792
+[2026-10-26 07:52:05.520] shm-map op=detach bytes=33554432 contig=0 workers=4 worker=3 n=40 mean_ns=524608 p50_ns=70521 p95_ns=6401718 max_ns=11533906
+[2026-10-26 07:52:05.520] shm-map verify bytes=33554432 contig=0 workers=4 worker=3 errors=0
+[2026-10-26 07:52:05.575] shm-map case bytes=33554432 contig=0 workers=4 errors=0
+[2026-10-26 07:52:05.575] shm-map op=attach bytes=65536 contig=1 workers=1 worker=0 n=40 mean_ns=1282 p50_ns=1042 p95_ns=1250 max_ns=9166
+[2026-10-26 07:52:05.575] shm-map op=detach bytes=65536 contig=1 workers=1 worker=0 n=40 mean_ns=1316 p50_ns=938 p95_ns=3386 max_ns=3854
+[2026-10-26 07:52:05.575] shm-map verify bytes=65536 contig=1 workers=1 worker=0 errors=0
+[2026-10-26 07:52:05.575] shm-map case bytes=65536 contig=1 workers=1 errors=0
+[2026-10-26 07:52:05.575] shm-map op=attach bytes=65536 contig=1 workers=4 worker=0 n=40 mean_ns=6239 p50_ns=1615 p95_ns=18802 max_ns=122240
+[2026-10-26 07:52:05.630] shm-map op=detach bytes=65536 contig=1 workers=4 worker=0 n=40 mean_ns=29476 p50_ns=1719 p95_ns=122239 max_ns=940625
+[2026-10-26 07:52:05.630] shm-map verify bytes=65536 contig=1 workers=4 worker=0 errors=0
+[2026-10-26 07:52:05.630] shm-map op=attach bytes=65536 contig=1 workers=4 worker=1 n=40 mean_ns=7182 p50_ns=1667 p95_ns=52292 max_ns=129375
+[2026-10-26 07:52:05.630] shm-map op=detach bytes=65536 contig=1 workers=4 worker=1 n=40 mean_ns=713186 p50_ns=1615 p95_ns=10986094 max_ns=17362083
+[2026-10-26 07:52:05.630] shm-map verify bytes=65536 contig=1 workers=4 worker=1 errors=0
+[2026-10-26 07:52:05.685] shm-map op=attach bytes=65536 contig=1 workers=4 worker=2 n=40 mean_ns=35062 p50_ns=3646 p95_ns=127395 max_ns=943282
+[2026-10-26 07:52:05.685] shm-map op=detach bytes=65536 contig=1 workers=4 worker=2 n=40 mean_ns=13061 p50_ns=4271 p95_ns=121979 max_ns=122396
+[2026-10-26 07:52:05.685] shm-map verify bytes=65536 contig=1 workers=4 worker=2 errors=0
+[2026-10-26 07:52:05.685] shm-map op=attach bytes=65536 contig=1 workers=4 worker=3 n=40 mean_ns=716377 p50_ns=1094 p95_ns=11185677 max_ns=11205469
+[2026-10-26 07:52:05.685] shm-map op=detach bytes=65536 contig=1 workers=4 worker=3 n=40 mean_ns=5374 p50_ns=990 p95_ns=16979 max_ns=120625
+[2026-10-26 07:52:05.685] shm-map verify bytes=65536 contig=1 workers=4 worker=3 errors=0
+[2026-10-26 07:52:05.685] shm-map case bytes=65536 contig=1 workers=4 errors=0
+[2026-10-26 07:52:05.738] shm-map op=attach bytes=8388608 contig=1 workers=1 worker=0 n=40 mean_ns=13117 p50_ns=12240 p95_ns=18854 max_ns=25104
+[2026-10-26 07:52:05.738] shm-map op=detach bytes=8388608 contig=1 workers=1 worker=0 n=40 mean_ns=11774 p50_ns=6458 p95_ns=107709 max_ns=116615
+[2026-10-26 07:52:05.738] shm-map verify bytes=8388608 contig=1 workers=1 worker=0 errors=0
+[2026-10-26 07:52:05.738] shm-map case bytes=8388608 contig=1 workers=1 errors=0
+[2026-10-26 07:52:05.790] shm-map op=attach bytes=8388608 contig=1 workers=4 worker=0 n=40 mean_ns=13871 p50_ns=13334 p95_ns=22812 max_ns=28698
+[2026-10-26 07:52:05.790] shm-map op=detach bytes=8388608 contig=1 workers=4 worker=0 n=40 mean_ns=7227 p50_ns=7187 p95_ns=7813 max_ns=10364
+[2026-10-26 07:52:05.790] shm-map verify bytes=8388608 contig=1 workers=4 worker=0 errors=0
+[2026-10-26 07:52:05.845] shm-map op=attach bytes=8388608 contig=1 workers=4 worker=1 n=40 mean_ns=44246 p50_ns=22136 p95_ns=37917 max_ns=956198
+[2026-10-26 07:52:05.845] shm-map op=detach bytes=8388608 contig=1 workers=4 worker=1 n=40 mean_ns=41027 p50_ns=13177 p95_ns=40572 max_ns=936875
+[2026-10-26 07:52:05.845] shm-map verify bytes=8388608 contig=1 workers=4 worker=1 errors=0
+[2026-10-26 07:52:05.845] shm-map op=attach bytes=8388608 contig=1 workers=4 worker=2 n=40 mean_ns=305350 p50_ns=21719 p95_ns=64323 max_ns=11375729
+[2026-10-26 07:52:05.845] shm-map op=detach bytes=8388608 contig=1 workers=4 worker=2 n=40 mean_ns=176709 p50_ns=12604 p95_ns=42761 max_ns=6339114
+[2026-10-26 07:52:05.845] shm-map verify bytes=8388608 contig=1 workers=4 worker=2 errors=0
+[2026-10-26 07:52:05.900] shm-map op=attach bytes=8388608 contig=1 workers=4 worker=3 n=40 mean_ns=478188 p50_ns=22552 p95_ns=121355 max_ns=18107500
+[2026-10-26 07:52:05.900] shm-map op=detach bytes=8388608 contig=1 workers=4 worker=3 n=40 mean_ns=1038548 p50_ns=12500 p95_ns=11654792 max_ns=22809480
+[2026-10-26 07:52:05.900] shm-map verify bytes=8388608 contig=1 workers=4 worker=3 errors=0
+[2026-10-26 07:52:05.900] shm-map case bytes=8388608 contig=1 workers=4 errors=0
+[2026-10-26 07:52:05.956] shm-map op=attach bytes=33554432 contig=1 workers=1 worker=0 n=40 mean_ns=47178 p50_ns=45938 p95_ns=51406 max_ns=67865
+[2026-10-26 07:52:05.956] shm-map op=detach bytes=33554432 contig=1 workers=1 worker=0 n=40 mean_ns=27067 p50_ns=21250 p95_ns=75469 max_ns=97135
+[2026-10-26 07:52:05.956] shm-map verify bytes=33554432 contig=1 workers=1 worker=0 errors=0
+[2026-10-26 07:52:05.956] shm-map case bytes=33554432 contig=1 workers=1 errors=0
+[2026-10-26 07:52:06.063] shm-map op=attach bytes=33554432 contig=1 workers=4 worker=1 n=40 mean_ns=81601 p50_ns=55052 p95_ns=113698 max_ns=1030625
+[2026-10-26 07:52:06.063] shm-map op=attach bytes=33554432 contig=1 workers=4 worker=0 n=40 mean_ns=59011 p50_ns=56093 p95_ns=80990 max_ns=125469
+[2026-10-26 07:52:06.118] shm-map op=detach bytes=33554432 contig=1 workers=4 worker=1 n=40 mean_ns=42820 p50_ns=41458 p95_ns=55052 max_ns=111198
+[2026-10-26 07:52:06.118] shm-map op=detach bytes=33554432 contig=1 workers=4 worker=0 n=40 mean_ns=331230 p50_ns=40104 p95_ns=76771 max_ns=11650989
+[2026-10-26 07:52:06.118] shm-map verify bytes=33554432 contig=1 workers=4 worker=0 errors=0
+[2026-10-26 07:52:06.118] shm-map verify bytes=33554432 contig=1 workers=4 worker=1 errors=0
+[2026-10-26 07:52:06.118] shm-map op=attach bytes=33554432 contig=1 workers=4 worker=2 n=40 mean_ns=52220 p50_ns=51197 p95_ns=64062 max_ns=70938
+[2026-10-26 07:52:06.118] shm-map op=detach bytes=33554432 contig=1 workers=4 worker=2 n=40 mean_ns=47437 p50_ns=38646 p95_ns=134271 max_ns=134635
+[2026-10-26 07:52:06.173] shm-map verify bytes=33554432 contig=1 workers=4 worker=2 errors=0
+[2026-10-26 07:52:06.173] shm-map op=attach bytes=33554432 contig=1 workers=4 worker=3 n=40 mean_ns=508188 p50_ns=55469 p95_ns=106145 max_ns=18099740
+[2026-10-26 07:52:06.173] shm-map op=detach bytes=33554432 contig=1 workers=4 worker=3 n=40 mean_ns=317362 p50_ns=34271 p95_ns=68854 max_ns=11341146
+[2026-10-26 07:52:06.173] shm-map verify bytes=33554432 contig=1 workers=4 worker=3 errors=0
+[2026-10-26 07:52:06.173] shm-map case bytes=33554432 contig=1 workers=4 errors=0
+[2026-10-26 07:52:06.173] shm-map DONE errors=0
+[2026-10-26 07:52:06.173] shm-map BEGIN page=16384 rounds=40
+[2026-10-26 07:52:06.228] shm-map op=attach bytes=65536 contig=0 workers=1 worker=0 n=40 mean_ns=1350 p50_ns=1093 p95_ns=1198 max_ns=12135
+[2026-10-26 07:52:06.228] shm-map op=detach bytes=65536 contig=0 workers=1 worker=0 n=40 mean_ns=942 p50_ns=938 p95_ns=990 max_ns=1041
+[2026-10-26 07:52:06.228] shm-map verify bytes=65536 contig=0 workers=1 worker=0 errors=0
+[2026-10-26 07:52:06.228] shm-map case bytes=65536 contig=0 workers=1 errors=0
+[2026-10-26 07:52:06.228] shm-map op=attach bytes=65536 contig=0 workers=4 worker=0 n=40 mean_ns=75469 p50_ns=1875 p95_ns=969948 max_ns=972187
+[2026-10-26 07:52:06.280] shm-map op=detach bytes=65536 contig=0 workers=4 worker=0 n=40 mean_ns=2933 p50_ns=2552 p95_ns=6198 max_ns=6615
+[2026-10-26 07:52:06.280] shm-map verify bytes=65536 contig=0 workers=4 worker=0 errors=0
+[2026-10-26 07:52:06.280] shm-map op=attach bytes=65536 contig=0 workers=4 worker=1 n=40 mean_ns=39235 p50_ns=4896 p95_ns=133021 max_ns=960782
+[2026-10-26 07:52:06.280] shm-map op=detach bytes=65536 contig=0 workers=4 worker=1 n=40 mean_ns=739433 p50_ns=4062 p95_ns=11213334 max_ns=17000625
+[2026-10-26 07:52:06.280] shm-map verify bytes=65536 contig=0 workers=4 worker=1 errors=0
+[2026-10-26 07:52:06.280] shm-map op=attach bytes=65536 contig=0 workers=4 worker=2 n=40 mean_ns=1169619 p50_ns=7292 p95_ns=17191667 max_ns=22877500
+[2026-10-26 07:52:06.333] shm-map op=detach bytes=65536 contig=0 workers=4 worker=2 n=40 mean_ns=319865 p50_ns=5677 p95_ns=956510 max_ns=11190886
+[2026-10-26 07:52:06.333] shm-map verify bytes=65536 contig=0 workers=4 worker=2 errors=0
+[2026-10-26 07:52:06.333] shm-map op=attach bytes=65536 contig=0 workers=4 worker=3 n=40 mean_ns=1168658 p50_ns=5573 p95_ns=11743906 max_ns=22888125
+[2026-10-26 07:52:06.333] shm-map op=detach bytes=65536 contig=0 workers=4 worker=3 n=40 mean_ns=324966 p50_ns=5365 p95_ns=6179947 max_ns=6196771
+[2026-10-26 07:52:06.333] shm-map verify bytes=65536 contig=0 workers=4 worker=3 errors=0
+[2026-10-26 07:52:06.333] shm-map case bytes=65536 contig=0 workers=4 errors=0
+[2026-10-26 07:52:06.385] shm-map op=attach bytes=8388608 contig=0 workers=1 worker=0 n=40 mean_ns=15535 p50_ns=14948 p95_ns=20729 max_ns=35104
+[2026-10-26 07:52:06.385] shm-map op=detach bytes=8388608 contig=0 workers=1 worker=0 n=40 mean_ns=9359 p50_ns=9636 p95_ns=10989 max_ns=11510
+[2026-10-26 07:52:06.385] shm-map verify bytes=8388608 contig=0 workers=1 worker=0 errors=0
+[2026-10-26 07:52:06.385] shm-map case bytes=8388608 contig=0 workers=1 errors=0
+[2026-10-26 07:52:06.440] shm-map op=attach bytes=8388608 contig=0 workers=4 worker=1 n=40 mean_ns=54929 p50_ns=23437 p95_ns=142448 max_ns=981979
+[2026-10-26 07:52:06.440] shm-map op=detach bytes=8388608 contig=0 workers=4 worker=1 n=40 mean_ns=26789 p50_ns=25572 p95_ns=54063 max_ns=58855
+[2026-10-26 07:52:06.440] shm-map verify bytes=8388608 contig=0 workers=4 worker=1 errors=0
+[2026-10-26 07:52:06.440] shm-map op=attach bytes=8388608 contig=0 workers=4 worker=0 n=40 mean_ns=761791 p50_ns=24948 p95_ns=101042 max_ns=29303073
+[2026-10-26 07:52:06.440] shm-map op=detach bytes=8388608 contig=0 workers=4 worker=0 n=40 mean_ns=78412 p50_ns=23490 p95_ns=982917 max_ns=986094
+[2026-10-26 07:52:06.495] shm-map op=attach bytes=8388608 contig=0 workers=4 worker=2 n=40 mean_ns=191432 p50_ns=28698 p95_ns=144531 max_ns=6360781
+[2026-10-26 07:52:06.495] shm-map op=detach bytes=8388608 contig=0 workers=4 worker=2 n=40 mean_ns=1204859 p50_ns=27812 p95_ns=11895521 max_ns=22774635
+[2026-10-26 07:52:06.495] shm-map verify bytes=8388608 contig=0 workers=4 worker=2 errors=0
+[2026-10-26 07:52:06.495] shm-map verify bytes=8388608 contig=0 workers=4 worker=0 errors=0
+[2026-10-26 07:52:06.495] shm-map op=attach bytes=8388608 contig=0 workers=4 worker=3 n=40 mean_ns=786985 p50_ns=25416 p95_ns=6576719 max_ns=23825260
+[2026-10-26 07:52:06.495] shm-map op=detach bytes=8388608 contig=0 workers=4 worker=3 n=40 mean_ns=1499596 p50_ns=20104 p95_ns=11883177 max_ns=29118281
+[2026-10-26 07:52:06.547] shm-map verify bytes=8388608 contig=0 workers=4 worker=3 errors=0
+[2026-10-26 07:52:06.547] shm-map case bytes=8388608 contig=0 workers=4 errors=0
+[2026-10-26 07:52:06.547] shm-map op=attach bytes=33554432 contig=0 workers=1 worker=0 n=40 mean_ns=54358 p50_ns=53750 p95_ns=55834 max_ns=73021
+[2026-10-26 07:52:06.547] shm-map op=detach bytes=33554432 contig=0 workers=1 worker=0 n=40 mean_ns=28501 p50_ns=27136 p95_ns=38333 max_ns=69114
+[2026-10-26 07:52:06.547] shm-map verify bytes=33554432 contig=0 workers=1 worker=0 errors=0
+[2026-10-26 07:52:06.547] shm-map case bytes=33554432 contig=0 workers=1 errors=0
+[2026-10-26 07:52:06.600] shm-map op=attach bytes=33554432 contig=0 workers=4 worker=1 n=40 mean_ns=119641 p50_ns=100417 p95_ns=339583 max_ns=346354
+[2026-10-26 07:52:06.600] shm-map op=detach bytes=33554432 contig=0 workers=4 worker=1 n=40 mean_ns=120404 p50_ns=74375 p95_ns=331614 max_ns=981197
+[2026-10-26 07:52:06.600] shm-map verify bytes=33554432 contig=0 workers=4 worker=1 errors=0
+[2026-10-26 07:52:06.655] shm-map op=attach bytes=33554432 contig=0 workers=4 worker=0 n=40 mean_ns=318806 p50_ns=103073 p95_ns=1166094 max_ns=6784219
+[2026-10-26 07:52:06.655] shm-map op=detach bytes=33554432 contig=0 workers=4 worker=0 n=40 mean_ns=739358 p50_ns=64375 p95_ns=955364 max_ns=23583437
+[2026-10-26 07:52:06.655] shm-map verify bytes=33554432 contig=0 workers=4 worker=0 errors=0
+[2026-10-26 07:52:06.655] shm-map op=attach bytes=33554432 contig=0 workers=4 worker=2 n=40 mean_ns=1221835 p50_ns=107240 p95_ns=18592448 max_ns=24019166
+[2026-10-26 07:52:06.655] shm-map op=detach bytes=33554432 contig=0 workers=4 worker=2 n=40 mean_ns=527774 p50_ns=65469 p95_ns=6457344 max_ns=11900937
+[2026-10-26 07:52:06.655] shm-map verify bytes=33554432 contig=0 workers=4 worker=2 errors=0
+[2026-10-26 07:52:06.710] shm-map op=attach bytes=33554432 contig=0 workers=4 worker=3 n=40 mean_ns=1298262 p50_ns=73490 p95_ns=12004427 max_ns=24049271
+[2026-10-26 07:52:06.710] shm-map op=detach bytes=33554432 contig=0 workers=4 worker=3 n=40 mean_ns=877076 p50_ns=111146 p95_ns=6535365 max_ns=12246041
+[2026-10-26 07:52:06.710] shm-map verify bytes=33554432 contig=0 workers=4 worker=3 errors=0
+[2026-10-26 07:52:06.710] shm-map case bytes=33554432 contig=0 workers=4 errors=0
+[2026-10-26 07:52:06.710] shm-map op=attach bytes=65536 contig=1 workers=1 worker=0 n=40 mean_ns=1639 p50_ns=1146 p95_ns=3750 max_ns=10990
+[2026-10-26 07:52:06.765] shm-map op=detach bytes=65536 contig=1 workers=1 worker=0 n=40 mean_ns=1180 p50_ns=1042 p95_ns=2552 max_ns=4167
+[2026-10-26 07:52:06.765] shm-map verify bytes=65536 contig=1 workers=1 worker=0 errors=0
+[2026-10-26 07:52:06.765] shm-map case bytes=65536 contig=1 workers=1 errors=0
+[2026-10-26 07:52:06.765] shm-map op=attach bytes=65536 contig=1 workers=4 worker=0 n=40 mean_ns=51959 p50_ns=3125 p95_ns=970260 max_ns=975000
+[2026-10-26 07:52:06.765] shm-map op=detach bytes=65536 contig=1 workers=4 worker=0 n=40 mean_ns=27177 p50_ns=3021 p95_ns=7500 max_ns=955313
+[2026-10-26 07:52:06.765] shm-map verify bytes=65536 contig=1 workers=4 worker=0 errors=0
+[2026-10-26 07:52:06.820] shm-map op=attach bytes=65536 contig=1 workers=4 worker=1 n=40 mean_ns=14941 p50_ns=4688 p95_ns=123177 max_ns=138073
+[2026-10-26 07:52:06.820] shm-map op=detach bytes=65536 contig=1 workers=4 worker=1 n=40 mean_ns=763614 p50_ns=4218 p95_ns=10989010 max_ns=11208907
+[2026-10-26 07:52:06.820] shm-map verify bytes=65536 contig=1 workers=4 worker=1 errors=0
+[2026-10-26 07:52:06.820] shm-map op=attach bytes=65536 contig=1 workers=4 worker=2 n=40 mean_ns=458945 p50_ns=6198 p95_ns=6179948 max_ns=11667292
+[2026-10-26 07:52:06.820] shm-map op=detach bytes=65536 contig=1 workers=4 worker=2 n=40 mean_ns=1022705 p50_ns=5833 p95_ns=11186719 max_ns=11208959
+[2026-10-26 07:52:06.820] shm-map verify bytes=65536 contig=1 workers=4 worker=2 errors=0
+[2026-10-26 07:52:06.875] shm-map op=attach bytes=65536 contig=1 workers=4 worker=3 n=40 mean_ns=1199895 p50_ns=4792 p95_ns=11669740 max_ns=29502239
+[2026-10-26 07:52:06.875] shm-map op=detach bytes=65536 contig=1 workers=4 worker=3 n=40 mean_ns=287102 p50_ns=3125 p95_ns=121094 max_ns=11186771
+[2026-10-26 07:52:06.875] shm-map verify bytes=65536 contig=1 workers=4 worker=3 errors=0
+[2026-10-26 07:52:06.875] shm-map case bytes=65536 contig=1 workers=4 errors=0
+[2026-10-26 07:52:06.875] shm-map op=attach bytes=8388608 contig=1 workers=1 worker=0 n=40 mean_ns=16595 p50_ns=14219 p95_ns=30313 max_ns=78698
+[2026-10-26 07:52:06.928] shm-map op=detach bytes=8388608 contig=1 workers=1 worker=0 n=40 mean_ns=12432 p50_ns=6979 p95_ns=109115 max_ns=113177
+[2026-10-26 07:52:06.928] shm-map verify bytes=8388608 contig=1 workers=1 worker=0 errors=0
+[2026-10-26 07:52:06.928] shm-map case bytes=8388608 contig=1 workers=1 errors=0
+[2026-10-26 07:52:06.983] shm-map op=attach bytes=8388608 contig=1 workers=4 worker=1 n=40 mean_ns=46698 p50_ns=20677 p95_ns=52708 max_ns=975260
+[2026-10-26 07:52:06.983] shm-map op=detach bytes=8388608 contig=1 workers=4 worker=1 n=40 mean_ns=48783 p50_ns=24010 p95_ns=118021 max_ns=944427
+[2026-10-26 07:52:06.983] shm-map verify bytes=8388608 contig=1 workers=4 worker=1 errors=0
+[2026-10-26 07:52:06.983] shm-map op=attach bytes=8388608 contig=1 workers=4 worker=0 n=40 mean_ns=792712 p50_ns=33698 p95_ns=203229 max_ns=30035677
+[2026-10-26 07:52:06.983] shm-map op=detach bytes=8388608 contig=1 workers=4 worker=0 n=40 mean_ns=100195 p50_ns=13750 p95_ns=1001303 max_ns=1017761
+[2026-10-26 07:52:06.983] shm-map verify bytes=8388608 contig=1 workers=4 worker=0 errors=0
+[2026-10-26 07:52:07.038] shm-map op=attach bytes=8388608 contig=1 workers=4 worker=2 n=40 mean_ns=789424 p50_ns=29687 p95_ns=11763281 max_ns=18539635
+[2026-10-26 07:52:07.038] shm-map op=detach bytes=8388608 contig=1 workers=4 worker=2 n=40 mean_ns=766825 p50_ns=24740 p95_ns=11350052 max_ns=18239636
+[2026-10-26 07:52:07.038] shm-map verify bytes=8388608 contig=1 workers=4 worker=2 errors=0
+[2026-10-26 07:52:07.038] shm-map op=attach bytes=8388608 contig=1 workers=4 worker=3 n=40 mean_ns=496010 p50_ns=29115 p95_ns=193854 max_ns=18415677
+[2026-10-26 07:52:07.038] shm-map op=detach bytes=8388608 contig=1 workers=4 worker=3 n=40 mean_ns=1818700 p50_ns=20886 p95_ns=18213802 max_ns=29847969
+[2026-10-26 07:52:07.093] shm-map verify bytes=8388608 contig=1 workers=4 worker=3 errors=0
+[2026-10-26 07:52:07.093] shm-map case bytes=8388608 contig=1 workers=4 errors=0
+[2026-10-26 07:52:07.093] shm-map op=attach bytes=33554432 contig=1 workers=1 worker=0 n=40 mean_ns=46690 p50_ns=45937 p95_ns=55677 max_ns=61458
+[2026-10-26 07:52:07.145] shm-map op=detach bytes=33554432 contig=1 workers=1 worker=0 n=40 mean_ns=21390 p50_ns=21354 p95_ns=21771 max_ns=22084
+[2026-10-26 07:52:07.145] shm-map verify bytes=33554432 contig=1 workers=1 worker=0 errors=0
+[2026-10-26 07:52:07.145] shm-map case bytes=33554432 contig=1 workers=1 errors=0
+[2026-10-26 07:52:07.247] shm-map op=attach bytes=33554432 contig=1 workers=4 worker=0 n=40 mean_ns=138586 p50_ns=74948 p95_ns=1011770 max_ns=1048854
+[2026-10-26 07:52:07.247] shm-map op=detach bytes=33554432 contig=1 workers=4 worker=0 n=40 mean_ns=115490 p50_ns=92083 p95_ns=351354 max_ns=917604
+[2026-10-26 07:52:07.247] shm-map verify bytes=33554432 contig=1 workers=4 worker=0 errors=0
+[2026-10-26 07:52:07.247] shm-map op=attach bytes=33554432 contig=1 workers=4 worker=1 n=40 mean_ns=280880 p50_ns=107448 p95_ns=330833 max_ns=6593958
+[2026-10-26 07:52:07.302] shm-map op=detach bytes=33554432 contig=1 workers=4 worker=1 n=40 mean_ns=682256 p50_ns=63333 p95_ns=11568750 max_ns=11886823
+[2026-10-26 07:52:07.302] shm-map verify bytes=33554432 contig=1 workers=4 worker=1 errors=0
+[2026-10-26 07:52:07.302] shm-map op=attach bytes=33554432 contig=1 workers=4 worker=2 n=40 mean_ns=906476 p50_ns=106927 p95_ns=11928073 max_ns=11945833
+[2026-10-26 07:52:07.302] shm-map op=detach bytes=33554432 contig=1 workers=4 worker=2 n=40 mean_ns=834110 p50_ns=58854 p95_ns=11646719 max_ns=18423282
+[2026-10-26 07:52:07.302] shm-map verify bytes=33554432 contig=1 workers=4 worker=2 errors=0
+[2026-10-26 07:52:07.357] shm-map op=attach bytes=33554432 contig=1 workers=4 worker=3 n=40 mean_ns=867096 p50_ns=67448 p95_ns=424583 max_ns=30352813
+[2026-10-26 07:52:07.357] shm-map op=detach bytes=33554432 contig=1 workers=4 worker=3 n=40 mean_ns=1605005 p50_ns=43646 p95_ns=30546875 max_ns=30621875
+[2026-10-26 07:52:07.357] shm-map verify bytes=33554432 contig=1 workers=4 worker=3 errors=0
+[2026-10-26 07:52:07.357] shm-map case bytes=33554432 contig=1 workers=4 errors=0
+[2026-10-26 07:52:07.357] shm-map DONE errors=0

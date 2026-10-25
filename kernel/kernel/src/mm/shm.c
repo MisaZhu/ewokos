@@ -566,13 +566,26 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
     ewokos_addr_t addr = it->addr;
     for (i = 0; i < it->pages; i++) {
         ewokos_addr_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
-        map_page(proc->space->vm,
+        if(map_page(proc->space->vm,
                 addr,
                 physical_addr,
-                access, attr);
-        flush_tlb_addr(addr); /* scope invalidation to just this page */
+                access, attr) != 0) {
+            /* Do not publish a partial attachment on page-table OOM. */
+            uint32_t mapped = i;
+            for(uint32_t j = 0; j < mapped; j++)
+                unmap_page(proc->space->vm, it->addr + j * PAGE_SIZE);
+            flush_tlb_range(it->addr, mapped);
+            for(uint32_t j = 0; j < SHM_MAX; j++)
+                if(proc->space->shms[j] == id) {
+                    proc->space->shms[j] = 0;
+                    break;
+                }
+            shm_unlock();
+            return NULL;
+        }
         addr += PAGE_SIZE;
     }
+    flush_tlb_range(it->addr, it->pages);
     proc->info.shm_size += it->pages * PAGE_SIZE;
     it->refs++;
     shm_unlock();
@@ -594,9 +607,11 @@ static int32_t shm_proc_unmap_it(proc_t* proc, share_mem_t* it, bool free_it) {
     ewokos_addr_t addr = it->addr;
     for (i = 0; i < it->pages; i++) {
         unmap_page(proc->space->vm, addr);
-        flush_tlb_addr(addr); /* scope invalidation to just this page */
         addr += PAGE_SIZE;
     }
+    /* Must complete on other cores before refs can drop/free_item can recycle
+     * the physical pages. The SHM lock serializes this entire transaction. */
+    flush_tlb_range(it->addr, it->pages);
     if(proc->info.shm_size > (it->pages*PAGE_SIZE))
         proc->info.shm_size -= it->pages * PAGE_SIZE;
     else
