@@ -31,5 +31,9 @@ $(G2DD): $(G2DD_OBJS) \
 		$(BUILD_DIR)/lib/libdisplayman.a
 	$(LD) -Ttext=100 $(G2DD_OBJS) -o $(G2DD) $(LDFLAGS) $(EWOK_LIB_GRAPH) $(G2DD_LFLAGS) $(EWOK_LIBC)
 
+ifeq ($(HW),q8b)
+$(G2DD): $(BUILD_DIR)/lib/libadreno.a
+endif
+
 clean:
 	rm -f $(G2DD_OBJS)
