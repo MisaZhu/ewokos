@@ -6,16 +6,19 @@ namespace Ewok {
 
 void Grid::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	drawBG(g, theme, r);
+	if(itemNum == 0 || cols == 0 || itemH == 0)
+		return;
+
 	uint32_t num = 0;
-	if(itemNum > itemStart)
+	if(itemNum > (uint32_t)itemStart)
 		num = itemNum - itemStart;
 
-	uint32_t rs = rows;
-	if((rows*itemH) < r.h)
-		rs++;
-
-	if(num > (rs * cols))	
-		num = rs * cols;
+	/* rows needed to cover the view plus the part scrolled off the top edge
+	 * (pixelOffset) so no gap appears mid smooth-scroll */
+	uint32_t needRows = (r.h + pixelOffset + itemH - 1) / itemH;
+	uint32_t need = needRows * cols;
+	if(num > need)
+		num = need;
 
 	uint32_t iw = (uint32_t)(area.w / (float)cols);
 
@@ -24,22 +27,24 @@ void Grid::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
 	grect_t ir;
 	for(uint32_t i=0; i<num; i++) {
 		if(i != 0) {
-			if((i%cols) == 0 && i != 0) {
+			if((i%cols) == 0) {
 				y += itemH;
 				x = 0;
 			}
 			else
 				x += iw;
-		}	
+		}
 
 		ir.x = r.x + x + itemMargin;
-		ir.y = r.y + y + itemMargin;
+		ir.y = r.y + y - pixelOffset + itemMargin;
 		ir.w = iw - itemMargin*2;
 		ir.h = itemH - itemMargin*2;
 
 		grect_t irc = {ir.x, ir.y, ir.w, ir.h};
 
 		grect_insect(&r, &irc);
+		if(irc.w <= 0 || irc.h <= 0)
+			continue;
 		graph_set_clip(g, irc.x, irc.y, irc.w, irc.h);
 		drawItem(g, theme, i+itemStart, ir);
 	}
@@ -57,13 +62,50 @@ Grid::~Grid(void) {
 }
 
 void Grid::updateScroller() {
-	if(scrollerV == NULL)
+	if(cols == 0 || itemH == 0)
 		return;
-	uint32_t itemNumInView = cols * rows;
-	if(itemNum <= itemNumInView && itemStart > 0)
-		setScrollerInfo(itemNumInView+itemStart, itemStart, itemNumInView, false);
-	else
-		setScrollerInfo(itemNum, itemStart, itemNumInView, false);
+	/* report the scroller in pixel units so the thumb tracks the smooth,
+	 * sub-row scroll position instead of snapping to whole rows */
+	uint32_t numRows = (itemNum + cols - 1) / cols;
+	uint32_t contentLen = numRows * itemH;
+	uint32_t pos = (uint32_t)(itemStart / (int32_t)cols) * itemH + (uint32_t)pixelOffset;
+	setScrollerInfo(contentLen, pos, area.h, false);
+}
+
+int32_t Grid::getScrollUnit() {
+	return (int32_t)itemH;
+}
+
+bool Grid::onScrollPixels(int dx, int dy) {
+	(void)dx;
+	if(itemH == 0 || cols == 0)
+		return false;
+	if(dx == 0 && dy == 0)
+		return false;
+
+	int32_t unit = (int32_t)itemH;
+	int32_t c = (int32_t)cols;
+	int32_t numRows = (int32_t)((itemNum + cols - 1) / cols);
+	int32_t contentLen = numRows * unit;
+	int32_t maxPos = contentLen - area.h;
+	if(maxPos < 0)
+		maxPos = 0;
+
+	int32_t row = itemStart / c;
+	int32_t pos = row * unit + pixelOffset + dy;
+	if(pos < 0)
+		pos = 0;
+	if(pos > maxPos)
+		pos = maxPos;
+
+	int32_t newRow = pos / unit;
+	int32_t newOff = pos % unit;
+	bool changed = (newRow != row) || (newOff != pixelOffset);
+	itemStart = newRow * c;
+	pixelOffset = newOff;
+	if(changed)
+		updateScroller();
+	return true;
 }
 
 void Grid::onResize() {
@@ -77,11 +119,14 @@ void Grid::onResize() {
 
 	if((itemStart % cols) != 0)
 		itemStart -= (itemStart %cols);
+	if(itemH > 0 && pixelOffset >= (int32_t)itemH)
+		pixelOffset = 0;
 	updateScroller();
 }
 
 bool Grid::onScroll(int step, bool horizontal) {
 	int oldStart = itemStart;
+	pixelOffset = 0;
 	itemStart -= (step*cols);
 	if(step < 0) {
 		if((itemStart + rows*cols)>= itemNum) {
@@ -108,7 +153,7 @@ void Grid::selectByMouse(xevent_t* ev) {
 	uint32_t iw = (uint32_t)(area.w / (float)cols);
 	if(ev->state == MOUSE_STATE_DOWN) {
 		int x = ipos.x / iw;
-		int y = ipos.y / itemH;
+		int y = (ipos.y + pixelOffset) / itemH;
 		int sel = itemStart + y*cols + x;
 		select(sel);
 	}
@@ -119,7 +164,7 @@ void Grid::enterByMouse(xevent_t* ev) {
 	uint32_t iw = (uint32_t)(area.w / (float)cols);
 	if(ev->state == MOUSE_STATE_CLICK) {
 		int x = ipos.x / iw;
-		int y = ipos.y / itemH;
+		int y = (ipos.y + pixelOffset) / itemH;
 		int sel = itemStart + y*cols + x;
 		enter(sel);
 	}
@@ -142,6 +187,7 @@ bool Grid::onIM(xevent_t* ev) {
 				if(itemStart < 0)
 					itemStart = 0;
 			}
+			pixelOffset = 0;
 			updateScroller();
 			select(sel);
 			return true;
@@ -158,6 +204,7 @@ bool Grid::onIM(xevent_t* ev) {
 			if(sel >= itemStart+cols*rows) {
 				itemStart += cols;
 			}
+			pixelOffset = 0;
 			updateScroller();
 			select(sel);
 			return true;
@@ -173,19 +220,34 @@ bool Grid::onIM(xevent_t* ev) {
 	return false;
 }
 
-/* scroll the selected item into view (row-aligned), same adjustment
- * onIM() does for the focused-key path, so programmatic selection
- * also scrolls */
+/* scroll the selected item's row into view with pixel accuracy: only the
+ * minimum distance is scrolled, so a partially-visible bottom row is aligned
+ * flush to the bottom edge instead of jumping a whole row. */
 void Grid::select(int sel) {
-	if(cols > 0 && rows > 0 && sel >= 0 && sel < (int32_t)itemNum) {
+	if(cols > 0 && itemH > 0 && sel >= 0 && sel < (int32_t)itemNum) {
 		int32_t c = (int32_t)cols;
-		int32_t rowStart = sel - (sel % c);
-		if(sel < itemStart)
-			itemStart = rowStart;
-		else if(sel >= itemStart + c*(int32_t)rows)
-			itemStart = rowStart - (int32_t)(rows - 1)*c;
-		if(itemStart < 0)
-			itemStart = 0;
+		int32_t unit = (int32_t)itemH;
+		int32_t viewLen = area.h;
+		int32_t pos = (itemStart / c) * unit + pixelOffset;
+		int32_t rowTop = (sel / c) * unit;
+		int32_t rowBottom = rowTop + unit;
+
+		if(rowTop < pos)
+			pos = rowTop;                     /* align to top edge */
+		else if(rowBottom > pos + viewLen)
+			pos = rowBottom - viewLen;        /* align to bottom edge */
+
+		int32_t numRows = (int32_t)((itemNum + cols - 1) / cols);
+		int32_t maxPos = numRows * unit - viewLen;
+		if(maxPos < 0)
+			maxPos = 0;
+		if(pos < 0)
+			pos = 0;
+		if(pos > maxPos)
+			pos = maxPos;
+
+		itemStart = (pos / unit) * c;
+		pixelOffset = pos % unit;
 		updateScroller();
 	}
 	ListBase::select(sel);

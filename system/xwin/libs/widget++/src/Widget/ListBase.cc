@@ -9,6 +9,8 @@ ListBase::ListBase() {
 	itemStart = 0;
 	itemMargin = 2;
 	itemSelected = 0;
+	pixelOffset = 0;
+	wheelStep = 0;
 }
 
 ListBase::~ListBase(void) {
@@ -43,12 +45,23 @@ bool ListBase::onMouse(xevent_t* ev) {
 		ret = true;
 	}
 	else if(ev->state == MOUSE_STATE_MOVE) {
-		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
-			scroll(-1, defaultScrollType == SCROLL_TYPE_H);
-			ret = true;
-		}
-		else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
-			scroll(1, defaultScrollType == SCROLL_TYPE_H);
+		if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP ||
+				ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
+			/* one wheel notch = a fixed pixel step (a fraction of an item) so
+			 * scrolling is smooth rather than jumping whole entries */
+			int32_t step = wheelStep;
+			if(step <= 0) {
+				step = getScrollUnit() / 3;
+				if(step < 8)
+					step = 8;
+			}
+			bool up = (ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP);
+			if(!up)
+				step = -step;
+			if(defaultScrollType == SCROLL_TYPE_H)
+				onScrollPixels(step, 0);
+			else
+				onScrollPixels(0, step);
 			ret = true;
 		}
 	}
@@ -60,6 +73,14 @@ bool ListBase::onMouse(xevent_t* ev) {
 	if(ret)
 		update();
 	return ret;
+}
+
+int32_t ListBase::getScrollUnit() {
+	return 0;
+}
+
+void ListBase::setWheelStep(int32_t step) {
+	wheelStep = step;
 }
 
 void ListBase::select(int sel) {

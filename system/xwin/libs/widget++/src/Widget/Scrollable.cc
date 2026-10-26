@@ -22,6 +22,13 @@ void Scrollable::scroll(int step, bool horizontal) {
 	}
 }
 
+/* default: pixel scrolling not supported, callers fall back to item steps */
+bool Scrollable::onScrollPixels(int dx, int dy) {
+	(void)dx;
+	(void)dy;
+	return false;
+}
+
 void Scrollable::onResize() {
 	updateScroller();
 }
@@ -94,6 +101,14 @@ bool Scrollable::onMouse(xevent_t* ev) {
 	if(ev->state == MOUSE_STATE_DRAG || draging) {
 		int dx = last_mouse_down.x - ipos.x;
 		int dy =  last_mouse_down.y - ipos.y;
+
+		/* smooth 1:1 pixel dragging for widgets that support it: the content
+		 * follows the pointer exactly instead of jumping whole items */
+		if(onScrollPixels(dx, dy)) {
+			last_mouse_down.x = ipos.x;
+			last_mouse_down.y = ipos.y;
+			return true;
+		}
 
 		if(abs_32(dx) > dragStep) {
 			last_mouse_down.x = ipos.x;

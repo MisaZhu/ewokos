@@ -22,6 +22,12 @@ protected:
 	virtual bool onScroll(int step, bool horizontal) = 0;
     virtual void updateScroller() = 0;
 
+    /* smooth pixel-based scrolling: dx/dy are raw mouse movement in pixels.
+     * Widgets that support 1:1 pixel scrolling (List, Grid) override this and
+     * return true to consume the delta; the default returns false so the
+     * legacy item-step dragging in onMouse() is used instead. */
+    virtual bool onScrollPixels(int dx, int dy);
+
     bool onMouse(xevent_t* ev);
 
     void setScrollerInfo(uint32_t range, uint32_t pos, uint32_t scrollW, bool horizontal);
