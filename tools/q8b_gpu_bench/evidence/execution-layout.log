@@ -1,0 +1,386 @@
+[2026-10-26 09:50:16.691] gpu-bench begin t=81760116 stress=0 pid=102
+[2026-10-26 09:50:17.559] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:17.611] gpu-exec pass=0 local=8x8 op=fill-alpha 64x64 n=128 wall_ns=12867 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4608 cp_khz=689782
+[2026-10-26 09:50:17.611] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:17.611] gpu-exec pass=0 local=8x8 op=blend 64x64 n=128 wall_ns=12718 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5277 cp_khz=689923
+[2026-10-26 09:50:17.611] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:17.666] gpu-exec pass=0 local=8x8 op=scale 64x64 n=128 wall_ns=12820 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4562 cp_khz=689982
+[2026-10-26 09:50:17.666] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:17.666] gpu-exec pass=0 local=8x8 op=rotate90 64x64 n=128 wall_ns=12726 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4494 cp_khz=689663
+[2026-10-26 09:50:17.722] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:17.722] gpu-exec pass=0 local=8x8 op=fill-alpha 801x603 n=128 wall_ns=158585 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=148129 cp_khz=689994
+[2026-10-26 09:50:17.777] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:17.829] gpu-exec pass=0 local=8x8 op=blend 801x603 n=128 wall_ns=169304 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=149306 cp_khz=689990
+[2026-10-26 09:50:17.829] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:17.884] gpu-exec pass=0 local=8x8 op=scale 801x603 n=128 wall_ns=158875 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=148008 cp_khz=690005
+[2026-10-26 09:50:17.884] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:17.939] gpu-exec pass=0 local=8x8 op=rotate90 801x603 n=128 wall_ns=159257 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=148042 cp_khz=690003
+[2026-10-26 09:50:17.994] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:18.157] gpu-exec pass=0 local=8x8 op=fill-alpha 1920x1080 n=128 wall_ns=980828 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=614631 cp_khz=690001
+[2026-10-26 09:50:18.264] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:18.424] gpu-exec pass=0 local=8x8 op=blend 1920x1080 n=128 wall_ns=980859 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=618780 cp_khz=689999
+[2026-10-26 09:50:18.479] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:18.639] gpu-exec pass=0 local=8x8 op=scale 1920x1080 n=128 wall_ns=980914 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=614930 cp_khz=690000
+[2026-10-26 09:50:18.639] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:18.801] gpu-exec pass=0 local=8x8 op=rotate90 1920x1080 n=128 wall_ns=981015 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=767617 cp_khz=690003
+[2026-10-26 09:50:19.123] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:19.501] gpu-exec pass=0 local=8x8 op=fill-alpha 3840x2160 n=128 wall_ns=2942757 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2449910 cp_khz=689999
+[2026-10-26 09:50:19.988] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:20.368] gpu-exec pass=0 local=8x8 op=blend 3840x2160 n=128 wall_ns=2942750 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2461998 cp_khz=690000
+[2026-10-26 09:50:20.528] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:20.961] gpu-exec pass=0 local=8x8 op=scale 3840x2160 n=128 wall_ns=2942914 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2448057 cp_khz=690000
+[2026-10-26 09:50:21.123] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:21.884] gpu-exec pass=0 local=8x8 op=rotate90 3840x2160 n=128 wall_ns=5885617 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5728233 cp_khz=690000
+[2026-10-26 09:50:21.936] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:21.988] gpu-exec pass=0 local=32x4 op=fill-alpha 64x64 n=128 wall_ns=12734 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4424 cp_khz=689743
+[2026-10-26 09:50:21.988] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:21.988] gpu-exec pass=0 local=32x4 op=blend 64x64 n=128 wall_ns=12734 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5214 cp_khz=690218
+[2026-10-26 09:50:21.988] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:22.041] gpu-exec pass=0 local=32x4 op=scale 64x64 n=128 wall_ns=12718 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4315 cp_khz=690012
+[2026-10-26 09:50:22.041] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:22.041] gpu-exec pass=0 local=32x4 op=rotate90 64x64 n=128 wall_ns=13078 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4657 cp_khz=689895
+[2026-10-26 09:50:22.096] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:22.096] gpu-exec pass=0 local=32x4 op=fill-alpha 801x603 n=128 wall_ns=105328 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=87762 cp_khz=690008
+[2026-10-26 09:50:22.151] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:22.203] gpu-exec pass=0 local=32x4 op=blend 801x603 n=128 wall_ns=134585 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=120920 cp_khz=690013
+[2026-10-26 09:50:22.203] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:22.255] gpu-exec pass=0 local=32x4 op=scale 801x603 n=128 wall_ns=105625 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=88847 cp_khz=689997
+[2026-10-26 09:50:22.255] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:22.311] gpu-exec pass=0 local=32x4 op=rotate90 801x603 n=128 wall_ns=133304 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=117637 cp_khz=690000
+[2026-10-26 09:50:22.363] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:22.418] gpu-exec pass=0 local=32x4 op=fill-alpha 1920x1080 n=128 wall_ns=377210 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=361686 cp_khz=689991
+[2026-10-26 09:50:22.580] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:22.688] gpu-exec pass=0 local=32x4 op=blend 1920x1080 n=128 wall_ns=980820 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=521200 cp_khz=690000
+[2026-10-26 09:50:22.743] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:22.798] gpu-exec pass=0 local=32x4 op=scale 1920x1080 n=128 wall_ns=375015 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=361258 cp_khz=689993
+[2026-10-26 09:50:22.853] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:23.010] gpu-exec pass=0 local=32x4 op=rotate90 1920x1080 n=128 wall_ns=980875 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=793154 cp_khz=689998
+[2026-10-26 09:50:23.332] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:23.597] gpu-exec pass=0 local=32x4 op=fill-alpha 3840x2160 n=128 wall_ns=1961882 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1450587 cp_khz=690001
+[2026-10-26 09:50:24.019] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:24.449] gpu-exec pass=0 local=32x4 op=blend 3840x2160 n=128 wall_ns=2941632 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2130834 cp_khz=689999
+[2026-10-26 09:50:24.609] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:24.874] gpu-exec pass=0 local=32x4 op=scale 3840x2160 n=128 wall_ns=1961117 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1457318 cp_khz=690000
+[2026-10-26 09:50:25.037] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:26.064] gpu-exec pass=0 local=32x4 op=rotate90 3840x2160 n=128 wall_ns=7843609 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=7046788 cp_khz=689999
+[2026-10-26 09:50:26.169] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:26.169] gpu-exec pass=0 local=64x2 op=fill-alpha 64x64 n=128 wall_ns=12945 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4389 cp_khz=689777
+[2026-10-26 09:50:26.169] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:26.169] gpu-exec pass=0 local=64x2 op=blend 64x64 n=128 wall_ns=12796 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5217 cp_khz=690054
+[2026-10-26 09:50:26.223] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:26.224] gpu-exec pass=0 local=64x2 op=scale 64x64 n=128 wall_ns=12734 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4325 cp_khz=689310
+[2026-10-26 09:50:26.224] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:26.278] gpu-exec pass=0 local=64x2 op=rotate90 64x64 n=128 wall_ns=12796 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4393 cp_khz=690090
+[2026-10-26 09:50:26.278] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:26.330] gpu-exec pass=0 local=64x2 op=fill-alpha 801x603 n=128 wall_ns=105421 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=88353 cp_khz=690014
+[2026-10-26 09:50:26.331] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:26.385] gpu-exec pass=0 local=64x2 op=blend 801x603 n=128 wall_ns=136695 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=121112 cp_khz=690005
+[2026-10-26 09:50:26.386] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:26.438] gpu-exec pass=0 local=64x2 op=scale 801x603 n=128 wall_ns=105632 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=89691 cp_khz=689987
+[2026-10-26 09:50:26.438] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:26.496] gpu-exec pass=0 local=64x2 op=rotate90 801x603 n=128 wall_ns=129164 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=116519 cp_khz=689981
+[2026-10-26 09:50:26.546] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:26.653] gpu-exec pass=0 local=64x2 op=fill-alpha 1920x1080 n=128 wall_ns=407281 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=365216 cp_khz=690001
+[2026-10-26 09:50:26.759] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:26.920] gpu-exec pass=0 local=64x2 op=blend 1920x1080 n=128 wall_ns=980468 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=526914 cp_khz=690005
+[2026-10-26 09:50:26.975] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:27.030] gpu-exec pass=0 local=64x2 op=scale 1920x1080 n=128 wall_ns=394351 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=365389 cp_khz=689998
+[2026-10-26 09:50:27.084] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:27.242] gpu-exec pass=0 local=64x2 op=rotate90 1920x1080 n=128 wall_ns=980484 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=823074 cp_khz=689997
+[2026-10-26 09:50:27.514] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:27.779] gpu-exec pass=0 local=64x2 op=fill-alpha 3840x2160 n=128 wall_ns=1961148 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1444653 cp_khz=689999
+[2026-10-26 09:50:28.264] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:28.636] gpu-exec pass=0 local=64x2 op=blend 3840x2160 n=128 wall_ns=2941562 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2122062 cp_khz=690000
+[2026-10-26 09:50:28.799] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:29.069] gpu-exec pass=0 local=64x2 op=scale 3840x2160 n=128 wall_ns=1961031 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1445256 cp_khz=690000
+[2026-10-26 09:50:29.230] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:30.656] gpu-exec pass=0 local=64x2 op=rotate90 3840x2160 n=128 wall_ns=10751570 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=9794297 cp_khz=689999
+[2026-10-26 09:50:30.711] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:30.766] gpu-exec pass=0 local=64x1 op=fill-alpha 64x64 n=128 wall_ns=12843 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4718 cp_khz=690709
+[2026-10-26 09:50:30.766] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:30.766] gpu-exec pass=0 local=64x1 op=blend 64x64 n=128 wall_ns=12773 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5650 cp_khz=689692
+[2026-10-26 09:50:30.766] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:30.819] gpu-exec pass=0 local=64x1 op=scale 64x64 n=128 wall_ns=12742 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4917 cp_khz=689671
+[2026-10-26 09:50:30.819] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:30.819] gpu-exec pass=0 local=64x1 op=rotate90 64x64 n=128 wall_ns=12835 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4626 cp_khz=689261
+[2026-10-26 09:50:30.874] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:30.875] gpu-exec pass=0 local=64x1 op=fill-alpha 801x603 n=128 wall_ns=169570 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=151624 cp_khz=689990
+[2026-10-26 09:50:30.928] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:30.983] gpu-exec pass=0 local=64x1 op=blend 801x603 n=128 wall_ns=169578 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=152475 cp_khz=689996
+[2026-10-26 09:50:30.984] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:31.037] gpu-exec pass=0 local=64x1 op=scale 801x603 n=128 wall_ns=168281 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=151462 cp_khz=689991
+[2026-10-26 09:50:31.037] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:31.089] gpu-exec pass=0 local=64x1 op=rotate90 801x603 n=128 wall_ns=169718 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=155054 cp_khz=689992
+[2026-10-26 09:50:31.144] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:31.303] gpu-exec pass=0 local=64x1 op=fill-alpha 1920x1080 n=128 wall_ns=980460 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=615799 cp_khz=689999
+[2026-10-26 09:50:31.408] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:31.569] gpu-exec pass=0 local=64x1 op=blend 1920x1080 n=128 wall_ns=980421 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=616366 cp_khz=690001
+[2026-10-26 09:50:31.624] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:31.785] gpu-exec pass=0 local=64x1 op=scale 1920x1080 n=128 wall_ns=980437 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=614164 cp_khz=690000
+[2026-10-26 09:50:31.837] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:31.946] gpu-exec pass=0 local=64x1 op=rotate90 1920x1080 n=128 wall_ns=980429 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=886934 cp_khz=690001
+[2026-10-26 09:50:32.266] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:32.645] gpu-exec pass=0 local=64x1 op=fill-alpha 3840x2160 n=128 wall_ns=2941234 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2451818 cp_khz=690000
+[2026-10-26 09:50:33.129] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:33.502] gpu-exec pass=0 local=64x1 op=blend 3840x2160 n=128 wall_ns=2941359 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2450187 cp_khz=690000
+[2026-10-26 09:50:33.667] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:34.095] gpu-exec pass=0 local=64x1 op=scale 3840x2160 n=128 wall_ns=2941367 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2446981 cp_khz=690000
+[2026-10-26 09:50:34.258] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:36.277] gpu-exec pass=0 local=64x1 op=rotate90 3840x2160 n=128 wall_ns=15419976 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=13761138 cp_khz=689999
+[2026-10-26 09:50:36.333] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:36.333] gpu-exec pass=0 local=16x8 op=fill-alpha 64x64 n=128 wall_ns=13179 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4417 cp_khz=690036
+[2026-10-26 09:50:36.333] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:36.384] gpu-exec pass=0 local=16x8 op=blend 64x64 n=128 wall_ns=12765 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5233 cp_khz=689787
+[2026-10-26 09:50:36.384] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:36.384] gpu-exec pass=0 local=16x8 op=scale 64x64 n=128 wall_ns=12757 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4322 cp_khz=689338
+[2026-10-26 09:50:36.384] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:36.437] gpu-exec pass=0 local=16x8 op=rotate90 64x64 n=128 wall_ns=12843 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4432 cp_khz=689858
+[2026-10-26 09:50:36.437] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:36.491] gpu-exec pass=0 local=16x8 op=fill-alpha 801x603 n=128 wall_ns=102265 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=86663 cp_khz=690003
+[2026-10-26 09:50:36.491] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:36.544] gpu-exec pass=0 local=16x8 op=blend 801x603 n=128 wall_ns=133273 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=120438 cp_khz=690004
+[2026-10-26 09:50:36.545] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:36.600] gpu-exec pass=0 local=16x8 op=scale 801x603 n=128 wall_ns=101070 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=87009 cp_khz=689989
+[2026-10-26 09:50:36.600] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:36.653] gpu-exec pass=0 local=16x8 op=rotate90 801x603 n=128 wall_ns=133976 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=117658 cp_khz=690013
+[2026-10-26 09:50:36.763] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:36.818] gpu-exec pass=0 local=16x8 op=fill-alpha 1920x1080 n=128 wall_ns=385320 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=365321 cp_khz=690001
+[2026-10-26 09:50:36.924] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:37.079] gpu-exec pass=0 local=16x8 op=blend 1920x1080 n=128 wall_ns=980468 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=523798 cp_khz=689999
+[2026-10-26 09:50:37.131] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:37.186] gpu-exec pass=0 local=16x8 op=scale 1920x1080 n=128 wall_ns=389234 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=366610 cp_khz=690001
+[2026-10-26 09:50:37.239] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:37.401] gpu-exec pass=0 local=16x8 op=rotate90 1920x1080 n=128 wall_ns=980453 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=739837 cp_khz=689999
+[2026-10-26 09:50:37.667] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:37.934] gpu-exec pass=0 local=16x8 op=fill-alpha 3840x2160 n=128 wall_ns=1960976 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1483892 cp_khz=689999
+[2026-10-26 09:50:38.416] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:38.795] gpu-exec pass=0 local=16x8 op=blend 3840x2160 n=128 wall_ns=2941578 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2161105 cp_khz=689998
+[2026-10-26 09:50:38.959] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:39.277] gpu-exec pass=0 local=16x8 op=scale 3840x2160 n=128 wall_ns=1961117 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1495402 cp_khz=690000
+[2026-10-26 09:50:39.437] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:40.179] gpu-exec pass=0 local=16x8 op=rotate90 3840x2160 n=128 wall_ns=5882820 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5491053 cp_khz=689999
+[2026-10-26 09:50:40.234] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:40.286] gpu-exec pass=0 local=64x4 op=fill-alpha 64x64 n=128 wall_ns=12820 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4420 cp_khz=689807
+[2026-10-26 09:50:40.287] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:40.287] gpu-exec pass=0 local=64x4 op=blend 64x64 n=128 wall_ns=12757 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5229 cp_khz=690085
+[2026-10-26 09:50:40.341] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:40.342] gpu-exec pass=0 local=64x4 op=scale 64x64 n=128 wall_ns=12750 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4325 cp_khz=689778
+[2026-10-26 09:50:40.342] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:40.342] gpu-exec pass=0 local=64x4 op=rotate90 64x64 n=128 wall_ns=13078 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4695 cp_khz=690326
+[2026-10-26 09:50:40.392] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:40.444] gpu-exec pass=0 local=64x4 op=fill-alpha 801x603 n=128 wall_ns=98007 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=84737 cp_khz=690012
+[2026-10-26 09:50:40.444] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:40.500] gpu-exec pass=0 local=64x4 op=blend 801x603 n=128 wall_ns=135296 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=120617 cp_khz=690003
+[2026-10-26 09:50:40.500] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:40.552] gpu-exec pass=0 local=64x4 op=scale 801x603 n=128 wall_ns=104453 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=86883 cp_khz=689988
+[2026-10-26 09:50:40.552] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:40.605] gpu-exec pass=0 local=64x4 op=rotate90 801x603 n=128 wall_ns=129070 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=116614 cp_khz=689977
+[2026-10-26 09:50:40.658] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:40.765] gpu-exec pass=0 local=64x4 op=fill-alpha 1920x1080 n=128 wall_ns=373414 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=359196 cp_khz=690000
+[2026-10-26 09:50:40.875] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:41.033] gpu-exec pass=0 local=64x4 op=blend 1920x1080 n=128 wall_ns=980437 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=522493 cp_khz=690001
+[2026-10-26 09:50:41.084] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:41.137] gpu-exec pass=0 local=64x4 op=scale 1920x1080 n=128 wall_ns=381359 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=360616 cp_khz=690001
+[2026-10-26 09:50:41.192] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:41.301] gpu-exec pass=0 local=64x4 op=rotate90 1920x1080 n=128 wall_ns=980484 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=783811 cp_khz=690001
+[2026-10-26 09:50:41.626] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:41.890] gpu-exec pass=0 local=64x4 op=fill-alpha 3840x2160 n=128 wall_ns=1961125 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1451564 cp_khz=689999
+[2026-10-26 09:50:42.380] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:42.743] gpu-exec pass=0 local=64x4 op=blend 3840x2160 n=128 wall_ns=2941546 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2126641 cp_khz=690001
+[2026-10-26 09:50:42.904] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:43.179] gpu-exec pass=0 local=64x4 op=scale 3840x2160 n=128 wall_ns=1961062 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1464709 cp_khz=690002
+[2026-10-26 09:50:43.334] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:44.406] gpu-exec pass=0 local=64x4 op=rotate90 3840x2160 n=128 wall_ns=7844078 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=7259240 cp_khz=689999
+[2026-10-26 09:50:44.457] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:44.458] gpu-exec pass=1 local=64x4 op=fill-alpha 64x64 n=128 wall_ns=12914 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4429 cp_khz=690078
+[2026-10-26 09:50:44.510] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:44.510] gpu-exec pass=1 local=64x4 op=blend 64x64 n=128 wall_ns=12742 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5227 cp_khz=689651
+[2026-10-26 09:50:44.511] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:44.512] gpu-exec pass=1 local=64x4 op=scale 64x64 n=128 wall_ns=12765 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4321 cp_khz=689947
+[2026-10-26 09:50:44.567] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:44.567] gpu-exec pass=1 local=64x4 op=rotate90 64x64 n=128 wall_ns=12828 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4423 cp_khz=689940
+[2026-10-26 09:50:44.567] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:44.619] gpu-exec pass=1 local=64x4 op=fill-alpha 801x603 n=128 wall_ns=97679 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=84746 cp_khz=689981
+[2026-10-26 09:50:44.674] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:44.674] gpu-exec pass=1 local=64x4 op=blend 801x603 n=128 wall_ns=134929 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=120579 cp_khz=689991
+[2026-10-26 09:50:44.726] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:44.726] gpu-exec pass=1 local=64x4 op=scale 801x603 n=128 wall_ns=104664 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=86869 cp_khz=689990
+[2026-10-26 09:50:44.779] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:44.779] gpu-exec pass=1 local=64x4 op=rotate90 801x603 n=128 wall_ns=129351 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=116798 cp_khz=689997
+[2026-10-26 09:50:44.888] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:44.943] gpu-exec pass=1 local=64x4 op=fill-alpha 1920x1080 n=128 wall_ns=374000 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=359207 cp_khz=689990
+[2026-10-26 09:50:45.051] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:45.209] gpu-exec pass=1 local=64x4 op=blend 1920x1080 n=128 wall_ns=980453 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=522147 cp_khz=689996
+[2026-10-26 09:50:45.262] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:45.314] gpu-exec pass=1 local=64x4 op=scale 1920x1080 n=128 wall_ns=376523 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=360421 cp_khz=689999
+[2026-10-26 09:50:45.367] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:45.531] gpu-exec pass=1 local=64x4 op=rotate90 1920x1080 n=128 wall_ns=980484 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=783549 cp_khz=689998
+[2026-10-26 09:50:45.794] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:46.119] gpu-exec pass=1 local=64x4 op=fill-alpha 3840x2160 n=128 wall_ns=1961085 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1451564 cp_khz=689999
+[2026-10-26 09:50:46.553] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:46.978] gpu-exec pass=1 local=64x4 op=blend 3840x2160 n=128 wall_ns=2941671 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2127711 cp_khz=689999
+[2026-10-26 09:50:47.138] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:47.405] gpu-exec pass=1 local=64x4 op=scale 3840x2160 n=128 wall_ns=1961132 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1466121 cp_khz=690000
+[2026-10-26 09:50:47.570] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:48.586] gpu-exec pass=1 local=64x4 op=rotate90 3840x2160 n=128 wall_ns=7844156 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=7263726 cp_khz=690000
+[2026-10-26 09:50:48.640] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:48.695] gpu-exec pass=1 local=16x8 op=fill-alpha 64x64 n=128 wall_ns=12773 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4420 cp_khz=690231
+[2026-10-26 09:50:48.695] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:48.695] gpu-exec pass=1 local=16x8 op=blend 64x64 n=128 wall_ns=12765 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5229 cp_khz=690103
+[2026-10-26 09:50:48.696] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:48.747] gpu-exec pass=1 local=16x8 op=scale 64x64 n=128 wall_ns=12851 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4317 cp_khz=690170
+[2026-10-26 09:50:48.748] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:48.748] gpu-exec pass=1 local=16x8 op=rotate90 64x64 n=128 wall_ns=12765 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4439 cp_khz=689980
+[2026-10-26 09:50:48.800] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:48.800] gpu-exec pass=1 local=16x8 op=fill-alpha 801x603 n=128 wall_ns=102250 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=86681 cp_khz=690000
+[2026-10-26 09:50:48.854] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:48.908] gpu-exec pass=1 local=16x8 op=blend 801x603 n=128 wall_ns=132617 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=120323 cp_khz=689989
+[2026-10-26 09:50:48.908] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:48.908] gpu-exec pass=1 local=16x8 op=scale 801x603 n=128 wall_ns=100796 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=87094 cp_khz=690001
+[2026-10-26 09:50:48.963] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:48.963] gpu-exec pass=1 local=16x8 op=rotate90 801x603 n=128 wall_ns=133218 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=117548 cp_khz=689994
+[2026-10-26 09:50:49.066] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:49.119] gpu-exec pass=1 local=16x8 op=fill-alpha 1920x1080 n=128 wall_ns=379726 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=365094 cp_khz=690000
+[2026-10-26 09:50:49.279] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:49.388] gpu-exec pass=1 local=16x8 op=blend 1920x1080 n=128 wall_ns=980468 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=524247 cp_khz=690004
+[2026-10-26 09:50:49.443] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:49.496] gpu-exec pass=1 local=16x8 op=scale 1920x1080 n=128 wall_ns=383101 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=366574 cp_khz=690001
+[2026-10-26 09:50:49.550] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:49.714] gpu-exec pass=1 local=16x8 op=rotate90 1920x1080 n=128 wall_ns=980468 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=739624 cp_khz=689995
+[2026-10-26 09:50:50.030] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:50.293] gpu-exec pass=1 local=16x8 op=fill-alpha 3840x2160 n=128 wall_ns=1961062 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1485120 cp_khz=690001
+[2026-10-26 09:50:50.763] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:51.130] gpu-exec pass=1 local=16x8 op=blend 3840x2160 n=128 wall_ns=2941789 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2161173 cp_khz=689999
+[2026-10-26 09:50:51.291] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:51.606] gpu-exec pass=1 local=16x8 op=scale 3840x2160 n=128 wall_ns=1961171 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1494213 cp_khz=689998
+[2026-10-26 09:50:51.766] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:52.518] gpu-exec pass=1 local=16x8 op=rotate90 3840x2160 n=128 wall_ns=5882835 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5490843 cp_khz=689999
+[2026-10-26 09:50:52.569] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:52.624] gpu-exec pass=1 local=64x1 op=fill-alpha 64x64 n=128 wall_ns=12843 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4713 cp_khz=689870
+[2026-10-26 09:50:52.624] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:52.624] gpu-exec pass=1 local=64x1 op=blend 64x64 n=128 wall_ns=12765 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5614 cp_khz=690146
+[2026-10-26 09:50:52.624] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:52.679] gpu-exec pass=1 local=64x1 op=scale 64x64 n=128 wall_ns=12750 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4900 cp_khz=690465
+[2026-10-26 09:50:52.679] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:52.679] gpu-exec pass=1 local=64x1 op=rotate90 64x64 n=128 wall_ns=12843 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4627 cp_khz=689493
+[2026-10-26 09:50:52.733] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:52.786] gpu-exec pass=1 local=64x1 op=fill-alpha 801x603 n=128 wall_ns=169632 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=151615 cp_khz=689978
+[2026-10-26 09:50:52.786] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:52.838] gpu-exec pass=1 local=64x1 op=blend 801x603 n=128 wall_ns=169750 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=152489 cp_khz=690004
+[2026-10-26 09:50:52.838] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:52.892] gpu-exec pass=1 local=64x1 op=scale 801x603 n=128 wall_ns=168367 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=151466 cp_khz=690000
+[2026-10-26 09:50:52.893] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:52.945] gpu-exec pass=1 local=64x1 op=rotate90 801x603 n=128 wall_ns=169828 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=155120 cp_khz=689990
+[2026-10-26 09:50:53.053] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:53.157] gpu-exec pass=1 local=64x1 op=fill-alpha 1920x1080 n=128 wall_ns=980460 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=615747 cp_khz=690000
+[2026-10-26 09:50:53.319] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:53.428] gpu-exec pass=1 local=64x1 op=blend 1920x1080 n=128 wall_ns=980453 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=615828 cp_khz=690002
+[2026-10-26 09:50:53.480] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:53.640] gpu-exec pass=1 local=64x1 op=scale 1920x1080 n=128 wall_ns=980476 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=614157 cp_khz=689998
+[2026-10-26 09:50:53.694] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:53.854] gpu-exec pass=1 local=64x1 op=rotate90 1920x1080 n=128 wall_ns=980531 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=886765 cp_khz=689996
+[2026-10-26 09:50:54.123] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:54.552] gpu-exec pass=1 local=64x1 op=fill-alpha 3840x2160 n=128 wall_ns=2941312 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2452221 cp_khz=689999
+[2026-10-26 09:50:54.975] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:55.392] gpu-exec pass=1 local=64x1 op=blend 3840x2160 n=128 wall_ns=2941382 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2450182 cp_khz=690000
+[2026-10-26 09:50:55.553] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:55.975] gpu-exec pass=1 local=64x1 op=scale 3840x2160 n=128 wall_ns=2941445 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2446528 cp_khz=690000
+[2026-10-26 09:50:56.136] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:58.111] gpu-exec pass=1 local=64x1 op=rotate90 3840x2160 n=128 wall_ns=15496101 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=13761722 cp_khz=689999
+[2026-10-26 09:50:58.217] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:50:58.217] gpu-exec pass=1 local=64x2 op=fill-alpha 64x64 n=128 wall_ns=13031 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4385 cp_khz=690140
+[2026-10-26 09:50:58.217] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:50:58.272] gpu-exec pass=1 local=64x2 op=blend 64x64 n=128 wall_ns=12945 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5403 cp_khz=689511
+[2026-10-26 09:50:58.272] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:50:58.272] gpu-exec pass=1 local=64x2 op=scale 64x64 n=128 wall_ns=12750 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4316 cp_khz=689958
+[2026-10-26 09:50:58.272] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:50:58.327] gpu-exec pass=1 local=64x2 op=rotate90 64x64 n=128 wall_ns=12828 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4458 cp_khz=690076
+[2026-10-26 09:50:58.328] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:50:58.383] gpu-exec pass=1 local=64x2 op=fill-alpha 801x603 n=128 wall_ns=105453 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=88552 cp_khz=690004
+[2026-10-26 09:50:58.384] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:50:58.439] gpu-exec pass=1 local=64x2 op=blend 801x603 n=128 wall_ns=135640 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=121072 cp_khz=690019
+[2026-10-26 09:50:58.439] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:50:58.494] gpu-exec pass=1 local=64x2 op=scale 801x603 n=128 wall_ns=105585 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=89603 cp_khz=689996
+[2026-10-26 09:50:58.497] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:50:58.549] gpu-exec pass=1 local=64x2 op=rotate90 801x603 n=128 wall_ns=128648 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=116451 cp_khz=690006
+[2026-10-26 09:50:58.604] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:58.713] gpu-exec pass=1 local=64x2 op=fill-alpha 1920x1080 n=128 wall_ns=384882 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=365039 cp_khz=690002
+[2026-10-26 09:50:58.818] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:58.979] gpu-exec pass=1 local=64x2 op=blend 1920x1080 n=128 wall_ns=980539 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=525958 cp_khz=689998
+[2026-10-26 09:50:58.979] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:59.084] gpu-exec pass=1 local=64x2 op=scale 1920x1080 n=128 wall_ns=390343 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=365380 cp_khz=690005
+[2026-10-26 09:50:59.139] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:50:59.245] gpu-exec pass=1 local=64x2 op=rotate90 1920x1080 n=128 wall_ns=980468 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=823531 cp_khz=690002
+[2026-10-26 09:50:59.567] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:50:59.838] gpu-exec pass=1 local=64x2 op=fill-alpha 3840x2160 n=128 wall_ns=1961039 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1445085 cp_khz=689999
+[2026-10-26 09:51:00.318] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:00.683] gpu-exec pass=1 local=64x2 op=blend 3840x2160 n=128 wall_ns=2941664 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2121605 cp_khz=690000
+[2026-10-26 09:51:00.842] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:01.158] gpu-exec pass=1 local=64x2 op=scale 3840x2160 n=128 wall_ns=1961062 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1446678 cp_khz=689999
+[2026-10-26 09:51:01.321] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:02.717] gpu-exec pass=1 local=64x2 op=rotate90 3840x2160 n=128 wall_ns=10828062 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=9795561 cp_khz=689999
+[2026-10-26 09:51:02.771] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:51:02.826] gpu-exec pass=1 local=32x4 op=fill-alpha 64x64 n=128 wall_ns=12843 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4422 cp_khz=689823
+[2026-10-26 09:51:02.826] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:51:02.826] gpu-exec pass=1 local=32x4 op=blend 64x64 n=128 wall_ns=12890 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5368 cp_khz=689661
+[2026-10-26 09:51:02.826] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:51:02.879] gpu-exec pass=1 local=32x4 op=scale 64x64 n=128 wall_ns=12765 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4317 cp_khz=690818
+[2026-10-26 09:51:02.879] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:51:02.879] gpu-exec pass=1 local=32x4 op=rotate90 64x64 n=128 wall_ns=12757 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4451 cp_khz=690548
+[2026-10-26 09:51:02.931] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:51:02.931] gpu-exec pass=1 local=32x4 op=fill-alpha 801x603 n=128 wall_ns=105703 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=87882 cp_khz=689982
+[2026-10-26 09:51:02.984] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:51:03.039] gpu-exec pass=1 local=32x4 op=blend 801x603 n=128 wall_ns=134515 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=120881 cp_khz=689993
+[2026-10-26 09:51:03.039] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:51:03.094] gpu-exec pass=1 local=32x4 op=scale 801x603 n=128 wall_ns=105875 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=88863 cp_khz=690013
+[2026-10-26 09:51:03.094] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:51:03.149] gpu-exec pass=1 local=32x4 op=rotate90 801x603 n=128 wall_ns=134101 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=117720 cp_khz=689984
+[2026-10-26 09:51:03.202] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:51:03.254] gpu-exec pass=1 local=32x4 op=fill-alpha 1920x1080 n=128 wall_ns=377203 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=361626 cp_khz=690005
+[2026-10-26 09:51:03.414] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:51:03.519] gpu-exec pass=1 local=32x4 op=blend 1920x1080 n=128 wall_ns=980414 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=520955 cp_khz=690003
+[2026-10-26 09:51:03.571] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:51:03.679] gpu-exec pass=1 local=32x4 op=scale 1920x1080 n=128 wall_ns=374585 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=361163 cp_khz=690002
+[2026-10-26 09:51:03.679] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:51:03.837] gpu-exec pass=1 local=32x4 op=rotate90 1920x1080 n=128 wall_ns=980437 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=793090 cp_khz=689998
+[2026-10-26 09:51:04.162] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:04.426] gpu-exec pass=1 local=32x4 op=fill-alpha 3840x2160 n=128 wall_ns=1961070 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1450694 cp_khz=690000
+[2026-10-26 09:51:04.900] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:05.270] gpu-exec pass=1 local=32x4 op=blend 3840x2160 n=128 wall_ns=2941593 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2131057 cp_khz=689999
+[2026-10-26 09:51:05.433] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:05.699] gpu-exec pass=1 local=32x4 op=scale 3840x2160 n=128 wall_ns=1961070 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=1456201 cp_khz=689999
+[2026-10-26 09:51:05.859] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:06.934] gpu-exec pass=1 local=32x4 op=rotate90 3840x2160 n=128 wall_ns=7843335 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=7051757 cp_khz=690000
+[2026-10-26 09:51:06.987] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 09:51:06.987] gpu-exec pass=1 local=8x8 op=fill-alpha 64x64 n=128 wall_ns=12867 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4624 cp_khz=690215
+[2026-10-26 09:51:06.987] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 09:51:07.038] gpu-exec pass=1 local=8x8 op=blend 64x64 n=128 wall_ns=12765 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5277 cp_khz=690142
+[2026-10-26 09:51:07.038] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 09:51:07.038] gpu-exec pass=1 local=8x8 op=scale 64x64 n=128 wall_ns=12750 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4564 cp_khz=690119
+[2026-10-26 09:51:07.038] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 09:51:07.093] gpu-exec pass=1 local=8x8 op=rotate90 64x64 n=128 wall_ns=12781 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=4494 cp_khz=689614
+[2026-10-26 09:51:07.093] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 09:51:07.149] gpu-exec pass=1 local=8x8 op=fill-alpha 801x603 n=128 wall_ns=158609 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=148135 cp_khz=689989
+[2026-10-26 09:51:07.203] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 09:51:07.204] gpu-exec pass=1 local=8x8 op=blend 801x603 n=128 wall_ns=169117 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=149298 cp_khz=689991
+[2026-10-26 09:51:07.256] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 09:51:07.256] gpu-exec pass=1 local=8x8 op=scale 801x603 n=128 wall_ns=159085 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=148002 cp_khz=689992
+[2026-10-26 09:51:07.309] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 09:51:07.360] gpu-exec pass=1 local=8x8 op=rotate90 801x603 n=128 wall_ns=159289 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=148119 cp_khz=690001
+[2026-10-26 09:51:07.414] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:51:07.575] gpu-exec pass=1 local=8x8 op=fill-alpha 1920x1080 n=128 wall_ns=980445 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=615058 cp_khz=690000
+[2026-10-26 09:51:07.678] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:51:07.841] gpu-exec pass=1 local=8x8 op=blend 1920x1080 n=128 wall_ns=980437 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=618761 cp_khz=690000
+[2026-10-26 09:51:07.894] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:51:08.054] gpu-exec pass=1 local=8x8 op=scale 1920x1080 n=128 wall_ns=980429 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=614403 cp_khz=689999
+[2026-10-26 09:51:08.054] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 09:51:08.218] gpu-exec pass=1 local=8x8 op=rotate90 1920x1080 n=128 wall_ns=980492 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=767786 cp_khz=689999
+[2026-10-26 09:51:08.538] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:08.911] gpu-exec pass=1 local=8x8 op=fill-alpha 3840x2160 n=128 wall_ns=2941406 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2449835 cp_khz=690000
+[2026-10-26 09:51:09.395] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:09.764] gpu-exec pass=1 local=8x8 op=blend 3840x2160 n=128 wall_ns=2941343 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2462305 cp_khz=689999
+[2026-10-26 09:51:09.920] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:10.357] gpu-exec pass=1 local=8x8 op=scale 3840x2160 n=128 wall_ns=2941265 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=2448655 cp_khz=690001
+[2026-10-26 09:51:10.518] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 09:51:11.264] gpu-exec pass=1 local=8x8 op=rotate90 3840x2160 n=128 wall_ns=5882625 submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=128 gpu_ns=5729815 cp_khz=689999
+[2026-10-26 09:51:11.265] gpu-exec COMPLETE failures=0 fence=24769 wedged=0

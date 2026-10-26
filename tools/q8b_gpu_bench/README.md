@@ -360,3 +360,97 @@ Afterward, both test apps were closed, attach-cache pins were drained and
 the cache re-enabled, submit statistics reset, and mode 1/profile 0 verified.
 The board remains on its normal desktop. Logs: `evidence/wait-input.log`
 and `evidence/wait-validation.log`; all parsed results: `evidence/wait.json`.
+
+## GPU execution efficiency (2026-10-26)
+
+The built-in blit shader now uses 64×2 invocations per workgroup; the raster
+shader uses 16×8. Both previously used 8×8. This increases workgroup occupancy
+and keeps ordinary pixel accesses on contiguous rows. Rotation needs more rows
+together: applying 64×2 to the raster shader regressed the 4K rotation from
+5.73ms to 9.79ms, so that layout was rejected for raster.
+
+The shaders also replace division by 255 with an exact bounded integer
+identity, `(v + 1 + (v >> 8)) >> 8`, for colour products in 0..65025.
+All 65,026 possible numerators were checked against integer division.
+Same-size non-endpoint blits skip coordinate division. Generator validation,
+loader validation and dispatch rounding match the new workgroup dimensions;
+the checked-in blobs were regenerated and reproduced byte-for-byte.
+
+An optional hardware timer copies CP_ALWAYS_ON_COUNTER (19.2MHz reference)
+and CP counter 0 (ALWAYS_COUNT) into dedicated scratch space around each IB.
+An ending WAIT_FOR_IDLE orders the sample after shader execution; the existing
+cache-flush fence still controls visibility, timeout and buffer lifetime.
+These measurements include IB state/cache setup and sampling overhead, but
+exclude CPU scheduling after the GPU finishes. The CP cycle/reference ratio
+measured approximately **690MHz**, matching the highest known OPP already
+requested at boot. This change keeps that frequency.
+
+Two exclusive boots each ran six layouts in forward and reverse order, with
+four sizes and four operations: 192 timed cases per boot, 128 submissions per
+case. Every case checked all output pixels and guards. The first sweep changed
+only workgroup shape; the second compared the original 8×8 source with the
+new arithmetic and alternate shapes. Both completed with zero failures,
+checking 1,042,089,504 pixels in total. The following averages use both passes
+of the second sweep and select the production layout for each operation:
+
+| GPU dispatch time, 3840×2160 | Original | Optimized | Reduction |
+| --- | ---: | ---: | ---: |
+| Alpha fill | 2.449ms | 1.472ms | 39.9% |
+| Alpha blend | 2.462ms | 2.122ms | 13.8% |
+| Nearest scale at 1:1 | 2.448ms | 1.445ms | 41.0% |
+| Rotate 90° | 5.721ms | 5.487ms | 4.1% |
+
+At 1080p the reductions were 40.9%, 14.9%, 40.6% and 3.6%, respectively.
+The scale timing uses equal source/destination sizes; actual resizing and
+clipped rectangles are covered by correctness checks, not that timing table.
+With GPU sampling disabled, the final direct-call suite passed all 37 cases
+and 87,849,383 pixels. 1080p alpha-fill/scale means were 378/385µs; 4K means
+were 1.960/1.960ms. The preceding wait-policy build measured about 980µs and
+2.941ms for those operations; that comparison uses separate boots. The
+same-boot hardware comparison above isolates execution from timer parking.
+
+Additional final checks covered 393,216 source/destination/global-alpha
+combinations, all 256 solid-fill alpha values, 18 clipped/scaled rectangles
+(including width/height 1 and odd pitches), five rotations including 37°,
+32 program reloads and 256 descriptor-reuse draws. A 60-second mixed stress
+completed 15,110 frames, fence 269,769, with zero failures or wedge.
+
+Diagnostics through the running g2dd:
+
+```
+/bin/devcmd /dev/g2d submit gpu 1
+/bin/devcmd /dev/g2d submit reset
+/bin/devcmd /dev/g2d submit
+/bin/devcmd /dev/g2d submit gpu 0
+```
+
+`gpu_n` counts valid hardware samples, `gpu_ns` is their average duration,
+and `cp_khz` is the aggregate CP cycle/reference ratio. Sampling is independent
+of CPU phase profiling and defaults off. Its ending idle and register copies
+add overhead while enabled. The daemon's diagnostic buffers now accommodate
+the complete response. A 100-request 4K fill IPC test on the final desktop
+passed full pixels and guards; 109 samples including desktop work reported
+`cp_khz=689995`. Sampling was then disabled and statistics reset.
+
+To repeat a layout sweep, build with `make -C tools/q8b_gpu_bench exec-shaders`.
+To compare against the original source, save `blit.comp` and `raster.comp`
+from machines revision `ba9ad788` in a separate directory, then run
+`python3 tools/q8b_gpu_bench/exec_shaders.py /tmp/q8b-gpu-bench /path/to/saved-sources`.
+This makes 8×8 the original baseline and the other layouts use current sources.
+Upload `bench` and all `blit-*.bin`/`raster-*.bin` files to `/gpu-bench` and run
+`/gpu-bench/bench 0 /gpu-bench exec` once on an exclusive boot. It parks after
+the sweep; reset before starting any other GPU owner.
+
+The actual SD `/drivers/q8b/g2dd` and the staged 320MB rootfs image both match
+the final build (`db450318...`); the image passes `e2fsck -fn`. The original
+SD init script was restored byte-for-byte, and PXE kernel `7148b049...` was
+unchanged. On the restored desktop, glmatrix plus fullscreen xapps completed
+60 seconds with 684 input IPCs, mean 37.388ms, maximum 172.687ms, zero ≥200ms
+samples and zero IPC errors. g2dd recorded 2,155 PGL draws. This is a bounded
+integration check, not a controlled input-latency A/B or USB-to-scanout test.
+No runtime GPU fault, timeout, panic or unexpected reboot followed desktop
+startup. Both apps were closed, test cache pins drained, cache re-enabled,
+and GPU/CPU profiling disabled with statistics reset.
+
+Evidence: `execution-{layout,optimized,render,desktop}.log` and `execution.json`
+under `evidence/`, including individual timings, validation and artifact hashes.

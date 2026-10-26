@@ -4,7 +4,7 @@
 #include <adreno/adreno_prog.h>
 #include "pglcompiler.h"
 int main(int argc,char **argv) {
-    if (argc!=3) return 1;
+    if (argc!=3 && !(argc==4 && !strcmp(argv[3],"raw"))) return 1;
     FILE *f=fopen(argv[1],"rb");
     if (!f) return 1;
     fseek(f,0,SEEK_END);long n=ftell(f);rewind(f);
@@ -21,7 +21,7 @@ int main(int argc,char **argv) {
         struct pglc_uniform_binding *u=&s->uniform_bindings[i];
         if (!strcmp(u->name,"uFrame") && u->dword_offset==0 && u->num_components==4) found=1;
     }
-    if (!found || s->uniform_blob_dwords!=4) return 1;
+    if (argc==3 && (!found || s->uniform_blob_dwords!=4)) return 1;
     unsigned bytes=pglc_program_serialize(&p,NULL,NULL,NULL,0);
     void *blob=malloc(bytes);
     if (!blob || pglc_program_serialize(&p,NULL,NULL,blob,bytes)!=bytes) return 1;

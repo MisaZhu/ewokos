@@ -1510,8 +1510,8 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 	   off by an in-flight request, which is noise against the
 	   thousands a benchmark run produces. */
 	if(strcmp(argv[0], "stat") == 0) {
-		char buf[768];
-		char bsp[320];
+		char buf[1024];
+		char bsp[512];
 		int reset = (argc > 1 && argv[1] != NULL && strcmp(argv[1], "reset") == 0);
 		size_t off = 0;
 		int n;
@@ -1542,7 +1542,7 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 
 	/* anything else is the back end's to answer or ignore */
 	{
-		char buf[256];
+		char buf[512];
 		if(bsp_g2d_cmd(argc, argv, buf, sizeof(buf)) == 0)
 			return g2d_strdup(buf);
 	}

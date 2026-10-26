@@ -4,7 +4,7 @@ ADRENO := $(ROOT)/machines/q8b/system/libs/adreno
 FE := $(ROOT)/projects/opengl/libs/gles/pglcompiler
 OUT ?= /tmp/q8b-gpu-bench
 COMPILER_OUT ?= /tmp/q8b-builtin-shaders
-.PHONY: all shaders check
+.PHONY: all shaders exec-shaders check
 all: $(OUT)/bench $(OUT)/clock $(OUT)/input-latency $(OUT)/shm-pool $(OUT)/shm-map $(OUT)/g2d-ipc shaders
 $(OUT):
 	mkdir -p $@
@@ -51,6 +51,8 @@ shaders: | $(OUT)
 	 $(COMPILER_OUT)/libbackend.a $(COMPILER_OUT)/libfrontend.a $(COMPILER_OUT)/libbackend.a \
 	 -pthread -lm -o $(OUT)/compile
 	$(OUT)/compile texture.comp $(OUT)/texture.bin
+exec-shaders: shaders
+	python3 exec_shaders.py $(OUT)
 check: | $(OUT)
 	clang -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
 	 -I$(ROOT)/kernel/kernel/include clock_anchor_test.c -o $(OUT)/clock-anchor-test

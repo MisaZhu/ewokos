@@ -1,0 +1,48 @@
+[2026-10-26 10:05:44.676] g2d-ipc BEGIN canvases=1 bytes=33177856 n=100 rate=0
+[2026-10-26 10:05:44.836] g2d-ipc RESULT canvases=1 n=100 mean_ns=979613 p50_ns=979063 p95_ns=985156 max_ns=989479 errors=0
+[2026-10-26 10:05:44.837] g2d-ipc LOAD elapsed_ns=98092448 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
+[2026-10-26 10:05:44.837] g2d-ipc DONE errors=0
+[2026-10-26 10:06:08.110] gpu-input begin seconds=60 xserver=74
+[2026-10-26 10:06:13.185] gpu-input progress n=56 max_interval=172687 us over200=0 errors=0
+[2026-10-26 10:06:18.283] gpu-input progress n=114 max_interval=54896 us over200=0 errors=0
+[2026-10-26 10:06:23.346] gpu-input progress n=173 max_interval=42186 us over200=0 errors=0
+[2026-10-26 10:06:28.407] gpu-input progress n=231 max_interval=55884 us over200=0 errors=0
+[2026-10-26 10:06:33.483] gpu-input progress n=289 max_interval=54904 us over200=0 errors=0
+[2026-10-26 10:06:38.492] gpu-input progress n=346 max_interval=57841 us over200=0 errors=0
+[2026-10-26 10:06:43.564] gpu-input progress n=403 max_interval=45134 us over200=0 errors=0
+[2026-10-26 10:06:48.586] gpu-input progress n=462 max_interval=55882 us over200=0 errors=0
+[2026-10-26 10:06:53.697] gpu-input progress n=518 max_interval=60773 us over200=0 errors=0
+[2026-10-26 10:06:58.768] gpu-input progress n=577 max_interval=42181 us over200=0 errors=0
+[2026-10-26 10:07:03.787] gpu-input progress n=635 max_interval=59815 us over200=0 errors=0
+[2026-10-26 10:07:08.199] gpu-input DONE n=684 mean=37388 max=172687 us over200=0 errors=0
+
+Hardware profile response:
+submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=0 gpu_ns=0 cp_khz=0submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=0 gpu_ns=0 cp_khz=0submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=109 gpu_ns=696580 cp_khz=689995submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=0 gpu_n=109 gpu_ns=696580 cp_khz=689995submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=0 gpu_n=0 gpu_ns=0 cp_khz=0
+
+Final daemon statistics:
+fill 107 avg 1016us
+blit 7487 avg 5146us
+blit_alpha 2512 avg 1759us
+blit_phy 1021 avg 1930us
+blur 685 avg 2983us
+pgl_clear 1 avg 1100us
+pgl_draw 2155 avg 20914us
+pgl_program 2 avg 92us
+version 1 avg 0us
+fill_alpha 1697 avg 1846us
+submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=0 gpu_n=0 gpu_ns=0 cp_khz=0
+
+
+Cleanup:
+cache off hits 22413 miss 14745 sweep 21 evict 14665 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KBcache on hits 22413 miss 14745 sweep 21 evict 14665 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KBfill 107 avg 1016us
+blit 7907 avg 4874us
+blit_alpha 2722 avg 1625us
+blit_phy 1126 avg 1909us
+blur 685 avg 2983us
+pgl_clear 1 avg 1100us
+pgl_draw 2155 avg 20914us
+pgl_program 2 avg 92us
+version 1 avg 0us
+fill_alpha 1802 avg 1741us
+submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=0 gpu_n=0 gpu_ns=0 cp_khz=0
+submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=0 gpu_n=0 gpu_ns=0 cp_khz=0
