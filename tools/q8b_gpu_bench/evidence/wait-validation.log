@@ -1,0 +1,53 @@
+Q8B final GPU wait validation, 2026-10-26
+kernel SHA256 7148b0493f3f9e1345452cc8af3ae857f05d408bb75045e4377cbf9b583bdc8e
+SD g2dd SHA256 cf003bf0c165cacc9fc709c8c1b45405350af0477f9a68347d7bb5b888f37392
+image g2dd SHA256 cf003bf0c165cacc9fc709c8c1b45405350af0477f9a68347d7bb5b888f37392
+SD/original init SHA256 ad6eef5ce673669bbf0f7201c27e9ac2f529cb0d9d0f044da58e4bc99303895b
+rootfs image SHA256 70cd25640451f564c27b7a76865e74e5a1733703c537909d38e0a6c8fe81fbff
+Final render + IPC + GUI tests used the original kernel; recovery kernel was removed before these runs.
+Actual SD g2dd, build output, formal staged driver and extracted image driver compare equal.
+One desktop boot; zero matching runtime GPU timeout/fault/kernel-panic lines.
+Both test apps normally closed after each run.
+Temporary missing-sessiond boot recovered through authorized temporary PXE kernel; original PXE kernel and SD init restored.
+
+Image e2fsck -fn:
+e2fsck 1.47.3 (8-Jul-2025)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+machines/q8b/root_aarch64.img: 637/81984 files (0.3% non-contiguous), 80305/81920 blocks
+
+gui0-stat.log:
+fill 20526 avg 1466us
+blit 6205 avg 6701us
+blit_alpha 2112 avg 2969us
+blit_phy 894 avg 2036us
+blur 531 avg 3899us
+pgl_clear 1 avg 2074us
+pgl_draw 1684 avg 21428us
+pgl_program 2 avg 51us
+version 1 avg 0us
+fill_alpha 1417 avg 2134us
+submit adaptive=0 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
+
+gui1-stat.log:
+fill 20528 avg 1466us
+blit 11832 avg 6974us
+blit_alpha 3873 avg 2819us
+blit_phy 1589 avg 2008us
+blur 1101 avg 3392us
+pgl_clear 2 avg 2002us
+pgl_draw 3509 avg 20897us
+pgl_program 4 avg 91us
+version 2 avg 0us
+fill_alpha 2650 avg 1927us
+submit adaptive=1 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
+
+cache-final.log:
+cache off hits 48367 miss 28730 sweep 27 evict 28519 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KBspawn ssh -T -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no root@192.168.8.50 /bin/devcmd /dev/g2d cache 1
+cache on hits 48367 miss 28730 sweep 27 evict 28519 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+
+submit-final.log:
+submit adaptive=1 profile=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0

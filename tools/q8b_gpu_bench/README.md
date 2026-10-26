@@ -249,15 +249,18 @@ New kernel SHA-256:
 The synchronous GPU wait previously spent up to 32 precise 10µs polls, then
 called `usleep(1000)`. With the board's timer scheduling, a warmed 4K fill
 usually returned about 1.96ms later. The new policy keeps that poll budget,
-uses **direct `SYS_USLEEP(1)` for the first park**, and retains 1ms sleeps
-for later wakes. This lets a completed job be observed at the next timer
+uses **direct `SYS_USLEEP(1)` for up to eight early parks**, then restores
+1ms sleeps for later wakes. This lets a completed job be observed at the next timer
 tick. The one-second wall deadline, authoritative completion fence, final
 RPTR sample, fault check and terminal wedge handling remain in force.
 
 Do not substitute libc `usleep(1)`: `usleep` values <=200µs use precise busy
 waiting. That was tried during development and did not improve latency;
 those attempts are excluded from the results below. The final policy has
-no history table and no extra busy-poll budget.
+no history table and no extra busy-poll budget. A first-park-only variant
+helped fills but regressed 4K copies and some mixed workloads: its following
+1ms sleep could skip their completion tick. Eight early wakes cover the
+measured blit workloads before returning to the historical long-job backoff.
 
 Same-boot A/B on an empty desktop, with the mapping cache enabled and
 flushed before each allocation, used modes `0,1,1,0,0,1`, each with one
@@ -268,13 +271,13 @@ The means below average three run means per mode:
 
 | Fill IPC round trip | Historical park | First park at next tick | Reduction |
 | --- | ---: | ---: | ---: |
-| One 4K canvas | 1.960ms | 0.981ms | 49.9% |
-| Five 4K canvases | 1.964ms | 0.984ms | 49.9% |
+| One 4K canvas | 1.966ms | 0.984ms | 50.0% |
+| Five 4K canvases | 1.965ms | 0.984ms | 49.9% |
 
 With profiling off, a separate `0,1,1,0` sequence issued 2,048 requests per
-run at 200Hz. Historical/new mean latency was 1.969/0.992ms. The daemon
-plus its direct worker threads averaged 7.621/7.611% of one CPU core,
-about 381/380µs estimated CPU time per request. These are samples of the
+run at 200Hz. Historical/new mean latency was 1.966/0.987ms. The daemon
+plus its direct worker threads averaged 7.763/7.715% of one CPU core,
+about 388/385µs estimated CPU time per request. These are samples of the
 kernel's two-second process-accounting windows, not exact cumulative CPU
 times. Unpaced new-mode runs finish before the two-second CPU sampling
 warm-up; their zero CPU samples must not be interpreted as zero CPU use.
@@ -291,7 +294,7 @@ Diagnostics through the running g2dd:
 ```
 
 `submit` reports profiled submitted jobs, errors, average queue/stage/wait/
-fault-check wall times, maximum wait, precise polls, parks, first short
+fault-check wall times, maximum wait, precise polls, parks, early short
 parks and failed precise polls. Counters include background desktop work.
 Profile collection defaults off; mode 1 defaults on. `stat` also includes
 the backend counters; `stat reset` clears them. Mode 0 selects the old
@@ -309,5 +312,51 @@ Raw IPC and submit samples: `evidence/wait-ipc.log`,
 `evidence/wait-submit.log`; parsed runs and binary hashes:
 `evidence/wait.json`. Kernel remains `7148b049...`; the staged rootfs
 image passes `e2fsck -fn` and its extracted g2dd matches the new build
-(`6e4367d0...`). These IPC measurements alone do not establish that all
-render paths have been revalidated or that all input stalls are fixed.
+(`cf003bf0...`). The final driver was also read back from the actual SD
+rootfs and matched this hash. The original PXE kernel and SD init script
+were restored before the final runs.
+
+Exclusive rendering used the same original kernel and one GPU owner, with
+one full pass per mode over 37 size/operation combinations. Both passes
+checked 175,698,766 pixels in total, plus guard words, with zero failures.
+All 74 performance cases completed; the largest increase in a per-case mean
+was 0.103%. Representative direct-call means (µs):
+
+| Operation | Historical park | Eight early wakes |
+| --- | ---: | ---: |
+| 64x64 fill / copy / blend / texture | 14 | 14 |
+| 1080p alpha fill / blend / scale / rotate / texture | 1,959 | 980 |
+| 1080p mixed | 1,959 | 1,960 |
+| 4K fill | 1,959 | 980 |
+| 4K copy | 1,959 | 1,961 |
+| 4K alpha fill / blend / scale / texture | 3,918 | 2,941 |
+| 4K rotate90 | 5,877 | 5,882 |
+| 4K mixed | 7,836 | 5,882 |
+
+The final 60-second mixed-operation stress completed 13,450 frames and
+reached fence 360,958 with zero failures and no wedge. Descriptor reuse
+also passed 32 reload cycles and 256 draws, including 128 short uniform
+uploads. `evidence/wait-render.log` contains the full results;
+`evidence/wait-first-park-render.log` preserves the rejected one-short-park
+variant's regression. A cached v4 texture blob was rejected before this
+final run; `make shaders` regenerated the matching v6 blob after correcting
+the benchmark's compiler include path to `projects/opengl`.
+
+On the same restored desktop boot, one 60-second glmatrix + fullscreen
+xapps run per mode completed with these synthetic mouse IPC results:
+
+| Input IPC | Historical park | Eight early wakes |
+| --- | ---: | ---: |
+| Samples | 528 | 571 |
+| Mean | 63.609ms | 55.091ms |
+| Maximum | 178.289ms | 159.520ms |
+| >=200ms / IPC errors | 0 / 0 | 0 / 0 |
+
+The apps were normally closed between runs; g2dd recorded PGL draw calls
+in both. This is one ordered pair of integration runs, not a characterization
+of variance or physical USB-to-scanout latency. No GPU timeout/fault, kernel
+panic or unexpected boot marker appeared during the final desktop tests.
+Afterward, both test apps were closed, attach-cache pins were drained and
+the cache re-enabled, submit statistics reset, and mode 1/profile 0 verified.
+The board remains on its normal desktop. Logs: `evidence/wait-input.log`
+and `evidence/wait-validation.log`; all parsed results: `evidence/wait.json`.

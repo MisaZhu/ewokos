@@ -1,7 +1,7 @@
 ROOT := $(abspath ../..)
 SDK := $(ROOT)/system/build_aarch64/q8b
 ADRENO := $(ROOT)/machines/q8b/system/libs/adreno
-FE := $(ROOT)/projects/soft3d/libs/gles/pglcompiler
+FE := $(ROOT)/projects/opengl/libs/gles/pglcompiler
 OUT ?= /tmp/q8b-gpu-bench
 COMPILER_OUT ?= /tmp/q8b-builtin-shaders
 .PHONY: all shaders check

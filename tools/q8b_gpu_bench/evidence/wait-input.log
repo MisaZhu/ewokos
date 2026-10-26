@@ -1,0 +1,26 @@
+[2026-10-26 08:59:08.169] gpu-input begin seconds=60 xserver=73
+[2026-10-26 08:59:13.243] gpu-input progress n=47 max_interval=178289 us over200=0 errors=0
+[2026-10-26 08:59:18.259] gpu-input progress n=92 max_interval=75494 us over200=0 errors=0
+[2026-10-26 08:59:23.355] gpu-input progress n=137 max_interval=71593 us over200=0 errors=0
+[2026-10-26 08:59:28.433] gpu-input progress n=181 max_interval=73555 us over200=0 errors=0
+[2026-10-26 08:59:33.479] gpu-input progress n=225 max_interval=73554 us over200=0 errors=0
+[2026-10-26 08:59:38.549] gpu-input progress n=270 max_interval=71586 us over200=0 errors=0
+[2026-10-26 08:59:43.575] gpu-input progress n=314 max_interval=75492 us over200=0 errors=0
+[2026-10-26 08:59:48.674] gpu-input progress n=358 max_interval=76484 us over200=0 errors=0
+[2026-10-26 08:59:53.740] gpu-input progress n=403 max_interval=73536 us over200=0 errors=0
+[2026-10-26 08:59:58.756] gpu-input progress n=447 max_interval=75512 us over200=0 errors=0
+[2026-10-26 09:00:03.785] gpu-input progress n=490 max_interval=74499 us over200=0 errors=0
+[2026-10-26 09:00:08.214] gpu-input DONE n=528 mean=63609 max=178289 us over200=0 errors=0
+[2026-10-26 09:01:10.799] gpu-input begin seconds=60 xserver=73
+[2026-10-26 09:01:15.866] gpu-input progress n=50 max_interval=159520 us over200=0 errors=0
+[2026-10-26 09:01:20.889] gpu-input progress n=98 max_interval=64812 us over200=0 errors=0
+[2026-10-26 09:01:25.917] gpu-input progress n=146 max_interval=63776 us over200=0 errors=0
+[2026-10-26 09:01:31.033] gpu-input progress n=195 max_interval=69649 us over200=0 errors=0
+[2026-10-26 09:01:36.098] gpu-input progress n=243 max_interval=67691 us over200=0 errors=0
+[2026-10-26 09:01:41.121] gpu-input progress n=290 max_interval=65735 us over200=0 errors=0
+[2026-10-26 09:01:46.155] gpu-input progress n=337 max_interval=65729 us over200=0 errors=0
+[2026-10-26 09:01:51.214] gpu-input progress n=385 max_interval=67575 us over200=0 errors=0
+[2026-10-26 09:01:56.273] gpu-input progress n=434 max_interval=65738 us over200=0 errors=0
+[2026-10-26 09:02:01.290] gpu-input progress n=482 max_interval=64768 us over200=0 errors=0
+[2026-10-26 09:02:06.394] gpu-input progress n=530 max_interval=64755 us over200=0 errors=0
+[2026-10-26 09:02:10.894] gpu-input DONE n=571 mean=55091 max=159520 us over200=0 errors=0

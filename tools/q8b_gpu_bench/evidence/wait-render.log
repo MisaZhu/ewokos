@@ -1,0 +1,180 @@
+[2026-10-26 08:54:06.139] gpu-bench begin t=51283972 stress=60 pid=72
+[2026-10-26 08:54:07.044] gpu-bench descriptor-reuse cycles=32 draws=256 short-uniforms=128 bad=0
+[2026-10-26 08:54:07.044] gpu-bench dma-cycle n=512 mean=3 us
+[2026-10-26 08:54:07.044] gpu-bench mode adaptive=0
+[2026-10-26 08:54:07.044] gpu-bench pixels op=fill 64x64 checked=4096 bad=0
+[2026-10-26 08:54:07.104] gpu-bench perf op=fill 64x64 n=4096 mean=14 min=12 p50=13 p95=14 max=24 us fence=4354
+[2026-10-26 08:54:07.104] gpu-bench pixels op=copy 64x64 checked=4096 bad=0
+[2026-10-26 08:54:07.161] gpu-bench perf op=copy 64x64 n=4096 mean=14 min=12 p50=13 p95=14 max=24 us fence=8451
+[2026-10-26 08:54:07.161] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 08:54:07.281] gpu-bench perf op=fill-alpha 64x64 n=4096 mean=14 min=13 p50=13 p95=14 max=25 us fence=12548
+[2026-10-26 08:54:07.281] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 08:54:07.334] gpu-bench perf op=blend 64x64 n=4096 mean=14 min=12 p50=13 p95=14 max=24 us fence=16645
+[2026-10-26 08:54:07.334] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 08:54:07.445] gpu-bench perf op=scale 64x64 n=4096 mean=14 min=12 p50=13 p95=14 max=26 us fence=20742
+[2026-10-26 08:54:07.445] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 08:54:07.505] gpu-bench perf op=rotate90 64x64 n=4096 mean=14 min=13 p50=13 p95=14 max=25 us fence=24839
+[2026-10-26 08:54:07.505] gpu-bench pixels op=texture 64x64 checked=4096 bad=0
+[2026-10-26 08:54:07.615] gpu-bench perf op=texture 64x64 n=4096 mean=14 min=13 p50=13 p95=14 max=24 us fence=28936
+[2026-10-26 08:54:07.615] gpu-bench pixels op=mixed 64x64 checked=4096 bad=0
+[2026-10-26 08:54:07.790] gpu-bench perf op=mixed 64x64 n=4096 mean=39 min=37 p50=38 p95=39 max=52 us fence=41227
+[2026-10-26 08:54:07.790] gpu-bench pixels op=fill 640x480 checked=307200 bad=0
+[2026-10-26 08:54:07.960] gpu-bench perf op=fill 640x480 n=4096 mean=37 min=35 p50=36 p95=37 max=49 us fence=45324
+[2026-10-26 08:54:07.960] gpu-bench pixels op=copy 640x480 checked=307200 bad=0
+[2026-10-26 08:54:08.242] gpu-bench perf op=copy 640x480 n=4096 mean=63 min=60 p50=62 p95=63 max=77 us fence=49421
+[2026-10-26 08:54:08.292] gpu-bench pixels op=fill-alpha 640x480 checked=307200 bad=0
+[2026-10-26 08:54:08.744] gpu-bench perf op=fill-alpha 640x480 n=4096 mean=107 min=102 p50=103 p95=114 max=125 us fence=53518
+[2026-10-26 08:54:08.804] gpu-bench pixels op=blend 640x480 checked=307200 bad=0
+[2026-10-26 08:54:09.258] gpu-bench perf op=blend 640x480 n=4096 mean=115 min=105 p50=114 p95=115 max=128 us fence=57615
+[2026-10-26 08:54:09.258] gpu-bench pixels op=scale 640x480 checked=307200 bad=0
+[2026-10-26 08:54:09.779] gpu-bench perf op=scale 640x480 n=4096 mean=109 min=102 p50=113 p95=114 max=125 us fence=61712
+[2026-10-26 08:54:09.779] gpu-bench pixels op=rotate90 640x480 checked=307200 bad=0
+[2026-10-26 08:54:10.293] gpu-bench perf op=rotate90 640x480 n=4096 mean=115 min=110 p50=114 p95=115 max=129 us fence=65809
+[2026-10-26 08:54:10.293] gpu-bench pixels op=texture 640x480 checked=307200 bad=0
+[2026-10-26 08:54:10.744] gpu-bench perf op=texture 640x480 n=4096 mean=103 min=101 p50=102 p95=103 max=125 us fence=69906
+[2026-10-26 08:54:10.744] gpu-bench pixels op=mixed 640x480 checked=307200 bad=0
+[2026-10-26 08:54:11.539] gpu-bench perf op=mixed 640x480 n=3527 mean=212 min=200 p50=211 p95=213 max=237 us fence=80490
+[2026-10-26 08:54:11.539] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 08:54:12.232] gpu-bench perf op=fill-alpha 801x603 n=4096 mean=160 min=157 p50=159 p95=160 max=180 us fence=84587
+[2026-10-26 08:54:12.292] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 08:54:12.979] gpu-bench perf op=blend 801x603 n=4096 mean=165 min=158 p50=160 p95=170 max=183 us fence=88684
+[2026-10-26 08:54:12.979] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 08:54:13.671] gpu-bench perf op=scale 801x603 n=4096 mean=159 min=156 p50=158 p95=159 max=180 us fence=92781
+[2026-10-26 08:54:13.671] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 08:54:14.346] gpu-bench perf op=rotate90 801x603 n=4096 mean=161 min=156 p50=160 p95=161 max=174 us fence=96878
+[2026-10-26 08:54:14.406] gpu-bench pixels op=texture 801x603 checked=483003 bad=0
+[2026-10-26 08:54:15.093] gpu-bench perf op=texture 801x603 n=4096 mean=159 min=156 p50=158 p95=160 max=175 us fence=100975
+[2026-10-26 08:54:15.094] gpu-bench pixels op=fill 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:15.899] gpu-bench perf op=fill 1920x1080 n=4016 mean=186 min=172 p50=185 p95=195 max=197 us fence=104992
+[2026-10-26 08:54:15.899] gpu-bench pixels op=copy 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:16.694] gpu-bench perf op=copy 1920x1080 n=2014 mean=372 min=352 p50=372 p95=375 max=383 us fence=107007
+[2026-10-26 08:54:16.814] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:17.552] gpu-bench perf op=fill-alpha 1920x1080 n=383 mean=1959 min=1951 p50=1957 p95=1961 max=1970 us fence=107391
+[2026-10-26 08:54:17.664] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:18.416] gpu-bench perf op=blend 1920x1080 n=383 mean=1959 min=1949 p50=1957 p95=1961 max=1970 us fence=107775
+[2026-10-26 08:54:18.466] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:19.230] gpu-bench perf op=scale 1920x1080 n=383 mean=1959 min=1951 p50=1957 p95=1960 max=1968 us fence=108159
+[2026-10-26 08:54:19.290] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:20.025] gpu-bench perf op=rotate90 1920x1080 n=383 mean=1959 min=1950 p50=1957 p95=1960 max=1972 us fence=108543
+[2026-10-26 08:54:20.085] gpu-bench pixels op=texture 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:20.827] gpu-bench perf op=texture 1920x1080 n=383 mean=1959 min=1950 p50=1957 p95=1960 max=1972 us fence=108927
+[2026-10-26 08:54:20.939] gpu-bench pixels op=mixed 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:21.724] gpu-bench perf op=mixed 1920x1080 n=383 mean=1959 min=1952 p50=1957 p95=1961 max=1967 us fence=110079
+[2026-10-26 08:54:21.835] gpu-bench pixels op=fill 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:22.648] gpu-bench perf op=fill 3840x2160 n=383 mean=1959 min=1951 p50=1957 p95=1960 max=1967 us fence=110463
+[2026-10-26 08:54:22.758] gpu-bench pixels op=copy 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:23.505] gpu-bench perf op=copy 3840x2160 n=383 mean=1959 min=1949 p50=1958 p95=1961 max=1970 us fence=110847
+[2026-10-26 08:54:23.866] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:24.670] gpu-bench perf op=fill-alpha 3840x2160 n=192 mean=3918 min=3907 p50=3917 p95=3920 max=3928 us fence=111040
+[2026-10-26 08:54:25.133] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:25.886] gpu-bench perf op=blend 3840x2160 n=192 mean=3918 min=3912 p50=3917 p95=3921 max=3932 us fence=111233
+[2026-10-26 08:54:26.059] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:26.806] gpu-bench perf op=scale 3840x2160 n=192 mean=3918 min=3908 p50=3916 p95=3921 max=3929 us fence=111426
+[2026-10-26 08:54:26.986] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:27.747] gpu-bench perf op=rotate90 3840x2160 n=128 mean=5877 min=5870 p50=5876 p95=5880 max=5885 us fence=111555
+[2026-10-26 08:54:27.867] gpu-bench pixels op=texture 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:28.604] gpu-bench perf op=texture 3840x2160 n=192 mean=3918 min=3908 p50=3917 p95=3920 max=3932 us fence=111748
+[2026-10-26 08:54:29.121] gpu-bench pixels op=mixed 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:29.866] gpu-bench perf op=mixed 3840x2160 n=96 mean=7836 min=7831 p50=7835 p95=7840 max=7841 us fence=112039
+[2026-10-26 08:54:29.866] gpu-bench mode adaptive=1
+[2026-10-26 08:54:29.866] gpu-bench pixels op=fill 64x64 checked=4096 bad=0
+[2026-10-26 08:54:29.917] gpu-bench perf op=fill 64x64 n=4096 mean=14 min=12 p50=13 p95=14 max=17 us fence=116136
+[2026-10-26 08:54:29.977] gpu-bench pixels op=copy 64x64 checked=4096 bad=0
+[2026-10-26 08:54:30.038] gpu-bench perf op=copy 64x64 n=4096 mean=14 min=12 p50=13 p95=14 max=24 us fence=120233
+[2026-10-26 08:54:30.038] gpu-bench pixels op=fill-alpha 64x64 checked=4096 bad=0
+[2026-10-26 08:54:30.098] gpu-bench perf op=fill-alpha 64x64 n=4096 mean=14 min=13 p50=13 p95=14 max=25 us fence=124330
+[2026-10-26 08:54:30.098] gpu-bench pixels op=blend 64x64 checked=4096 bad=0
+[2026-10-26 08:54:30.209] gpu-bench perf op=blend 64x64 n=4096 mean=14 min=12 p50=13 p95=14 max=29 us fence=128427
+[2026-10-26 08:54:30.210] gpu-bench pixels op=scale 64x64 checked=4096 bad=0
+[2026-10-26 08:54:30.260] gpu-bench perf op=scale 64x64 n=4096 mean=14 min=12 p50=13 p95=14 max=24 us fence=132524
+[2026-10-26 08:54:30.260] gpu-bench pixels op=rotate90 64x64 checked=4096 bad=0
+[2026-10-26 08:54:30.380] gpu-bench perf op=rotate90 64x64 n=4096 mean=14 min=13 p50=13 p95=14 max=24 us fence=136621
+[2026-10-26 08:54:30.380] gpu-bench pixels op=texture 64x64 checked=4096 bad=0
+[2026-10-26 08:54:30.440] gpu-bench perf op=texture 64x64 n=4096 mean=14 min=13 p50=13 p95=14 max=24 us fence=140718
+[2026-10-26 08:54:30.440] gpu-bench pixels op=mixed 64x64 checked=4096 bad=0
+[2026-10-26 08:54:30.602] gpu-bench perf op=mixed 64x64 n=4096 mean=39 min=37 p50=38 p95=39 max=51 us fence=153009
+[2026-10-26 08:54:30.602] gpu-bench pixels op=fill 640x480 checked=307200 bad=0
+[2026-10-26 08:54:30.817] gpu-bench perf op=fill 640x480 n=4096 mean=37 min=35 p50=37 p95=37 max=48 us fence=157106
+[2026-10-26 08:54:30.817] gpu-bench pixels op=copy 640x480 checked=307200 bad=0
+[2026-10-26 08:54:31.090] gpu-bench perf op=copy 640x480 n=4096 mean=63 min=60 p50=62 p95=63 max=75 us fence=161203
+[2026-10-26 08:54:31.142] gpu-bench pixels op=fill-alpha 640x480 checked=307200 bad=0
+[2026-10-26 08:54:31.596] gpu-bench perf op=fill-alpha 640x480 n=4096 mean=107 min=102 p50=103 p95=114 max=125 us fence=165300
+[2026-10-26 08:54:31.596] gpu-bench pixels op=blend 640x480 checked=307200 bad=0
+[2026-10-26 08:54:32.108] gpu-bench perf op=blend 640x480 n=4096 mean=115 min=105 p50=114 p95=115 max=127 us fence=169397
+[2026-10-26 08:54:32.108] gpu-bench pixels op=scale 640x480 checked=307200 bad=0
+[2026-10-26 08:54:32.621] gpu-bench perf op=scale 640x480 n=4096 mean=108 min=101 p50=103 p95=114 max=125 us fence=173494
+[2026-10-26 08:54:32.621] gpu-bench pixels op=rotate90 640x480 checked=307200 bad=0
+[2026-10-26 08:54:33.082] gpu-bench perf op=rotate90 640x480 n=4096 mean=115 min=107 p50=114 p95=115 max=127 us fence=177591
+[2026-10-26 08:54:33.142] gpu-bench pixels op=texture 640x480 checked=307200 bad=0
+[2026-10-26 08:54:33.547] gpu-bench perf op=texture 640x480 n=4096 mean=103 min=101 p50=102 p95=103 max=126 us fence=181688
+[2026-10-26 08:54:33.598] gpu-bench pixels op=mixed 640x480 checked=307200 bad=0
+[2026-10-26 08:54:34.351] gpu-bench perf op=mixed 640x480 n=3526 mean=212 min=201 p50=211 p95=213 max=225 us fence=192269
+[2026-10-26 08:54:34.402] gpu-bench pixels op=fill-alpha 801x603 checked=483003 bad=0
+[2026-10-26 08:54:35.084] gpu-bench perf op=fill-alpha 801x603 n=4096 mean=160 min=156 p50=159 p95=160 max=173 us fence=196366
+[2026-10-26 08:54:35.084] gpu-bench pixels op=blend 801x603 checked=483003 bad=0
+[2026-10-26 08:54:35.830] gpu-bench perf op=blend 801x603 n=4096 mean=165 min=158 p50=160 p95=170 max=182 us fence=200463
+[2026-10-26 08:54:35.830] gpu-bench pixels op=scale 801x603 checked=483003 bad=0
+[2026-10-26 08:54:36.513] gpu-bench perf op=scale 801x603 n=4096 mean=159 min=156 p50=158 p95=159 max=174 us fence=204560
+[2026-10-26 08:54:36.513] gpu-bench pixels op=rotate90 801x603 checked=483003 bad=0
+[2026-10-26 08:54:37.196] gpu-bench perf op=rotate90 801x603 n=4096 mean=161 min=158 p50=160 p95=161 max=174 us fence=208657
+[2026-10-26 08:54:37.257] gpu-bench pixels op=texture 801x603 checked=483003 bad=0
+[2026-10-26 08:54:37.909] gpu-bench perf op=texture 801x603 n=4096 mean=159 min=155 p50=159 p95=160 max=173 us fence=212754
+[2026-10-26 08:54:37.960] gpu-bench pixels op=fill 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:38.709] gpu-bench perf op=fill 1920x1080 n=4016 mean=186 min=171 p50=185 p95=195 max=197 us fence=216771
+[2026-10-26 08:54:38.770] gpu-bench pixels op=copy 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:39.539] gpu-bench perf op=copy 1920x1080 n=2013 mean=372 min=349 p50=372 p95=375 max=384 us fence=218785
+[2026-10-26 08:54:39.599] gpu-bench pixels op=fill-alpha 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:40.405] gpu-bench perf op=fill-alpha 1920x1080 n=765 mean=980 min=970 p50=979 p95=981 max=992 us fence=219551
+[2026-10-26 08:54:40.522] gpu-bench pixels op=blend 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:41.266] gpu-bench perf op=blend 1920x1080 n=765 mean=980 min=969 p50=979 p95=981 max=994 us fence=220317
+[2026-10-26 08:54:41.326] gpu-bench pixels op=scale 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:42.059] gpu-bench perf op=scale 1920x1080 n=765 mean=980 min=970 p50=979 p95=981 max=992 us fence=221083
+[2026-10-26 08:54:42.119] gpu-bench pixels op=rotate90 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:42.871] gpu-bench perf op=rotate90 1920x1080 n=766 mean=980 min=972 p50=979 p95=981 max=994 us fence=221850
+[2026-10-26 08:54:42.921] gpu-bench pixels op=texture 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:43.662] gpu-bench perf op=texture 1920x1080 n=765 mean=980 min=972 p50=979 p95=981 max=990 us fence=222616
+[2026-10-26 08:54:43.778] gpu-bench pixels op=mixed 1920x1080 checked=2073600 bad=0
+[2026-10-26 08:54:44.583] gpu-bench perf op=mixed 1920x1080 n=383 mean=1960 min=1953 p50=1959 p95=1962 max=1969 us fence=223768
+[2026-10-26 08:54:44.699] gpu-bench pixels op=fill 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:45.439] gpu-bench perf op=fill 3840x2160 n=765 mean=980 min=970 p50=979 p95=981 max=992 us fence=224534
+[2026-10-26 08:54:45.601] gpu-bench pixels op=copy 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:46.344] gpu-bench perf op=copy 3840x2160 n=383 mean=1961 min=1952 p50=1959 p95=1963 max=1971 us fence=224918
+[2026-10-26 08:54:46.741] gpu-bench pixels op=fill-alpha 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:47.477] gpu-bench perf op=fill-alpha 3840x2160 n=255 mean=2941 min=2937 p50=2940 p95=2943 max=2947 us fence=225174
+[2026-10-26 08:54:47.939] gpu-bench pixels op=blend 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:48.728] gpu-bench perf op=blend 3840x2160 n=255 mean=2941 min=2934 p50=2940 p95=2943 max=2950 us fence=225430
+[2026-10-26 08:54:48.839] gpu-bench pixels op=scale 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:49.622] gpu-bench perf op=scale 3840x2160 n=255 mean=2941 min=2932 p50=2940 p95=2942 max=2949 us fence=225686
+[2026-10-26 08:54:49.788] gpu-bench pixels op=rotate90 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:50.564] gpu-bench perf op=rotate90 3840x2160 n=128 mean=5882 min=5878 p50=5881 p95=5884 max=5886 us fence=225815
+[2026-10-26 08:54:50.680] gpu-bench pixels op=texture 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:51.468] gpu-bench perf op=texture 3840x2160 n=255 mean=2941 min=2934 p50=2940 p95=2943 max=2947 us fence=226071
+[2026-10-26 08:54:51.917] gpu-bench pixels op=mixed 3840x2160 checked=8294400 bad=0
+[2026-10-26 08:54:52.706] gpu-bench perf op=mixed 3840x2160 n=128 mean=5882 min=5872 p50=5881 p95=5889 max=5893 us fence=226458
+[2026-10-26 08:54:54.917] gpu-bench stress seconds=2 frames=500 fence=231458
+[2026-10-26 08:54:57.128] gpu-bench stress seconds=4 frames=1000 fence=236458
+[2026-10-26 08:54:59.335] gpu-bench stress seconds=6 frames=1500 fence=241458
+[2026-10-26 08:55:01.597] gpu-bench stress seconds=8 frames=2000 fence=246458
+[2026-10-26 08:55:03.830] gpu-bench stress seconds=11 frames=2500 fence=251458
+[2026-10-26 08:55:06.066] gpu-bench stress seconds=13 frames=3000 fence=256458
+[2026-10-26 08:55:08.303] gpu-bench stress seconds=15 frames=3500 fence=261458
+[2026-10-26 08:55:10.493] gpu-bench stress seconds=17 frames=4000 fence=266458
+[2026-10-26 08:55:12.733] gpu-bench stress seconds=20 frames=4500 fence=271458
+[2026-10-26 08:55:14.977] gpu-bench stress seconds=22 frames=5000 fence=276458
+[2026-10-26 08:55:17.192] gpu-bench stress seconds=24 frames=5500 fence=281458
+[2026-10-26 08:55:19.441] gpu-bench stress seconds=26 frames=6000 fence=286458
+[2026-10-26 08:55:21.647] gpu-bench stress seconds=28 frames=6500 fence=291458
+[2026-10-26 08:55:23.903] gpu-bench stress seconds=31 frames=7000 fence=296458
+[2026-10-26 08:55:26.128] gpu-bench stress seconds=33 frames=7500 fence=301458
+[2026-10-26 08:55:28.343] gpu-bench stress seconds=35 frames=8000 fence=306458
+[2026-10-26 08:55:30.597] gpu-bench stress seconds=37 frames=8500 fence=311458
+[2026-10-26 08:55:32.804] gpu-bench stress seconds=40 frames=9000 fence=316458
+[2026-10-26 08:55:35.046] gpu-bench stress seconds=42 frames=9500 fence=321458
+[2026-10-26 08:55:37.264] gpu-bench stress seconds=44 frames=10000 fence=326458
+[2026-10-26 08:55:39.519] gpu-bench stress seconds=46 frames=10500 fence=331458
+[2026-10-26 08:55:41.780] gpu-bench stress seconds=49 frames=11000 fence=336458
+[2026-10-26 08:55:43.990] gpu-bench stress seconds=51 frames=11500 fence=341458
+[2026-10-26 08:55:46.207] gpu-bench stress seconds=53 frames=12000 fence=346458
+[2026-10-26 08:55:48.432] gpu-bench stress seconds=55 frames=12500 fence=351458
+[2026-10-26 08:55:50.671] gpu-bench stress seconds=57 frames=13000 fence=356458
+[2026-10-26 08:55:52.709] gpu-bench DONE failures=0 stress_frames=13450 fence=360958 wedged=0 t=157818825

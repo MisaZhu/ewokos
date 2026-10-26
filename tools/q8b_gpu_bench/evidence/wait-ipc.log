@@ -1,64 +1,64 @@
-[2026-10-26 08:31:58.067] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:00.126] g2d-ipc RESULT canvases=1 n=1024 mean_ns=1958925 p50_ns=1958125 p95_ns=1964427 max_ns=2938802 errors=0
-[2026-10-26 08:32:00.126] g2d-ipc LOAD elapsed_ns=2007182031 cpu_samples=1 cpu_ppm=192349 est_cpu_us_per_req=377
-[2026-10-26 08:32:00.126] g2d-ipc DONE errors=0
-[2026-10-26 08:32:01.156] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:03.434] g2d-ipc RESULT canvases=5 n=1024 mean_ns=1956664 p50_ns=1957500 p95_ns=1965573 max_ns=2274114 errors=0
-[2026-10-26 08:32:03.435] g2d-ipc LOAD elapsed_ns=2004939948 cpu_samples=1 cpu_ppm=238712 est_cpu_us_per_req=467
-[2026-10-26 08:32:03.435] g2d-ipc DONE errors=0
-[2026-10-26 08:32:04.457] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:05.539] g2d-ipc RESULT canvases=1 n=1024 mean_ns=981298 p50_ns=979583 p95_ns=989479 max_ns=1964063 errors=0
-[2026-10-26 08:32:05.539] g2d-ipc LOAD elapsed_ns=1006068229 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
-[2026-10-26 08:32:05.539] g2d-ipc DONE errors=0
-[2026-10-26 08:32:06.558] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:07.798] g2d-ipc RESULT canvases=5 n=1024 mean_ns=980901 p50_ns=979322 p95_ns=986250 max_ns=1960104 errors=0
-[2026-10-26 08:32:07.798] g2d-ipc LOAD elapsed_ns=1005662239 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
-[2026-10-26 08:32:07.798] g2d-ipc DONE errors=0
-[2026-10-26 08:32:08.828] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:09.852] g2d-ipc RESULT canvases=1 n=1024 mean_ns=981090 p50_ns=979583 p95_ns=986302 max_ns=1960364 errors=0
-[2026-10-26 08:32:09.852] g2d-ipc LOAD elapsed_ns=1005862708 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
-[2026-10-26 08:32:09.908] g2d-ipc DONE errors=0
-[2026-10-26 08:32:10.887] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:12.122] g2d-ipc RESULT canvases=5 n=1024 mean_ns=985892 p50_ns=979479 p95_ns=987865 max_ns=3918907 errors=0
-[2026-10-26 08:32:12.183] g2d-ipc LOAD elapsed_ns=1010881250 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
-[2026-10-26 08:32:12.183] g2d-ipc DONE errors=0
-[2026-10-26 08:32:13.199] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:15.256] g2d-ipc RESULT canvases=1 n=1024 mean_ns=1961406 p50_ns=1958490 p95_ns=1965781 max_ns=2940365 errors=0
-[2026-10-26 08:32:15.256] g2d-ipc LOAD elapsed_ns=2009712343 cpu_samples=1 cpu_ppm=192605 est_cpu_us_per_req=378
-[2026-10-26 08:32:15.256] g2d-ipc DONE errors=0
-[2026-10-26 08:32:16.279] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:18.561] g2d-ipc RESULT canvases=5 n=1024 mean_ns=1969008 p50_ns=1958333 p95_ns=2085521 max_ns=4041302 errors=0
-[2026-10-26 08:32:18.562] g2d-ipc LOAD elapsed_ns=2017612240 cpu_samples=1 cpu_ppm=232079 est_cpu_us_per_req=457
-[2026-10-26 08:32:18.562] g2d-ipc DONE errors=0
-[2026-10-26 08:32:19.602] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:21.670] g2d-ipc RESULT canvases=1 n=1024 mean_ns=1958256 p50_ns=1958125 p95_ns=1965052 max_ns=2113698 errors=0
-[2026-10-26 08:32:21.670] g2d-ipc LOAD elapsed_ns=2006493490 cpu_samples=1 cpu_ppm=192663 est_cpu_us_per_req=377
-[2026-10-26 08:32:21.670] g2d-ipc DONE errors=0
-[2026-10-26 08:32:22.705] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:24.930] g2d-ipc RESULT canvases=5 n=1024 mean_ns=1964961 p50_ns=1958854 p95_ns=2084740 max_ns=3922969 errors=0
-[2026-10-26 08:32:24.930] g2d-ipc LOAD elapsed_ns=2013482344 cpu_samples=1 cpu_ppm=238024 est_cpu_us_per_req=468
-[2026-10-26 08:32:24.930] g2d-ipc DONE errors=0
-[2026-10-26 08:32:26.076] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:27.151] g2d-ipc RESULT canvases=1 n=1024 mean_ns=981191 p50_ns=979739 p95_ns=987187 max_ns=1963020 errors=0
-[2026-10-26 08:32:27.151] g2d-ipc LOAD elapsed_ns=1005963229 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
-[2026-10-26 08:32:27.151] g2d-ipc DONE errors=0
-[2026-10-26 08:32:28.186] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
-[2026-10-26 08:32:29.443] g2d-ipc RESULT canvases=5 n=1024 mean_ns=986373 p50_ns=978073 p95_ns=986615 max_ns=2937136 errors=0
-[2026-10-26 08:32:29.443] g2d-ipc LOAD elapsed_ns=1011351563 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
-[2026-10-26 08:32:29.443] g2d-ipc DONE errors=0
-[2026-10-26 08:32:30.486] g2d-ipc BEGIN canvases=1 bytes=33177856 n=2048 rate=200
-[2026-10-26 08:32:40.734] g2d-ipc RESULT canvases=1 n=2048 mean_ns=1968351 p50_ns=1964375 p95_ns=1971355 max_ns=3921407 errors=0
-[2026-10-26 08:32:40.734] g2d-ipc LOAD elapsed_ns=10237173646 cpu_samples=17 cpu_ppm=76265 est_cpu_us_per_req=381
-[2026-10-26 08:32:40.734] g2d-ipc DONE errors=0
-[2026-10-26 08:32:41.788] g2d-ipc BEGIN canvases=1 bytes=33177856 n=2048 rate=200
-[2026-10-26 08:32:52.094] g2d-ipc RESULT canvases=1 n=2048 mean_ns=993893 p50_ns=984479 p95_ns=991198 max_ns=2945937 errors=0
-[2026-10-26 08:32:52.095] g2d-ipc LOAD elapsed_ns=10236498333 cpu_samples=17 cpu_ppm=76375 est_cpu_us_per_req=381
-[2026-10-26 08:32:52.095] g2d-ipc DONE errors=0
-[2026-10-26 08:32:53.112] g2d-ipc BEGIN canvases=1 bytes=33177856 n=2048 rate=200
-[2026-10-26 08:33:03.386] g2d-ipc RESULT canvases=1 n=2048 mean_ns=989884 p50_ns=984739 p95_ns=989895 max_ns=2944532 errors=0
-[2026-10-26 08:33:03.386] g2d-ipc LOAD elapsed_ns=10236150625 cpu_samples=17 cpu_ppm=75839 est_cpu_us_per_req=379
-[2026-10-26 08:33:03.386] g2d-ipc DONE errors=0
-[2026-10-26 08:33:04.399] g2d-ipc BEGIN canvases=1 bytes=33177856 n=2048 rate=200
-[2026-10-26 08:33:14.708] g2d-ipc RESULT canvases=1 n=2048 mean_ns=1969351 p50_ns=1963854 p95_ns=1970156 max_ns=4904323 errors=0
-[2026-10-26 08:33:14.709] g2d-ipc LOAD elapsed_ns=10237634532 cpu_samples=17 cpu_ppm=76145 est_cpu_us_per_req=380
-[2026-10-26 08:33:14.709] g2d-ipc DONE errors=0
+[2026-10-26 08:57:33.683] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:35.754] g2d-ipc RESULT canvases=1 n=1024 mean_ns=1965881 p50_ns=1958750 p95_ns=1964584 max_ns=3916771 errors=0
+[2026-10-26 08:57:35.754] g2d-ipc LOAD elapsed_ns=2014302396 cpu_samples=1 cpu_ppm=192600 est_cpu_us_per_req=378
+[2026-10-26 08:57:35.754] g2d-ipc DONE errors=0
+[2026-10-26 08:57:36.768] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:39.018] g2d-ipc RESULT canvases=5 n=1024 mean_ns=1961038 p50_ns=1958646 p95_ns=1969375 max_ns=2949479 errors=0
+[2026-10-26 08:57:39.018] g2d-ipc LOAD elapsed_ns=2009343907 cpu_samples=1 cpu_ppm=243154 est_cpu_us_per_req=477
+[2026-10-26 08:57:39.018] g2d-ipc DONE errors=0
+[2026-10-26 08:57:40.032] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:41.093] g2d-ipc RESULT canvases=1 n=1024 mean_ns=983835 p50_ns=979479 p95_ns=985990 max_ns=2940260 errors=0
+[2026-10-26 08:57:41.094] g2d-ipc LOAD elapsed_ns=1008669896 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
+[2026-10-26 08:57:41.094] g2d-ipc DONE errors=0
+[2026-10-26 08:57:42.125] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:43.380] g2d-ipc RESULT canvases=5 n=1024 mean_ns=983778 p50_ns=979323 p95_ns=986927 max_ns=2939062 errors=0
+[2026-10-26 08:57:43.380] g2d-ipc LOAD elapsed_ns=1008657500 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
+[2026-10-26 08:57:43.380] g2d-ipc DONE errors=0
+[2026-10-26 08:57:44.397] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:45.437] g2d-ipc RESULT canvases=1 n=1024 mean_ns=983946 p50_ns=979583 p95_ns=987292 max_ns=2939063 errors=0
+[2026-10-26 08:57:45.437] g2d-ipc LOAD elapsed_ns=1008781823 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
+[2026-10-26 08:57:45.437] g2d-ipc DONE errors=0
+[2026-10-26 08:57:46.518] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:47.707] g2d-ipc RESULT canvases=5 n=1024 mean_ns=983867 p50_ns=979375 p95_ns=986875 max_ns=2938438 errors=0
+[2026-10-26 08:57:47.707] g2d-ipc LOAD elapsed_ns=1008759792 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
+[2026-10-26 08:57:47.707] g2d-ipc DONE errors=0
+[2026-10-26 08:57:48.728] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:50.816] g2d-ipc RESULT canvases=1 n=1024 mean_ns=1966220 p50_ns=1958698 p95_ns=1966094 max_ns=3919063 errors=0
+[2026-10-26 08:57:50.816] g2d-ipc LOAD elapsed_ns=2014653229 cpu_samples=1 cpu_ppm=193101 est_cpu_us_per_req=379
+[2026-10-26 08:57:50.816] g2d-ipc DONE errors=0
+[2026-10-26 08:57:51.835] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:54.077] g2d-ipc RESULT canvases=5 n=1024 mean_ns=1966051 p50_ns=1958698 p95_ns=1964844 max_ns=3919896 errors=0
+[2026-10-26 08:57:54.078] g2d-ipc LOAD elapsed_ns=2014518646 cpu_samples=1 cpu_ppm=231062 est_cpu_us_per_req=454
+[2026-10-26 08:57:54.078] g2d-ipc DONE errors=0
+[2026-10-26 08:57:55.100] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:57:57.198] g2d-ipc RESULT canvases=1 n=1024 mean_ns=1967036 p50_ns=1958542 p95_ns=1966927 max_ns=3923334 errors=0
+[2026-10-26 08:57:57.199] g2d-ipc LOAD elapsed_ns=2015485625 cpu_samples=1 cpu_ppm=191759 est_cpu_us_per_req=377
+[2026-10-26 08:57:57.199] g2d-ipc DONE errors=0
+[2026-10-26 08:57:58.222] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:58:00.454] g2d-ipc RESULT canvases=5 n=1024 mean_ns=1969241 p50_ns=1958645 p95_ns=2085781 max_ns=3921094 errors=0
+[2026-10-26 08:58:00.512] g2d-ipc LOAD elapsed_ns=2017856511 cpu_samples=1 cpu_ppm=233150 est_cpu_us_per_req=459
+[2026-10-26 08:58:00.512] g2d-ipc DONE errors=0
+[2026-10-26 08:58:01.532] g2d-ipc BEGIN canvases=1 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:58:02.599] g2d-ipc RESULT canvases=1 n=1024 mean_ns=983965 p50_ns=979480 p95_ns=985313 max_ns=2938282 errors=0
+[2026-10-26 08:58:02.599] g2d-ipc LOAD elapsed_ns=1008802500 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
+[2026-10-26 08:58:02.599] g2d-ipc DONE errors=0
+[2026-10-26 08:58:03.644] g2d-ipc BEGIN canvases=5 bytes=33177856 n=1024 rate=0
+[2026-10-26 08:58:04.845] g2d-ipc RESULT canvases=5 n=1024 mean_ns=985752 p50_ns=979427 p95_ns=986771 max_ns=2939010 errors=0
+[2026-10-26 08:58:04.845] g2d-ipc LOAD elapsed_ns=1010678698 cpu_samples=0 cpu_ppm=0 est_cpu_us_per_req=0
+[2026-10-26 08:58:04.846] g2d-ipc DONE errors=0
+[2026-10-26 08:58:05.865] g2d-ipc BEGIN canvases=1 bytes=33177856 n=2048 rate=200
+[2026-10-26 08:58:16.142] g2d-ipc RESULT canvases=1 n=2048 mean_ns=1965689 p50_ns=1964844 p95_ns=1971458 max_ns=2953438 errors=0
+[2026-10-26 08:58:16.142] g2d-ipc LOAD elapsed_ns=10237151510 cpu_samples=17 cpu_ppm=77259 est_cpu_us_per_req=386
+[2026-10-26 08:58:16.142] g2d-ipc DONE errors=0
+[2026-10-26 08:58:17.226] g2d-ipc BEGIN canvases=1 bytes=33177856 n=2048 rate=200
+[2026-10-26 08:58:27.468] g2d-ipc RESULT canvases=1 n=2048 mean_ns=986552 p50_ns=985678 p95_ns=991563 max_ns=1058437 errors=0
+[2026-10-26 08:58:27.469] g2d-ipc LOAD elapsed_ns=10236780937 cpu_samples=17 cpu_ppm=77000 est_cpu_us_per_req=384
+[2026-10-26 08:58:27.523] g2d-ipc DONE errors=0
+[2026-10-26 08:58:28.531] g2d-ipc BEGIN canvases=1 bytes=33177856 n=2048 rate=200
+[2026-10-26 08:58:38.837] g2d-ipc RESULT canvases=1 n=2048 mean_ns=988181 p50_ns=987240 p95_ns=994114 max_ns=1960834 errors=0
+[2026-10-26 08:58:38.837] g2d-ipc LOAD elapsed_ns=10236011980 cpu_samples=17 cpu_ppm=77290 est_cpu_us_per_req=386
+[2026-10-26 08:58:38.837] g2d-ipc DONE errors=0
+[2026-10-26 08:58:39.849] g2d-ipc BEGIN canvases=1 bytes=33177856 n=2048 rate=200
+[2026-10-26 08:58:50.124] g2d-ipc RESULT canvases=1 n=2048 mean_ns=1966928 p50_ns=1964115 p95_ns=1970572 max_ns=4902656 errors=0
+[2026-10-26 08:58:50.124] g2d-ipc LOAD elapsed_ns=10237917552 cpu_samples=17 cpu_ppm=77996 est_cpu_us_per_req=389
+[2026-10-26 08:58:50.124] g2d-ipc DONE errors=0

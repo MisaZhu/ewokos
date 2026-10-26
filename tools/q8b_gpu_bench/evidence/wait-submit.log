@@ -1,76 +1,76 @@
 submit adaptive=1 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
 submit adaptive=0 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-cache off hits 254 miss 11 sweep 0 evict 0 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 254 miss 11 sweep 0 evict 0 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache off hits 947 miss 11 sweep 0 evict 0 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 947 miss 11 sweep 0 evict 0 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=0 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1041 err=0 avg_us lock=1581 stage=0 wait=1921 check=1 max_wait=3535 spins=32904 parks=1028 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1057 err=0 avg_us lock=1557 stage=0 wait=1895 check=1 max_wait=3535 spins=33008 parks=1030 short=0 spin_fail=0
-cache off hits 1324 miss 22 sweep 3 evict 0 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 1324 miss 22 sweep 3 evict 0 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=0 profile=1 n=1065 err=0 avg_us lock=60 stage=0 wait=1881 check=1 max_wait=2211 spins=33058 parks=1029 short=0 spin_fail=0
+submit adaptive=0 profile=1 n=1081 err=0 avg_us lock=59 stage=0 wait=1856 check=1 max_wait=2211 spins=33162 parks=1031 short=0 spin_fail=0
+cache off hits 2062 miss 19 sweep 0 evict 0 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 2062 miss 19 sweep 0 evict 0 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=0 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1045 err=0 avg_us lock=1581 stage=0 wait=1828 check=1 max_wait=2169 spins=33032 parks=1031 short=0 spin_fail=0
-submit adaptive=1 profile=1 n=1061 err=0 avg_us lock=1557 stage=0 wait=1804 check=1 max_wait=2169 spins=33136 parks=1033 short=0 spin_fail=0
-cache off hits 1370 miss 1061 sweep 3 evict 1031 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 1370 miss 1061 sweep 3 evict 1031 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=0 profile=1 n=1045 err=0 avg_us lock=1569 stage=0 wait=1846 check=1 max_wait=3397 spins=33032 parks=1032 short=0 spin_fail=0
+submit adaptive=1 profile=1 n=1061 err=0 avg_us lock=1545 stage=0 wait=1821 check=1 max_wait=3397 spins=33136 parks=1034 short=0 spin_fail=0
+cache off hits 2106 miss 1060 sweep 0 evict 1033 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 2106 miss 1060 sweep 0 evict 1033 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=1 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=1 profile=1 n=1041 err=0 avg_us lock=649 stage=0 wait=956 check=1 max_wait=2603 spins=32904 parks=1029 short=1027 spin_fail=0
-submit adaptive=1 profile=1 n=1057 err=0 avg_us lock=639 stage=0 wait=947 check=1 max_wait=2603 spins=33008 parks=1033 short=1029 spin_fail=0
-cache off hits 2440 miss 1072 sweep 6 evict 1031 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 2440 miss 1072 sweep 6 evict 1031 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=1 profile=1 n=1041 err=0 avg_us lock=18 stage=0 wait=955 check=1 max_wait=1953 spins=32904 parks=1029 short=1029 spin_fail=0
+submit adaptive=1 profile=1 n=1057 err=0 avg_us lock=18 stage=0 wait=944 check=1 max_wait=1953 spins=33008 parks=1033 short=1033 spin_fail=0
+cache off hits 3179 miss 1068 sweep 0 evict 1033 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 3179 miss 1068 sweep 0 evict 1033 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=1 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=1 profile=1 n=1045 err=0 avg_us lock=571 stage=0 wait=884 check=1 max_wait=2602 spins=33032 parks=1033 short=1031 spin_fail=0
-submit adaptive=1 profile=1 n=1061 err=0 avg_us lock=562 stage=0 wait=876 check=1 max_wait=2617 spins=33136 parks=1037 short=1033 spin_fail=0
-cache off hits 2488 miss 2109 sweep 6 evict 2060 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 2488 miss 2109 sweep 6 evict 2060 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=1 profile=1 n=1045 err=0 avg_us lock=14 stage=0 wait=883 check=1 max_wait=1951 spins=33032 parks=1033 short=1033 spin_fail=0
+submit adaptive=1 profile=1 n=1061 err=0 avg_us lock=14 stage=0 wait=874 check=1 max_wait=2286 spins=33136 parks=1037 short=1037 spin_fail=0
+cache off hits 3225 miss 2107 sweep 0 evict 2064 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 3225 miss 2107 sweep 0 evict 2064 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=1 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=1 profile=1 n=1041 err=0 avg_us lock=634 stage=0 wait=957 check=1 max_wait=2606 spins=32904 parks=1029 short=1027 spin_fail=0
-submit adaptive=1 profile=1 n=1057 err=0 avg_us lock=624 stage=0 wait=948 check=1 max_wait=2612 spins=33008 parks=1033 short=1029 spin_fail=0
-cache off hits 3558 miss 2120 sweep 9 evict 2060 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 3558 miss 2120 sweep 9 evict 2060 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=1 profile=1 n=1042 err=0 avg_us lock=16 stage=0 wait=954 check=1 max_wait=1952 spins=32905 parks=1029 short=1029 spin_fail=0
+submit adaptive=1 profile=1 n=1065 err=0 avg_us lock=16 stage=0 wait=939 check=1 max_wait=2398 spins=33059 parks=1036 short=1036 spin_fail=0
+cache off hits 4312 miss 2115 sweep 0 evict 2064 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 4312 miss 2115 sweep 0 evict 2064 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=1 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=1 profile=1 n=1045 err=0 avg_us lock=16 stage=1 wait=873 check=1 max_wait=2931 spins=33032 parks=1033 short=1031 spin_fail=0
-submit adaptive=0 profile=1 n=1061 err=0 avg_us lock=16 stage=1 wait=866 check=1 max_wait=3176 spins=33136 parks=1037 short=1033 spin_fail=0
-cache off hits 3604 miss 3159 sweep 13 evict 3088 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 3604 miss 3159 sweep 13 evict 3088 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=1 profile=1 n=1045 err=0 avg_us lock=14 stage=0 wait=883 check=1 max_wait=1952 spins=33032 parks=1033 short=1033 spin_fail=0
+submit adaptive=0 profile=1 n=1061 err=0 avg_us lock=14 stage=0 wait=874 check=1 max_wait=2459 spins=33136 parks=1038 short=1038 spin_fail=0
+cache off hits 4351 miss 3161 sweep 4 evict 3099 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 4351 miss 3161 sweep 4 evict 3099 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=0 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1041 err=0 avg_us lock=1728 stage=0 wait=1922 check=1 max_wait=3529 spins=32904 parks=1028 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1057 err=0 avg_us lock=1702 stage=0 wait=1896 check=1 max_wait=3529 spins=33008 parks=1030 short=0 spin_fail=0
-cache off hits 4674 miss 3170 sweep 16 evict 3088 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 4674 miss 3170 sweep 16 evict 3088 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=0 profile=1 n=1057 err=0 avg_us lock=56 stage=0 wait=1893 check=1 max_wait=2085 spins=33008 parks=1029 short=0 spin_fail=0
+submit adaptive=0 profile=1 n=1073 err=0 avg_us lock=55 stage=0 wait=1868 check=1 max_wait=2085 spins=33112 parks=1031 short=0 spin_fail=0
+cache off hits 5452 miss 3169 sweep 4 evict 3099 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 5452 miss 3169 sweep 4 evict 3099 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=0 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1061 err=0 avg_us lock=61 stage=0 wait=1815 check=1 max_wait=2074 spins=33136 parks=1033 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1077 err=0 avg_us lock=61 stage=0 wait=1793 check=1 max_wait=3466 spins=33240 parks=1036 short=0 spin_fail=0
-cache off hits 4716 miss 4241 sweep 20 evict 4148 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 4716 miss 4241 sweep 20 evict 4148 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=0 profile=1 n=1061 err=0 avg_us lock=51 stage=0 wait=1823 check=1 max_wait=1971 spins=33136 parks=1033 short=0 spin_fail=0
+submit adaptive=0 profile=1 n=1077 err=0 avg_us lock=50 stage=0 wait=1801 check=1 max_wait=3355 spins=33240 parks=1036 short=0 spin_fail=0
+cache off hits 5493 miss 4241 sweep 4 evict 4163 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 5493 miss 4241 sweep 4 evict 4163 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=0 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1041 err=0 avg_us lock=1726 stage=0 wait=1919 check=1 max_wait=3523 spins=32904 parks=1028 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1057 err=0 avg_us lock=1700 stage=0 wait=1894 check=1 max_wait=3523 spins=33008 parks=1030 short=0 spin_fail=0
-cache off hits 5786 miss 4252 sweep 23 evict 4148 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 5786 miss 4252 sweep 23 evict 4148 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=0 profile=1 n=1065 err=0 avg_us lock=59 stage=0 wait=1881 check=1 max_wait=1978 spins=33060 parks=1030 short=0 spin_fail=0
+submit adaptive=0 profile=1 n=1081 err=0 avg_us lock=58 stage=0 wait=1857 check=1 max_wait=1978 spins=33164 parks=1032 short=0 spin_fail=0
+cache off hits 6608 miss 4249 sweep 4 evict 4163 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 6608 miss 4249 sweep 4 evict 4163 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=0 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=0 profile=1 n=1061 err=0 avg_us lock=150 stage=0 wait=1809 check=1 max_wait=3212 spins=33099 parks=1027 short=0 spin_fail=0
-submit adaptive=1 profile=1 n=1077 err=0 avg_us lock=148 stage=0 wait=1787 check=1 max_wait=3415 spins=33203 parks=1030 short=0 spin_fail=0
-cache off hits 5829 miss 5322 sweep 27 evict 5207 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 5829 miss 5322 sweep 27 evict 5207 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=0 profile=1 n=1061 err=0 avg_us lock=71 stage=0 wait=1814 check=1 max_wait=2087 spins=33136 parks=1033 short=0 spin_fail=0
+submit adaptive=1 profile=1 n=1077 err=0 avg_us lock=70 stage=0 wait=1792 check=1 max_wait=3457 spins=33240 parks=1036 short=0 spin_fail=0
+cache off hits 6649 miss 5321 sweep 8 evict 5224 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 6649 miss 5321 sweep 8 evict 5224 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=1 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=1 profile=1 n=1041 err=0 avg_us lock=777 stage=0 wait=956 check=1 max_wait=2612 spins=32904 parks=1029 short=1027 spin_fail=0
-submit adaptive=1 profile=1 n=1057 err=0 avg_us lock=766 stage=0 wait=947 check=1 max_wait=2617 spins=33008 parks=1033 short=1029 spin_fail=0
-cache off hits 6899 miss 5333 sweep 30 evict 5207 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 6899 miss 5333 sweep 30 evict 5207 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=1 profile=1 n=1041 err=0 avg_us lock=16 stage=0 wait=955 check=1 max_wait=1950 spins=32904 parks=1029 short=1029 spin_fail=0
+submit adaptive=1 profile=1 n=1057 err=0 avg_us lock=16 stage=0 wait=944 check=1 max_wait=1950 spins=33008 parks=1033 short=1033 spin_fail=0
+cache off hits 7722 miss 5329 sweep 8 evict 5224 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 7722 miss 5329 sweep 8 evict 5224 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
 submit adaptive=1 profile=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0
-submit adaptive=1 profile=1 n=1045 err=0 avg_us lock=624 stage=0 wait=877 check=1 max_wait=2697 spins=33032 parks=1037 short=1031 spin_fail=0
-submit adaptive=1 profile=0 n=1061 err=0 avg_us lock=615 stage=0 wait=869 check=1 max_wait=2697 spins=33136 parks=1041 short=1033 spin_fail=0
-submit adaptive=0 profile=0 n=1061 err=0 avg_us lock=615 stage=0 wait=869 check=1 max_wait=2697 spins=33136 parks=1041 short=1033 spin_fail=0
-cache off hits 6946 miss 6371 sweep 30 evict 6237 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 6946 miss 6371 sweep 30 evict 6237 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-submit adaptive=1 profile=0 n=1061 err=0 avg_us lock=615 stage=0 wait=869 check=1 max_wait=2697 spins=33136 parks=1041 short=1033 spin_fail=0
-cache off hits 9295 miss 6379 sweep 30 evict 6237 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 9295 miss 6379 sweep 30 evict 6237 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-submit adaptive=1 profile=0 n=1061 err=0 avg_us lock=615 stage=0 wait=869 check=1 max_wait=2697 spins=33136 parks=1041 short=1033 spin_fail=0
-cache off hits 11644 miss 6387 sweep 30 evict 6237 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 11644 miss 6387 sweep 30 evict 6237 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-submit adaptive=0 profile=0 n=1061 err=0 avg_us lock=615 stage=0 wait=869 check=1 max_wait=2697 spins=33136 parks=1041 short=1033 spin_fail=0
-cache off hits 14007 miss 6395 sweep 30 evict 6237 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-cache on hits 14007 miss 6395 sweep 30 evict 6237 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
-submit adaptive=1 profile=0 n=1061 err=0 avg_us lock=615 stage=0 wait=869 check=1 max_wait=2697 spins=33136 parks=1041 short=1033 spin_fail=0
-submit adaptive=1 profile=0 n=1061 err=0 avg_us lock=615 stage=0 wait=869 check=1 max_wait=2697 spins=33136 parks=1041 short=1033 spin_fail=0
+submit adaptive=1 profile=1 n=1053 err=0 avg_us lock=15 stage=0 wait=880 check=1 max_wait=2419 spins=33084 parks=1038 short=1038 spin_fail=0
+submit adaptive=1 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
+submit adaptive=0 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
+cache off hits 7780 miss 6370 sweep 8 evict 6257 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 7780 miss 6370 sweep 8 evict 6257 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=1 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
+cache off hits 10129 miss 6378 sweep 8 evict 6257 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 10129 miss 6378 sweep 8 evict 6257 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=1 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
+cache off hits 12492 miss 6386 sweep 8 evict 6257 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 12492 miss 6386 sweep 8 evict 6257 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=0 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
+cache off hits 14841 miss 6394 sweep 8 evict 6257 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+cache on hits 14841 miss 6394 sweep 8 evict 6257 slots 0/32 pin 0KB/131072KB tmp hits 0 miss 0 slots 0/4 pin 0KB
+submit adaptive=1 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
+submit adaptive=1 profile=0 n=1069 err=0 avg_us lock=15 stage=0 wait=871 check=1 max_wait=2419 spins=33188 parks=1042 short=1042 spin_fail=0
