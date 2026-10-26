@@ -31,6 +31,29 @@ it does not measure USB polling or time to physical display scanout.
 
 ## Fixes and evidence, 2026-10-26
 
+### 3D geometry pipeline, 2026-10-26
+
+The Adreno geometry path now prepares vertex-transform and raster command
+streams together and submits them as one ring job. A GPU `CACHE_FLUSH_TS` marker
+and `CP_WAIT_REG_MEM` order the two compute passes; the normal final fence still
+owns host completion. Draws whose combined command stream exceeds the 4096-word
+IB retain the previous two-submit path. `devcmd /dev/g2d submit geom 0|1`
+selects the diagnostic A/B mode (the default is 1).
+
+The color raster kernel stages candidate triangle records in shared memory for
+each 16×16 tile. Texture raster keeps direct vout loads because hardware
+sampling showed shared staging was slower. An exclusive board run checked
+single and multi-triangle draws, 1×1 through 1920×1080 canvases, depth/cull/
+blend/depth-mask states, descriptor reloads, invalid preflight rejection,
+command-buffer fallback and guard words. It completed without a fault or wedge.
+
+Measured GPU time at 690 MHz (513 triangles, 1920×1080): color raster fell from
+about 4.48 ms to 3.23 ms (28%); texture raster remained about 4.50 ms with a
+16×16 workgroup versus 11.52 ms for the old 8×8 shape. The one-submit change
+helps submission-bound draws: 64×64 color fell from 36.6 µs to 24.1 µs, while
+the 1080p case remains GPU-bound at about 4.49 ms. Full serial output is in
+`/tmp/q8b-3d-pipeline-20261026/sweep.log`.
+
 The initial vsyscall page contained an odd seqlock (`f4eb55dd`) and nonzero
 reserved RAM. Since the writer increments the sequence by two, it remained
 odd forever. `proc_nsleep_precise(10000)` returned -1, and the GPU completion

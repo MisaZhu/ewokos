@@ -1,0 +1,242 @@
+[2026-10-26 11:07:57.270] geom-bench begin
+[2026-10-26 11:07:57.271] adreno_rpmh: rsc id=20400 v2.4 layout=2.7
+[2026-10-26 11:07:57.271] adreno_rpmh: cx.lvl addr=30000 levels=9 corner=8
+[2026-10-26 11:07:57.271] adreno_rpmh: cx.lvl levels 0 16 64 128 192 256 384 416
+[2026-10-26 11:07:57.271] adreno_rpmh: cx.lvl levels 480 0 0 0 0 0 0 0
+[2026-10-26 11:07:57.271] adreno_rpmh: cx.lvl voted corner 8
+[2026-10-26 11:07:57.271] adreno_rpmh: gfx.lvl addr=30050 levels=9 corner=8
+[2026-10-26 11:07:57.271] adreno_rpmh: gfx.lvl levels 0 64 128 192 224 256 320 384
+[2026-10-26 11:07:57.271] adreno_rpmh: gfx.lvl levels 416 0 0 0 0 0 0 0
+[2026-10-26 11:07:57.323] adreno_rpmh: gfx.lvl voted corner 8
+[2026-10-26 11:07:57.323] adreno_gpucc: gcc gpu branches a0057f -> a1857f (axi=300001 memnoc=80004221 dvm=80000001)
+[2026-10-26 11:07:57.323] adreno_gpucc: cx_gdsc on, gdscr=f8226800 hw=80001fe0
+[2026-10-26 11:07:57.323] adreno_gpucc: gmu_clk_src=2/602 hub_clk_src=2/505 cx_gdsc=f8226800 hw=80001fe0
+[2026-10-26 11:07:57.323] adreno_gpucc: leaves cxo=1 ahb=0 hub_aon=1 hub_int=1 cx_gmu=6221 smmu=1 cb=1 div=0/0
+[2026-10-26 11:07:57.323] adreno_gpucc: clocks enabled (gmu/hub 200 MHz, cx_gdsc on)
+[2026-10-26 11:07:57.323] adreno_smmu: ID0=4c017e09 ID1=30000007 ID2=5511 pgshift=12 numpage=16 numcb=7 cb0_byte=10000 cb1_byte=11000
+[2026-10-26 11:07:57.378] adreno_smmu: CB0 privileged rptr iova=c8644000 pte=c865c003/c865d003/c8644e03
+[2026-10-26 11:07:57.378] adreno_smmu: CB0 privileged ring-first iova=c8648000 pte=c865c003/c865d003/c8648e03
+[2026-10-26 11:07:57.378] adreno_smmu: CB0 privileged ring-last iova=c864f000 pte=c865c003/c865d003/c864fe03
+[2026-10-26 11:07:57.378] adreno_smmu: SMR0=8c000000 S2CR0=0 SMR1=8c000001 S2CR1=0
+[2026-10-26 11:07:57.378] adreno_smmu: CB0 ready page=16 byte=10000 ttbr0=10000c8658000 actlr=303 sctlr=127 want=1127
+[2026-10-26 11:07:57.378] adreno_smmu: CB0 AArch64 cbar=1f300 cba2r=1 tcr=803519 tcr2=38072 ttbr1=1000000000000
+[2026-10-26 11:07:57.433] adreno_smmu: CB1 walk icache iova=4000 pa=c8678000 bo=c8678000 pte=c8678e03
+[2026-10-26 11:07:57.433] adreno_smmu: CB1 walk dummy iova=60000000 pa=c8674000 bo=c8674000 pte=c8674e03
+[2026-10-26 11:07:57.433] adreno_smmu: CB1 walk debug iova=60400000 pa=c866c000 bo=c866c000 pte=c866ce03
+[2026-10-26 11:07:57.433] adreno_smmu: CB1 walk log iova=60002000 pa=c9674000 bo=c9674000 pte=c9674e43
+[2026-10-26 11:07:57.433] adreno_smmu: CB1 walk hfi iova=60006000 pa=c9678000 bo=c9678000 pte=c9678e43
+[2026-10-26 11:07:57.433] adreno_smmu: SMR2=8c000005 S2CR2=1 (gmu sid 5 mask c00)
+[2026-10-26 11:07:57.433] adreno_smmu: CB1 (GMU) ready page=17 byte=11000 ttbr0=10000c967c000
+[2026-10-26 11:07:57.433] adreno_smmu: CB1 AArch64 tcr2=38072 ttbr1=1000000000000
+[2026-10-26 11:07:57.488] adreno_smmu: CB1 readback sctlr=127 want=1127 tcr=803519 ttbr0=10000c967c000 s2cr2=1 cbar=1f300 cba2r=1 scr0=210400 gfsr=0
+[2026-10-26 11:07:57.488] adreno_gmu: HFI qtbl iova=60006000 size=120 queues=2 qhdr=6/12
+[2026-10-26 11:07:57.488] adreno_gmu: RSC parked status=1010006 ack=1 busy=1
+[2026-10-26 11:07:57.488] adreno_rpmh: bcm SH0 addr=50004 unit=9000000 width=128 vcd=1 peak=2736000 vote=60000980
+[2026-10-26 11:07:57.488] adreno_rpmh: bcm ACV addr=500ac vcd=15 vote=60000008
+[2026-10-26 11:07:57.488] adreno_rpmh: bcm MC0 addr=50000 unit=4200000 width=32 vcd=0 peak=2736000 vote=6000145b
+[2026-10-26 11:07:57.488] adreno_gmu: pre-init g7=0 init=0 sysreset=1 cm3cfg=4052 busy=0 qtbl=0/0
+[2026-10-26 11:07:57.488] adreno_gmu: RSC awake ack=0 busy=0
+[2026-10-26 11:07:57.488] adreno_gmu: stage rpmh up, gmu probe g7=1 busy=0 hfi=0
+[2026-10-26 11:07:57.543] adreno_fw: gmu image /etc/firmware/adreno/a660_gmu.bin (a660_gmu.bin, 55252 bytes, 4 blocks)
+[2026-10-26 11:07:57.543] adreno_gmu: fw[0] itcm addr=0 size=476 reg=c00
+[2026-10-26 11:07:57.543] adreno_gmu: fw[1] icache addr=4000 size=54472
+[2026-10-26 11:07:57.543] adreno_gmu: fw[2] dtcm addr=10007f98 size=40 reg=2be6
+[2026-10-26 11:07:57.543] adreno_gmu: fw[3] dtcm addr=10007fdc size=24 reg=2bf7
+[2026-10-26 11:07:57.543] adreno_gmu: fw blocks loaded (itcm0=10007f80 dtcm_ff8=3001000a)
+[2026-10-26 11:07:57.543] adreno_gmu: stage boot_config (qtbl=60006000)
+[2026-10-26 11:07:57.543] adreno_gmu: RPMH_CTRL readback=f11 (want bits 0xf11)
+[2026-10-26 11:07:57.543] adreno_gmu: stage power_config done
+[2026-10-26 11:07:57.543] adreno_gmu: CM3 start (dtcm+ff8=3001000a mask=1ff want=100 ao=0)
+[2026-10-26 11:07:57.598] adreno_gmu: pre-rel sysreset=1 bootcfg=2 cm3cfg=4052 gen7=1 qtbl=1/60006000 sfr=6090000 cpmsg=60002003 init=0 busy=0 rsc=0/0 cache=0/0,0/0 ao=0
+[2026-10-26 11:07:57.598] adreno_gmu: post-rel init=100 busy=0 ao=0 hfi=0 cache=0/0,0/0
+[2026-10-26 11:07:57.598] adreno_gmu: CM3 up, fw_init=100 firmware v13.3759.48813
+[2026-10-26 11:07:57.598] adreno_gmu: GX perf[0] freq=0 level=0 vote=0
+[2026-10-26 11:07:57.598] adreno_gmu: GX perf[1] freq=270000 level=64 vote=400201
+[2026-10-26 11:07:57.598] adreno_gmu: GX perf[2] freq=410000 level=128 vote=800202
+[2026-10-26 11:07:57.598] adreno_gmu: GX perf[3] freq=500000 level=192 vote=c00303
+[2026-10-26 11:07:57.598] adreno_gmu: GX perf[4] freq=547000 level=224 vote=e00404
+[2026-10-26 11:07:57.654] adreno_gmu: GX perf[5] freq=606000 level=256 vote=1000505
+[2026-10-26 11:07:57.654] adreno_gmu: GX perf[6] freq=640000 level=320 vote=1400606
+[2026-10-26 11:07:57.654] adreno_gmu: GX perf[7] freq=655000 level=384 vote=1800707
+[2026-10-26 11:07:57.654] adreno_gmu: GX perf[8] freq=690000 level=416 vote=1a00808
+[2026-10-26 11:07:57.654] adreno_gmu: CX perf[0] freq=0 level=0 vote=0
+[2026-10-26 11:07:57.654] adreno_gmu: CX perf[1] freq=200000 level=48 vote=400202
+[2026-10-26 11:07:57.654] adreno_gmu: CX perf[2] freq=500000 level=128 vote=800203
+[2026-10-26 11:07:57.654] adreno_gmu: HFI response msg=4 seq=1 header=10304 ret=103b04 error=0 size=3
+[2026-10-26 11:07:57.654] adreno_gmu: HFI response msg=3 seq=2 header=110303 ret=20a003 error=0 size=3
+[2026-10-26 11:07:57.709] adreno_gmu: HFI response msg=14 seq=3 header=21030e ret=30020e error=0 size=3
+[2026-10-26 11:07:57.709] adreno_gmu: HFI response msg=10 seq=4 header=31030a ret=40010a error=0 size=3
+[2026-10-26 11:07:57.709] adreno_gmu: DCVS before-initial-vote boot=0 gx=0 mx=0 ack=0 perf=0 bw=0 ret=0
+[2026-10-26 11:07:57.709] adreno_gmu: DCVS before-initial-vote rpmh=f11 power=0 gxstat=c0 hfi=0 tcs=1/1/1/1
+[2026-10-26 11:07:57.709] adreno_gmu: HFI response msg=30 seq=5 header=41031e ret=50041e error=0 size=3
+[2026-10-26 11:07:57.709] adreno_gmu: DCVS after-initial-vote-ack boot=0 gx=0 mx=0 ack=0 perf=0 bw=0 ret=0
+[2026-10-26 11:07:57.709] adreno_gmu: DCVS after-initial-vote-ack rpmh=f11 power=0 gxstat=c0 hfi=0 tcs=1/1/1/1
+[2026-10-26 11:07:57.709] adreno_gmu: GMU cold boot complete
+[2026-10-26 11:07:57.764] adreno_fw: sqe microcode /etc/firmware/adreno/a660_sqe.fw (43292 bytes)
+[2026-10-26 11:07:57.764] adreno_gmu: DCVS before-gpu-oob boot=0 gx=0 mx=0 ack=0 perf=0 bw=0 ret=0
+[2026-10-26 11:07:57.764] adreno_gmu: DCVS before-gpu-oob rpmh=f11 power=0 gxstat=c0 hfi=0 tcs=1/1/1/1
+[2026-10-26 11:07:57.764] adreno_gmu: GPU_SET OOB ack info=80000000 gxstat=0
+[2026-10-26 11:07:57.764] adreno_gmu: DCVS after-gpu-oob boot=0 gx=0 mx=0 ack=0 perf=0 bw=0 ret=0
+[2026-10-26 11:07:57.764] adreno_gmu: DCVS after-gpu-oob rpmh=f11 power=0 gxstat=0 hfi=0 tcs=1/1/1/1
+[2026-10-26 11:07:57.764] adreno_a6xx: hw_init stage 01 begin
+[2026-10-26 11:07:57.764] adreno_a6xx: hw_init stage 02 GBIF_HALT=00000000
+[2026-10-26 11:07:57.764] adreno_a6xx: hw_init stage 03 RBBM_GBIF_HALT=00000000
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 04 SECVID
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 05 address-mode
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 06 HWCG
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 07 GBIF-QoS
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 08 UCHE
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 09 CP-UBWC
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 10 fault-prefetch-bicubic
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 11 GMU-counters
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 12 CP-protect
+[2026-10-26 11:07:57.816] adreno_a6xx: hw_init stage 13 complete
+[2026-10-26 11:07:57.816] adreno_ring: CP pre-init int0=00000000 intr=00000000 hw=00000000 protect=00000000
+[2026-10-26 11:07:57.871] adreno_ring: CP config sqe=00000000:c96a0000 rb=00000000:c8648000 rptr=00000000:c8644000 shadow=00000000 cntl=0000020c sqectl=00000001 apriv=0000006e
+[2026-10-26 11:07:57.871] adreno_ring: CP_ME_INIT words 70c80008 0000002f 00000003 20000000 00000000 00000000 00000000 00000000 00000000
+[2026-10-26 11:07:57.871] adreno_ring: CP_ME_INIT doorbell store returned wptr=00000009
+[2026-10-26 11:07:57.871] adreno_ring: CP_ME_INIT doorbell posted wptr=00000009 shadow=00000009
+[2026-10-26 11:07:57.871] adreno_ring: CP_ME_INIT ring drained
+[2026-10-26 11:07:57.871] adreno_ring: CP idle check begin
+[2026-10-26 11:07:57.871] adreno_ring: CP idle GMU busy=71000000
+[2026-10-26 11:07:57.871] adreno_ring: CP idle RBBM status=00000001
+[2026-10-26 11:07:57.871] adreno_ring: CP idle complete int0=00000000
+[2026-10-26 11:07:57.923] adreno_ring: CP_ME_INIT fault check begin
+[2026-10-26 11:07:57.923] adreno_ring: CP_ME_INIT complete
+[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000601 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000207 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] q8b SCM fn=207 arg=d a0=0 a1=0 a2=0
+[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000201 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000202 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000205 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] adreno_a6xx: PAS op=51380000 ret=1362644993
+[2026-10-26 11:07:57.923] adreno_fw: Q8B signed zap /etc/firmware/adreno/sc8280xp/LENOVO/21BX/qcdxkmsuc8280.mbn (14392 bytes, metadata=6708, payload=2104, region=4096)
+[2026-10-26 11:07:57.974] adreno_rpmh: rsc id=20400 v2.4 layout=2.7
+[2026-10-26 11:07:57.975] adreno_rpmh: bcm CE0 addr=50054 unit=7935 width=8 vcd=6 peak=4294967295 vote=60003fff
+[2026-10-26 11:07:57.975] adreno_rpmh: bcm SN4 addr=5001c unit=530000 width=16 vcd=3 peak=4294967295 vote=60003fff
+[2026-10-26 11:07:57.975] adreno_rpmh: bcm SN0 addr=50010 unit=530000 width=16 vcd=3 peak=4294967295 vote=60003fff
+[2026-10-26 11:07:57.975] adreno_rpmh: bcm SH0 addr=50004 unit=9000000 width=128 vcd=1 peak=4294967295 vote=60003fff
+[2026-10-26 11:07:57.975] adreno_rpmh: bcm ACV addr=500ac vcd=15 vote=60000008
+[2026-10-26 11:07:57.975] adreno_rpmh: bcm MC0 addr=50000 unit=4200000 width=32 vcd=0 peak=4294967295 vote=60003fff
+[2026-10-26 11:07:58.029] q8b SCM fn=201 arg=d a0=0 a1=0 a2=0
+[2026-10-26 11:07:58.029] adreno_a6xx: PAS op=51380001 ret=0
+[2026-10-26 11:07:58.029] q8b SCM fn=202 arg=d a0=0 a1=0 a2=0
+[2026-10-26 11:07:58.029] adreno_a6xx: PAS op=51380002 ret=0
+[2026-10-26 11:07:58.029] adreno_a6xx: PAS op=51380003 ret=0
+[2026-10-26 11:07:58.029] q8b SCM fn=205 arg=d a0=0 a1=0 a2=0
+[2026-10-26 11:07:58.029] adreno_a6xx: PAS op=51380004 ret=0
+[2026-10-26 11:07:58.029] adreno_a6xx: official signed zap authenticated
+[2026-10-26 11:07:58.029] adreno_ring: CP_SET_SECURE_MODE doorbell returned
+[2026-10-26 11:07:58.029] adreno_ring: CP idle check begin
+[2026-10-26 11:07:58.029] adreno_ring: CP idle GMU busy=71000000
+[2026-10-26 11:07:58.029] adreno_ring: CP idle RBBM status=00000001
+[2026-10-26 11:07:58.029] adreno_ring: CP idle complete int0=00000000
+[2026-10-26 11:07:58.029] adreno_ring: CP secure-mode exit complete
+[2026-10-26 11:07:58.084] adreno_a6xx: CP datapath selftest OK
+[2026-10-26 11:07:58.084] adreno_gmu: GPU_SET OOB cleared
+[2026-10-26 11:07:58.084] adreno_a6xx: Adreno 690 bring-up complete
+[2026-10-26 11:07:58.139] geom-bench variant=color
+[2026-10-26 11:07:58.669] geom-bench perf kind=1 64x64 tris=1 batch=0 n=32 ns=36805 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8863 cp_khz=689424
+[2026-10-26 11:07:58.670] geom-bench perf kind=1 64x64 tris=1 batch=1 n=32 ns=24259 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=19023 cp_khz=689907
+[2026-10-26 11:07:58.725] geom-bench perf kind=1 64x64 tris=1 batch=1 n=32 ns=24225 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18982 cp_khz=689876
+[2026-10-26 11:07:58.725] geom-bench perf kind=1 64x64 tris=1 batch=0 n=32 ns=36785 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8854 cp_khz=689998
+[2026-10-26 11:07:58.780] geom-bench perf kind=1 640x480 tris=64 batch=0 n=32 ns=979614 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=177196 cp_khz=690004
+[2026-10-26 11:07:58.835] geom-bench perf kind=1 640x480 tris=64 batch=1 n=32 ns=979539 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=355478 cp_khz=690004
+[2026-10-26 11:07:58.887] geom-bench perf kind=1 640x480 tris=64 batch=1 n=32 ns=979537 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=353541 cp_khz=690000
+[2026-10-26 11:07:58.942] geom-bench perf kind=1 640x480 tris=64 batch=0 n=32 ns=918261 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=176185 cp_khz=690024
+[2026-10-26 11:07:59.052] geom-bench perf kind=1 1920x1080 tris=513 batch=0 n=8 ns=4898828 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=2241259 cp_khz=689998
+[2026-10-26 11:07:59.107] geom-bench perf kind=1 1920x1080 tris=513 batch=1 n=8 ns=4898756 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=4479902 cp_khz=689998
+[2026-10-26 11:07:59.163] geom-bench perf kind=1 1920x1080 tris=513 batch=1 n=8 ns=4898854 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=4486647 cp_khz=689999
+[2026-10-26 11:07:59.218] geom-bench perf kind=1 1920x1080 tris=513 batch=0 n=8 ns=4898977 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=2239446 cp_khz=690000
+[2026-10-26 11:07:59.328] geom-bench variant=texture
+[2026-10-26 11:07:59.866] geom-bench perf kind=2 64x64 tris=1 batch=0 n=32 ns=36878 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8265 cp_khz=690079
+[2026-10-26 11:07:59.866] geom-bench perf kind=2 64x64 tris=1 batch=1 n=32 ns=24275 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=17841 cp_khz=689816
+[2026-10-26 11:07:59.922] geom-bench perf kind=2 64x64 tris=1 batch=1 n=32 ns=24259 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=17830 cp_khz=689853
+[2026-10-26 11:07:59.922] geom-bench perf kind=2 64x64 tris=1 batch=0 n=32 ns=36770 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8277 cp_khz=689958
+[2026-10-26 11:07:59.973] geom-bench perf kind=2 640x480 tris=64 batch=0 n=32 ns=979848 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=246044 cp_khz=690015
+[2026-10-26 11:08:00.028] geom-bench perf kind=2 640x480 tris=64 batch=1 n=32 ns=979583 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=492757 cp_khz=689993
+[2026-10-26 11:08:00.079] geom-bench perf kind=2 640x480 tris=64 batch=1 n=32 ns=979692 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=490976 cp_khz=689998
+[2026-10-26 11:08:00.135] geom-bench perf kind=2 640x480 tris=64 batch=0 n=32 ns=979607 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=245323 cp_khz=690004
+[2026-10-26 11:08:00.296] geom-bench perf kind=2 1920x1080 tris=513 batch=0 n=8 ns=11755787 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=5760296 cp_khz=689999
+[2026-10-26 11:08:00.402] geom-bench perf kind=2 1920x1080 tris=513 batch=1 n=8 ns=11755898 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=11519140 cp_khz=689999
+[2026-10-26 11:08:00.562] geom-bench perf kind=2 1920x1080 tris=513 batch=1 n=8 ns=11757721 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=11522903 cp_khz=690000
+[2026-10-26 11:08:00.666] geom-bench perf kind=2 1920x1080 tris=513 batch=0 n=8 ns=11758346 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=5762636 cp_khz=690000
+[2026-10-26 11:08:00.828] geom-bench variant=color-cached
+[2026-10-26 11:08:01.298] geom-bench perf kind=1 64x64 tris=1 batch=0 n=32 ns=25694 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=5530 cp_khz=689872
+[2026-10-26 11:08:01.353] geom-bench perf kind=1 64x64 tris=1 batch=1 n=32 ns=24207 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=12350 cp_khz=689747
+[2026-10-26 11:08:01.353] geom-bench perf kind=1 64x64 tris=1 batch=1 n=32 ns=24235 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=12333 cp_khz=690158
+[2026-10-26 11:08:01.405] geom-bench perf kind=1 64x64 tris=1 batch=0 n=32 ns=25698 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=5525 cp_khz=690049
+[2026-10-26 11:08:01.405] geom-bench perf kind=1 640x480 tris=64 batch=0 n=32 ns=256648 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=113356 cp_khz=689983
+[2026-10-26 11:08:01.461] geom-bench perf kind=1 640x480 tris=64 batch=1 n=32 ns=249298 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=228940 cp_khz=690011
+[2026-10-26 11:08:01.461] geom-bench perf kind=1 640x480 tris=64 batch=1 n=32 ns=247784 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=228216 cp_khz=690008
+[2026-10-26 11:08:01.515] geom-bench perf kind=1 640x480 tris=64 batch=0 n=32 ns=256445 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=113617 cp_khz=690003
+[2026-10-26 11:08:01.566] geom-bench perf kind=1 1920x1080 tris=513 batch=0 n=8 ns=3918945 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=1615983 cp_khz=689999
+[2026-10-26 11:08:01.617] geom-bench perf kind=1 1920x1080 tris=513 batch=1 n=8 ns=3917936 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=3235683 cp_khz=689999
+[2026-10-26 11:08:01.670] geom-bench perf kind=1 1920x1080 tris=513 batch=1 n=8 ns=3918873 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=3233561 cp_khz=690001
+[2026-10-26 11:08:01.774] geom-bench perf kind=1 1920x1080 tris=513 batch=0 n=8 ns=3917877 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=1617408 cp_khz=689998
+[2026-10-26 11:08:01.911] geom-bench variant=texture-cached
+[2026-10-26 11:08:02.449] geom-bench perf kind=2 64x64 tris=1 batch=0 n=32 ns=36853 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=7250 cp_khz=689745
+[2026-10-26 11:08:02.450] geom-bench perf kind=2 64x64 tris=1 batch=1 n=32 ns=24168 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=15699 cp_khz=689967
+[2026-10-26 11:08:02.502] geom-bench perf kind=2 64x64 tris=1 batch=1 n=32 ns=24210 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=15716 cp_khz=689790
+[2026-10-26 11:08:02.502] geom-bench perf kind=2 64x64 tris=1 batch=0 n=32 ns=36853 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=7218 cp_khz=689764
+[2026-10-26 11:08:02.558] geom-bench perf kind=2 640x480 tris=64 batch=0 n=32 ns=979524 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=273792 cp_khz=690003
+[2026-10-26 11:08:02.611] geom-bench perf kind=2 640x480 tris=64 batch=1 n=32 ns=979791 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=549461 cp_khz=690005
+[2026-10-26 11:08:02.663] geom-bench perf kind=2 640x480 tris=64 batch=1 n=32 ns=979482 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=549414 cp_khz=690008
+[2026-10-26 11:08:02.714] geom-bench perf kind=2 640x480 tris=64 batch=0 n=32 ns=979835 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=274108 cp_khz=689993
+[2026-10-26 11:08:02.874] geom-bench perf kind=2 1920x1080 tris=513 batch=0 n=8 ns=15672024 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=6863398 cp_khz=689999
+[2026-10-26 11:08:03.084] geom-bench perf kind=2 1920x1080 tris=513 batch=1 n=8 ns=15676438 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=13730859 cp_khz=689999
+[2026-10-26 11:08:03.248] geom-bench perf kind=2 1920x1080 tris=513 batch=1 n=8 ns=15676087 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=13728515 cp_khz=689999
+[2026-10-26 11:08:03.405] geom-bench perf kind=2 1920x1080 tris=513 batch=0 n=8 ns=15674375 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=6863326 cp_khz=690001
+[2026-10-26 11:08:03.514] geom-bench variant=color-16x8
+[2026-10-26 11:08:04.044] geom-bench perf kind=1 64x64 tris=1 batch=0 n=32 ns=36809 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8715 cp_khz=690117
+[2026-10-26 11:08:04.045] geom-bench perf kind=1 64x64 tris=1 batch=1 n=32 ns=24239 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18738 cp_khz=690114
+[2026-10-26 11:08:04.100] geom-bench perf kind=1 64x64 tris=1 batch=1 n=32 ns=24230 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18798 cp_khz=689910
+[2026-10-26 11:08:04.100] geom-bench perf kind=1 64x64 tris=1 batch=0 n=32 ns=36785 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8728 cp_khz=689816
+[2026-10-26 11:08:04.155] geom-bench perf kind=1 640x480 tris=64 batch=0 n=32 ns=979729 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=191075 cp_khz=689984
+[2026-10-26 11:08:04.209] geom-bench perf kind=1 640x480 tris=64 batch=1 n=32 ns=979628 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=382133 cp_khz=690000
+[2026-10-26 11:08:04.260] geom-bench perf kind=1 640x480 tris=64 batch=1 n=32 ns=979641 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=384078 cp_khz=690004
+[2026-10-26 11:08:04.314] geom-bench perf kind=1 640x480 tris=64 batch=0 n=32 ns=979615 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=191443 cp_khz=690001
+[2026-10-26 11:08:04.420] geom-bench perf kind=1 1920x1080 tris=513 batch=0 n=8 ns=6858287 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=3320429 cp_khz=689999
+[2026-10-26 11:08:04.528] geom-bench perf kind=1 1920x1080 tris=513 batch=1 n=8 ns=6859544 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=6646100 cp_khz=689998
+[2026-10-26 11:08:04.581] geom-bench perf kind=1 1920x1080 tris=513 batch=1 n=8 ns=6859316 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=6636861 cp_khz=689999
+[2026-10-26 11:08:04.689] geom-bench perf kind=1 1920x1080 tris=513 batch=0 n=8 ns=6859427 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=3320179 cp_khz=689999
+[2026-10-26 11:08:04.796] geom-bench variant=texture-16x8
+[2026-10-26 11:08:05.373] geom-bench perf kind=2 64x64 tris=1 batch=0 n=32 ns=36954 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8488 cp_khz=690073
+[2026-10-26 11:08:05.373] geom-bench perf kind=2 64x64 tris=1 batch=1 n=32 ns=24239 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18294 cp_khz=689882
+[2026-10-26 11:08:05.428] geom-bench perf kind=2 64x64 tris=1 batch=1 n=32 ns=24259 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18297 cp_khz=689961
+[2026-10-26 11:08:05.428] geom-bench perf kind=2 64x64 tris=1 batch=0 n=32 ns=36782 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8533 cp_khz=690055
+[2026-10-26 11:08:05.479] geom-bench perf kind=2 640x480 tris=64 batch=0 n=32 ns=979225 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=193214 cp_khz=690008
+[2026-10-26 11:08:05.534] geom-bench perf kind=2 640x480 tris=64 batch=1 n=32 ns=979041 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=387727 cp_khz=689995
+[2026-10-26 11:08:05.589] geom-bench perf kind=2 640x480 tris=64 batch=1 n=32 ns=979248 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=387934 cp_khz=689994
+[2026-10-26 11:08:05.643] geom-bench perf kind=2 640x480 tris=64 batch=0 n=32 ns=979025 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=192797 cp_khz=690005
+[2026-10-26 11:08:05.751] geom-bench perf kind=2 1920x1080 tris=513 batch=0 n=8 ns=6853645 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=3323076 cp_khz=690000
+[2026-10-26 11:08:05.805] geom-bench perf kind=2 1920x1080 tris=513 batch=1 n=8 ns=6854733 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=6654902 cp_khz=689998
+[2026-10-26 11:08:05.909] geom-bench perf kind=2 1920x1080 tris=513 batch=1 n=8 ns=6854602 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=6651848 cp_khz=689999
+[2026-10-26 11:08:06.015] geom-bench perf kind=2 1920x1080 tris=513 batch=0 n=8 ns=6854524 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=3326227 cp_khz=689997
+[2026-10-26 11:08:06.124] geom-bench variant=color-8x8
+[2026-10-26 11:08:06.647] geom-bench perf kind=1 64x64 tris=1 batch=0 n=32 ns=36842 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8383 cp_khz=689722
+[2026-10-26 11:08:06.698] geom-bench perf kind=1 64x64 tris=1 batch=1 n=32 ns=24213 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18121 cp_khz=689941
+[2026-10-26 11:08:06.698] geom-bench perf kind=1 64x64 tris=1 batch=1 n=32 ns=24243 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18071 cp_khz=690011
+[2026-10-26 11:08:06.753] geom-bench perf kind=1 64x64 tris=1 batch=0 n=32 ns=37290 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8455 cp_khz=690368
+[2026-10-26 11:08:06.806] geom-bench perf kind=1 640x480 tris=64 batch=0 n=32 ns=979275 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=244497 cp_khz=689992
+[2026-10-26 11:08:06.859] geom-bench perf kind=1 640x480 tris=64 batch=1 n=32 ns=979033 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=489874 cp_khz=689999
+[2026-10-26 11:08:06.913] geom-bench perf kind=1 640x480 tris=64 batch=1 n=32 ns=979251 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=489510 cp_khz=689995
+[2026-10-26 11:08:06.967] geom-bench perf kind=1 640x480 tris=64 batch=0 n=32 ns=979077 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=244338 cp_khz=689997
+[2026-10-26 11:08:07.073] geom-bench perf kind=1 1920x1080 tris=513 batch=0 n=8 ns=11750058 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=5761500 cp_khz=690000
+[2026-10-26 11:08:07.233] geom-bench perf kind=1 1920x1080 tris=513 batch=1 n=8 ns=11750130 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=11517819 cp_khz=690000
+[2026-10-26 11:08:07.339] geom-bench perf kind=1 1920x1080 tris=513 batch=1 n=8 ns=11750136 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=11519967 cp_khz=690000
+[2026-10-26 11:08:07.499] geom-bench perf kind=1 1920x1080 tris=513 batch=0 n=8 ns=11750332 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=5752457 cp_khz=690000
+[2026-10-26 11:08:07.604] geom-bench variant=texture-16x16
+[2026-10-26 11:08:08.139] geom-bench perf kind=2 64x64 tris=1 batch=0 n=32 ns=36852 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8703 cp_khz=690207
+[2026-10-26 11:08:08.190] geom-bench perf kind=2 64x64 tris=1 batch=1 n=32 ns=24236 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18616 cp_khz=690004
+[2026-10-26 11:08:08.190] geom-bench perf kind=2 64x64 tris=1 batch=1 n=32 ns=24251 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=18627 cp_khz=690181
+[2026-10-26 11:08:08.245] geom-bench perf kind=2 64x64 tris=1 batch=0 n=32 ns=36783 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=8676 cp_khz=689770
+[2026-10-26 11:08:08.299] geom-bench perf kind=2 640x480 tris=64 batch=0 n=32 ns=979038 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=178236 cp_khz=689996
+[2026-10-26 11:08:08.353] geom-bench perf kind=2 640x480 tris=64 batch=1 n=32 ns=979241 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=358313 cp_khz=690004
+[2026-10-26 11:08:08.404] geom-bench perf kind=2 640x480 tris=64 batch=1 n=32 ns=979052 submits=32 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=32 gpu_ns=358092 cp_khz=690001
+[2026-10-26 11:08:08.456] geom-bench perf kind=2 640x480 tris=64 batch=0 n=32 ns=979269 submits=64 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=64 gpu_ns=178257 cp_khz=690004
+[2026-10-26 11:08:08.510] geom-bench perf kind=2 1920x1080 tris=513 batch=0 n=8 ns=4895442 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=2250673 cp_khz=690001
+[2026-10-26 11:08:08.565] geom-bench perf kind=2 1920x1080 tris=513 batch=1 n=8 ns=4895397 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=4499674 cp_khz=690001
+[2026-10-26 11:08:08.673] geom-bench perf kind=2 1920x1080 tris=513 batch=1 n=8 ns=4896321 submits=8 submit adaptive=1 profile=0 geom=1 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=8 gpu_ns=4505611 cp_khz=690001
+[2026-10-26 11:08:08.728] geom-bench perf kind=2 1920x1080 tris=513 batch=0 n=8 ns=4895312 submits=16 submit adaptive=1 profile=0 geom=0 n=0 err=0 avg_us lock=0 stage=0 wait=0 check=0 max_wait=0 spins=0 parks=0 short=0 spin_fail=0 gpu=1 gpu_n=16 gpu_ns=2253264 cp_khz=689998
+[2026-10-26 11:08:08.834] geom-bench fallback=passed preflight=passed
