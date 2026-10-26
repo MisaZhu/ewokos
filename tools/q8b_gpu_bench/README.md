@@ -243,3 +243,71 @@ existing PXE path, then booted through MCP; SD GPU driver was kept fixed
 No production rootfs binary changes are required by this kernel-only change.
 New kernel SHA-256:
 `7148b0493f3f9e1345452cc8af3ae857f05d408bb75045e4377cbf9b583bdc8e`.
+
+## Q8B completion-wait parking (2026-10-26)
+
+The synchronous GPU wait previously spent up to 32 precise 10µs polls, then
+called `usleep(1000)`. With the board's timer scheduling, a warmed 4K fill
+usually returned about 1.96ms later. The new policy keeps that poll budget,
+uses **direct `SYS_USLEEP(1)` for the first park**, and retains 1ms sleeps
+for later wakes. This lets a completed job be observed at the next timer
+tick. The one-second wall deadline, authoritative completion fence, final
+RPTR sample, fault check and terminal wedge handling remain in force.
+
+Do not substitute libc `usleep(1)`: `usleep` values <=200µs use precise busy
+waiting. That was tried during development and did not improve latency;
+those attempts are excluded from the results below. The final policy has
+no history table and no extra busy-poll budget.
+
+Same-boot A/B on an empty desktop, with the mapping cache enabled and
+flushed before each allocation, used modes `0,1,1,0,0,1`, each with one
+then five canvases. Each run warmed its canvases, measured 1,024 requests,
+and checked every output pixel and 64 guard words per canvas. Profiling
+was enabled for these unpaced runs. All 12 runs passed with zero errors.
+The means below average three run means per mode:
+
+| Fill IPC round trip | Historical park | First park at next tick | Reduction |
+| --- | ---: | ---: | ---: |
+| One 4K canvas | 1.960ms | 0.981ms | 49.9% |
+| Five 4K canvases | 1.964ms | 0.984ms | 49.9% |
+
+With profiling off, a separate `0,1,1,0` sequence issued 2,048 requests per
+run at 200Hz. Historical/new mean latency was 1.969/0.992ms. The daemon
+plus its direct worker threads averaged 7.621/7.611% of one CPU core,
+about 381/380µs estimated CPU time per request. These are samples of the
+kernel's two-second process-accounting windows, not exact cumulative CPU
+times. Unpaced new-mode runs finish before the two-second CPU sampling
+warm-up; their zero CPU samples must not be interpreted as zero CPU use.
+
+Diagnostics through the running g2dd:
+
+```
+/bin/devcmd /dev/g2d submit profile 1
+/bin/devcmd /dev/g2d submit reset
+/bin/devcmd /dev/g2d submit
+/bin/devcmd /dev/g2d submit profile 0
+/bin/devcmd /dev/g2d submit wait 0
+/bin/devcmd /dev/g2d submit wait 1
+```
+
+`submit` reports profiled submitted jobs, errors, average queue/stage/wait/
+fault-check wall times, maximum wait, precise polls, parks, first short
+parks and failed precise polls. Counters include background desktop work.
+Profile collection defaults off; mode 1 defaults on. `stat` also includes
+the backend counters; `stat reset` clears them. Mode 0 selects the old
+parking policy for comparisons. All commands serialize with GPU submission.
+
+`g2d-ipc [canvases=5] [samples=100] [rate=0]` now supports longer runs and
+fixed request rates (up to 1,000Hz). `bench 60 /path/texture.bin ab` runs
+both policies over the existing render cases and then stresses mode 1;
+it still requires exclusive GPU ownership and runs only once per boot.
+For an exclusive boot, retain **sessiond** as well as the network/SSH
+services: sshd requires it for authentication. Restore the original init
+script before starting the GPU test.
+
+Raw IPC and submit samples: `evidence/wait-ipc.log`,
+`evidence/wait-submit.log`; parsed runs and binary hashes:
+`evidence/wait.json`. Kernel remains `7148b049...`; the staged rootfs
+image passes `e2fsck -fn` and its extracted g2dd matches the new build
+(`6e4367d0...`). These IPC measurements alone do not establish that all
+render paths have been revalidated or that all input stalls are fixed.

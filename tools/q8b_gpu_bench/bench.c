@@ -209,12 +209,21 @@ int main(int argc,char **argv) {
     }
     klog("gpu-bench dma-cycle n=512 mean=%llu us\n",(unsigned long long)((now_us()-start)/512));
     const unsigned sizes[][2]={{64,64},{640,480},{801,603},{1920,1080},{3840,2160}};
-    for (unsigned s=0;s<sizeof(sizes)/sizeof(sizes[0]);s++) {
-        unsigned w=sizes[s][0],h=sizes[s][1];
-        for (unsigned op=0;op<8;op++) {
-            if ((w&15u) && (op==0 || op==1 || op==7)) continue;
-            correctness(op,w,h);
-            benchmark(op,w,h);
+    unsigned passes=argc>3 && strcmp(argv[3],"ab")==0 ? 2u : 1u;
+    for (unsigned pass=0;pass<passes;pass++) {
+        char *cmd[]={"submit","wait",passes==2 && pass==0?"0":"1"};
+        char status[256];
+        if (adreno_ring_cmd(3,cmd,status,sizeof(status)) != 0) {
+            klog("gpu-bench FAIL wait policy\n"); park();
+        }
+        klog("gpu-bench mode adaptive=%s\n",cmd[2]);
+        for (unsigned s=0;s<sizeof(sizes)/sizeof(sizes[0]);s++) {
+            unsigned w=sizes[s][0],h=sizes[s][1];
+            for (unsigned op=0;op<8;op++) {
+                if ((w&15u) && (op==0 || op==1 || op==7)) continue;
+                correctness(op,w,h);
+                benchmark(op,w,h);
+            }
         }
     }
     /* Repeated A2D/compute and descriptor-size transitions, with idle gaps. */
