@@ -4,7 +4,7 @@ ADRENO := $(ROOT)/machines/q8b/system/libs/adreno
 FE := $(ROOT)/projects/opengl/libs/gles/pglcompiler
 OUT ?= /tmp/q8b-gpu-bench
 COMPILER_OUT ?= /tmp/q8b-builtin-shaders
-.PHONY: all shaders exec-shaders check
+.PHONY: all shaders exec-shaders geometry check
 all: $(OUT)/bench $(OUT)/clock $(OUT)/input-latency $(OUT)/shm-pool $(OUT)/shm-map $(OUT)/g2d-ipc shaders
 $(OUT):
 	mkdir -p $@
@@ -53,6 +53,16 @@ shaders: | $(OUT)
 	$(OUT)/compile texture.comp $(OUT)/texture.bin
 exec-shaders: shaders
 	python3 exec_shaders.py $(OUT)
+geometry: shaders
+	clang -O2 -I$(FE)/include -I$(ADRENO)/include -I$(ADRENO)/../adrenocompiler -c geometry_compile.c -o $(OUT)/geometry_compile.o
+	clang++ $(OUT)/geometry_compile.o $(COMPILER_OUT)/host_support.o \
+	 $(COMPILER_OUT)/libbackend.a $(COMPILER_OUT)/libfrontend.a $(COMPILER_OUT)/libbackend.a \
+	 -pthread -lm -o $(OUT)/geometry-compile
+	$(OUT)/geometry-compile $(OUT)
+	aarch64-none-elf-gcc -O2 -march=armv8-a -mno-outline-atomics -fno-builtin -Wall -Wextra -Werror \
+	 -I$(SDK)/include -I$(ADRENO)/include -c geometry.c -o $(OUT)/geometry.o
+	aarch64-none-elf-ld -Ttext=100 $(OUT)/geometry.o -o $(OUT)/geometry -L$(SDK)/lib \
+	 --start-group -ladreno -lewoksys -lm -lc -lgloss --end-group
 check: | $(OUT)
 	clang -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
 	 -I$(ROOT)/kernel/kernel/include clock_anchor_test.c -o $(OUT)/clock-anchor-test
