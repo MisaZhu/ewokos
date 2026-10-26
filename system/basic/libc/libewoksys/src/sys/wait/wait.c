@@ -7,9 +7,9 @@
 #include <sysinfo.h>
 
 static int wait_reap_child(pid_t pid, int *status) {
-    if (ewok_waitpid(pid) != 0) {
-        return -1;
-    }
+    /* A concurrent timed reclaim may already have freed the slot; the child
+     * is gone either way, which is what the caller is waiting for. */
+    ewok_waitpid(pid);
     if (status != NULL) {
         *status = 0;
     }
@@ -71,7 +71,20 @@ pid_t waitpid(pid_t pid, int *status, int options) {
     if (pid > 0) {
         procinfo_t info;
 
-        if (proc_info(pid, &info) != 0 || !wait_match_child(pid, &info)) {
+        if (proc_info(pid, &info) != 0) {
+            /*
+             * The kernel reclaims a zombie once it has been dead for
+             * ZOMBIE_TIMEOUT and a later fork needs the slot, so a child
+             * that exited before this call may already be gone. Report a
+             * normal exit instead of ECHILD; exit codes are not tracked
+             * here anyway.
+             */
+            if (status != NULL) {
+                *status = 0;
+            }
+            return pid;
+        }
+        if (!wait_match_child(pid, &info)) {
             errno = ECHILD;
             return -1;
         }
@@ -82,7 +95,11 @@ pid_t waitpid(pid_t pid, int *status, int options) {
             return 0;
         }
         if (ewok_waitpid(pid) != 0) {
-            return -1;
+            /* Lost the race with the kernel's timed zombie reclaim. */
+            if (status != NULL) {
+                *status = 0;
+            }
+            return pid;
         }
         if (status != NULL) {
             *status = 0;

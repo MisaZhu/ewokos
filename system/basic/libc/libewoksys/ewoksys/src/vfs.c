@@ -1048,8 +1048,13 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
         int res_dir = -1;
         if(autodir && strcmp(dir, "/") != 0 && strcmp(dir, fname) != 0)
             res_dir = vfs_create_uid(dir, &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir, uid, gid);
-        if(res_dir != 0)
+        if(res_dir != 0) {
+            /* Callers such as open(O_CREAT) rely on ENOENT to know the
+             * leading directories are missing and must be created first. */
+            if(errno == 0)
+                errno = ENOENT;
             return -1;
+        }
     }
 
     if(name == NULL || name[0] == 0)
@@ -1068,8 +1073,12 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
     fi.stat.gid = gid < 0 ? getgid() : gid;
     fi.stat.mode = mode;
 
-    if(vfs_new_node(&fi, info_to.node, vfs_node_only, false) != 0)
+    if(vfs_new_node(&fi, info_to.node, vfs_node_only, false) != 0) {
+        int e = errno;
+        fprintf(stderr, "CREATEDBG new_node %s errno=%d\n", fname, e);
+        errno = e;
         return -1;
+    }
 
     if(vfs_node_only) {//only create in vfs service, not existed in storage. 
         if(ret != NULL)
@@ -1083,6 +1092,9 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
         vfs_set_info(&fi);
 
     if(res != 0) {
+        int e = errno;
+        fprintf(stderr, "CREATEDBG dev_create %s res=%d errno=%d\n", fname, res, e);
+        errno = e;
         vfs_del_node(fi.node);
         return res;
     }

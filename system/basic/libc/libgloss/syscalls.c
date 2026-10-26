@@ -425,6 +425,11 @@ _open (const char * fname, int oflag, ...)
             if(vfs_create(fname, &info, FS_TYPE_FILE, mode, false, false) != 0){
                 if(errno == 0)
                     errno = EIO;
+                {
+                    int e = errno;
+                    fprintf(stderr, "OPENDBG create %s errno=%d\n", fname, e);
+                    errno = e;
+                }
                 dbg_kout(" create error");
                 return -1;
             }
@@ -443,6 +448,11 @@ _open (const char * fname, int oflag, ...)
 
     fd = vfs_open(&info, oflag & ~O_EXCL);
     if(fd < 0) {
+        {
+            int e = errno;
+            fprintf(stderr, "OPENDBG vfs_open %s errno=%d\n", fname, e);
+            errno = e;
+        }
         if(created)
             vfs_del_node(info.node);
         dbg_kout(" error");
