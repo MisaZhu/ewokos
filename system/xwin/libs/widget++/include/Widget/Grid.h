@@ -20,7 +20,10 @@ protected:
 	void selectByMouse(xevent_t* ev);
 	void enterByMouse(xevent_t* ev);
 
+	int32_t getScrollUnit();
+
 	virtual bool onScroll(int step, bool horizontal);
+	virtual bool onScrollPixels(int dx, int dy);
     virtual void updateScroller();
 public:
 	Grid();

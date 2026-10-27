@@ -211,6 +211,7 @@ class FileGrid: public Grid {
 		files[0].d_type = DT_DIR;
 		fileNum = 1;
 		itemStart = 0;
+		pixelOffset = 0;
 		itemSelected = 0;
 		setItemNum(fileNum);
 		updateScroller();
