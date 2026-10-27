@@ -312,6 +312,14 @@ typedef struct g2d_pgl_ext_s {
 	float    poly_units;  /* Depth Offset Units (sent as f187) */
 	uint32_t color_mask;  /* RGBA write-enable, GL order: bit0=R,1=G,2=B,3=A;
 	                         0xF (or 0 from an old caller) = write all four */
+	/* Optional compute-raster dispatch window.  These fields are consumed only
+	   by the Q8B Adreno pixel-owned path; zero width/height keeps the historic
+	   full-frame launch.  Coordinates are framebuffer rows (top-left origin),
+	   matching the clipRect already carried in the shader uniform. */
+	int32_t  dispatch_x;
+	int32_t  dispatch_y;
+	int32_t  dispatch_w;
+	int32_t  dispatch_h;
 } g2d_pgl_ext_t;
 
 /* Phase D texture state passed to bsp_g3d_draw as an opaque pointer
