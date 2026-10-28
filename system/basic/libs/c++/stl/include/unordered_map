@@ -206,6 +206,38 @@ class unordered_map {
             return 1;
         }
 
+        /* Standard insert(const value_type&): the non-standard insert(key, value)
+           above returns size_t and takes the two halves separately, so callers
+           written against std::unordered_map (which expect a pair<iterator,bool>
+           and a single value_type argument) could not use it. Different arity,
+           so the two overloads never collide. */
+        pair<iterator, bool> insert(const value_type& value) {
+            iterator it = find(value.first);
+            if (it != end()) {
+                return pair<iterator, bool>(it, false);
+            }
+            size_t idx = hash(value.first);
+            unordered_map_node<Key, T>* new_node =
+                new unordered_map_node<Key, T>(value.first, value.second);
+            new_node->next = buckets_[idx];
+            buckets_[idx] = new_node;
+            size_++;
+            return pair<iterator, bool>(iterator(new_node, buckets_, idx, BUCKET_COUNT), true);
+        }
+
+        /* emplace(Args&&...): build the value_type from the forwarded arguments
+           and insert it unless the key is already present, returning an iterator
+           to the mapping plus whether it was inserted - the std::unordered_map
+           contract callers such as litehtml rely on. The value_type is formed
+           through pair's const& constructor (this STL's pair has no forwarding
+           constructor), so an rvalue argument is copied rather than moved; that
+           is a missed optimization, not a correctness difference. */
+        template <typename... Args>
+        pair<iterator, bool> emplace(Args&&... args) {
+            value_type value(forward<Args>(args)...);
+            return insert(value);
+        }
+
         size_t erase(const Key& key) {
             size_t idx = hash(key);
             unordered_map_node<Key, T>* node = buckets_[idx];
