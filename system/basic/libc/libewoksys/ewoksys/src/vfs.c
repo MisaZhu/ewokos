@@ -87,9 +87,9 @@ static int vfs_get_by_fd_raw(int fd, fsinfo_t* info) {
     return res;
 }
 
-static int vfs_set_info(fsinfo_t* info) {
+static int vfs_set_info(fsinfo_t* info, int update_kind) {
     proto_t in, out;
-    PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
+    PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, update_kind);
     PF->init(&out);
     int res = ipc_call(get_vfsd_pid(), VFS_SET_FSINFO, &in, &out);
     PF->clear(&in);
@@ -198,6 +198,15 @@ int vfs_set_fd_flags(int fd, int flags) {
     return 0;
 }
 
+int vfs_check_owner(int pid, fsinfo_t* info) {
+    procinfo_t procinfo;
+    if(info == NULL || proc_info(pid, &procinfo) != 0)
+        return -1;
+    if(procinfo.uid <= 0 || procinfo.uid == info->stat.uid)
+        return 0;
+    return -1;
+}
+
 int vfs_check_access(int pid, fsinfo_t* info, int mode) {
     procinfo_t procinfo;
     if(info == NULL || proc_info(pid, &procinfo) != 0)
@@ -289,10 +298,32 @@ int vfs_get_by_node(ewokos_addr_t node, fsinfo_t* info) {
     return res;
 }
 
-int vfs_new_node(fsinfo_t* info, ewokos_addr_t node_to, bool vfs_node_only, bool vfs_write_over) {
+int vfs_get_parent_by_node(ewokos_addr_t node, fsinfo_t* info) {
     proto_t in, out;
-    PF->format(&in, "m,i,i,i", info, sizeof(fsinfo_t), node_to,
-            vfs_node_only, vfs_write_over);
+    PF->init(&in)->addi(&in, node);
+    PF->init(&out);
+    int res = ipc_call(get_vfsd_pid(), VFS_GET_PARENT, &in, &out);
+    PF->clear(&in);
+
+    if(res == 0) {
+        res = proto_read_int(&out);
+        if(res != 0) {
+            if(info != NULL)
+                proto_read_to(&out, info, sizeof(fsinfo_t));
+            res = 0;
+        }
+        else
+            res = -1;
+    }
+    PF->clear(&out);
+    return res;
+}
+
+static int vfs_new_node_ex(fsinfo_t* info, ewokos_addr_t node_to,
+        bool vfs_node_only, bool vfs_write_over, bool create_open) {
+    proto_t in, out;
+    PF->format(&in, "m,i,i,i,i", info, sizeof(fsinfo_t), node_to,
+            vfs_node_only, vfs_write_over, create_open);
     PF->init(&out);
     int res = ipc_call(get_vfsd_pid(), VFS_NEW_NODE, &in, &out);
     PF->clear(&in);
@@ -305,6 +336,11 @@ int vfs_new_node(fsinfo_t* info, ewokos_addr_t node_to, bool vfs_node_only, bool
     }
     PF->clear(&out);
     return res;	
+}
+
+int vfs_new_node(fsinfo_t* info, ewokos_addr_t node_to,
+        bool vfs_node_only, bool vfs_write_over) {
+    return vfs_new_node_ex(info, node_to, vfs_node_only, vfs_write_over, false);
 }
 
 /*
@@ -605,7 +641,7 @@ int vfs_close(int fd) {
     if(file == NULL)
         return -1;
     if((file->info.state & FS_STATE_CHANGED) != 0) {
-        if(vfs_update(&file->info, true) != 0)
+        if(vfs_sync(&file->info, true) != 0)
             return -1;
     }
 
@@ -881,16 +917,29 @@ fsinfo_t* vfs_kids(fsinfo_t* info, uint32_t *num) {
     return ret;
 }
 
-int vfs_update(fsinfo_t* info, bool do_dev) {
+static int vfs_update_ex(fsinfo_t* info, bool do_dev, int update_kind) {
     if(do_dev) {
-        if(dev_set(info->mount_pid, info) != 0)
+        int res = dev_set(info->mount_pid, info, update_kind);
+        if(res != 0)
             return -1;
     }
 
-    if(vfs_set_info(info) != 0)
+    int res = vfs_set_info(info, update_kind);
+    if(res != 0) {
+        if(res > 0)
+            errno = res;
         return -1;
+    }
     vfs_update_file(info);
     return 0;
+}
+
+int vfs_update(fsinfo_t* info, bool do_dev) {
+    return vfs_update_ex(info, do_dev, VFS_UPDATE_METADATA);
+}
+
+int vfs_sync(fsinfo_t* info, bool do_dev) {
+    return vfs_update_ex(info, do_dev, VFS_UPDATE_DATA);
 }
 
 int vfs_del_node(ewokos_addr_t node) {
@@ -1037,7 +1086,9 @@ uint8_t* vfs_readfile(const char* fname, int* rsz) {
     return buf;
 }
 
-int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir, int uid, int gid) {
+static int vfs_create_uid_ex(const char* fname, fsinfo_t* ret, int type,
+        int mode, bool vfs_node_only, bool autodir, int uid, int gid,
+        bool create_open) {
     char dir[FS_FULL_NAME_MAX];
     char name[FS_FULL_NAME_MAX];
     vfs_dir_name(fname, dir, FS_FULL_NAME_MAX);
@@ -1047,7 +1098,8 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
     if(vfs_get_by_name(dir, &info_to) != 0) {
         int res_dir = -1;
         if(autodir && strcmp(dir, "/") != 0 && strcmp(dir, fname) != 0)
-            res_dir = vfs_create_uid(dir, &info_to, FS_TYPE_DIR, 0755, vfs_node_only, autodir, uid, gid);
+            res_dir = vfs_create_uid_ex(dir, &info_to, FS_TYPE_DIR, 0755,
+                    vfs_node_only, autodir, uid, gid, false);
         if(res_dir != 0) {
             /* Callers such as open(O_CREAT) rely on ENOENT to know the
              * leading directories are missing and must be created first. */
@@ -1073,10 +1125,7 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
     fi.stat.gid = gid < 0 ? getgid() : gid;
     fi.stat.mode = mode;
 
-    if(vfs_new_node(&fi, info_to.node, vfs_node_only, false) != 0) {
-        int e = errno;
-        fprintf(stderr, "CREATEDBG new_node %s errno=%d\n", fname, e);
-        errno = e;
+    if(vfs_new_node_ex(&fi, info_to.node, vfs_node_only, false, create_open) != 0) {
         return -1;
     }
 
@@ -1089,12 +1138,9 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
     fi.mount_pid = info_to.mount_pid;
     int res = dev_create(info_to.mount_pid, &info_to, &fi);
     if(res == 0) 
-        vfs_set_info(&fi);
+        vfs_set_info(&fi, VFS_UPDATE_DATA);
 
     if(res != 0) {
-        int e = errno;
-        fprintf(stderr, "CREATEDBG dev_create %s res=%d errno=%d\n", fname, res, e);
-        errno = e;
         vfs_del_node(fi.node);
         return res;
     }
@@ -1102,6 +1148,20 @@ int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vf
     if(ret != NULL)
         memcpy(ret, &fi, sizeof(fsinfo_t));
     return res;
+}
+
+int vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode,
+        bool vfs_node_only, bool autodir, int uid, int gid) {
+    return vfs_create_uid_ex(fname, ret, type, mode, vfs_node_only, autodir,
+            uid, gid, false);
+}
+
+int vfs_create_open(const char* fname, fsinfo_t* ret, int type,
+        int mode, bool vfs_node_only, bool autodir) {
+    char fullname[FS_FULL_NAME_MAX+1] = {0};
+    vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
+    return vfs_create_uid_ex(fullname, ret, type, mode, vfs_node_only,
+            autodir, -1, -1, true);
 }
 
 int vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir) {
@@ -1311,7 +1371,7 @@ int vfs_write(int fd, fsinfo_t* info, const void* buf, uint32_t size) {
                     (((uint64_t)offset >> 18) != ((uint64_t)file->info.stat.size >> 18));
             vfs_update_file(info);
             if(push)
-                vfs_set_info(info);
+                vfs_set_info(info, VFS_UPDATE_DATA);
             vfs_seek(fd, offset);
         }
     }

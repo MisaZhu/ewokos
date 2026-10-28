@@ -4,6 +4,7 @@
  * block/poll handlers in proc_handlers.c.
  */
 #include "vfsd.h"
+#include <sys/stat.h>
 
 static void do_vfs_get_by_name(int32_t pid, proto_t* in, proto_t* out) {
     (void)pid;
@@ -69,6 +70,29 @@ static void do_vfs_get_by_node(int32_t pid, proto_t* in, proto_t* out) {
     PF->clear(out)->addi(out, node_id)->add(out, &info, sizeof(fsinfo_t));
 }
 
+static void do_vfs_get_parent(int32_t pid, proto_t* in, proto_t* out) {
+    PF->addi(out, 0);
+    uint32_t node_id = (uint32_t)proto_read_int(in);
+    if(node_id == 0)
+        return;
+
+    fsinfo_t info;
+    uint32_t parent_id = 0;
+    pthread_rwlock_rdlock(&_vfs_lock);
+    vfs_node_t* node = vfs_get_node_by_id(node_id);
+    /* Backend operations can inspect the parent directly without resolving
+     * a path and synchronously re-entering the same filesystem driver. */
+    if(node != NULL && node->father != NULL &&
+            get_mount_pid(node) == vfs_fd_owner_pid(pid)) {
+        parent_id = vfs_get_node_id(node->father);
+        vfs_fill_node_fsinfo(node->father, &info);
+    }
+    pthread_rwlock_unlock(&_vfs_lock);
+
+    if(parent_id != 0)
+        PF->clear(out)->addi(out, parent_id)->add(out, &info, sizeof(fsinfo_t));
+}
+
 static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
     PF->addi(out, -1);
     fsinfo_t info;
@@ -78,6 +102,10 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
     uint32_t node_to_id = (uint32_t)proto_read_int(in);
     bool vfs_node_only = (bool)proto_read_int(in);
     bool vfs_write_over = (bool)proto_read_int(in);
+    bool create_open = (bool)proto_read_int(in);
+    procinfo_t creator;
+    if(create_open && proc_info(pid, &creator) != 0)
+        return;
 
     /*
      * The duplicate check below scans the father's kid list, so make sure
@@ -148,6 +176,10 @@ static void do_vfs_new_node(int pid, proto_t* in, proto_t* out) {
         if(node == NULL) {
             pthread_rwlock_unlock(&_vfs_lock);
             return;
+        }
+        if(create_open) {
+            node->create_open_pid = pid;
+            node->create_open_uuid = creator.uuid;
         }
     }
 
@@ -251,8 +283,21 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
         return;
     }
 
-    if(((flags & O_WRONLY) != 0 ||
-            (flags & O_RDWR) != 0) &&
+    /* Only the explicit open(O_CREAT) transaction may use the new file's
+     * requested access before its mode applies. Consume it on the creator's
+     * next open, successful or not, and bind it to the process generation. */
+    procinfo_t opener;
+    bool create_pending = node->create_open_pid == pid &&
+            proc_info(pid, &opener) == 0 &&
+            node->create_open_uuid == opener.uuid;
+    if(create_pending) {
+        node->create_open_pid = -1;
+        node->create_open_uuid = 0;
+    }
+    bool create_open = create_pending && (flags & O_CREAT) != 0;
+
+    if(!create_open &&
+            ((flags & O_WRONLY) != 0 || (flags & O_RDWR) != 0) &&
             vfsd_check_access(pid, &node->fsinfo, W_OK) != 0) {
         pthread_rwlock_unlock(&_vfs_lock);
         PF->addi(out, EPERM);
@@ -268,7 +313,7 @@ static void do_vfs_open(int32_t pid, proto_t* in, proto_t* out) {
      * The previous logic always required R_OK as well, which made pure
      * write opens fail for non-root users on write-only targets.
      */
-    if((flags & O_WRONLY) == 0 &&
+    if(!create_open && (flags & O_WRONLY) == 0 &&
             vfsd_check_access(pid, &node->fsinfo, R_OK) != 0) {
         pthread_rwlock_unlock(&_vfs_lock);
         PF->addi(out, EPERM);
@@ -427,6 +472,7 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
     PF->addi(out, -1);
     int res = -1;
     if(proto_read_to(in, &info, sizeof(fsinfo_t)) == sizeof(fsinfo_t)) {
+        int update_kind = proto_read_int(in);
         pthread_rwlock_wrlock(&_vfs_lock);
         vfs_node_t* node = vfs_get_node_by_id(info.node);
         if(node == NULL) {
@@ -434,10 +480,32 @@ static void do_vfs_set_fsinfo(int32_t pid, proto_t* in, proto_t* out) {
             PF->addi(out, ENOENT);
             return;
         }
-        if(vfsd_check_access(pid, &node->fsinfo, W_OK) != 0) {
+
+        bool allowed = false;
+        if(update_kind == VFS_UPDATE_DATA) {
+            /* Data/state writeback is valid for the creator of a read-only
+             * file and for any writer allowed by its group/other mode bits. */
+            allowed = vfsd_check_owner(pid, &node->fsinfo) == 0 ||
+                    vfsd_check_access(pid, &node->fsinfo, W_OK) == 0;
+            info.stat.uid = node->fsinfo.stat.uid;
+            info.stat.gid = node->fsinfo.stat.gid;
+            info.stat.mode = node->fsinfo.stat.mode;
+        }
+        else if(update_kind == VFS_UPDATE_METADATA) {
+            bool ownership_changed = info.stat.uid != node->fsinfo.stat.uid ||
+                    info.stat.gid != node->fsinfo.stat.gid;
+            allowed = ownership_changed ? vfsd_is_sys(pid) == 0 :
+                    vfsd_check_owner(pid, &node->fsinfo) == 0;
+        }
+
+        if(!allowed) {
             pthread_rwlock_unlock(&_vfs_lock);
             PF->addi(out, EPERM);
             return;
+        }
+        if(update_kind == VFS_UPDATE_METADATA) {
+            node->create_open_pid = -1;
+            node->create_open_uuid = 0;
         }
         res = set_node_info(pid, node, &info);
         pthread_rwlock_unlock(&_vfs_lock);
@@ -513,6 +581,19 @@ static void do_vfs_del_node(int32_t pid, proto_t* in, proto_t* out) {
         pthread_rwlock_unlock(&_vfs_lock);
         PF->addi(out, EPERM);
         return;
+    }
+    if(node->father != NULL &&
+            (node->father->fsinfo.stat.mode & S_ISVTX) != 0 &&
+            get_mount_pid(node) != pid) {
+        procinfo_t procinfo;
+        if(proc_info(pid, &procinfo) != 0 ||
+                (procinfo.uid > 0 &&
+                 procinfo.uid != node->father->fsinfo.stat.uid &&
+                 procinfo.uid != node->fsinfo.stat.uid)) {
+            pthread_rwlock_unlock(&_vfs_lock);
+            PF->addi(out, EPERM);
+            return;
+        }
     }
     if(vfsd_check_owner(pid, &node->fsinfo) != 0 &&
             get_mount_pid(node) != pid &&
@@ -623,6 +704,9 @@ void handle(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
         break;
     case VFS_GET_BY_NODE:
         do_vfs_get_by_node(pid, in, out);
+        break;
+    case VFS_GET_PARENT:
+        do_vfs_get_parent(pid, in, out);
         break;
     case VFS_GET_BY_FD:
         do_vfs_get_by_fd(pid, in, out);

@@ -2,6 +2,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/ipc_serv.h>
+#include <ewoksys/klog.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,6 +11,7 @@
 #include <fcntl.h>
 #include <sys/errno.h>
 #include <sys/shm.h>
+#include <sys/stat.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/signal.h>
@@ -784,9 +786,23 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
         return;
     }
     
-    if(vfs_check_access(from_pid, &info, W_OK) != 0) {
+    /* unlink/rmdir permission is controlled by the containing directory,
+     * not by the mode of the entry being removed (Git objects are 0444). */
+    fsinfo_t dir_info;
+    if(vfs_get_parent_by_node(info.node, &dir_info) != 0 ||
+            vfs_check_access(from_pid, &dir_info, W_OK) != 0 ||
+            vfs_check_access(from_pid, &dir_info, X_OK) != 0) {
         PF->addi(out, -1)->addi(out, EPERM);
         return;
+    }
+    if((dir_info.stat.mode & S_ISVTX) != 0) {
+        procinfo_t procinfo;
+        if(proc_info(from_pid, &procinfo) != 0 ||
+                (procinfo.uid > 0 && procinfo.uid != dir_info.stat.uid &&
+                 procinfo.uid != info.stat.uid)) {
+            PF->addi(out, -1)->addi(out, EPERM);
+            return;
+        }
     }
 
     int res = 0;
@@ -805,12 +821,33 @@ static void do_unlink(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, v
 static void do_set(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {
     fsinfo_t info_old, info;
     proto_read_to(in, &info, sizeof(fsinfo_t));
+    int update_kind = proto_read_int(in);
     if(vfs_get_by_node(info.node, &info_old) != 0) {
         PF->addi(out, -1)->addi(out, ENOENT);
         return;
     }
-    
-    if(vfs_check_access(from_pid, &info_old, W_OK) != 0) {
+
+    bool allowed = false;
+    if(update_kind == VFS_UPDATE_DATA) {
+        allowed = vfs_check_owner(from_pid, &info_old) == 0 ||
+                vfs_check_access(from_pid, &info_old, W_OK) == 0;
+        info.stat.uid = info_old.stat.uid;
+        info.stat.gid = info_old.stat.gid;
+        info.stat.mode = info_old.stat.mode;
+    }
+    else if(update_kind == VFS_UPDATE_METADATA) {
+        bool ownership_changed = info.stat.uid != info_old.stat.uid ||
+                info.stat.gid != info_old.stat.gid;
+        if(ownership_changed) {
+            procinfo_t procinfo;
+            allowed = proc_info(from_pid, &procinfo) == 0 && procinfo.uid <= 1;
+        }
+        else {
+            allowed = vfs_check_owner(from_pid, &info_old) == 0;
+        }
+    }
+
+    if(!allowed) {
         PF->addi(out, -1)->addi(out, EPERM);
         return;
     }

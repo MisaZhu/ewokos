@@ -67,6 +67,8 @@ static void vfs_node_init(vfs_node_t* node) {
     node->node_id = vfs_alloc_node_id();
     node->fsinfo.node = node->node_id;
     node->mount_id = -1;
+    node->create_open_pid = -1;
+    node->create_open_uuid = 0;
     queue_init(&node->read_wait_queue);
     queue_init(&node->write_wait_queue);
 }

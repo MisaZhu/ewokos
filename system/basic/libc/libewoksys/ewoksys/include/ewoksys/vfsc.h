@@ -15,6 +15,11 @@ extern "C" {
 #define VFS_EVT_NVAL 	0x10
 
 enum {
+	VFS_UPDATE_METADATA = 0,
+	VFS_UPDATE_DATA
+};
+
+enum {
 	VFS_GET_BY_NAME = 0,
 	VFS_GET_BY_NODE,
 	VFS_GET_BY_FD,
@@ -40,10 +45,12 @@ enum {
 	VFS_CLEAR_POLL_EVENTS,
 	VFS_SET_BY_FD,
         VFS_UNBLOCK,
-	VFS_NEW_NODES
+	VFS_NEW_NODES,
+	VFS_GET_PARENT
 };
 
 int  vfs_check_access(int pid, fsinfo_t* info, int mode);
+int  vfs_check_owner(int pid, fsinfo_t* info);
 
 typedef struct {
 	ewokos_addr_t node;

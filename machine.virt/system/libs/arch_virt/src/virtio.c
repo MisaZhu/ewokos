@@ -1228,29 +1228,25 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
         put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
         /*
-         * Wait on used.idx (plain DMA-coherent memory) instead of reading
-         * the MMIO interrupt status every iteration: each MMIO read is a
-         * VM exit. Spin briefly (QEMU usually completes within
-         * microseconds), then yield the core via a single SYS_YIELD so
-         * other ready processes can run while we wait; ack the interrupt
-         * once after completion.
+         * used.idx is the completion source of truth; the MMIO interrupt is
+         * only a wake hint. Keep the status/ack sequence ordered before each
+         * coherent used-ring read, as in the other virtio request queues.
          */
         uint8_t completed = 0;
         for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
         {
+            virtio_ack_interrupt(base, 0x1);
             mem_barrier();
             if (virtq->used.idx != used_before)
             {
+                /* Acquire device writes before consuming payload/status. */
+                mem_barrier();
                 completed = 1;
                 break;
             }
             if (i >= 128)
-            {
                 sched_yield();
-            }
         }
-        virtio_ack_interrupt(base, 0x1);
-        mem_barrier();
 
         if (completed && !isWrite)
         {
@@ -1314,19 +1310,18 @@ int virtio_blk_flush(virtio_dev_t dev)
 
     for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
     {
+        virtio_ack_interrupt(base, 0x1);
         mem_barrier();
         if (virtq->used.idx != used_before)
         {
+            /* Acquire device writes before consuming payload/status. */
+            mem_barrier();
             completed = 1;
             break;
         }
         if (i >= 128)
-        {
             sched_yield();
-        }
     }
-    virtio_ack_interrupt(base, 0x1);
-    mem_barrier();
 
     memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 2);
     if (!completed || *status != VIRTIO_BLK_OK)

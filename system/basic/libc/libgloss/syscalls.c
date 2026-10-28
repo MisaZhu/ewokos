@@ -422,14 +422,9 @@ _open (const char * fname, int oflag, ...)
             mode_t mask = umask(0);
             umask(mask);
             mode &= ~mask;
-            if(vfs_create(fname, &info, FS_TYPE_FILE, mode, false, false) != 0){
+            if(vfs_create_open(fname, &info, FS_TYPE_FILE, mode, false, false) != 0){
                 if(errno == 0)
                     errno = EIO;
-                {
-                    int e = errno;
-                    fprintf(stderr, "OPENDBG create %s errno=%d\n", fname, e);
-                    errno = e;
-                }
                 dbg_kout(" create error");
                 return -1;
             }
@@ -446,13 +441,8 @@ _open (const char * fname, int oflag, ...)
         return -1;
     }
 
-    fd = vfs_open(&info, oflag & ~O_EXCL);
+    fd = vfs_open(&info, oflag);
     if(fd < 0) {
-        {
-            int e = errno;
-            fprintf(stderr, "OPENDBG vfs_open %s errno=%d\n", fname, e);
-            errno = e;
-        }
         if(created)
             vfs_del_node(info.node);
         dbg_kout(" error");
@@ -462,7 +452,7 @@ _open (const char * fname, int oflag, ...)
     uint32_t type = FS_BASE_TYPE(info.type);
     bool needs_dev_open = true;
     if((type == FS_TYPE_FILE || type == FS_TYPE_DIR || type == FS_TYPE_LINK) &&
-            (oflag & O_TRUNC) == 0) {
+            (created || (oflag & O_TRUNC) == 0)) {
         needs_dev_open = false;
     }
 
@@ -846,7 +836,8 @@ _rename (const char * oldpath, const char * newpath)
     return -1;
   }
 
-  _unlink(oldpath);
+  if(_unlink(oldpath) != 0)
+    return -1;
   return 0;
 #endif
 }

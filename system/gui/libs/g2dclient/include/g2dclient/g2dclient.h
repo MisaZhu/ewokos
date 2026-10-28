@@ -367,6 +367,16 @@ typedef struct g2d_pgl_tex_s {
 #define G2D_PGL_CTEX_UB_PAD_PACK(ub_pad, filter) \
 	((uint8_t)(((ub_pad) & G2D_PGL_CTEX_UB_PAD_MASK) | \
 	           (((filter) & 0x0Fu) << G2D_PGL_CTEX_FILTER_SHIFT)))
+/* Explicit sampler state for mip-aware clients.  ctex_levels == 0 denotes a
+ * legacy single-level request, whose mag/min filter comes from ub_pad's high
+ * nibble.  Otherwise levels is 1..15 and these three bits are authoritative. */
+#define G2D_PGL_CTEX_SAMPLER_MAG_LINEAR 0x01u
+#define G2D_PGL_CTEX_SAMPLER_MIN_LINEAR 0x02u
+#define G2D_PGL_CTEX_SAMPLER_MIP_LINEAR 0x04u
+#define G2D_PGL_CTEX_SAMPLER_PACK(mag, min, mip) \
+	((uint8_t)(((mag) ? G2D_PGL_CTEX_SAMPLER_MAG_LINEAR : 0u) | \
+	           ((min) ? G2D_PGL_CTEX_SAMPLER_MIN_LINEAR : 0u) | \
+	           ((mip) ? G2D_PGL_CTEX_SAMPLER_MIP_LINEAR : 0u)))
 typedef struct g2d_pgl_ctex_s {
 	ewokos_addr_t ctex_phy[G2D_PGL_MAX_TEX_UNITS];
 	uint8_t       ctex_contig[G2D_PGL_MAX_TEX_UNITS];
@@ -384,6 +394,8 @@ typedef struct g2d_pgl_ctex_s {
 	   are 0 for a plain 2D image, so its record stays byte-identical. */
 	uint8_t       ctex_depth[G2D_PGL_MAX_TEX_UNITS];
 	uint32_t      ctex_arrstride64[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t       ctex_levels[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t       ctex_sampler[G2D_PGL_MAX_TEX_UNITS];
 } g2d_pgl_ctex_t;
 
 /* portablegl GPU offload request, used by BOTH PGL_CLEAR and PGL_DRAW.
@@ -485,6 +497,8 @@ typedef struct {
 	   allocation.  Both are 0 for a plain 2D image. */
 	uint8_t      ctex_depth[G2D_PGL_MAX_TEX_UNITS];
 	uint32_t     ctex_arrstride64[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t      ctex_levels[G2D_PGL_MAX_TEX_UNITS];
+	uint8_t      ctex_sampler[G2D_PGL_MAX_TEX_UNITS];
 } g2d_pgl_req_t;
 
 /* --- On-device-compiled shader program upload (G2D_DEV_CNTL_PGL_PROGRAM) ----

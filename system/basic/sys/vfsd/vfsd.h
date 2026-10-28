@@ -58,6 +58,8 @@ typedef struct vfs_node {
     uint8_t kids_loading;
     uint32_t refs;
     uint32_t refs_w;
+    int32_t create_open_pid; /* pending open(O_CREAT) transaction on a new node */
+    uint32_t create_open_uuid;
     uint32_t events; //events for poll or select
     queue_t read_wait_queue;
     queue_t write_wait_queue;

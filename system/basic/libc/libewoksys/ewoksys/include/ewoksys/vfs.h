@@ -46,6 +46,7 @@ int       vfs_new_nodes(fsinfo_t* infos, uint32_t num, ewokos_addr_t node_to);
 int       vfs_del_node(ewokos_addr_t node);
 int       vfs_get_by_name(const char* fname, fsinfo_t* info);
 int       vfs_get_by_node(ewokos_addr_t node, fsinfo_t* info);
+int       vfs_get_parent_by_node(ewokos_addr_t node, fsinfo_t* info);
 int       vfs_get_by_fd(int fd, fsinfo_t* info);
 int       vfs_set_by_fd(int fd, fsinfo_t* info);
 
@@ -58,6 +59,7 @@ off_t   vfs_tell(int fd);
 int       vfs_seek(int fd, off_t offset);
 
 int       vfs_update(fsinfo_t* info, bool do_dev);
+int       vfs_sync(fsinfo_t* info, bool do_dev);
 int       vfs_get_mount_by_id(int id, mount_t* mount);
 int       vfs_get_mount_by_fname(const char* fname, mount_t* mount, char* dev_fname, int dev_fname_sz);
 
@@ -67,6 +69,7 @@ int       vfs_mount(ewokos_addr_t mount_node_to, ewokos_addr_t node, const char*
 int       vfs_umount(ewokos_addr_t node);
 
 int       vfs_create(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir);
+int       vfs_create_open(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir);
 int       vfs_create_uid(const char* fname, fsinfo_t* ret, int type, int mode, bool vfs_node_only, bool autodir, int uid, int gid);
 uint8_t*  vfs_readfile(const char* fname, int* sz);
 int       vfs_readfile_to_buf(const char* fname, uint8_t* buf, int buf_size);

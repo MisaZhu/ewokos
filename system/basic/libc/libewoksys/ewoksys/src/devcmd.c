@@ -12,10 +12,10 @@
 extern "C" {
 #endif
 
-int dev_set(int dev_pid, fsinfo_t* info) {
+int dev_set(int dev_pid, fsinfo_t* info, int update_kind) {
     proto_t in, out;
     PF->init(&out);
-    PF->init(&in)->add(&in, info, sizeof(fsinfo_t));
+    PF->init(&in)->add(&in, info, sizeof(fsinfo_t))->addi(&in, update_kind);
 
     int res = ipc_call(dev_pid, FS_CMD_SET, &in, &out);
     PF->clear(&in);
