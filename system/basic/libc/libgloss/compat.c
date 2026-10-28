@@ -1804,6 +1804,63 @@ time_t mktime(struct tm *tm) {
     return (time_t)seconds;
 }
 
+/*
+ * timegm - the inverse of gmtime(): interpret the broken-down time in *tm as
+ * UTC and return the seconds since the epoch. Identical to mktime() except it
+ * applies no TZ offset (mktime treats *tm as local time). Like mktime it
+ * normalizes out-of-range fields and writes the normalized UTC broken-down
+ * time back into *tm. Non-standard (BSD/glibc) but required by callers such as
+ * the mario JS engine's ISO-8601 date parser (js_date_parse_iso).
+ */
+time_t timegm(struct tm *tm) {
+    long long days = 0;
+    long long seconds;
+    int year;
+    int month;
+
+    if (tm == NULL) {
+        errno = EINVAL;
+        return (time_t)-1;
+    }
+
+    year = tm->tm_year + 1900;
+    month = tm->tm_mon;
+
+    while (month < 0) {
+        month += 12;
+        --year;
+    }
+    while (month >= 12) {
+        month -= 12;
+        ++year;
+    }
+
+    if (year >= 1970) {
+        for (int y = 1970; y < year; ++y) {
+            days += is_leap_year(y) ? 366 : 365;
+        }
+    } else {
+        for (int y = 1969; y >= year; --y) {
+            days -= is_leap_year(y) ? 366 : 365;
+        }
+    }
+
+    for (int m = 0; m < month; ++m) {
+        days += month_days_for_year(year, m);
+    }
+
+    days += (long long)tm->tm_mday - 1;
+    seconds = days * 86400LL +
+        (long long)tm->tm_hour * 3600LL +
+        (long long)tm->tm_min * 60LL +
+        (long long)tm->tm_sec;
+
+    /* UTC: no TZ adjustment; normalize the broken-down time in place. */
+    fill_tm_from_epoch((time_t)seconds, tm);
+
+    return (time_t)seconds;
+}
+
 static void append_char(char *buf, size_t size, size_t *pos, char c) {
     if (*pos + 1 < size) {
         buf[*pos] = c;
