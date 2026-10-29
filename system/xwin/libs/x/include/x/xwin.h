@@ -35,6 +35,12 @@ typedef struct st_xwin {
 	  frame with it, since ws_g was reallocated and cleared.*/
 	bool present_pending;
 	int32_t present_ws_g_id;
+	/* Set by an on_repaint callback that copied its finished frame directly
+	   into ws_g2.  xwin_repaint then skips the redundant ws_g -> ws_g2 copy. */
+	bool present_direct;
+	/* A direct-present frame leaves ws_g stale.  Async repaint retries must
+	   not copy that stale workspace over the newer ws_g2 frame. */
+	bool direct_frame_valid;
 
 	/*xwin_set_alpha was called while on_repaint was running. The flag itself is
 	  already in xinfo, but the server notify is latched here and issued once the
@@ -68,6 +74,9 @@ int      xwin_top(xwin_t* xwin);
 void     xwin_set_alpha(xwin_t* xwin, bool alpha);
 void     xwin_repaint(xwin_t* xwin);
 graph_t* xwin_fetch_graph(xwin_t* xwin, graph_t* g);
+/* Publish a finished source graph directly into the fps_async handoff buffer.
+   The caller must be inside on_repaint (and therefore hold painting_lock). */
+int      xwin_present_direct(xwin_t* xwin, graph_t* src);
 void     xwin_repaint_req(xwin_t* xwin);
 int      xwin_max(xwin_t* xwin);
 int      xwin_fullscreen(xwin_t* xwin);

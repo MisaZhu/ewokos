@@ -22,8 +22,12 @@ static inline ewokos_addr_t graph_g2d_phy(const graph_t* g) {
     return g->shm_contig ? shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer) : 0;
 }
 
+static inline int graph_arch_cpu_safe(const graph_t* g) {
+    return g != NULL && g->buffer != NULL && !g->shm_contig;
+}
+
 int graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-    if(g == NULL || w <= 0 || h <= 0)
+    if(!graph_arch_cpu_safe(g) || w <= 0 || h <= 0)
         return -1;
     grect_t r = {x, y, w, h};
     if(!graph_insect(g, &r))
@@ -49,7 +53,7 @@ int graph_fill_triangle_arch(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int
         int32_t x3, int32_t y3, uint32_t color) {
     int32_t cx = 0, cy = 0, cw = 0, ch = 0;
 
-    if(g == NULL || g->buffer == NULL)
+    if(!graph_arch_cpu_safe(g))
         return -1;
     if(color_a(color) == 0)
         return 0;
@@ -76,7 +80,8 @@ int graph_triangle_arch(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int32_t 
 inline int graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 
-    if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+    if(!graph_arch_cpu_safe(src) || !graph_arch_cpu_safe(dst) ||
+            sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return -1;
 
     grect_t sr = {sx, sy, sw, sh};
@@ -102,7 +107,8 @@ inline int graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
 
 inline int graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-    if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+    if(!graph_arch_cpu_safe(src) || !graph_arch_cpu_safe(dst) ||
+            sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return -1;
 
     /* Global alpha 0: nothing visible, skip entirely */
@@ -194,7 +200,8 @@ static inline void graph_pixel_alpha_mask_neon(graph_t *graph, int32_t x, int32_
 
 inline int graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-    if(sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+    if(!graph_arch_cpu_safe(src) || !graph_arch_cpu_safe(dst) ||
+            sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
         return -1;
 
     grect_t sr = {sx, sy, sw, sh};

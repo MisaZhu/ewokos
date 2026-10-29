@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 inline int graph_g2d_avaliable(graph_t* g) {
-    if(has_g2d() == 0 && g->shm_id > 0)
+	if(g != NULL && has_g2d() == 0 && g->shm_id > 0)
 		return 0;
 	return -1;
 }

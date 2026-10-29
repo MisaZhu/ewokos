@@ -122,12 +122,17 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
         }
         else if(win_decoration_less(win)) {
             /*a decoration-less window (sprite/statusbar) has no title to grab,
-              so a press anywhere in it drags the whole window. A NO_FRAME
-              window that keeps its title falls through to the plain client
-              grab below, so its client-area presses reach the app.*/
-            x->current.old_pos.x = x->cursor.cpos.x;
-            x->current.old_pos.y = x->cursor.cpos.y;
-            x->current.win_drag = win;
+              so a press anywhere in it used to drag the whole window. Fixed-size
+              borderless clients (games and video surfaces) have no meaningful
+              drag operation; route their presses to the client instead.*/
+            if(win->xinfo->state == XWIN_STATE_MAX ||
+               (win->xinfo->style & XWIN_STYLE_NO_RESIZE) != 0) {
+                x->current.mouse_grab = win;
+            } else {
+                x->current.old_pos.x = x->cursor.cpos.x;
+                x->current.old_pos.y = x->cursor.cpos.y;
+                x->current.win_drag = win;
+            }
         }
         else {
             /*plain client-area press: grab the pointer for this window until

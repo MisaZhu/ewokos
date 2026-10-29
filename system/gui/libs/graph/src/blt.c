@@ -347,6 +347,8 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 
 inline void graph_blt(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
+	if(src == NULL || dst == NULL || src->buffer == NULL || dst->buffer == NULL)
+		return;
 
     if(graph_g2d_avaliable(src) == 0 && graph_g2d_avaliable(dst) == 0) {
         if(graph_blt_g2d(src, sx, sy, sw, sh, dst, dx, dy, dw, dh) == 0)
@@ -519,6 +521,8 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
 
 inline void graph_blt_alpha(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
         graph_t* dst, int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
+	if(src == NULL || dst == NULL || src->buffer == NULL || dst->buffer == NULL)
+		return;
 
     if(graph_g2d_avaliable(src) == 0 && graph_g2d_avaliable(dst) == 0) {
         if(graph_blt_alpha_g2d(src, sx, sy, sw, sh, dst, dx, dy, dw, dh, alpha) == 0)

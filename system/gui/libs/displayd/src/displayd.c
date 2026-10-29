@@ -575,6 +575,9 @@ static void init_graph(disp_shm_t* shm) {
     else
         graph_init(&g, (const uint32_t*)shm->shm, _zwidth, _zheight);
 
+    g.shm_id = shm->shm_id;
+    g.shm_contig = shm->shm_contig;
+
     if(_fbdisplayd->splash != NULL)
         _fbdisplayd->splash(&g, _logo);
     else

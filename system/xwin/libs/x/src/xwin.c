@@ -138,6 +138,8 @@ static int xwin_update_info(xwin_t* xwin, uint8_t type) {
           Every rebuild is followed by a repaint which renders a fresh frame.*/
         xwin_present_pending_set(xwin, false);
         xwin->present_ws_g_id = -1;
+        xwin->present_direct = false;
+        xwin->direct_frame_valid = false;
         pthread_mutex_unlock(&xwin->painting_lock);
     }
 
@@ -403,6 +405,34 @@ static graph_t* x_get_flip_graph(xwin_t* xwin, graph_t* g) {
     return g;
 }
 
+int xwin_present_direct(xwin_t* xwin, graph_t* src) {
+    graph_t front;
+
+    if(xwin == NULL || src == NULL || src->buffer == NULL ||
+            xwin->xinfo == NULL || !xwin->xinfo->fps_async)
+        return 0;
+    /* The server owns ws_g2 until it clears update_requested.  Leave the
+       caller's ws_g untouched when that buffer is busy so the normal
+       xwin_flip_locked fallback can preserve the finished frame for retry. */
+    if(xwin->xinfo->update_requested != 0)
+        return 0;
+    memset(&front, 0, sizeof(graph_t));
+    if(x_get_flip_graph(xwin, &front) == NULL || front.buffer == NULL)
+        return 0;
+
+    xwin->xinfo->painting = 1;
+    __sync_synchronize();
+    graph_blt(src, 0, 0, src->w, src->h, &front, 0, 0,
+            front.w, front.h);
+    xwin->xinfo->front_index = 1;
+    xwin->xinfo->painting = 0;
+    __sync_synchronize();
+    xwin->xinfo->update_requested = 1;
+    xwin->present_direct = true;
+    xwin->direct_frame_valid = true;
+    return 1;
+}
+
 /*Perform the fps_async "flip": copy the rendered workspace ws_g onto the
   handoff buffer ws_g2 and publish it to the server. Returns false when the
   server still owns ws_g2 (update_requested != 0) or the buffers are not
@@ -433,6 +463,9 @@ static bool xwin_flip_locked(xwin_t* xwin) {
     xwin->xinfo->painting = 1;
     __sync_synchronize();
     graph_blt(&g, 0, 0, g.w, g.h, &front, 0, 0, front.w, front.h);
+    /* ws_g now contains the frame that was just published, so a later
+       event-thread retry is allowed to use it again. */
+    xwin->direct_frame_valid = false;
     xwin->xinfo->front_index = 1;
     xwin->xinfo->painting = 0;
     __sync_synchronize();
@@ -572,6 +605,9 @@ void xwin_repaint(xwin_t* xwin) {
     if(xwin->xinfo != NULL && !xwin->xinfo->fps_async)
         xwin->xinfo->painting = 1;
 
+    /* Each repaint starts with a clean handoff mode.  In particular, a
+       failed workspace remap must never inherit a previous direct publish. */
+    xwin->present_direct = false;
     graph_t g;
     if(xwin_fetch_graph(xwin, &g) != NULL) {
         if(xwin->on_repaint != NULL) {
@@ -614,7 +650,17 @@ void xwin_repaint(xwin_t* xwin) {
           the process runs, has painted, and stays invisible. Record the skipped
           frame and let the event loop publish it as soon as the server lets go
           of the handoff buffer (see xwin_retry_pending_presents).*/
-        if(xwin_flip_locked(xwin)) {
+        if(xwin->present_direct) {
+            /* The EGL/GPU path may have already written ws_g2 directly,
+               avoiding a second full-window copy from ws_g. */
+            xwin_present_pending_set(xwin, false);
+        }
+        else if(xwin->direct_frame_valid) {
+            /* A direct-present frame left ws_g stale.  An event-thread repaint
+               with no completed EGL swap must not republish that old buffer. */
+            xwin_present_pending_set(xwin, false);
+        }
+        else if(xwin_flip_locked(xwin)) {
             xwin_present_pending_set(xwin, false);
         }
         else if(g.buffer != NULL && xwin->xinfo->visible) {
