@@ -2319,6 +2319,9 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
     cproc->info.wait_for = pid;
     proc_unready_locked(cproc, WAIT);
     proc_lock_leave();
+    /* schedule() replaces ctx with the next task's trap frame. Save the
+     * parent's return value first; nothing below may write through ctx. */
+    ctx->gpr[0] = 0;
     proc_account_pause_current();
     schedule(ctx);
     proc_account_resume_current();
@@ -2326,7 +2329,6 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
     p = proc_take_zombie_by_pid(pid);
     if(p != NULL)
         proc_funeral(p);
-    ctx->gpr[0] = 0;
 }
 
 static void proc_wakeup_all_state(proc_t* proc) {

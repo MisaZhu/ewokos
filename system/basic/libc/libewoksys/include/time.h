@@ -31,6 +31,7 @@ struct tm {
 
 time_t time(time_t *timer);
 time_t mktime(struct tm *tm);
+time_t timegm(struct tm *tm); /* like mktime but interprets *tm as UTC (BSD/glibc ext) */
 struct tm *gmtime(const time_t *timer);
 struct tm *gmtime_r(const time_t *timer, struct tm *result);
 struct tm *localtime(const time_t *timer);
