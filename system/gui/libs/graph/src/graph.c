@@ -1,5 +1,6 @@
 #include <graph/graph.h>
 #include <graph/graph_g2d.h>
+#include <g2dclient/g2dclient.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -217,6 +218,22 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
     return ret;
 }
 
+/* Q8B A2D requires a 64-byte row pitch; V3D handles arbitrary widths.
+   Query once, and only for an unaligned canvas, so normal allocations do
+   not add an IPC round trip. A failed query keeps the conservative gate
+   for that allocation and is retried by the next unaligned one. */
+static bool graph_shm_needs_aligned_pitch(void) {
+    static int required = -1;
+    uint32_t version = 0;
+
+    if(required < 0) {
+        if(g2d_get_version(&version) != 0)
+            return true;
+        required = (version == 690) ? 1 : 0;
+    }
+    return required != 0;
+}
+
 /* create a w x h graph backed by a shared-memory canvas (zero-copy
    capable for g2d operations). prefers a physically contiguous segment
    for hardware g2d and falls back to a non-contiguous one when the
@@ -224,14 +241,11 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
 graph_t* graph_new_shm(int32_t w, int32_t h) {
     graph_t* g = NULL;
     uint64_t pixels;
+    uint64_t pitch = (uint64_t)(uint32_t)w * sizeof(uint32_t);
 
-	pixels = (uint64_t)(uint32_t)w * (uint32_t)h;
-	/* Q8B A2D consumes a linear canvas with a 64-byte row pitch. Keep
-	   arbitrary logical widths on the ordinary shm path so they cannot be
-	   mistaken for GPU-ready contig surfaces; callers can place an odd visible
-	   rect in a wider aligned canvas when they want GPU blur. */
-	if(has_g2d() == 0 && pixels >= G2D_MIN_SIZE &&
-		((uint64_t)(uint32_t)w * sizeof(uint32_t)) % GRAPH_SHM_ALIGN == 0)
+    pixels = (uint64_t)(uint32_t)w * (uint32_t)h;
+    if(has_g2d() == 0 && pixels >= G2D_MIN_SIZE &&
+            (pitch % GRAPH_SHM_ALIGN == 0 || !graph_shm_needs_aligned_pitch()))
         g = graph_new_shm_row(w, h, true);
 
     if(g == NULL)

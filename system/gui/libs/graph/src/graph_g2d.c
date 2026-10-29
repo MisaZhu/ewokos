@@ -1,9 +1,6 @@
 #include <graph/graph_g2d.h>
 #include <g2dclient/g2dclient.h>
 #include <ewoksys/shm.h>
-#include <ewoksys/klog.h>
-#include <ewoksys/kernel_tic.h>
-#include <stdio.h>
 #include <string.h>
 
 #ifdef __cplusplus 
@@ -107,25 +104,6 @@ void graph_g2d_blur_stats(uint32_t* gpu, uint32_t* fb_notsup,
 	if(fb_rect != NULL) *fb_rect = _g2d_blur_fb_rect;
 	if(fb_tmp != NULL) *fb_tmp = _g2d_blur_fb_tmp;
 	if(fb_drv != NULL) *fb_drv = _g2d_blur_fb_drv;
-}
-
-/* one line per second per reason while the condition persists: enough
-   to see a routing break in /dev/log, quiet when routing works */
-static void blur_fallback_klog(const char* why, uint32_t n) {
-	static uint64_t _last_ms[4];
-	static uint32_t _last_cnt[4];
-	int slot = (why[0] >> 1) & 3;
-	uint64_t now = kernel_tic_ms(0);
-
-	if(_last_ms[slot] != 0 && now - _last_ms[slot] >= 1000) {
-		slog("graph: blur fell back to cpu (%s) x%u in the last %ums\n",
-				why, n - _last_cnt[slot],
-				(unsigned)(now - _last_ms[slot]));
-	}
-	if(_last_ms[slot] == 0 || now - _last_ms[slot] >= 1000) {
-		_last_ms[slot] = now;
-		_last_cnt[slot] = n;
-	}
 }
 
 static int g2d_reject(const graph_t* a, const graph_t* b, int32_t w, int32_t h) {
@@ -395,11 +373,9 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	uint32_t tmp_pitch;
 	int gpu_path;
 	int ret;
-	uint64_t t0, t1;
 
 	if(!g2d_op_supported(G2D_CAP_GAUSSIAN_BLUR)) {
 		_g2d_blur_fb_notsup++;
-		blur_fallback_klog("op unsupported", _g2d_blur_fb_notsup);
 		return G2D_ERR_NOT_SUPPORTED;
 	}
 
@@ -418,8 +394,6 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 			return g2d_reject(g, NULL, w, h);
 		}
 		_g2d_blur_fb_canvas++;
-		blur_fallback_klog("canvas not shm/contig",
-				   _g2d_blur_fb_canvas);
 		return g2d_reject(g, NULL, w, h);
 	}
 
@@ -447,7 +421,6 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	if(blur_tmp_get((uint32_t)(h - 1) * tmp_pitch + (uint32_t)w * 4u,
 			&tmp_shm_id, &tmp_pixels, &tmp_phy) != 0) {
 		_g2d_blur_fb_tmp++;
-		blur_fallback_klog("scratch alloc failed", _g2d_blur_fb_tmp);
 		return G2D_ERR_FAILED;
 	}
 	/* describe the scratch as its LOGICAL rw x rh geometry: the attach
@@ -463,25 +436,12 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 
 	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp,
 			g2d_rect(x, y, w, h), r);
-	t0 = kernel_tic_ms(0);
 	ret = g2d_op_result(G2D_CAP_GAUSSIAN_BLUR, g2d_gaussian_blur(&req));
-	t1 = kernel_tic_ms(0);
 	if(ret == 0) {
 		_g2d_blur_gpu++;
 	}
 	else {
-		char why[128];
-
 		_g2d_blur_fb_drv++;
-		/* the elapsed round-trip separates an ipc queue timeout
-		   (g2dd busy - the request may never have been processed)
-		   from a genuine refusal (fast answer) */
-		snprintf(why, sizeof(why),
-				"blur ret=%d after %ums (canvas %dx%d, rect "
-				"%d,%d %dx%d, r=%d)",
-				ret, (unsigned)(t1 - t0),
-				g->w, g->h, x, y, w, h, r);
-		blur_fallback_klog(why, _g2d_blur_fb_drv);
 	}
 	return ret;
 }
