@@ -135,6 +135,16 @@ typedef struct {
 	  front_index selects the server's composite source (1 => ws_g2); back_index is
 	  reserved and stays 0 (the client always renders ws_g).*/
 	bool fps_async;
+	/*Per-window opt-out of fps_async double-buffering. The global x.json
+	  "fps_async" only ENABLES the feature; a client may still force THIS window
+	  onto the blocking single-buffer handshake by setting fps_async_force_sync in
+	  the shared xinfo before a (re)build. xserverd then skips allocating the
+	  second full-frame ws_g2 handoff canvas for it. re3 sets this so a
+	  GUI-launched full-screen window is not handed a second full-screen buffer,
+	  which on its own can exhaust the shared graphics shm. The hint is
+	  client-owned (memset to 0 at window create, so it defaults off) and the
+	  rebuild path preserves it across geometry changes.*/
+	bool fps_async_force_sync;
 	int32_t ws_g2_shm_id;
 	bool ws_g2_shm_contig;
 	volatile uint32_t back_index;
