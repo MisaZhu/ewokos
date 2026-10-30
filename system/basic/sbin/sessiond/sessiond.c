@@ -23,6 +23,36 @@ static int _group_num = 0;
 
 static int load_session_db(void);
 
+static void install_recovery_account(void) {
+    memset(_users, 0, sizeof(_users));
+    memset(_groups, 0, sizeof(_groups));
+    strcpy(_users[0].user, "root");
+    _users[0].uid = 0;
+    _users[0].gid = 0;
+    strcpy(_users[0].home, "/home/root");
+    strcpy(_users[0].cmd, "/bin/shell");
+    /* MD5("root"), matching the factory root entry. */
+    strcpy(_users[0].password, "63a9f0ea7bb98050796b649e85481845");
+    _user_num = 1;
+    strcpy(_groups[0].group, "root");
+    _groups[0].gid = 0;
+    _group_num = 1;
+    klog("sessiond: using built-in recovery root account\n");
+}
+
+/* sdfsd publishes the new root node asynchronously through vfsd.  sessiond
+ * is intentionally started immediately after that driver, so tolerate the
+ * short publication window instead of failing the whole recovery network. */
+static int open_session_file(const char* path) {
+    for(int attempt = 0; attempt < 30; attempt++) {
+        int fd = open(path, O_RDONLY);
+        if(fd >= 0)
+            return fd;
+        usleep(100000);
+    }
+    return -1;
+}
+
 static void skip_line(int fd) {
     char c;
     while(read(fd, &c, 1) == 1) {
@@ -130,9 +160,9 @@ static int read_group_item(int fd, session_group_t* info) {
 }
 
 static int read_user_info(void) {
-    int fd = open("/etc/passwd", O_RDONLY);
+    int fd = open_session_file("/etc/passwd");
     if(fd < 0) {
-        fprintf(stderr, "Error, open password file failed!\n");
+        klog("sessiond: open /etc/passwd failed\n");
         return -1;
     }
     _user_num = 0;
@@ -149,9 +179,9 @@ static int read_user_info(void) {
 }
 
 static int read_group_info(void) {
-    int fd = open("/etc/group", O_RDONLY);
+    int fd = open_session_file("/etc/group");
     if(fd < 0) {
-        fprintf(stderr, "Warning, open group file failed!\n");
+        klog("sessiond: open /etc/group failed\n");
         _group_num = 0;
         memset(_groups, 0, sizeof(_groups));
         return 0;
@@ -366,14 +396,18 @@ static void handle_ipc(int pid, int cmd, proto_t* in, proto_t* out, void* p) {
 }
 
 int main(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
+    int recovery = argc > 1 && strcmp(argv[1], "--recovery") == 0;
 
-    if(load_session_db() != 0)
-        return -1;
+    if(load_session_db() != 0) {
+        if(!recovery) {
+            klog("sessiond: load session database failed\n");
+            return -1;
+        }
+        install_recovery_account();
+    }
 
     if(ipc_serv_reg(IPC_SERV_SESSIOND) != 0) {
-        slog("reg sessiond ipc_serv error!\n");
+        klog("sessiond: register IPC service failed\n");
         return -1;
     }
 
