@@ -32,6 +32,7 @@ static map_t  _files_hash = NULL;
 static pthread_mutex_t _files_lock;
 static pthread_mutex_t _shm_lock;
 static fsinfo_t* file_add(int fd, int pid, fsinfo_t* info);
+static int do_remount(vdevice_t* dev, const char* mnt_point, int type, int mode);
 
 static void device_init(vdevice_t* dev) {
     (void)dev;
@@ -1038,6 +1039,26 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
         return;
     }
 
+    if(cmd == DEV_CMD_REMOUNT) {
+        int32_t sz;
+        void* data = proto_read(in, &sz);
+        int res = -1;
+        /* dev_cntl_by_pid wraps the caller's proto in one outer factor.
+         * Decode that inner factor before treating it as the mount path;
+         * using data directly makes the leading factor length look like a
+         * truncated/empty string (the remount then lands nowhere). */
+        proto_t in_arg;
+        PF->init(&in_arg);
+        if(data != NULL && sz > 0)
+            PF->copy(&in_arg, data, sz);
+        const char* mnt_point = proto_read_str(&in_arg);
+        if(mnt_point != NULL && mnt_point[0] != 0)
+            res = do_remount(dev, mnt_point, FS_TYPE_CHAR, 0444);
+        PF->clear(&in_arg);
+        PF->clear(out)->addi(out, res);
+        return;
+    }
+
     /* every other command is driver-specific; nothing to do without a handler */
     if(dev->dev_cntl == NULL)
         return;
@@ -1190,6 +1211,41 @@ static int do_mount(vdevice_t* dev, int type, int mode) {
         return -1;
     }
     memcpy(&dev->mnt_info, &info, sizeof(fsinfo_t));
+    return 0;
+}
+
+/* Move a live device mount into the current namespace.  Install the new
+ * mount before detaching the old one so a failed remount leaves the daemon
+ * usable at its existing path. */
+static int do_remount(vdevice_t* dev, const char* mnt_point, int type, int mode) {
+    if(dev == NULL || mnt_point == NULL || mnt_point[0] == 0)
+        return -1;
+
+    fsinfo_t old_info = dev->mnt_info;
+    fsinfo_t target;
+    memset(&target, 0, sizeof(target));
+    if(vfs_get_by_name(mnt_point, &target) != 0) {
+        if(vfs_create(mnt_point, &target, FS_BASE_TYPE(type), mode, true, true) != 0) {
+            klog("vdevice: remount create failed path=%s\n", mnt_point);
+            return -1;
+        }
+    }
+
+    dev->mnt_info = target;
+    if(do_mount(dev, type, mode) != 0) {
+        klog("vdevice: remount mount failed path=%s\n", mnt_point);
+        dev->mnt_info = old_info;
+        return -1;
+    }
+
+    klog("vdevice: remount mounted path=%s node=%u old=%u\n", mnt_point,
+            (unsigned)dev->mnt_info.node, (unsigned)old_info.node);
+
+    /* The old mount belongs to the boot RAMFS, which is already covered by
+     * the selected rootfs.  Leave that detached mount in the daemon's mount
+     * set until process teardown; vfsd_umount_by_pid() will reclaim it with
+     * the new mount and avoids tearing down a node that may still be part of
+     * the old namespace during the root switch. */
     return 0;
 }
 
