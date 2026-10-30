@@ -284,8 +284,14 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
         ret->xinfo->state = XWIN_STATE_MAX;
     }
 
-    if((style & XWIN_STYLE_MAX) != 0)
+	if((style & XWIN_STYLE_MAX) != 0) {
+		/*Keep the normal client geometry as the restore target before the
+		 *initial MAX state is applied.  This also lets GPU clients request
+		 *fullscreen atomically at xwin_open time without a second synchronous
+		 * repaint during startup.*/
+		ret->xinfo_prev = *ret->xinfo;
         ret->xinfo->state = XWIN_STATE_MAX;
+	}
 
     xwin_registry_add(ret);
     /*the initial UPDATE_INFO is what makes the server allocate ws_g/frame_g.
@@ -627,6 +633,19 @@ void xwin_repaint(xwin_t* xwin) {
         }
     }
     if(xwin->fd <= 0 || xwin->xinfo == NULL) {
+        pthread_mutex_unlock(&xwin->painting_lock);
+        return;
+    }
+
+    /*A window can be resized/maximized while it is still hidden (the normal
+      startup path creates the surface before xwin_set_visible).  There is no
+      compositor consumer for a hidden workspace, so a blocking present here
+      would wait forever for an UPDATE that xserverd intentionally ignores.
+      Leave the freshly rendered canvas in place and let the first visible
+      repaint publish it.*/
+    if(!xwin->xinfo->visible) {
+        xwin->xinfo->painting = 0;
+        xwin->xinfo->update_theme = false;
         pthread_mutex_unlock(&xwin->painting_lock);
         return;
     }

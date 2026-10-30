@@ -401,9 +401,13 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         type = type | X_UPDATE_REBUILD | X_UPDATE_REFRESH;
     }
     
-    if((type & X_UPDATE_REBUILD) != 0 ||
-            win->ws_g == NULL ||
-            win->frame_g == NULL) {
+	/*Opaque fullscreen clients have no frame path at all.  Keep frame_g for
+	 *translucent decoration-less clients because workspace blur/compositing may
+	 * still need it.*/
+	bool decoration_less = win_decoration_less(win) && !win->xinfo->alpha;
+	if((type & X_UPDATE_REBUILD) != 0 ||
+			win->ws_g == NULL ||
+			(!decoration_less && win->frame_g == NULL)) {
 
         /*a painter thread may be parked in proc_block_by(xinfo->win) on the
           old ws_g. Release the handshake before freeing it: clear the flag
@@ -472,8 +476,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
           snapshot while the client keeps painting ws_g - no blocking, no tearing.
           When fps_async is off ws_g2 stays NULL and the client uses the blocking
           single-buffer handshake.*/
-        win->xinfo->fps_async = x->config.fps_async;
-        if(x->config.fps_async) {
+		win->xinfo->fps_async = x->config.fps_async &&
+				!win->xinfo->fps_async_force_sync;
+		if(win->xinfo->fps_async) {
             win->ws_g2 = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
             if(win->ws_g2 == NULL) {
                 /*no shm left for the handoff buffer: fall back to the blocking
@@ -515,8 +520,16 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         win->xinfo->ws_g_buffer_shm_id = win->ws_g->shm_id;
         win->xinfo->ws_g_buffer_shm_contig = win->ws_g->shm_contig;
 
-        win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
-        if(win->frame_g == NULL) {
+		/*A fullscreen/no-decoration client has no frame ring.  Keeping a
+		 *second display-sized canvas here wastes the exact memory needed by
+		 *GUI-launched GPU applications and draw_win can composite ws_g directly.*/
+		if (decoration_less) {
+			win->frame_g = NULL;
+			win->xinfo->frame_g_shm_id = -1;
+			win->xinfo->frame_g_shm_contig = false;
+		} else {
+		win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
+		if(win->frame_g == NULL) {
             klog("xserverd: window '%s' frame shm %dx%d failed: "
                     "shm window exhausted\n", win->xinfo->title,
                     win->xinfo->winr.w, win->xinfo->winr.h);
@@ -533,10 +546,11 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             win->xinfo->fps_async = false;
             win->xinfo->ws_g_buffer_shm_id = -1;
             win->xinfo->ws_g_buffer_shm_contig = false;
-            return -1;
+			return -1;
         }
         win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
         win->xinfo->frame_g_shm_contig = win->frame_g->shm_contig;
+		}
     }
     x_update_frame_areas(x, win);
     if((type & X_UPDATE_REFRESH) != 0 || win->xinfo->alpha) {

@@ -533,6 +533,18 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
       client published. blit_win_part does that split for every rect handed
       to it.*/
     graph_t* g = win->frame_g;
+	/*Fullscreen/no-decoration windows have no decoration ring.  Composite
+	 * their published workspace directly; this also lets the server omit the
+	 * otherwise redundant display-sized frame_g allocation.*/
+	if(g == NULL && win_decoration_less(win) &&
+			!win_bg_effect_active(x, win) && !ws_blur_active(x, win)) {
+		graph_t* ws = win_comp_src(win);
+		if(ws != NULL && ws->buffer != NULL) {
+			graph_blt(ws, 0, 0, ws->w, ws->h, disp_g,
+					win->xinfo->winr.x, win->xinfo->winr.y,
+					win->xinfo->wsr.w, win->xinfo->wsr.h);
+		}
+	}
     if(g != NULL) {
         grect_t bounds = {0, 0, g->w, g->h};
         if(!grect_insect(&bounds, &dmg)) {

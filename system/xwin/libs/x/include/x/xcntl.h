@@ -135,6 +135,12 @@ typedef struct {
 	  front_index selects the server's composite source (1 => ws_g2); back_index is
 	  reserved and stays 0 (the client always renders ws_g).*/
 	bool fps_async;
+	/*Client-requested synchronous presents.  This is an input hint consumed
+	  during every workspace rebuild; fps_async remains the server's effective
+	  mode and is still published for existing clients.  Fullscreen GPU clients
+	  use this to avoid allocating a second display-sized handoff canvas when
+	  they are launched alongside the desktop or an xterm.*/
+	bool fps_async_force_sync;
 	int32_t ws_g2_shm_id;
 	bool ws_g2_shm_contig;
 	volatile uint32_t back_index;
