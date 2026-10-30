@@ -2,7 +2,7 @@
  * hid_joystickd: Bluetooth/USB gamepad daemon.
  *
  * Structurally a sibling of hid_keybd/hid_moused: it subscribes to one
- * report id on a HID host char device (/dev/hid0 from usbhostd, or /dev/bt0
+ * report id on a HID host char device (/dev/usb0 from usbhostd, or /dev/bt0
  * from btd in BT mode), drains the subscriber queue, and re-publishes the
  * gamepad state on its own node (/dev/joystick0, or /dev/js1 for BT).
  *
@@ -87,7 +87,7 @@
 #define JS_TRIG_THRESH 0x8000u
 
 static int hid = -1;
-static const char* _dev_point = "/dev/hid0";
+static const char* _dev_point = "/dev/usb0";
 static bool _bt_mode = false;
 static fsinfo_t _hid_info;
 

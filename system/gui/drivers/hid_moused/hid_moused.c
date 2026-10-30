@@ -21,7 +21,7 @@
  */
 #define CACHE_SIZE (8)
 
-/* retry cadence while /dev/hid0 is not there yet */
+/* retry cadence while /dev/usb0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
 
 /*
@@ -34,7 +34,7 @@
 
 /*
  * BT mode (argv[3] == "bt"): the upstream is btd's /dev/bt0 instead of
- * usbhostd's /dev/hid0. The wire protocol is identical (libhid subscriber
+ * usbhostd's /dev/usb0. The wire protocol is identical (libhid subscriber
  * queue, report id 1); the deltas are:
  *  - the wait is bounded (BT_WAIT_REPORT_US): an idle BT mouse produces
  *    zero traffic, so the daemon must wake on its own to run the attach
@@ -51,7 +51,7 @@
 #define MOUSE_FLUSH_MS_BT 20u
 
 /*
- * /dev/hid0 subscriber-queue protocol (see libs/usb/usb_defs.h): fixed
+ * /dev/usb0 subscriber-queue protocol (see libs/usb/usb_defs.h): fixed
  * 7-byte pointer events, queue depth 32. One read sized for the whole
  * queue drains an entire backlog in a single vfsd/usbhostd round-trip;
  * the old one-event-per-read drain paid that round-trip per report,
@@ -62,10 +62,10 @@
 #define MOUSE_DRAIN_SIZE (HID_QUEUE_DEPTH * HID_EVT_SIZE)
 
 static int hid = -1;
-static const char* _dev_point = "/dev/hid0";
+static const char* _dev_point = "/dev/usb0";
 static bool _bt_mode = false;
 static uint32_t _flush_ms = MOUSE_FLUSH_MS;
-/* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
+/* cached fsinfo of the open /dev/usb0 fd: node id and mount pid stay stable
    for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
 static fsinfo_t _hid_info;
 /* contiguous event queue: queued events live in [0, mouse_data_count);
@@ -231,7 +231,7 @@ static int set_report_id(int fd, int id) {
 }
 
 /*
- * usbhostd only creates /dev/hid0 once the bsp_usb layer has brought up
+ * usbhostd only creates /dev/usb0 once the bsp_usb layer has brought up
  * the controller, and a USB mouse may be plugged in (or enumerated) well
  * after boot. This is retried from the loop instead of before device_run(), so
  * /dev/mouse0 gets registered immediately: ipcserv waits for that
@@ -274,7 +274,7 @@ static bool hid_connect(void) {
 }
 
 /*
- * Wait until the per-fd subscriber queue on /dev/hid0 holds a report.
+ * Wait until the per-fd subscriber queue on /dev/usb0 holds a report.
  *
  * The waiter registration is set up once in hid_connect() and never
  * removed, so waiting is a single proc_block_by(): the kernel parks us
@@ -283,7 +283,7 @@ static bool hid_connect(void) {
  * are still RUNNING (mid-drain, or a spurious wake), the kernel latches
  * the token and proc_block_by() consumes it instead of sleeping - no edge
  * can be lost, and a spurious wake (a keyboard report hitting the shared
- * hid0 node, or an IPC preempting the block) costs one empty read before
+ * usb0 node, or an IPC preempting the block) costs one empty read before
  * we sleep again instead of the old register/dev_poll/unblock round trip.
  *
  * Readiness is deliberately NOT checked through poll events: the node's

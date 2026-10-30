@@ -24,11 +24,11 @@
  */
 #define TOUCH_FLUSH_MS 10u
 
-/* retry cadence while /dev/hid0 is not there yet */
+/* retry cadence while /dev/usb0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
 
 /*
- * /dev/hid0 subscriber-queue protocol (see libs/usb/usb_defs.h): fixed
+ * /dev/usb0 subscriber-queue protocol (see libs/usb/usb_defs.h): fixed
  * 7-byte touch events, queue depth 32. One read sized for the whole
  * queue drains an entire backlog in a single vfsd/usbhostd round-trip;
  * the old one-event-per-read drain paid that round-trip per report.
@@ -38,8 +38,8 @@
 #define TOUCH_DRAIN_SIZE (HID_QUEUE_DEPTH * HID_EVT_SIZE)
 
 static int hid = -1;
-static const char* _dev_point = "/dev/hid0";
-/* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
+static const char* _dev_point = "/dev/usb0";
+/* cached fsinfo of the open /dev/usb0 fd: node id and mount pid stay stable
    for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
 static fsinfo_t _hid_info;
 static uint16_t touch_data[TOUCH_CACHE_SIZE][3];
@@ -161,7 +161,7 @@ static uint32_t touch_check_poll_events(vdevice_t* dev, int fd, int from_pid, fs
 }
 
 /*
- * usbhostd only creates /dev/hid0 once the bsp_usb layer has brought up
+ * usbhostd only creates /dev/usb0 once the bsp_usb layer has brought up
  * the controller, and the touch interface may be enumerated well after
  * boot.
  * This is retried from the loop instead of before device_run(), so
@@ -203,7 +203,7 @@ static bool hid_connect(void) {
 }
 
 /*
- * Wait until the per-fd subscriber queue on /dev/hid0 holds a report.
+ * Wait until the per-fd subscriber queue on /dev/usb0 holds a report.
  *
  * The waiter registration is set up once in hid_connect() and never
  * removed, so waiting is a single proc_block_by(): the kernel parks us
@@ -231,7 +231,7 @@ static int touch_loop(vdevice_t* dev, void* p) {
     /*
      * Event-driven wait: the kernel parks us (zero IPCs) until usbhostd's
      * dispatch wakes us, so an idle touch panel costs nothing instead of
-     * the old blind poll loop that kept reading /dev/hid0 every 1-4ms
+     * the old blind poll loop that kept reading /dev/usb0 every 1-4ms
      * forever. Touch reports only ever arrive through the subscriber
      * queue, so there is nothing to re-check on a timer.
      */
@@ -280,7 +280,7 @@ static int touch_loop(vdevice_t* dev, void* p) {
      * Flush the coalesced position at most once per TOUCH_FLUSH_MS so the
      * event rate on /dev/touch0 never exceeds 100Hz. Contact edges were
      * already pushed during the drain above; reports arriving while we
-     * sleep here queue up on /dev/hid0 and are drained (edges included,
+     * sleep here queue up on /dev/usb0 and are drained (edges included,
      * none lost) on the next loop pass - a tap during the window waits at
      * most one flush interval. The edge wake is latched while we are
      * RUNNING, so touch_wait_report() returns at once afterwards.

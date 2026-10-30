@@ -35,12 +35,12 @@
    between the press and release reports, so an unbounded kernel block
    could stall the level-triggered wakeups of /dev/keyb0 readers */
 #define HID_WAIT_FALLBACK_US 20000u
-/* retry cadence while /dev/hid0 is not there yet */
+/* retry cadence while /dev/usb0 is not there yet */
 #define HID_CONNECT_SLEEP_US 200000u
 
 /*
  * BT mode (argv[3] == "bt"): the upstream is btd's /dev/bt0 instead of
- * usbhostd's /dev/hid0. The wire protocol is identical (libhid subscriber
+ * usbhostd's /dev/usb0. The wire protocol is identical (libhid subscriber
  * queue, report id 2); the deltas are:
  *  - the idle wait is bounded (BT_WAIT_REPORT_US): an idle BT keyboard
  *    produces zero traffic, so the daemon must wake on its own to run
@@ -74,9 +74,9 @@
 #define KEYB_PASS_MS 10u
 
 static int hid = -1;
-static const char* _dev_point = "/dev/hid0";
+static const char* _dev_point = "/dev/usb0";
 static bool _bt_mode = false;
-/* cached fsinfo of the open /dev/hid0 fd: node id and mount pid stay stable
+/* cached fsinfo of the open /dev/usb0 fd: node id and mount pid stay stable
    for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
 static fsinfo_t _hid_info;
 
@@ -250,7 +250,7 @@ static int set_report_id(int fd, int id) {
 }
 
 /*
- * usbhostd only creates /dev/hid0 once the bsp_usb layer has brought up
+ * usbhostd only creates /dev/usb0 once the bsp_usb layer has brought up
  * the controller, and a USB keyboard may be plugged in (or enumerated) well
  * after boot. This is attempted from the loop instead of before
  * device_run(), so /dev/keyb0 gets registered immediately: ipcserv waits
@@ -292,7 +292,7 @@ static bool hid_connect(void) {
 }
 
 /*
- * Wait until the per-fd subscriber queue on /dev/hid0 holds a report.
+ * Wait until the per-fd subscriber queue on /dev/usb0 holds a report.
  *
  * The waiter registration is set up once in hid_connect() and never
  * removed, so when idle the wait is a single proc_block_by(): the kernel
@@ -301,7 +301,7 @@ static bool hid_connect(void) {
  * RUNNING are latched by the kernel and consumed by proc_block_by()
  * instead of sleeping, so no edge can be lost, and a spurious wake (xim's
  * 20ms non-blocking polls of /dev/keyb0 preempt the block through IPC, or
- * a mouse report hits the shared hid0 node) costs one empty read before
+ * a mouse report hits the shared usb0 node) costs one empty read before
  * we sleep again - the old per-pass register/dev_poll/unblock round trip
  * burned ~4 IPCs on every such wake, which is exactly why this driver
  * still showed CPU while the idle mouse did not.
@@ -316,7 +316,7 @@ static bool hid_connect(void) {
 static void hid_wait_report(void) {
     if (_key_count > 0) {
         /*
-         * Timed block on the hid0 node token instead of usleep():
+         * Timed block on the usb0 node token instead of usleep():
          * usbhostd's wakeups carry the node token, so a report arriving
          * while keys are held releases the wait early; the deadline keeps
          * the level-triggered cadence when the keyboard sends no repeats.
@@ -400,7 +400,7 @@ static int loop(vdevice_t* dev, void* p) {
     /*
      * Rate cap: never run a drain pass sooner than KEYB_PASS_MS after the
      * previous one, so a 1000Hz keyboard cannot drive the loop above 100Hz.
-     * Reports arriving during this paced sleep queue up on /dev/hid0 (the
+     * Reports arriving during this paced sleep queue up on /dev/usb0 (the
      * edge wakeup is latched, so the next hid_wait_report() returns at
      * once). Batching is safe because the drain below keeps the newest held
      * snapshot AND latches every key touched during the burst, so a press

@@ -2,7 +2,7 @@
  * bsp_usb.h: platform USB host abstraction.
  *
  * The usbhostd policy layer (enumeration, HID registration, hub class
- * requests, /dev/hid0 fan-out) talks to the hardware only through this
+ * requests, /dev/usb0 fan-out) talks to the hardware only through this
  * interface. The per-machine implementation lives in
  * machines/<hw>/system/libs/bsp/src/bsp_usb.c and rides on the
  * controller driver from libs/arch_<HW> (xHCI on raspi5, DWC2 on
@@ -44,6 +44,9 @@ int  bsp_usb_init(void);
 int  bsp_usb_reinit(void);
 /* drain controller event rings; call from the daemon's main loop */
 void bsp_usb_poll(void);
+/* Toggle the platform's optional automatic FAT32 mount.  The Q8B boot
+   path disables it while probing a USB rootfs; other platforms may no-op. */
+void bsp_usb_set_msc_auto_mount(bool enabled);
 
 /* root ports, flat 1-based numbering across all controllers */
 int  bsp_usb_root_port_count(void);

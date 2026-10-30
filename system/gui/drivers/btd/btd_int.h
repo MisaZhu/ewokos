@@ -477,7 +477,7 @@
 #define BT_MAX_HID_ATTRS 24
 
 /* subscriber fan-out comes from libhid (hid/hid_srv.h) and is identical to
-   usbhostd's /dev/hid0: fcntl cmd 0 selects the report id, then read()
+   usbhostd's /dev/usb0: fcntl cmd 0 selects the report id, then read()
    pops fixed-size events from the per-fd queue. Report id 0 stays btd's
    own command/event text stream. */
 #define BT_HID_REASSERT_MS 5
@@ -717,7 +717,7 @@ typedef struct {
 
 /* one /dev/bt0 subscriber fd lives in libhid now (fd_info_t): the queue,
    the report-id selection and the directed wakes are identical to
-   usbhostd's /dev/hid0, so they are shared rather than duplicated. */
+   usbhostd's /dev/usb0, so they are shared rather than duplicated. */
 
 /* ---------------- Bluetooth LE (HOGP) state ----------------
    One LE link at a time: a keyboard or mouse is connected, brought up
