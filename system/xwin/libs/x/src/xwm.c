@@ -5,6 +5,7 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/ipc_serv.h>
 #include <sys/shm.h>
+#include <ewoksys/shm.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/vdevice.h>
 #include <graph/graph.h>
@@ -24,7 +25,7 @@ typedef struct {
     int32_t id;
     void* buffer;
     uint64_t bytes, used;
-    bool pinned, retired;
+    bool contig, pinned, retired;
 } xwm_mapping_t;
 
 /*Single-task IPC serializes draws and retirement, including nested GPU calls.
@@ -63,7 +64,7 @@ static void mapping_end_draw(void) {
     }
 }
 
-static void* mapping_get(int32_t id, int w, int h) {
+static void* mapping_get(int32_t id, int w, int h, bool* contig) {
     if(id < 0 || w <= 0 || h <= 0)
         return NULL;
     uint64_t bytes = ((uint64_t)w * h * 4 + 4095) & ~4095ull;
@@ -76,6 +77,8 @@ static void* mapping_get(int32_t id, int w, int h) {
                 return NULL;
             m->pinned = true;
             m->used = ++_map_tick;
+            if(contig != NULL)
+                *contig = m->contig;
             return m->buffer;
         }
     }
@@ -112,18 +115,25 @@ static void* mapping_get(int32_t id, int w, int h) {
     slot->bytes = bytes;
     slot->used = ++_map_tick;
     slot->pinned = true;
+    slot->contig = shm_contig_phy_addr(id, (ewokos_addr_t)buffer) != 0;
     if(slot < &_maps[XWM_MAP_SLOTS])
         _map_bytes += bytes;
+    if(contig != NULL)
+        *contig = slot->contig;
     return buffer;
 }
 
 static bool fetch_desktop_graph(xwm_t* xwm, int32_t shm_id, int w, int h, graph_t* g) {
     (void)xwm;
-    uint8_t* g_buf = mapping_get(shm_id, w, h);
+    bool contig = false;
+    uint8_t* g_buf = mapping_get(shm_id, w, h, &contig);
 
     if(g_buf == NULL || g_buf == (void*)-1)
         return false;
     graph_init(g, (const uint32_t*)g_buf, w, h);
+    /*graph_init drops the display canvas identity needed by every g2d op.*/
+    g->shm_id = shm_id;
+    g->shm_contig = contig;
     return true;
 }
 
@@ -132,7 +142,7 @@ static bool fetch_frame_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
         return false;
     memset(g, 0, sizeof(graph_t));
 
-    uint32_t* frame_g_shm = (uint32_t*)mapping_get(info->frame_g_shm_id, info->winr.w, info->winr.h);
+    uint32_t* frame_g_shm = (uint32_t*)mapping_get(info->frame_g_shm_id, info->winr.w, info->winr.h, NULL);
     if(frame_g_shm == NULL || frame_g_shm == (void*)-1)
         return false;
     g->buffer = frame_g_shm;
@@ -166,7 +176,7 @@ static bool fetch_ws_graph(xwm_t* xwm, xinfo_t* info, graph_t* g) {
         return false;
     memset(g, 0, sizeof(graph_t));
 
-    uint32_t* ws_g_shm = (uint32_t*)mapping_get(info->ws_g_buffer_shm_id, info->wsr.w, info->wsr.h);
+    uint32_t* ws_g_shm = (uint32_t*)mapping_get(info->ws_g_buffer_shm_id, info->wsr.w, info->wsr.h, NULL);
     if(ws_g_shm == NULL || ws_g_shm == (void*)-1)
         return false;
     g->buffer = ws_g_shm;

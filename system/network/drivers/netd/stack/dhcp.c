@@ -48,7 +48,6 @@
 #define DHCP_CLIENT_PORT    68
 
 #define DHCP_MAGIC_COOKIE   0x63825363
-#define DHCP_FLAGS_BROADCAST 0x8000
 #define DHCP_RETRY_INTERVAL  3
 /* REQUESTs retried with the same xid before falling back to re-discovery. */
 #define DHCP_REQUEST_RETRY_MAX 3
@@ -390,9 +389,11 @@ dhcp_send(struct net_device *dev, dhcp_client_t *dhc, int message_type)
      * frame via L2 broadcast, so this behaves closer to a rebind-style
      * REQUEST than a pure unicast renew.
      */
+    /* The RAW DHCP receive path accepts unicast frames to our MAC before
+     * an IPv4 lease is installed. Advertise that capability by clearing
+     * BROADCAST (RFC 2131 section 4.1), allowing unicast OFFER/ACK replies. */
     dhcp_fill(dev, dhcp, &len, dhc->xid,
-              renewing ? dhc->ip : 0,
-              renewing ? 0 : DHCP_FLAGS_BROADCAST);
+              renewing ? dhc->ip : 0, 0);
     udp_fill(udp_header, &len);
     ip_fill(ip_header, &len, renewing ? dhc->ip : 0);
 

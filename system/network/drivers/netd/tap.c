@@ -14,6 +14,8 @@
 #include <ewoksys/proto.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/vdevice.h>
+#include <ewoksys/devcmd.h>
+#include <ewoksys/netdev.h>
 
 #include "platform.h"
 
@@ -37,7 +39,7 @@
  * only drains, so queue depth cannot grow between admission and push).
  */
 #define ETHER_TAP_BATCH_MAX_FRAMES 16
-#define ETHER_TAP_FRAME_MAX 1514
+#define ETHER_TAP_FRAME_MAX NETDEV_FRAME_MAX
 #define ETHER_TAP_BATCH_BUF_SIZE (ETHER_TAP_BATCH_MAX_FRAMES * (2 + ETHER_TAP_FRAME_MAX))
 /*
  * How long to wait for POLLOUT before giving up on a write() and letting TCP
@@ -88,9 +90,28 @@ struct ether_tap {
     uint8_t batch_single[2 + ETHER_TAP_FRAME_MAX]; /* no-batch fallback */
     size_t batch_len;
     int batch_frames;
+    uint8_t *rx_batch;
+    size_t rx_len, rx_pos;
+    int rx_batched;
 };
 
 #define PRIV(x) ((struct ether_tap *)x->priv)
+
+static void
+ether_tap_rx_negotiate(struct ether_tap *tap)
+{
+    proto_t out;
+    tap->rx_len = tap->rx_pos = 0;
+    tap->rx_batched = 0;
+    PF->init(&out);
+    if (dev_cntl(tap->name, NETDEV_RX_BATCH_QUERY, NULL, &out) == 0 &&
+        out.size == 8 && proto_read_int(&out) == NETDEV_RX_BATCH_V1) {
+        if (!tap->rx_batch)
+            tap->rx_batch = memory_alloc(NETDEV_RX_BATCH_BYTES);
+        tap->rx_batched = tap->rx_batch != NULL;
+    }
+    PF->clear(&out);
+}
 
 static int
 ether_tap_reopen_locked(struct ether_tap *tap)
@@ -100,6 +121,7 @@ ether_tap_reopen_locked(struct ether_tap *tap)
     }
     tap->fd = open(tap->name, O_RDWR | O_NONBLOCK);
     intr_set_poll_fd(tap->fd);
+    ether_tap_rx_negotiate(tap);
     return tap->fd >= 0 ? 0 : -1;
 }
 
@@ -146,13 +168,19 @@ ether_tap_open(struct net_device *dev)
     }
 
     pthread_mutex_init(&tap->lock, NULL);
+    ether_tap_rx_negotiate(tap);
     return 0;
 };
 
 static int
 ether_tap_close(struct net_device *dev)
 {
-    close(PRIV(dev)->fd);
+    struct ether_tap *tap = PRIV(dev);
+    close(tap->fd);
+    memory_free(tap->rx_batch);
+    tap->rx_batch = NULL;
+    tap->rx_len = tap->rx_pos = 0;
+    tap->rx_batched = 0;
     return 0;
 }
 
@@ -371,6 +399,64 @@ ether_tap_transmit(struct net_device *dev, uint16_t type, const uint8_t *buf, si
 }
 
 static ssize_t
+ether_tap_rx_read_locked(struct ether_tap *tap, uint8_t *buf, size_t size)
+{
+    if (!tap->rx_batched)
+        return read(tap->fd, buf, size);
+
+    if (tap->rx_pos == tap->rx_len) {
+        fsinfo_t info;
+        ssize_t n;
+        tap->rx_len = tap->rx_pos = 0;
+        errno = 0;
+        if (vfs_get_by_fd(tap->fd, &info) != 0) {
+            errno = EBADF;
+            return -1;
+        }
+        /* Select the versioned format for this operation only. Legacy reads
+         * and other readers keep receiving a single Ethernet frame. */
+        n = dev_read(info.mount_pid, tap->fd, &info, NETDEV_RX_BATCH_OFFSET,
+                     tap->rx_batch, NETDEV_RX_BATCH_BYTES);
+        if (n == VFS_ERR_RETRY) {
+            errno = EAGAIN;
+            return -1;
+        }
+        if (n <= 0) {
+            if (n < 0 && !errno)
+                errno = EIO;
+            return n;
+        }
+        if ((size_t)n > NETDEV_RX_BATCH_BYTES)
+            goto malformed;
+        /* Validate the whole response before delivering any of its frames. */
+        size_t pos = 0;
+        unsigned frames = 0;
+        while (pos < (size_t)n) {
+            if ((size_t)n - pos < 2 || ++frames > NETDEV_RX_BATCH_FRAMES)
+                goto malformed;
+            unsigned len = tap->rx_batch[pos] | ((unsigned)tap->rx_batch[pos+1] << 8);
+            pos += 2;
+            if (len < 14 || len > ETHER_TAP_FRAME_MAX || len > (size_t)n - pos)
+                goto malformed;
+            pos += len;
+        }
+        tap->rx_len = n;
+    }
+
+    unsigned len = tap->rx_batch[tap->rx_pos] | ((unsigned)tap->rx_batch[tap->rx_pos+1] << 8);
+    if (len > size)
+        goto malformed;
+    memcpy(buf, tap->rx_batch + tap->rx_pos + 2, len);
+    tap->rx_pos += len + 2;
+    return len;
+
+malformed:
+    tap->rx_len = tap->rx_pos = 0;
+    errno = EIO;
+    return -1;
+}
+
+static ssize_t
 ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
 {
     struct ether_tap *tap = PRIV(dev);
@@ -391,7 +477,7 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
         TRACE();
         return -1;
     }
-    len = read(tap->fd, buf, size);
+    len = ether_tap_rx_read_locked(tap, buf, size);
     if (len < 0 && errno != EAGAIN && errno != EINTR) {
         /*
          * tap_select() is only a hint from the device. Re-checking it here and
@@ -399,7 +485,7 @@ ether_tap_read(struct net_device *dev, uint8_t *buf, size_t size)
          * reports into a hot fake-ready path. Retry only after hard fd errors.
          */
         if (ether_tap_reopen_locked(tap) == 0) {
-            len = read(tap->fd, buf, size);
+            len = ether_tap_rx_read_locked(tap, buf, size);
         }
     }
     mutex_unlock(&tap->lock);
@@ -415,6 +501,13 @@ int tap_select(struct net_device *dev){
 
     if (tap->fd < 0) {
         return 0;
+    }
+
+    if (pthread_mutex_trylock(&tap->lock) == 0) {
+        int cached = tap->rx_pos < tap->rx_len;
+        pthread_mutex_unlock(&tap->lock);
+        if (cached)
+            return 1;
     }
 
     PF->init(&out);
@@ -462,6 +555,15 @@ ether_tap_isr(unsigned int irq, void *id)
     int budget = pending;
     if (budget < ETHER_TAP_DRAIN_BURST) {
         budget = ETHER_TAP_DRAIN_BURST;
+    }
+    /* Batched IPC can drain a large ring before TCP sees any of its data.
+     * Yield to the protocol engine after 64 frames so ACKs and application
+     * wakeups run between RX bursts. Remaining cached frames stay readable. */
+    struct ether_tap *tap = PRIV(dev);
+    if (pthread_mutex_trylock(&tap->lock) == 0) {
+        if (tap->rx_batched)
+            budget = 64;
+        pthread_mutex_unlock(&tap->lock);
     }
 
     while (drained < budget) {
@@ -525,6 +627,9 @@ ether_tap_init(const char *name, const char *addr)
     tap->batch = memory_alloc(ETHER_TAP_BATCH_BUF_SIZE);
     tap->batch_len = 0;
     tap->batch_frames = 0;
+    tap->rx_batch = NULL;
+    tap->rx_len = tap->rx_pos = 0;
+    tap->rx_batched = 0;
     dev->priv = tap;
     dev->next = NULL;
     if (net_device_register(dev) == -1) {

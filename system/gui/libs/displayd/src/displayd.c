@@ -301,9 +301,19 @@ uint32_t fbdisplayd_rotate_to(const disp_info_t* fbinfo, const graph_t* g, int r
     if (res > 0)
         return res;
 
-    for(int32_t y = 0; y < dh; y++)
-        memcpy(base + (uint32_t)y * pitch, tmp->buffer + y * dw,
-                (uint32_t)dw * 4u);
+    /* The common packed full-frame case uses the arch blitter's genuine
+     * LD1/ST1 NEON loop: 128 bytes per iteration, with one linear pass
+     * over the NC scan-out instead of dh small libc row copies. */
+    if(pitch == (uint32_t)dw * 4u) {
+        graph_t dst;
+        graph_init(&dst, (uint32_t*)base, dw, dh);
+        graph_blt(tmp, 0, 0, dw, dh, &dst, 0, 0, dw, dh);
+    }
+    else {
+        for(int32_t y = 0; y < dh; y++)
+            memcpy(base + (uint32_t)y * pitch, tmp->buffer + y * dw,
+                    (uint32_t)dw * 4u);
+    }
     return (uint32_t)dw * (uint32_t)dh * 4;
 }
 
