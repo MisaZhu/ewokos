@@ -472,8 +472,8 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
           snapshot while the client keeps painting ws_g - no blocking, no tearing.
           When fps_async is off ws_g2 stays NULL and the client uses the blocking
           single-buffer handshake.*/
-        win->xinfo->fps_async = x->config.fps_async;
-        if(x->config.fps_async) {
+        win->xinfo->fps_async = x->config.fps_async && !win->xinfo->fps_async_force_sync;
+        if(win->xinfo->fps_async) {
             win->ws_g2 = graph_new_shm(win->xinfo->wsr.w, win->xinfo->wsr.h);
             if(win->ws_g2 == NULL) {
                 /*no shm left for the handoff buffer: fall back to the blocking

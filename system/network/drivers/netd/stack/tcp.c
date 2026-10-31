@@ -34,6 +34,23 @@
 #define TCP_FLG_IS(x, y) ((x & 0x3f) == (y))
 #define TCP_FLG_ISSET(x, y) ((x & 0x3f) & (y) ? 1 : 0)
 
+/* TCP sequence space is modulo 2^32; live windows are less than 2^31. */
+static int
+tcp_seq_before(uint32_t a, uint32_t b)
+{
+    return (int32_t)(a - b) < 0;
+}
+static int
+tcp_seq_after(uint32_t a, uint32_t b)
+{
+    return (int32_t)(a - b) > 0;
+}
+static int
+tcp_seq_between(uint32_t seq, uint32_t first, uint32_t last)
+{
+    return !tcp_seq_before(seq, first) && !tcp_seq_after(seq, last);
+}
+
 #define TCP_PCB_SIZE 64
 
 #define TCP_PCB_MODE_RFC793 1
@@ -141,6 +158,11 @@ struct tcp_pcb {
     uint32_t irs;
     uint16_t mtu;
     uint16_t mss;
+    uint32_t cwnd;               /* congestion window, bytes */
+    uint32_t ssthresh;
+    uint32_t ca_acked;           /* byte credit for additive increase */
+    uint32_t recover;            /* highest sequence sent on recovery entry */
+    uint8_t fast_recovery;
     /* Receive buffer / advertised window.
      * Downloads are RTT-bound: throughput = advertised window / effective
      * RTT, and the wland<->netd<->sshd IPC chain makes that RTT ~100ms, so a
@@ -201,6 +223,35 @@ static inline void tcp_sched_interrupt_all(struct tcp_pcb *pcb)
     sched_interrupt(&pcb->state_ctx);
     sched_interrupt(&pcb->send_ctx);
     sched_interrupt(&pcb->recv_ctx);
+}
+
+/* Keep all send and poll paths subject to the same congestion limit. */
+static uint32_t
+tcp_send_window(const struct tcp_pcb *pcb)
+{
+    return MIN(pcb->snd.wnd, pcb->cwnd);
+}
+
+static void
+tcp_cc_init(struct tcp_pcb *pcb)
+{
+    struct ip_iface *iface = ip_route_get_iface(pcb->local.addr);
+    pcb->mss = iface ? NET_IFACE(iface)->dev->mtu -
+        (IP_HDR_SIZE_MIN + sizeof(struct tcp_hdr)) : 536;
+    /* RFC 6928 initial window; retransmit storage also bounds growth. */
+    pcb->cwnd = MIN(10u * pcb->mss, MAX(2u * pcb->mss, 14600u));
+    pcb->ssthresh = TCP_RETRANSMIT_QUEUE_MAX * pcb->mss;
+    pcb->recover = pcb->snd.una;
+    pcb->fast_recovery = pcb->ca_acked = pcb->dupacks = 0;
+}
+
+static void
+tcp_cc_loss(struct tcp_pcb *pcb)
+{
+    uint32_t flight = pcb->snd.nxt - pcb->snd.una;
+    pcb->ssthresh = MAX(flight / 2, 2u * pcb->mss);
+    pcb->ca_acked = 0;
+    pcb->recover = pcb->snd.nxt;
 }
 
 static int
@@ -646,6 +697,50 @@ tcp_retransmit_queue_cleanup(struct tcp_pcb *pcb)
 }
 
 static void
+tcp_retransmit_head(struct tcp_pcb *pcb)
+{
+    struct tcp_queue_entry *entry = queue_peek(&pcb->queue);
+    if (!entry)
+        return;
+    ssize_t ret = tcp_output_segment(entry->seq, pcb->rcv.nxt, entry->flg,
+        tcp_wire_window(pcb, entry->flg), (uint8_t *)(entry + 1), entry->len,
+        &pcb->local, &pcb->foreign);
+    gettimeofday(&entry->last, NULL);
+    entry->tx_pending = ret < 0;
+    entry->rto = ret < 0 ? TCP_TX_RETRY : TCP_DEFAULT_RTO;
+}
+
+/* NewReno keeps repairing holes on partial ACKs instead of waiting an RTO
+ * for every missing segment in the same burst (RFC 6582). */
+static void
+tcp_cc_ack(struct tcp_pcb *pcb, uint32_t acked)
+{
+    uint32_t mss = pcb->mss;
+    uint32_t limit = TCP_RETRANSMIT_QUEUE_MAX * mss;
+    pcb->dupacks = 0;
+    if (pcb->fast_recovery) {
+        if ((int32_t)(pcb->snd.una - pcb->recover) < 0) {
+            pcb->cwnd = MAX(pcb->cwnd > acked ? pcb->cwnd - acked : 0,
+                            mss) + (acked >= mss ? mss : 0);
+            tcp_retransmit_head(pcb);
+        } else {
+            pcb->fast_recovery = 0;
+            pcb->cwnd = MIN(pcb->ssthresh,
+                            MAX(pcb->snd.nxt - pcb->snd.una, mss) + mss);
+        }
+    } else if (pcb->cwnd < pcb->ssthresh) {
+        pcb->cwnd = MIN(limit, pcb->cwnd + MIN(acked, mss));
+    } else {
+        /* Byte counting prevents tiny/duplicate ACKs inflating cwnd. */
+        pcb->ca_acked += MIN(acked, mss);
+        if (pcb->ca_acked >= pcb->cwnd) {
+            pcb->ca_acked -= pcb->cwnd;
+            pcb->cwnd = MIN(limit, pcb->cwnd + mss);
+        }
+    }
+}
+
+static void
 tcp_retransmit_queue_emit(void *arg, void *data)
 {
     struct tcp_pcb *pcb;
@@ -666,6 +761,11 @@ tcp_retransmit_queue_emit(void *arg, void *data)
     timeout = entry->last;
     timeval_add_usec(&timeout, entry->rto);
     if (timercmp(&now, &timeout, >)) {
+        if (!entry->tx_pending && entry->len && pcb->mss) {
+            tcp_cc_loss(pcb);
+            pcb->cwnd = pcb->mss;
+            pcb->fast_recovery = pcb->dupacks = 0;
+        }
         ssize_t ret = tcp_output_segment(entry->seq, pcb->rcv.nxt, entry->flg,
             tcp_wire_window(pcb, entry->flg), (uint8_t *)(entry+1), entry->len,
             &pcb->local, &pcb->foreign);
@@ -983,11 +1083,11 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
          * first check the ACK bit
          */
         if (TCP_FLG_ISSET(flags, TCP_FLG_ACK)) {
-            if (seg->ack <= pcb->iss || seg->ack > pcb->snd.nxt) {
+            if (!tcp_seq_after(seg->ack, pcb->iss) || tcp_seq_after(seg->ack, pcb->snd.nxt)) {
                 tcp_output_segment(seg->ack, 0, TCP_FLG_RST, 0, NULL, 0, local, foreign);
                 return;
             }
-            if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
+            if (tcp_seq_between(seg->ack, pcb->snd.una, pcb->snd.nxt)) {
                 acceptable = 1;
             }
         }
@@ -1018,8 +1118,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                 pcb->snd.una = seg->ack;
                 tcp_retransmit_queue_cleanup(pcb);
             }
-            if (pcb->snd.una > pcb->iss) {
+            if (tcp_seq_after(pcb->snd.una, pcb->iss)) {
                 pcb->state = TCP_PCB_STATE_ESTABLISHED;
+                tcp_cc_init(pcb);
                 tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
                 /* NOTE: not specified in the RFC793, but send window initialization required */
                 pcb->peer_wscale = seg->has_wscale ? seg->wscale : 0;
@@ -1065,7 +1166,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                     acceptable = 1;
                 }
             } else {
-                if (pcb->rcv.nxt <= seg->seq && seg->seq < pcb->rcv.nxt + pcb->rcv.wnd) {
+                if ((uint32_t)(seg->seq - pcb->rcv.nxt) < pcb->rcv.wnd) {
                     acceptable = 1;
                 }
             }
@@ -1073,8 +1174,8 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
             if (!pcb->rcv.wnd) {
                 /* not acceptable */
             } else {
-                if ((pcb->rcv.nxt <= seg->seq && seg->seq < pcb->rcv.nxt + pcb->rcv.wnd) ||
-                    (pcb->rcv.nxt <= seg->seq + seg->len - 1 && seg->seq + seg->len - 1 < pcb->rcv.nxt + pcb->rcv.wnd)) {
+                if (((uint32_t)(seg->seq - pcb->rcv.nxt) < pcb->rcv.wnd) ||
+                    ((uint32_t)(seg->seq + seg->len - 1 - pcb->rcv.nxt) < pcb->rcv.wnd)) {
                     acceptable = 1;
                 }
             }
@@ -1166,8 +1267,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     }
     switch (pcb->state) {
     case TCP_PCB_STATE_SYN_RECEIVED:
-        if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
+        if (tcp_seq_between(seg->ack, pcb->snd.una, pcb->snd.nxt)) {
             pcb->state = TCP_PCB_STATE_ESTABLISHED;
+            tcp_cc_init(pcb);
             /*
              * Passive open must initialize the peer send window exactly like
              * active connect does. Otherwise accepted sockets inherit a zero
@@ -1214,8 +1316,8 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_FIN_WAIT2:
     case TCP_PCB_STATE_CLOSE_WAIT:
     case TCP_PCB_STATE_CLOSING:
-        if (pcb->snd.una <= seg->ack && seg->ack <= pcb->snd.nxt) {
-            int ack_advanced = pcb->snd.una < seg->ack;
+        if (tcp_seq_between(seg->ack, pcb->snd.una, pcb->snd.nxt)) {
+            int ack_advanced = tcp_seq_after(seg->ack, pcb->snd.una);
             uint32_t acked_bytes = seg->ack - pcb->snd.una;
             /*
              * Snapshot writability (same formula as tcp_writable(): window
@@ -1223,49 +1325,38 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
              * snd.una/snd.wnd/queue, so the wakeup below can fire on the
              * blocked->writable EDGE only.
              */
-            int was_writable = ((pcb->snd.nxt - pcb->snd.una) < pcb->snd.wnd) &&
+            int was_writable = ((pcb->snd.nxt - pcb->snd.una) < tcp_send_window(pcb)) &&
                                (pcb->queue.num < TCP_RETRANSMIT_QUEUE_MAX);
 
             pcb->snd.una = seg->ack;
             if (ack_advanced) {
+                struct tcp_queue_entry *head;
                 tcp_retransmit_queue_cleanup(pcb);
-                pcb->dupacks = 0;
+                /* RFC 6298: restart the oldest outstanding segment's timer
+                 * on new progress, not from its original send time. */
+                head = queue_peek(&pcb->queue);
+                if (head)
+                    gettimeofday(&head->last, NULL);
+                tcp_cc_ack(pcb, acked_bytes);
             } else if (len == 0 && pcb->queue.num > 0 &&
                        tcp_peer_window(pcb, seg->wnd) == pcb->snd.wnd &&
                        !TCP_FLG_ISSET(flags, TCP_FLG_SYN | TCP_FLG_FIN)) {
-                /*
-                 * RFC 5681 fast retransmit. Without it, every frame lost on a
-                 * lossy link (raspix WLAN) stalls the whole in-flight window
-                 * for a full RTO (200ms+, doubling), capping throughput at
-                 * roughly window/RTO regardless of link speed. Three pure dup
-                 * ACKs (no payload, no window change, unACKed data queued)
-                 * mean the receiver got later segments, so resend the oldest
-                 * unACKed segment immediately -- once per loss episode; the
-                 * RTO timer still backstops multi-loss windows. Refresh
-                 * entry->last without doubling rto so the timer path doesn't
-                 * fire a duplicate retransmit right behind this one.
-                 *
-                 * Compare the SCALED peer window with snd.wnd: a raw-vs-
-                 * scaled compare never matches once window scaling is in
-                 * effect, which silently disabled fast retransmit.
-                 */
-                if (pcb->dupacks < 0xff) {
+                if (pcb->dupacks < 0xff)
                     pcb->dupacks++;
-                }
-                if (pcb->dupacks == 3) {
-                    struct tcp_queue_entry *re = queue_peek(&pcb->queue);
-                    if (re) {
-                        if (tcp_output_segment(re->seq, pcb->rcv.nxt, re->flg,
-                                tcp_wire_window(pcb, re->flg), (uint8_t *)(re + 1),
-                                re->len, &pcb->local, &pcb->foreign) >= 0) {
-                            gettimeofday(&re->last, NULL);
-                        }
-                    }
+                if (pcb->fast_recovery) {
+                    pcb->cwnd = MIN(pcb->cwnd + pcb->mss,
+                                    TCP_RETRANSMIT_QUEUE_MAX * pcb->mss);
+                } else if (pcb->dupacks == 3 &&
+                           (int32_t)(seg->ack - pcb->recover) >= 0) {
+                    tcp_cc_loss(pcb);
+                    pcb->cwnd = pcb->ssthresh + 3u * pcb->mss;
+                    pcb->fast_recovery = 1;
+                    tcp_retransmit_head(pcb);
                 }
             }
             /* ignore: Users should receive positive acknowledgments for buffers
                         which have been SENT and fully acknowledged (i.e., SEND buffer should be returned with "ok" response) */
-            if (pcb->snd.wl1 < seg->seq || (pcb->snd.wl1 == seg->seq && pcb->snd.wl2 <= seg->ack)) {
+            if (tcp_seq_before(pcb->snd.wl1, seg->seq) || (pcb->snd.wl1 == seg->seq && !tcp_seq_after(pcb->snd.wl2, seg->ack))) {
                 uint32_t old_wnd = pcb->snd.wnd;
                 pcb->snd.wnd = tcp_peer_window(pcb, seg->wnd);
                 pcb->snd.wl1 = seg->seq;
@@ -1298,7 +1389,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
              */
             {
                 uint32_t inflight_now = pcb->snd.nxt - pcb->snd.una;
-                int now_writable = (inflight_now < pcb->snd.wnd) &&
+                int now_writable = (inflight_now < tcp_send_window(pcb)) &&
                                    (pcb->queue.num < TCP_RETRANSMIT_QUEUE_MAX);
                 if (now_writable) {
                     tcp_persist_disarm(pcb);
@@ -1307,9 +1398,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                     }
                 }
             }
-        } else if (seg->ack < pcb->snd.una) {
+        } else if (tcp_seq_before(seg->ack, pcb->snd.una)) {
             /* ignore */
-        } else if (seg->ack > pcb->snd.nxt) {
+        } else if (tcp_seq_after(seg->ack, pcb->snd.nxt)) {
             tcp_output(pcb, TCP_FLG_ACK, NULL, 0);
             return;
         }
@@ -1373,7 +1464,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
              * with a huge bogus len. Only consume the in-order, in-window tail
              * that actually advances RCV.NXT.
              */
-            if (seg->seq < pcb->rcv.nxt) {
+            if (tcp_seq_before(seg->seq, pcb->rcv.nxt)) {
                 uint32_t already_recv = pcb->rcv.nxt - seg->seq;
                 if ((size_t)already_recv >= copy_len) {
                     copy_len = 0;
@@ -1381,7 +1472,7 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
                     copy_off = (size_t)already_recv;
                     copy_len -= copy_off;
                 }
-            } else if (seg->seq > pcb->rcv.nxt) {
+            } else if (tcp_seq_after(seg->seq, pcb->rcv.nxt)) {
                 /*
                  * Out-of-order segment. Dropping it turns every lost WLAN
                  * frame into go-back-N: the whole in-flight window behind the
@@ -2230,7 +2321,7 @@ tcp_writable(int id)
     if (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
         pcb->state == TCP_PCB_STATE_CLOSE_WAIT) {
         inflight = pcb->snd.nxt - pcb->snd.una;
-        writable = (inflight < pcb->snd.wnd) ? 1 : 0;
+        writable = (inflight < tcp_send_window(pcb)) ? 1 : 0;
         if (writable && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
             /* tcp_send() also stops when the retransmit queue is full;
              * report not-writable as well or poll()-driven clients
@@ -2258,7 +2349,7 @@ tcp_poll_writable(int id)
     if (pcb->state == TCP_PCB_STATE_ESTABLISHED ||
         pcb->state == TCP_PCB_STATE_CLOSE_WAIT) {
         inflight = pcb->snd.nxt - pcb->snd.una;
-        writable = (inflight < pcb->snd.wnd) ? 1 : 0;
+        writable = (inflight < tcp_send_window(pcb)) ? 1 : 0;
         if (writable && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
             writable = 0;
         }
@@ -2505,15 +2596,12 @@ RETRY:
             mutex_unlock(&mutex);
             return -1;
         }
-        mss = NET_IFACE(iface)->dev->mtu - (IP_HDR_SIZE_MIN + sizeof(struct tcp_hdr));
+        mss = pcb->mss;
         // Send multiple segments without waiting for ACK (pipelining)
         while (sent < (ssize_t)len) {
             inflight = pcb->snd.nxt - pcb->snd.una;
-            if (inflight >= pcb->snd.wnd) {
-                cap = 0;
-            } else {
-                cap = pcb->snd.wnd - inflight;
-            }
+            cap = tcp_send_window(pcb);
+            cap = inflight >= cap ? 0 : cap - inflight;
             if (cap && pcb->queue.num >= TCP_RETRANSMIT_QUEUE_MAX) {
                 /*
                  * Retransmit queue full. Sending more would emit segments
@@ -2548,7 +2636,7 @@ RETRY:
                  * its backstop, and probing there only triggers dup-ACKs that
                  * churn wakeups and keep resetting the persist backoff.
                  */
-                if (inflight >= pcb->snd.wnd) {
+                if (!pcb->snd.wnd) {
                     tcp_persist_arm(pcb);
                 }
                 if (sent > 0) {
