@@ -42,6 +42,19 @@ typedef struct {
 	int32_t            shms[SHM_MAX];
 	proc_block_event_t block_events[BLOCK_EVT_MAX];
 
+#if DL_WINDOW_SLOTS > 0
+	/*
+	 * Free/used bitmap of the DL_WINDOW_SLOT-sized slots this space has
+	 * handed out inside [DL_WINDOW_BASE, DL_WINDOW_END) - see DL_WINDOW_* in
+	 * <mm/mmu.h>. One bit per slot (256MB / 64KB = 4096 bits = 512 bytes);
+	 * proc_init_space() memsets the whole space, so it starts empty. It is
+	 * per space rather than per proc because threads share their owner's
+	 * address space and therefore its window. Absent entirely when the
+	 * target has no window, so nothing is added to a 32-bit proc_space_t.
+	 */
+	uint8_t            dl_slot_used[(DL_WINDOW_SLOTS + 7) / 8];
+#endif
+
 	ipc_server_t       ipc_server;
 	signal_t           signal;
 	proc_interrupt_t   interrupt;
@@ -154,12 +167,38 @@ extern void    proc_unmap_page(page_dir_entry_t *vm, ewokos_addr_t vaddr);
  * kernel/platform/aarch64/arch/common/src/proc_arch.c.
  *   - carry the user thread register (TLS base) across a context switch;
  *     platforms without such a register read 0 / write nothing.
- *   - mark freshly mapped stack pages execute-never; platforms without a
- *     per-page UXN/XN bit do nothing.
+ *   - mark freshly mapped pages execute-never; platforms without a per-page
+ *     UXN/XN bit do nothing. arch_mark_pte_noexec is the primitive (used by
+ *     the anonymous-mapping window's W^X pass) and arch_mark_stack_pte_noexec
+ *     is the stack-specific name the fault/stack-growth paths already use.
+ *   - map `page` into to_vm at `vaddr` carrying the permissions the matching
+ *     entry in from_vm already has, for fork's deep copy of the window;
+ *     returns non-zero when the mapping could not be built, and the caller
+ *     then owns `page` and must free it.
  */
 extern ewokos_addr_t arch_proc_tls_base_read(void);
 extern void          arch_proc_tls_base_write(ewokos_addr_t v);
+extern void          arch_mark_pte_noexec(page_dir_entry_t* vm, ewokos_addr_t vaddr);
 extern void          arch_mark_stack_pte_noexec(page_dir_entry_t* vm, ewokos_addr_t vaddr);
+extern int32_t       arch_clone_pte_prot(page_dir_entry_t* to_vm, ewokos_addr_t vaddr,
+		void* page, page_dir_entry_t* from_vm);
+
+/*
+ * Anonymous user-mapping window (DL_WINDOW_* in <mm/mmu.h>), the backing store
+ * for SYS_MMAP_ANON / SYS_MPROTECT / SYS_MUNMAP. Implemented in src/mm/mmu.c;
+ * every entry point takes a proc_space_t and runs with the kernel lock held.
+ * Compiles to nothing on a target whose DL_WINDOW_SIZE is 0.
+ */
+extern ewokos_addr_t dl_window_alloc(proc_space_t* space, uint32_t size, uint32_t prot);
+extern int32_t       dl_window_protect(proc_space_t* space, ewokos_addr_t vaddr,
+		uint32_t size, uint32_t prot);
+extern int32_t       dl_window_free(proc_space_t* space, ewokos_addr_t vaddr, uint32_t size);
+/* Drop every mapping the space still holds in the window and free the backing
+   pages. Must run BEFORE free_page_tables(), which frees the tables but not
+   the pages they point at, and before an exec replaces the image. */
+extern void          dl_window_release(proc_space_t* space);
+/* fork: give the child its own copy of the parent's window. */
+extern int32_t       dl_window_clone(proc_space_t* to, proc_space_t* from);
 
 #ifdef ARCH_FPU_STATE_SIZE
 /*

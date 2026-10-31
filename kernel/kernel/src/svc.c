@@ -695,6 +695,109 @@ static inline void sys_mmio_rw(ewokos_addr_t arg0, uint32_t arg1, uint32_t arg2,
     }
 }
 
+/*
+ * SYS_CACHE_SYNC: publish user-written bytes to the instruction-fetch path.
+ *
+ * boot.S leaves SCTLR_EL1.UCI clear, so EL0 cannot execute DC CIVAC / IC IVAU
+ * at all - the attempt traps. A dynamic loader (dlopen) or a JIT that has just
+ * written machine code therefore has no way to make it executable on its own.
+ * The kernel already performs exactly this sequence when it installs a new
+ * process image (see proc_load_segment / proc_load_elf in proc.c: clean each
+ * executable chunk to PoU through the kernel alias, then drop the I-cache on
+ * every core); this exposes the same sequence for an arbitrary user range.
+ *
+ * The range is walked in page-sized chunks through the kernel alias rather
+ * than the caller's own mapping, because that mapping may be read-only by the
+ * time the loader asks for the sync. Unmapped pages are skipped: nothing was
+ * written there, and dereferencing the P2V(0) that resolve_kernel_address
+ * would hand back for them would touch the kernel image instead.
+ *
+ * invalidate_icache_all() is an inner-shareable broadcast (ICIALLUIS on
+ * aarch64), so a core other than the one running this syscall cannot keep
+ * fetching a stale line of the same physical page either.
+ */
+static int32_t sys_cache_sync(ewokos_addr_t vaddr, uint32_t size) {
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL || cproc->space == NULL)
+        return -1;
+    if(size == 0)
+        return 0;
+    /* never let a caller steer the clean over kernel VA (see user_ptr_ok) */
+    if(!user_ptr_ok(cproc, vaddr, size))
+        return -1;
+
+    ewokos_addr_t cur = vaddr;
+    ewokos_addr_t stop = vaddr + size;
+    while(cur < stop) {
+        uint32_t chunk = (uint32_t)(PAGE_SIZE - (cur & (PAGE_SIZE - 1)));
+        if((ewokos_addr_t)chunk > stop - cur)
+            chunk = (uint32_t)(stop - cur);
+        if(resolve_phy_address(cproc->space->vm, cur) != 0)
+            dcache_clean_code_range((const void*)resolve_kernel_address(cproc->space->vm, cur), chunk);
+        cur += chunk;
+    }
+    invalidate_icache_all();
+    return 0;
+}
+
+/*
+ * SYS_MMAP_ANON / SYS_MPROTECT / SYS_MUNMAP: the anonymous user-mapping window.
+ *
+ * These give a dynamic loader memory that is NOT the sbrk heap and that has
+ * real per-page permissions, so a dlopen()'d object's text segment can end up
+ * read-only-and-executable while its data segment stays writable (W^X). The
+ * heap cannot express that - every heap page is RW+X - so plugin code used to
+ * share pages with malloc's free lists, one overflow away from being arbitrary
+ * instructions. See DL_WINDOW_* in <mm/mmu.h> for the reservation and
+ * src/mm/mmu.c for the allocator.
+ *
+ * All three run under kernel_lock() (none is in svc_is_query_fastpath), which
+ * is what serialises them against the fault handler's copy_on_write() and
+ * against another thread of the same proc mapping the same window.
+ *
+ * SYS_MMAP_ANON returns 0 rather than an error code on failure, because 0 can
+ * never be a window address and libc reads it as "no window here, fall back to
+ * the heap emulation" - which keeps mmap() working on 32-bit targets where
+ * DL_WINDOW_SIZE is 0 and on any kernel older than these three calls.
+ */
+static ewokos_addr_t sys_mmap_anon(uint32_t size, uint32_t prot) {
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL || cproc->space == NULL)
+        return 0;
+#if DL_WINDOW_SLOTS > 0
+    return dl_window_alloc(cproc->space, size, prot);
+#else
+    /* No anonymous-mapping window on this target: return 0 so libc falls back
+       to its heap emulation, exactly as the comment above describes. */
+    (void)size; (void)prot;
+    return 0;
+#endif
+}
+
+static int32_t sys_mprotect(ewokos_addr_t vaddr, uint32_t size, uint32_t prot) {
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL || cproc->space == NULL)
+        return -1;
+#if DL_WINDOW_SLOTS > 0
+    return dl_window_protect(cproc->space, vaddr, size, prot);
+#else
+    (void)vaddr; (void)size; (void)prot;
+    return -1;
+#endif
+}
+
+static int32_t sys_munmap(ewokos_addr_t vaddr, uint32_t size) {
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL || cproc->space == NULL)
+        return -1;
+#if DL_WINDOW_SLOTS > 0
+    return dl_window_free(cproc->space, vaddr, size);
+#else
+    (void)vaddr; (void)size;
+    return -1;
+#endif
+}
+
 static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t arg1, ewokos_addr_t arg2, context_t* ctx) {
     switch(code) {
     case SYS_PLATFORM_CTL:
@@ -926,6 +1029,18 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_PROC_PRIORITY:
         sys_proc_priority(arg0, (uint32_t)arg1);
+        return;
+    case SYS_CACHE_SYNC:
+        ctx->gpr[0] = sys_cache_sync(arg0, (uint32_t)arg1);
+        return;
+    case SYS_MMAP_ANON:
+        ctx->gpr[0] = sys_mmap_anon((uint32_t)arg0, (uint32_t)arg1);
+        return;
+    case SYS_MPROTECT:
+        ctx->gpr[0] = sys_mprotect(arg0, (uint32_t)arg1, (uint32_t)arg2);
+        return;
+    case SYS_MUNMAP:
+        ctx->gpr[0] = sys_munmap(arg0, (uint32_t)arg1);
         return;
     }
 }

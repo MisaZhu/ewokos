@@ -21,6 +21,27 @@
 #define SYS_SEM_COUNT      1u
 #define SYS_SEM_HANDLE_TAG 0x40000000u
 
+/*
+ * ABI of the anonymous user-mapping window (SYS_MMAP_ANON / SYS_MPROTECT /
+ * SYS_MUNMAP below, DL_WINDOW_* in <mm/mmu.h> on the kernel side).
+ *
+ * EWOK_MMAP_ANON_ALIGN is both the allocation granularity and the alignment
+ * the kernel guarantees for an address it returns. libc rounds a requested
+ * length UP to it before calling and records that rounded length, so the
+ * matching SYS_MUNMAP always releases whole slots; a caller that unmapped a
+ * partial slot would leave the rest of it unallocatable.
+ *
+ * EWOK_PROT_* must stay equal to <sys/mman.h>'s PROT_*, which lets libc hand
+ * a prot word straight through untranslated. libgloss checks the equality at
+ * build time; if newlib ever renumbers them, that check fails the build
+ * instead of silently granting the wrong permission.
+ */
+#define EWOK_MMAP_ANON_ALIGN (64*1024)
+#define EWOK_PROT_NONE  0x0
+#define EWOK_PROT_READ  0x1
+#define EWOK_PROT_WRITE 0x2
+#define EWOK_PROT_EXEC  0x4
+
 enum {
 	SYS_NONE = 0,
 	SYS_KPRINT, 
@@ -123,6 +144,29 @@ enum {
 	/* install one entry into the kernel's exec-time capability policy
 	   (CAP_ROOT only); matching rules are granted automatically on exec */
 	SYS_CAP_POLICY_ADD,
+
+	/* Publish user-written bytes to the instruction-fetch path:
+	   arg0 = user vaddr, arg1 = size. Cleans the D-cache to PoU over the
+	   range and broadcasts an I-cache invalidate. Needed because EL0 cannot
+	   run DC CIVAC / IC IVAU itself (SCTLR_EL1.UCI is left clear), so a
+	   dynamic loader or a JIT has no other way to make new code executable. */
+	SYS_CACHE_SYNC,
+
+	/* Anonymous user mappings drawn from the per-process window described by
+	   DL_WINDOW_* in <mm/mmu.h> instead of from the sbrk heap. A dynamic
+	   loader needs per-page permissions to give a plugin's text segment RO+X
+	   and its data segment RW; the heap cannot express that (every heap page
+	   is RW+X and mprotect() over it was a no-op), so plugin code used to sit
+	   in the same pages as malloc's free lists.
+
+	   SYS_MMAP_ANON(size, prot) returns a window address, or 0 when the
+	   window is absent or exhausted - libc reads 0 as "fall back to the heap
+	   emulation", so mmap() keeps working on targets without a window.
+	   SYS_MPROTECT(vaddr, size, prot) and SYS_MUNMAP(vaddr, size) only act
+	   inside the window and reject anything else. */
+	SYS_MMAP_ANON,
+	SYS_MPROTECT,
+	SYS_MUNMAP,
 	SYS_CALL_NUM
 };
 

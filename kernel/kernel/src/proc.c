@@ -78,9 +78,30 @@ __attribute__((weak)) void arch_proc_tls_base_write(ewokos_addr_t v) {
 	(void)v;
 }
 
+__attribute__((weak)) void arch_mark_pte_noexec(page_dir_entry_t* vm, ewokos_addr_t vaddr) {
+	(void)vm;
+	(void)vaddr;
+}
+
 __attribute__((weak)) void arch_mark_stack_pte_noexec(page_dir_entry_t* vm, ewokos_addr_t vaddr) {
 	(void)vm;
 	(void)vaddr;
+}
+
+/*
+ * Only reachable from dl_window_clone(), whose body compiles to nothing on a
+ * target with no anonymous-mapping window - i.e. exactly the targets that fall
+ * back to this default. Fail rather than report success: a "mapped" page that
+ * is not in the page tables would leave the child faulting on an address the
+ * parent had valid, so the caller frees the page and unwinds instead.
+ */
+__attribute__((weak)) int32_t arch_clone_pte_prot(page_dir_entry_t* to_vm,
+		ewokos_addr_t vaddr, void* page, page_dir_entry_t* from_vm) {
+	(void)to_vm;
+	(void)vaddr;
+	(void)page;
+	(void)from_vm;
+	return -1;
 }
 
 #ifdef KERNEL_SMP
@@ -1481,6 +1502,16 @@ void proc_funeral(proc_t* proc) {
         /*free proc heap*/
         proc_shrink_mem(proc, space->heap_size / PAGE_SIZE);
 
+        /*
+         * free the anonymous mapping window's backing pages. free_page_tables()
+         * below frees the page tables but not the pages they point at, so
+         * without this every object a process still had dlopen()'d at exit
+         * would leak its physical pages for the rest of the boot.
+         */
+#if DL_WINDOW_SLOTS > 0
+        dl_window_release(space);
+#endif
+
         /*unmap share mems*/
         proc_unmap_shms(proc);
 
@@ -1994,6 +2025,11 @@ int32_t proc_load_elf(proc_t *proc, int32_t shm_id, uint32_t size) {
 
     proc_free_heap(proc);
     proc->space->rw_heap_base = 0;
+    /* an exec replaces the whole image, so anything dlopen()'d into the
+       anonymous window by the previous image goes with it */
+#if DL_WINDOW_SLOTS > 0
+    dl_window_release(proc->space);
+#endif
 
     /*read elf format from saved proc image*/
     if (ELF_TYPE(proc_image) != ELFTYPE_EXECUTABLE) {
@@ -2522,6 +2558,18 @@ static int32_t proc_clone(proc_t* child, proc_t* parent) {
     }
     child->space->malloc_base = parent->space->malloc_base;
     child->space->rw_heap_base = parent->space->rw_heap_base;
+    /*
+     * A child that has not exec'd yet inherits the parent's loaded objects, so
+     * the anonymous-mapping window has to come across too: the plugin pointers
+     * sitting in the heap and stack just copied still refer to those addresses.
+     * Propagate a failure rather than continue - a child with a half-built
+     * window would fault on an address its parent had valid, which is far
+     * harder to diagnose than a fork that reports it could not complete.
+     */
+#if DL_WINDOW_SLOTS > 0
+    if(dl_window_clone(child->space, parent->space) != 0)
+        return -1;
+#endif
     return 0;
 }
 

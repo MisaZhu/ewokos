@@ -4,6 +4,7 @@
 #include <mm/mmu_arch.h>
 #include <kernel/hw_info.h>
 #include <ewokos_config.h>
+#include <syscalls.h>   /* EWOK_MMAP_ANON_ALIGN, EWOK_PROT_* */
 
 
 #define ALIGN_DOWN(x, alignment) ((ewokos_addr_t)(x) & ~((ewokos_addr_t)(alignment) - 1))
@@ -107,6 +108,42 @@
 
 #define KMALLOC_VM_SIZE               (64*MB)
 #define KMALLOC_VM_BASE               (SHM_CONTIG_BASE - KMALLOC_VM_SIZE)
+
+/* Anonymous user-mapping window, the backing store for SYS_MMAP_ANON and the
+   place a dynamic loader's objects live. It is the next free slot in the
+   chain above: KMALLOC_VM ends at KMALLOC_VM_BASE, so
+   [DL_WINDOW_BASE, KMALLOC_VM_BASE) is unmapped in every process, because
+   clone_kernel_vm shares only the kernel upper half and each space maps the
+   user half itself.
+
+   Why not the heap: a dlopen()'d object's text segment has to end up
+   read-only-and-executable so a stray store cannot rewrite instructions that
+   are about to be fetched, while its data segment stays writable. Every heap
+   page is RW+X and mprotect() over it was a no-op, so plugin code shared
+   pages with malloc's free lists - one heap overflow away from being
+   arbitrary code. The window has real per-page permissions, and because the
+   fault handler's copy_on_write() only recognises [rw_heap_base, heap_size)
+   and the user stack, a write to a window page the loader made read-only is a
+   genuine access-denied fault rather than a silently repaired one.
+
+   64-bit only. On a 32-bit target KERNEL_BASE sits low enough that the chain
+   above already claims most of the user VA, and no 32-bit board has a tested
+   dlopen() path; DL_WINDOW_SIZE 0 leaves the window empty so the three
+   syscalls fail cleanly and libc falls back to the heap emulation it has
+   always used. Nothing else in the tree has to know. */
+#ifdef __aarch64__
+#define DL_WINDOW_SIZE                (256*MB)
+#else
+#define DL_WINDOW_SIZE                0
+#endif
+#define DL_WINDOW_BASE                (KMALLOC_VM_BASE - DL_WINDOW_SIZE)
+#define DL_WINDOW_END                 (KMALLOC_VM_BASE)
+/* Allocation granularity. Fixed by the user-visible ABI, never by PAGE_SIZE,
+   so libc and the kernel agree without libc knowing the page size; it is a
+   multiple of every PAGE_SIZE EwokOS builds for (4k/16k/64k). */
+#define DL_WINDOW_SLOT                EWOK_MMAP_ANON_ALIGN
+#define DL_WINDOW_SLOTS               (DL_WINDOW_SIZE / DL_WINDOW_SLOT)
+#define DL_WINDOW_PAGES_PER_SLOT      (DL_WINDOW_SLOT / PAGE_SIZE)
 
 #define get64(addr) (*((volatile uint64_t *)(addr)))
 #define put64(addr, val) (*((volatile uint64_t *)(addr)) = (uint64_t)(val))
