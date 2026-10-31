@@ -126,11 +126,14 @@
    and the user stack, a write to a window page the loader made read-only is a
    genuine access-denied fault rather than a silently repaired one.
 
-   64-bit only. On a 32-bit target KERNEL_BASE sits low enough that the chain
-   above already claims most of the user VA, and no 32-bit board has a tested
-   dlopen() path; DL_WINDOW_SIZE 0 leaves the window empty so the three
-   syscalls fail cleanly and libc falls back to the heap emulation it has
-   always used. Nothing else in the tree has to know. */
+   AArch64 only. The window is gated on __aarch64__, not on address width: on
+   a 32-bit target KERNEL_BASE sits low enough that the chain above already
+   claims most of the user VA, and no non-AArch64 target wires up the W^X
+   window. DL_WINDOW_SIZE 0 there leaves the window empty so the three syscalls
+   fail cleanly and libc falls back to the RWX heap emulation it has always
+   used. dlopen() still loads and runs a plugin that way - the x86 dltest suite
+   passes - it just gets no per-page W^X. Nothing else in the tree has to
+   know. */
 #ifdef __aarch64__
 #define DL_WINDOW_SIZE                (256*MB)
 #else

@@ -51,7 +51,7 @@ Part 3  Userland (filesystem → init/shell → writing your own apps)
    │
 Part 4  The full system (graphics → building images → flashing a real Pi)
    │
-Part 5  The ewokos library series (ecosystem overview → libc → common libs → extra libs)
+Part 5  The ewokos library series (ecosystem overview → libc → common libs → extra libs → dlopen)
 ```
 
 ## Table of Contents
@@ -107,6 +107,7 @@ wonder "which library do I use for X", look here.
 | [17 The EwokOS libc](17-libc.md) | The C-runtime puzzle: newlib + libgloss + libewoksys + openlibm + softfloat; the full call chain of `printf`; errno | `system/basic/libc/` |
 | [18 Common Libraries](18-libs.md) | Quick reference for base/graphics/window/network libraries; an "I want to do X → use library Y" table | `system/*/libs/` |
 | [19 Extra Libraries](19-extra-libs.md) | Optional libraries in `sw.extra` (SDL2/curses) and `projects` (litehtml/cglm/ferox/portablegl/imgui/ffmpeg/widget++ extended widgets) | `sw.extra/`, `projects/` |
+| [25 Runtime Dynamic Loading (dlopen)](25-dlopen.md) | Why a static OS has no `ld.so`; the three-piece design — kernel anonymous window with real W^X + cache-sync syscall, the `libdl` ELF loader, and the build-time host ABI table; object graph, scope & search path; building a plugin; the `dltest` self-test | `system/basic/libs/dl/`, `kernel/kernel/src/mm/mmu.c` |
 
 ### Appendix
 

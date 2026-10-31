@@ -757,8 +757,9 @@ static int32_t sys_cache_sync(ewokos_addr_t vaddr, uint32_t size) {
  *
  * SYS_MMAP_ANON returns 0 rather than an error code on failure, because 0 can
  * never be a window address and libc reads it as "no window here, fall back to
- * the heap emulation" - which keeps mmap() working on 32-bit targets where
- * DL_WINDOW_SIZE is 0 and on any kernel older than these three calls.
+ * the heap emulation" - which keeps mmap() working on any target where
+ * DL_WINDOW_SIZE is 0 (every non-AArch64 arch, x86_64 included) and on any
+ * kernel older than these three calls.
  */
 static ewokos_addr_t sys_mmap_anon(uint32_t size, uint32_t prot) {
     proc_t* cproc = get_current_proc();

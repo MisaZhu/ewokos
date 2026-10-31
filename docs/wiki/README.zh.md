@@ -44,7 +44,7 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
    │
 第 4 部分  完整系统（图形界面 → 制作镜像 → 烧录树莓派实机）
    │
-第 5 部分  ewokos 系列（库生态总览 → libc → 常用库 → 扩展库）
+第 5 部分  ewokos 系列（库生态总览 → libc → 常用库 → 扩展库 → dlopen）
 ```
 
 ## 章节目录
@@ -99,6 +99,7 @@ EwokOS 是一个真实存在的、可运行的微内核操作系统（支持 ARM
 | [17 EwokOS 的 libc](17-libc.zh.md) | C 运行时拼图：newlib + libgloss + libewoksys + openlibm + softfloat；`printf` 的完整调用链；errno | `system/basic/libc/` |
 | [18 EwokOS 常用库](18-libs.zh.md) | 基础库/图形库/窗口库/网络库速查；“我想干什么→用哪个库”对照表 | `system/*/libs/` |
 | [19 EwokOS 扩展库](19-extra-libs.zh.md) | `sw.extra`（SDL2/curses）与 `projects`（litehtml/cglm/ferox/portablegl/imgui/ffmpeg/widget++ 扩展控件）等选装库 | `sw.extra/`、`projects/` |
+| [25 运行时动态加载（dlopen）](25-dlopen.zh.md) | 为什么静态操作系统没有 `ld.so`；三部件设计——具备真正 W^X 的内核匿名窗口 + 缓存同步系统调用、`libdl` ELF 加载器、编译期生成的宿主 ABI 导出表；对象图、作用域与搜索路径；构建插件；`dltest` 自测 | `system/basic/libs/dl/`、`kernel/kernel/src/mm/mmu.c` |
 
 ### 附录
 

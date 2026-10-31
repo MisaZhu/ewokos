@@ -34,6 +34,7 @@ Part 5: The ewokos Series (Libraries) / 第 5 部分：ewokos 系列（库生态
 * 17. [The libc](17-libc) · [EwokOS 的 libc](17-libc.zh)
 * 18. [Common Libraries](18-libs) · [EwokOS 常用库](18-libs.zh)
 * 19. [Extra Libraries](19-extra-libs) · [EwokOS 扩展库](19-extra-libs.zh)
+* 25. [Runtime Dynamic Loading (dlopen)](25-dlopen) · [运行时动态加载 dlopen](25-dlopen.zh)
 
 Appendix / 附录
 * 99. [Glossary](99-glossary) · [术语表·专业名词速查](99-glossary.zh)

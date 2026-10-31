@@ -366,8 +366,10 @@ What the passing run demonstrates:
 ## 25.11 Limitations
 
 - The W^X window is **AArch64-only**; other architectures fall back to heap
-  emulation (RWX, no per-page permissions), and the x86 toolchain does not even
-  link the plugin `.so` against the undefined host symbols.
+  emulation (RWX, no per-page permissions). `dlopen()` still works there — the
+  x86 dltest suite passes — it just runs the plugin in RWX heap with no
+  kernel-enforced W^X, so the `wxfault` mode reports `W^X is NOT enforced`
+  instead of taking a permission fault.
 - No lazy binding, no copy relocations (a plugin reading a host *variable* is
   rejected; the host reading a plugin variable via `dlsym` works), no `RTLD_NEXT`
   interposition chain, no plugin TLS.
