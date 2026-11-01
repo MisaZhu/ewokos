@@ -1041,6 +1041,10 @@ static int dl_apply_reloc(dl_object_t* o, const dl_reloc_t* r, uint64_t symval) 
 		return 0;
 	case R_ARM_GLOB_DAT:
 	case R_ARM_JUMP_SLOT:
+		/* The initial GOT/PLT link word is not an implicit addend. */
+		if(!dl_span_ok(o, where, 4)) return reloc_oob(o, r, 4);
+		*(uint32_t*)where = (uint32_t)S;
+		return 0;
 	case R_ARM_ABS32:
 	case R_ARM_TARGET1:      /* TARGET1 is ABS32 for -shared output */
 		if(!dl_span_ok(o, where, 4)) return reloc_oob(o, r, 4);
