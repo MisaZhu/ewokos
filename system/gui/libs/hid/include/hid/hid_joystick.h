@@ -2,7 +2,7 @@
  * hid_joystick.h: normalized gamepad state served by hid_joystickd.
  *
  * hid_joystickd subscribes to HID_REPORT_ID_JOYSTICK on the HID host node
- * (/dev/hid0 over USB, /dev/bt0 over Bluetooth), which carries the RAW
+ * (/dev/usb0 over USB, /dev/bt0 over Bluetooth), which carries the RAW
  * gamepad report prefix, decodes the device-specific layout (DualShock 4,
  * DualSense, Xbox GIP) and re-publishes one fixed js_evt_t per state change
  * on its own char device (/dev/js0, or /dev/js1 for the BT instance).

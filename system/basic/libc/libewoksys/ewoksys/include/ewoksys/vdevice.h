@@ -21,6 +21,8 @@ extern "C" {
  * the default detach (dev->umount hook when present, else a direct umount).
  */
 #define DEV_CMD_UMOUNT ((int)0x80000001)
+/* Reattach an already-running device daemon at a new namespace path. */
+#define DEV_CMD_REMOUNT ((int)0x80000002)
 
 typedef struct st_vdevice {
 	bool terminated;

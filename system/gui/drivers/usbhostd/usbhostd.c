@@ -1,5 +1,5 @@
 /*
- * usbhostd: USB HID host daemon on /dev/hid0.
+ * usbhostd: USB HID host daemon on /dev/usb0.
  *
  * Platform-neutral policy layer: device enumeration, HID report-descriptor
  * classification (libhid's hid_report), report-ID based fan-out to
@@ -31,6 +31,9 @@
 #include <hid/hid_report.h>
 #include <hid/hid_joystick.h>
 #include <hid/hid_srv.h>
+
+/* Older BSPs do not implement the Q8B MSC auto-mount policy hook. */
+extern void bsp_usb_set_msc_auto_mount(bool enabled) __attribute__((weak));
 
 #define USB_MAX_INPUTS 8
 #define USB_MAX_DEVS 8
@@ -546,6 +549,31 @@ static int usb_register_joystick(int dev_idx, const hid_candidate_t* cand,
 
 static int usb_enumerate_hub(int dev_idx);
 
+/* A mass-storage interface that is visible in the configuration descriptor
+ * but cannot complete BOT setup is usually a Type-C disk still powering up.
+ * Keep that case distinguishable from ordinary unsupported USB devices so the
+ * root-port scan can tear it down and enumerate it again. */
+static bool usb_config_has_msc(const uint8_t* cfg, uint16_t len) {
+    for (uint16_t off = 0; off + 2 <= len; ) {
+        uint8_t dlen = cfg[off];
+        uint8_t dtype = cfg[off + 1];
+        if (dlen < 2 || off + dlen > len)
+            break;
+        if (dtype == USB_DESC_INTERFACE && dlen >= sizeof(usb_iface_desc_t)) {
+            const usb_iface_desc_t* iface =
+                    (const usb_iface_desc_t*)(cfg + off);
+            if (iface->bInterfaceClass == USB_CLASS_MSC &&
+                    iface->bInterfaceProtocol == USB_MSC_PROTO_BBB &&
+                    (iface->bInterfaceSubClass == USB_MSC_SUBCLASS_SCSI ||
+                     iface->bInterfaceSubClass == USB_MSC_SUBCLASS_UFI)) {
+                return true;
+            }
+        }
+        off += dlen;
+    }
+    return false;
+}
+
 /*
  * Enumerate one freshly reset device. parent < 0 means it sits on bsp root
  * port root_port; otherwise it hangs off _devs[parent] hub port hub_port.
@@ -560,6 +588,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
     int cand_count;
     hid_candidate_t candidates[USB_MAX_CANDIDATES];
     int registered = 0;
+    bool msc_probe_failed = false;
     int dev_idx;
     uint8_t depth = parent >= 0 ? _devs[parent].depth + 1 : 0;
 
@@ -663,9 +692,15 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
     /* give the bsp layer a chance to claim a bulk-only mass-storage
        interface before the HID walk (platforms without bulk support
        return -1 and the device falls through to HID/unsupported) */
-    if (bsp_usb_msc_probe(dev->hdev, cfg_buf, total_len) == 0) {
-        slog("usbhostd: msc claimed dev=%d\n", dev_idx);
-        registered++;
+    if (usb_config_has_msc(cfg_buf, total_len)) {
+        if (bsp_usb_msc_probe(dev->hdev, cfg_buf, total_len) == 0) {
+            slog("usbhostd: msc claimed dev=%d\n", dev_idx);
+            registered++;
+        }
+        else {
+            msc_probe_failed = true;
+            slog("usbhostd: msc probe failed dev=%d, retrying port\n", dev_idx);
+        }
     }
 
     /* same claim slot for a bluetooth HCI interface (Intel combo cards):
@@ -790,6 +825,13 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         }
     }
 
+    if (msc_probe_failed && registered == 0) {
+        /* Do not park a failed MSC as an unsupported device.  That prevents
+         * the next root-port scan from retrying a Type-C disk whose media was
+         * not ready during its first descriptor pass. */
+        usb_dev_remove(dev_idx);
+        return -1;
+    }
     if (registered == 0) {
         /*
          * Nothing we can drive on it. Keep the slot: it stays addressed
@@ -1023,10 +1065,12 @@ static void usb_hub_scan(int dev_idx) {
      */
     if (probed == 0 && dev->hub_ports > 0) {
         if (++dev->hub_dead_polls >= USB_HUB_DEAD_POLLS) {
-            int root_port = dev->root_port;
             slog("usbhostd: hub dev=%d unreachable for %u scans, dropping the tree\n",
                     dev_idx, (uint32_t)USB_HUB_DEAD_POLLS);
-            usb_root_remove(root_port);
+            /* Only this hub's endpoint has failed.  Removing the complete
+             * root-port tree would also discard an independent MSC device
+             * on the same root port and can strand the selected rootfs. */
+            usb_dev_remove_tree(dev_idx);
             usb_enum_failed();
             return;
         }
@@ -1460,17 +1504,28 @@ static int usb_step(vdevice_t* dev, void* p) {
 }
 
 int main(int argc, char** argv) {
-    const char* mnt_point = argc > 1 ? argv[1] : "/dev/hid0";
+    const char* mnt_point = "/dev/usb0";
+    bool rootfs_probe = false;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--no-msc-mount") == 0) {
+            rootfs_probe = true;
+        }
+        else if (argv[i][0] != '-') {
+            mnt_point = argv[i];
+        }
+    }
     vdevice_t dev;
 
     /*
      * bsp_usb_init() never fails: on controller bring-up errors it logs
      * and degrades to "no usb", because exiting before device_run() would
      * leave ipcserv spinning in ipc_wait_ready() and hang init.rd forever.
-     * With no controller every bsp call is a safe no-op and /dev/hid0
+     * With no controller every bsp call is a safe no-op and /dev/usb0
      * stays readable (empty).
      */
     bsp_usb_init();
+    if (rootfs_probe && bsp_usb_set_msc_auto_mount != NULL)
+        bsp_usb_set_msc_auto_mount(false);
 
     memset(_devs, 0, sizeof(_devs));
     memset(_inputs, 0, sizeof(_inputs));

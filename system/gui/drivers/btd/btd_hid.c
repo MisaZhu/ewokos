@@ -426,7 +426,7 @@ void bt_hid_handle_ctrl(l2cap_chan_t* ch, const uint8_t* data, size_t len) {
 
 /* ---------------- /dev/bt0 subscriber fan-out ----------------
    the queue, the report-id selection and the directed wakes all come from
-   libhid, shared verbatim with usbhostd's /dev/hid0. What stays here is
+   libhid, shared verbatim with usbhostd's /dev/usb0. What stays here is
    btd's own twist: report id 0 is not a HID report but the daemon's
    command/event text stream, so open/close/fcntl go straight to libhid
    while read() and check_poll_events() multiplex. */

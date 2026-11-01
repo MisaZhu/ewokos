@@ -6,13 +6,13 @@
  * Bluetooth HCI USB interface such as the Intel AX211/AX411/BE202
  * bluetooth function) and the btd daemon that consumes the adapter as an
  * H4 byte stream over FS_CMD_DEV_CNTL/dev_cntl on the host driver's
- * device node (e.g. /dev/hid0).
+ * device node (e.g. /dev/usb0).
  *
  * Command numbers live in their own range, disjoint from USBMSC_CMD_*
  * (10-13) and USBFS_CMD_QUIT (21) in ewoksys/usbmsc.h.
  */
 
-/* fcntl commands served by usbhostd on its device node (e.g. /dev/hid0) */
+/* fcntl commands served by usbhostd on its device node (e.g. /dev/usb0) */
 /* out: claimed, ready, vid, pid (4 x int) */
 #define USBHCI_CMD_INFO   30
 /* in: pkt_type (int: 0x01 cmd, 0x02 acl), data; out: none (status only) */

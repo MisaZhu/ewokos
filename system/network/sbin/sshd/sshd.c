@@ -3605,19 +3605,25 @@ static int session_init(sshd_session_t* s, int sock) {
     s->child_is_sftp = 0;
     s->enc_key_bits_c2s = 256;
     s->enc_key_bits_s2c = 256;
-    if(pipe(s->close_notify) != 0)
+    if(pipe(s->close_notify) != 0) {
+        klog("sshd: session pipe failed\n");
         return -1;
+    }
     /*
      * Keep the session socket non-blocking so the output relay never sleeps
      * forever inside a blocking write() while holding send_lock. The send path
      * already retries EAGAIN via wait_session_fd_ready(), which is safer than
      * trusting the kernel/socket stack to always wake a blocking writer.
      */
-    if(set_fd_nonblock(s->socket) != 0)
+    if(set_fd_nonblock(s->socket) != 0) {
+        klog("sshd: session nonblock failed errno=%d\n", errno);
         return -1;
+    }
     s->rx_packet_buf = (uint8_t*)malloc(4 + SSH_PACKET_WIRE_MAX);
-    if(s->rx_packet_buf == NULL)
+    if(s->rx_packet_buf == NULL) {
+        klog("sshd: session rx allocation failed\n");
         return -1;
+    }
     /*
      * Seed this connection's packet-padding PRNG from a short-lived wolfSSL
      * CSPRNG. Runs in the forked child, so every connection gets independent,
@@ -3845,6 +3851,8 @@ static int serve_client(int sock) {
     ret = 0;
 
 out:
+    if(ret < 0)
+        klog("sshd: client failed: %s\n", g_error[0] ? g_error : "session setup");
     if(ret < 0 && session->socket >= 0) {
         send_disconnect(session, SSH_DISCONNECT_BY_APPLICATION, g_error[0] ? g_error : "sshd error");
     }
@@ -3871,6 +3879,10 @@ int main(int argc, char* argv[]) {
     }
 
     server_sock = open_server_socket(port);
+    /* init waits for this IPC notification before releasing the boot RAMFS.
+     * At this point the listening socket and all boot-time dependencies are
+     * ready, so the daemon no longer needs to touch the RAMFS image. */
+    ipc_ready();
     while(true) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);

@@ -506,6 +506,36 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
     return vaddr;
 }
 
+/*
+ * SYS_MEM_MAP deliberately has no kernel-side allocation object: device and
+ * firmware-owned ranges can be mapped at caller-selected virtual addresses.
+ * Provide the matching voluntary teardown so a short-lived bootstrap mapping
+ * cannot survive exec and pin firmware-owned RAM forever.  This only removes
+ * PTEs from the calling address space; physical pages remain owned by the
+ * caller of the mapping API (q8b_release_ramdisk() handles RAM reclamation).
+ */
+static int32_t sys_mem_unmap(ewokos_addr_t vaddr, uint32_t size) {
+    proc_t* cproc = proc_get_proc(get_current_proc());
+    ewokos_addr_t start;
+    ewokos_addr_t end;
+    uint64_t bytes;
+
+    if(cproc == NULL || cproc->space == NULL || size == 0)
+        return -1;
+    start = ALIGN_DOWN(vaddr, PAGE_SIZE);
+    bytes = (uint64_t)(vaddr - start) + (uint64_t)size;
+    end = start + ALIGN_UP(bytes, PAGE_SIZE);
+    if(end < start)
+        return -1;
+    if(start < KMALLOC_END && end > KERNEL_BASE)
+        return -1;
+
+    unmap_pages(cproc->space->vm, start,
+            (uint32_t)((end - start) / PAGE_SIZE));
+    flush_tlb_range(start, (uint32_t)((end - start) / PAGE_SIZE));
+    return 0;
+}
+
 static void sys_ipc_setup(context_t* ctx, ewokos_addr_t entry, ewokos_addr_t extra_data, uint32_t flags) {
     ctx->gpr[0] = proc_ipc_setup(ctx, entry, extra_data, flags);
 }
@@ -910,6 +940,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_MEM_MAP:
         ctx->gpr[0] = sys_mem_map(arg0, arg1, (uint32_t)arg2);
+        return;
+    case SYS_MEM_UNMAP:
+        ctx->gpr[0] = sys_mem_unmap(arg0, (uint32_t)arg1);
         return;
     case SYS_DMA_ALLOC:
         ctx->gpr[0] = sys_dma_alloc(arg0, (uint32_t)arg1);

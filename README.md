@@ -20,7 +20,7 @@ This repository is the main EwokOS source tree. It contains:
 - An X-like window system and desktop applications
 - Networking tools and services such as SSH, SCP, Telnet, HTTP, and ping
 - Machine-specific ports for QEMU, Raspberry Pi, x86, RISC-V, handhelds, and board variants
-- Extra software trees provided through submodules such as `projects/`, `sw.extra/`, and `apps/`
+- Extra software trees provided through submodules such as `projects/` and `sw.extra/`, plus native applications under `apps/`
 
 The build is intentionally machine-centric. Instead of one monolithic top-level build, each target under `machine.virt/` or `machines/*/` provides its own kernel and rootfs recipes.
 
@@ -105,7 +105,7 @@ ewokos/
 ├── projects/                 # Larger standalone projects: browser, macemu,
 │                             # minivmac, nesemu, opengl, video, saver
 ├── sw.extra/                 # Extra apps, SDL-based software, alternate WMs
-└── apps/                     # Additional apps and libraries (submodule)
+└── apps/                     # Standalone native applications (nputest)
 ```
 
 ### Key Source Directories
@@ -204,7 +204,7 @@ The `opengl` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`, `imgui_de
 
 - `projects/` holds the larger standalone projects: a web browser, `macemu` and `minivmac` Macintosh emulators, `nesemu`, the `opengl` software 3D stack, `video`, and `saver`
 - `sw.extra/` contains demos and larger apps such as `doom`, `calculator`, `calendar`, and SDL-related pieces
-- `apps/` may hold additional applications and libraries depending on your checkout
+- `apps/nputest/` provides the Q8B native HTP test window and `npudemo` CLI, with bundled model resources
 - Some installations depend on submodules being checked out locally
 
 ## Project Components

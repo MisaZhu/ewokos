@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <ewoksys/mstr.h>
+#include <ewoksys/klog.h>
 
 /*
  * ext3 filesystem operations.
@@ -1907,6 +1908,9 @@ static int32_t ext3_setup_journal(ext3_t* ext3, uint32_t now) {
     }
     if(j->block_size != ext3_block_size(ext3) ||
             (uint64_t)j->maxlen * j->block_size > (uint64_t)ext3->journal_inode.i_size) {
+        klog("ext3: journal geometry fs_block=%u j_block=%u maxlen=%u inode_size=%u\n",
+                ext3_block_size(ext3), j->block_size, j->maxlen,
+                ext3->journal_inode.i_size);
         jbd_free(j);
         free(j);
         return -1;

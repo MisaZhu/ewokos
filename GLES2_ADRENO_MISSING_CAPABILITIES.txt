@@ -1,0 +1,200 @@
+EwokOS GL 框架与 Adreno 驱动相对标准 OpenGL ES 2.0 的缺失能力
+================================================================
+
+范围
+----
+本清单只记录 libGLESv2/portablegl GL 框架，以及 Q8B Adreno 690 GPU 后端
+相对标准 GLES 2.0 的缺失或不完整能力。
+
+“缺失”表示接口为空实现、状态没有真正保存、返回值是固定值，或 GPU 路径
+只能处理一个子集。GL 框架在部分场景会退回 CPU 光栅化；CPU 回退不等于
+Adreno GPU 已经具备对应的 GLES 2.0 能力。
+
+不纳入：RE3 的 shader、资源路径、窗口逻辑、游戏逻辑和针对 RE3 的适配项。
+
+
+一、GL 框架（libGLESv2 + portablegl）
+--------------------------------------
+
+1. 非默认 framebuffer/renderbuffer 没有实现
+
+   - FBO/RBO 只分配名字；绑定、删除、附件、renderbuffer storage 都不改变
+     实际渲染目标。
+   - glCheckFramebufferStatus() 固定返回 GL_FRAMEBUFFER_COMPLETE；
+     glIsFramebuffer()/glIsRenderbuffer() 固定返回 GL_FALSE。
+   - 因此缺少 GLES 2.0 的用户 FBO、纹理附件、深度/模板 renderbuffer、
+     render-to-texture 和不完整 FBO 错误检测。
+   - 证据：projects/opengl/libs/gles/src/gles2/gles2_api.c:319-336；
+     projects/opengl/libs/gles/portablegl/src/portablegl.c:9264-9295。
+
+2. 纹理上传格式和 mipmap 语义不完整
+
+   - TexImage/TexSubImage 的 type 实际只接受 GL_UNSIGNED_BYTE；GLES 2.0
+     要求的 packed 16-bit 类型（RGB 565、RGBA 4444、RGBA 5551）没有实现。
+   - portablegl 内部统一存储为 RGBA8；internalformat 和 level 被忽略，
+     没有完整的多级 mipmap 对象语义。
+   - glGenerateMipmap() 是空实现，因此自动 mipmap 生成缺失。
+   - 证据：projects/opengl/libs/gles/portablegl/src/portablegl.c:7792-7803、
+     7974-7995、9250-9255。
+
+3. 压缩纹理与 framebuffer-copy 纹理操作缺失
+
+   - glCompressedTexImage2D()/glCompressedTexSubImage2D() 为空实现，没有
+     任何 GLES2 压缩纹理格式解码或存储。
+   - glCopyTexImage2D()/glCopyTexSubImage2D() 为空实现。
+   - 证据：projects/opengl/libs/gles/src/gles2/gles2_api.c:300-308；
+     projects/opengl/libs/gles/portablegl/src/portablegl.c:9339-9341。
+
+4. 通用顶点属性常量值和顶点属性查询缺失
+
+   - glVertexAttrib1f/2f/3f/4f 及 fv 版本接受调用但丢弃数据，禁用的顶点
+     属性不能按 GLES2.0 规则使用当前常量值。
+   - glGetVertexAttribfv()/iv()/Pointerv() 返回固定的 0 或 NULL；
+     glGetBufferParameteriv() 也返回 0。
+   - 证据：projects/opengl/libs/gles/src/gles2/gles2_api.c:278-317。
+
+5. 对象查询和状态查询不完整
+
+   - glGetTexParameterfv()/iv() 固定返回 0。
+   - glIsBuffer()/glIsTexture() 只按句柄是否非零判断，不检查对象是否真实
+     创建、删除或绑定。
+   - 这会使 GLES2.0 要求的对象生命周期和查询结果与实际状态不一致。
+   - 证据：projects/opengl/libs/gles/src/gles2/gles2_api.c:290-317。
+
+6. shader binary、校验和部分 shader 语义缺失
+
+   - glShaderBinary() 为空实现，没有 GLES2 shader binary 加载路径。
+   - glValidateProgram() 不执行校验，直接把已链接状态当作验证结果。
+   - glUniformMatrix2fv/3fv/4fv() 忽略 transpose 参数，也没有实现该参数的
+     GLES 错误语义；uniform/对象非法调用的一部分错误路径只是静默返回。
+   - 证据：projects/opengl/libs/gles/src/gles2/gles2_shader.c:345、
+     537-539；projects/opengl/libs/gles/src/gles2/gles2_api.c:338-340。
+
+7. glReadPixels 只实现固定的 RGBA8 回读子集
+
+   - 只接受 GL_UNSIGNED_BYTE；format 参数被忽略，实际总是按 RGBA 四字节
+     写出，未完整实现 GLES2.0 的 format/type 检查与 RGB/packed 回读组合。
+   - 证据：projects/opengl/libs/gles/src/engine/pgl_engine.c:537-555。
+
+8. 多重采样能力缺失
+
+   - EGL 唯一配置报告 EGL_SAMPLES=0、EGL_SAMPLE_BUFFERS=0；
+     glSampleCoverage() 在 GLES2 API 层为空实现。
+   - 因此没有可用的 GLES2 多重采样 framebuffer/sample coverage 路径。
+   - 证据：projects/opengl/libs/gles/src/gles2/gles2_api.c:121-123；
+     projects/opengl/libs/gles/src/egl/egl_api.c:300-320（固定配置属性）。
+
+9. GL GPU 加速不是通用 GLES2 图形编译路径
+
+   - portablegl 的 GPU 加速依赖若干固定的 fullscreen/geometry kernel 形状；
+     不匹配的 VS/FS 会留在 CPU 解释器。该路径不能把任意 GLES2 VS/FS
+     程序直接提交为标准图形 draw。
+   - 这是 GL 框架 GPU offload 能力的子集限制，CPU 解释器仍可处理其支持的
+     shader 语法。
+   - 证据：projects/opengl/libs/gles/src/engine/pgl_engine.c:2340-2350、
+     3027-3050；projects/opengl/libs/gles/portablegl/src/pgl_g3d_shader.c。
+
+10. EGL/GL 集成能力不完整（属于框架能力，不是 GLES2 核心 API）
+
+   - eglQueryString(EGL_EXTENSIONS) 返回空字符串；eglGetProcAddress() 对
+     所有名字返回 NULL。
+   - pixmap surface、EGL client-buffer pbuffer、eglBindTexImage/eglReleaseTexImage
+     和 eglCopyBuffers 不支持。
+   - 证据：projects/opengl/libs/gles/src/egl/egl_api.c:250-257、580-620。
+
+
+二、Adreno 690 GPU 后端
+------------------------
+
+1. 没有原生 GLES 图形流水线
+
+   - pglc_compile_glsl() 明确拒绝 VS/FS graphics pipeline；当前后端只编译
+     compute shader。
+   - adreno_3d.c 的提交路径使用 CP_EXEC_CS；没有可供 GLES draw 直接使用的
+     VFD、顶点装配、VPC、GRAS、RB、原生 VS/FS draw 状态发射。
+   - 结果是标准 GLES2 的图形流水线只能由 compute raster kernel 或 CPU 回退
+     近似实现，而不是由 Adreno 原生图形流水线执行。
+   - 证据：machines/q8b/system/libs/adrenocompiler/adreno_pglc.cpp:129-142；
+     machines/q8b/system/libs/adreno/src/adreno_3d.c:2-22、1205-1207。
+
+2. 顶点/片元阶段接口和插值语义缺失
+
+   - Adreno program blob 只描述 compute kernel（最多两个 kernel：transform
+     和 raster），没有 VS/FS 二进制、varying linkage、插值模式、片元输出
+     MRT 状态等 GLES 图形阶段信息。
+   - varying linkage、透视插值、discard、早期深度和片元输出的标准硬件
+     阶段语义没有作为原生图形状态实现。
+   - 证据：machines/q8b/system/libs/adreno/include/adreno/adreno_prog.h:44-70、
+     151-220。
+
+3. GPU draw 原生只接受三角形列表
+
+   - adreno_3d.c 检查 g->mode 必须是 G2D_PGL_MODE_TRIANGLES，顶点数也必须
+     是 3 的倍数；triangle strip/fan 等 GLES primitive mode 不在驱动提交
+     层实现。
+   - 若上层需要这些模式，必须先在 GL 框架中展开为独立三角形，增加 CPU
+     staging 和带宽开销。
+   - 证据：machines/q8b/system/libs/adreno/src/adreno_3d.c:1458-1463。
+
+4. 纹理路径不是完整 GLES2 sampler/format 路径
+
+   - legacy geometry compute kernels 通过线性 RGBA/ARGB 缓冲访问纹理，要求
+     ctex 宽度、stride、地址对齐满足固定约束；这不是 GLES2 的通用纹理
+     格式和布局接口。
+   - GPU program blob 的 sampled texture 槽上限为 4；SSBO/UAV 槽上限为 8。
+     这使该 GPU route 不能覆盖完整 GLES2 实现应提供的纹理单元和任意资源
+     组合，只能对受限 shader 形状启用。
+   - 证据：machines/q8b/system/libs/adreno/src/adreno_3d.c:1468-1477；
+     machines/q8b/system/libs/adreno/include/adreno/adreno_prog.h:120-128。
+
+5. GPU render target/depth buffer 布局受固定约束
+
+   - geometry path 要求颜色和深度地址 64 字节对齐；首帧清除要求
+     fb_stride == width*4、z_stride == width*4 且 stride 64 字节对齐。
+   - 非该布局的 framebuffer、任意 pitch、标准 GLES renderbuffer 格式和
+     多样深度/模板格式没有对应的 Adreno draw 路径，会被拒绝或交给回退。
+   - 证据：machines/q8b/system/libs/adreno/src/adreno_3d.c:1464-1493。
+
+6. 固定 kernel 子集不能表达完整 GLES2 固定功能状态
+
+   - compute raster kernels 的 blend、depth、cull、scissor、纹理采样和
+     颜色写回由预定义 kernel/参数编码；标准 GLES2 的任意 blend equation、
+     color mask、polygon offset、stencil、完整深度/模板组合没有统一的
+     Adreno 硬件状态发射路径。
+   - GL 框架会在这些状态出现时放弃 GPU route 或回退 CPU，因此不能把当前
+     Adreno backend 视为完整 GLES2 raster backend。
+   - 证据：projects/opengl/libs/gles/src/engine/rw_gpu.inc:436-471、
+     2774-2785、2888-2910。
+
+7. 资源绑定和工作组能力有固定上限
+
+   - compute dispatch 的 local size 是编译时固化值；运行时工作组尺寸不匹配
+     会被拒绝。
+   - SSBO 需要按编译器约定映射到固定 UAV 槽，并满足设备地址/大小对齐；
+     未绑定、尺寸不足或未对齐的资源直接 decline。
+   - 这些限制不是标准 GLES2 应用可见的通用 draw/resource 语义。
+   - 证据：machines/q8b/system/libs/adreno/src/adreno_3d.c:1668-1725、
+     720-920。
+
+8. GPU 同步和错误恢复仍是受限的 compute 提交模型
+
+   - 当前后端依赖 compute dispatch、ring fence、显式 cache/两阶段 barrier；
+     发生 timeout、MMU fault 或 wedge 后会拒绝后续 GPU 工作并交给上层回退。
+   - 没有标准 GLES 图形流水线中的 draw-order、隐式 framebuffer hazard
+     处理和完整上下文恢复能力。
+   - 证据：machines/q8b/system/libs/adreno/src/adreno_3d.c:20-22、
+     1426-1625；adreno_3d.c 中的 ADRENO_E_DECLINED/FAULT/WEDGED 路径。
+
+
+三、当前已具备但只是子集的能力
+-------------------------------
+
+- GLES2 shader/program/uniform 的主要入口已经存在，CPU 解释器可以执行其
+  支持的 GLSL ES 1.00 子集。
+- portablegl CPU 光栅器具备默认 framebuffer、深度、模板、混合、纹理采样
+  等基础路径。
+- Adreno 690 已具备可提交的 compute shader、SSBO/UAV、部分 2D/cubemap
+  sampled texture 和两阶段 compute geometry raster 路径。
+
+这些能力不能抵消上面列出的 GLES2 核心语义缺口和 Adreno 原生图形流水线
+缺口。

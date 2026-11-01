@@ -1,4 +1,4 @@
-DIRS = core init rootfs vfsd
+DIRS = core init rootfs switchroot vfsd
 all: $(DIRS)
 
 $(DIRS):

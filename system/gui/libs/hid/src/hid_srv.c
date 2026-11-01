@@ -1,7 +1,7 @@
 /*
  * hid_srv.c: transport-independent HID subscriber fan-out.
  *
- * The /dev/hid0 (usbhostd) and /dev/bt0 (btd) char devices deliver input
+ * The /dev/usb0 (usbhostd) and /dev/bt0 (btd) char devices deliver input
  * reports to their consumers through exactly the same contract: a client
  * opens the node, subscribes to one report id with fcntl(cmd 0) and then
  * reads fixed-size events. So the per-fd subscriber list, ring queues,

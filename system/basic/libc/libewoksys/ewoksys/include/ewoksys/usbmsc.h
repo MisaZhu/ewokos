@@ -7,11 +7,12 @@
  * that consumes the USB mass-storage block device.
  */
 
-/* fcntl commands served by usbhostd on its device node (e.g. /dev/hid0) */
+/* fcntl commands served by usbhostd on its device node (e.g. /dev/usb0) */
 #define USBMSC_CMD_INFO   10 /* out: present, sector_count, sector_size */
 #define USBMSC_CMD_READ   11 /* in: sector, count; out: count*sector_size data */
 #define USBMSC_CMD_WRITE  12 /* in: sector, count, data; out: none (status only) */
-#define USBMSC_CMD_FLUSH  13 /* in: none; out: none (SCSI SYNC cache best-effort) */
+#define USBMSC_CMD_FLUSH  13 /* in: none; out: none (USB backend flush) */
+#define USBMSC_CMD_AUTOMOUNT 14 /* in: 0/1; toggle automatic /mnt/udisk0 mount */
 
 /* FS_CMD_DEV_CNTL command served by the filesystem daemon (fat32fsd) on USB
  * unplug. The generic umount command is DEV_CMD_UMOUNT in ewoksys/vdevice.h. */

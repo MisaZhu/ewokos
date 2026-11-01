@@ -12,6 +12,8 @@
 /* Architecture-specific, privileged controls. Outside the counted enum to
  * preserve sys_state_t's ABI for existing rootfs binaries. */
 #define SYS_PLATFORM_CTL 0x100
+/* Drop a caller-owned SYS_MEM_MAP window: arg0=VA, arg1=byte size. */
+#define SYS_MEM_UNMAP 0x101
 
 /* SYS_SEMAPHORE_ALLOC: arg0=0 allocates a private semaphore (legacy ABI).
  * Nonzero keys retrieve kernel-owned hardware locks. Successful lookups

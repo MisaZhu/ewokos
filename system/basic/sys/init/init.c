@@ -13,9 +13,16 @@
 #include <ewoksys/wait.h>
 #include <dirent.h>
 #include <sys/shm.h>
-#include <bsp/bsp_sd.h>
+#include <ewoksys/usbmsc.h>
 
 #include "cap_policy.h"
+
+#if defined(__has_include)
+# if __has_include(<q8b_platform.h>)
+#  include <q8b_platform.h>
+#  define INIT_HAS_RAMFS_RELEASE 1
+# endif
+#endif
 
 extern void* read_fs(const char* fname, off_t* size);
 
@@ -29,15 +36,23 @@ extern void* read_fs(const char* fname, off_t* size);
  * already published, so calling it per child is a cheap remap, not a card
  * re-probe.
  */
-static int32_t exec_from_sd(const char* prog) {
-    off_t sz;
-    if(bsp_sd_init() != 0) {
-        klog("init: bsp_sd_init failed (%s)\n", prog);
-        return -1;
+static void exec_ready_notify(int fd, uint8_t ready) {
+    if(fd >= 0) {
+        while(write(fd, &ready, sizeof(ready)) < 0) {
+            /* A closed readiness pipe only means the parent stopped waiting. */
+            break;
+        }
+        close(fd);
     }
+}
+
+static int32_t exec_from_storage(const char* prog, const char* cmdline,
+        int ready_fd) {
+    off_t sz;
     char* elf = read_fs(prog, &sz);
     if(elf == NULL) {
         klog("init: read_fs failed (%s)\n", prog);
+        exec_ready_notify(ready_fd, 0);
         return -1;
     }
 
@@ -46,6 +61,7 @@ static int32_t exec_from_sd(const char* prog) {
     if(shm_id <= 0) {
         klog("init: shmget failed (%s)\n", prog);
         free(elf);
+        exec_ready_notify(ready_fd, 0);
         return -1;
     }
     uint8_t* shm_buf = (uint8_t*)shmat(shm_id, NULL, 0);
@@ -53,12 +69,20 @@ static int32_t exec_from_sd(const char* prog) {
         klog("init: shmat failed (%s)\n", prog);
         shmctl(shm_id, IPC_RMID, NULL);
         free(elf);
+        exec_ready_notify(ready_fd, 0);
         return -1;
     }
     memcpy(shm_buf, elf, sz);
     free(elf);
 
-    int res = syscall3(SYS_EXEC_ELF, (ewokos_addr_t)prog, (ewokos_addr_t)shm_id, (ewokos_addr_t)sz);
+    /* The ELF is now independent of the source filesystem.  Notify the
+     * parent before entering SYS_EXEC_ELF. */
+    exec_ready_notify(ready_fd, 1);
+
+    /* Keep the original command line so early daemons receive their options
+     * (for example the USB block device and mount point).  The first argument
+     * still identifies the ELF image loaded from the filesystem. */
+    int res = syscall3(SYS_EXEC_ELF, (ewokos_addr_t)cmdline, (ewokos_addr_t)shm_id, (ewokos_addr_t)sz);
     if(res != 0)
         klog("init: SYS_EXEC_ELF failed %d (%s)\n", res, prog);
     /* If exec fails, clean up shm */
@@ -67,23 +91,206 @@ static int32_t exec_from_sd(const char* prog) {
     return res;
 }
 
-static void run_before_vfs(const char* cmd) {
+#define ROOTFS_SD   0
+#define ROOTFS_USB  1
+#define ROOTFS_AUTO 2
+#define ROOTFS_SELF 3
+
+static int _bootnet;
+
+static int run_before_vfs_mode(const char* cmd, int wait_exit) {
     klog("init: %-16s   ", cmd);
+
+    char prog[FS_FULL_NAME_MAX];
+    int i = 0;
+    while(cmd[i] != 0 && cmd[i] != ' ' && cmd[i] != '\t' &&
+            i < FS_FULL_NAME_MAX - 1) {
+        prog[i] = cmd[i];
+        i++;
+    }
+    prog[i] = 0;
 
     int pid = fork();
     if(pid == 0) {
-        if(exec_from_sd(cmd) != 0) {
+        if(exec_from_storage(prog, cmd, -1) != 0) {
             klog("[failed]!\n");
             exit(-1);
         }
     }
-    else
-        if(ipc_wait_ready(pid) != 0) {
-            klog("[failed]!\n");
-            return;
-        }
+    else if(pid < 0) {
+        klog("[failed]!\n");
+        return -1;
+    }
+    else if(wait_exit) {
+        ewok_waitpid(pid);
+    }
+    else if(ipc_wait_ready(pid) != 0) {
+        klog("[failed]!\n");
+        return -1;
+    }
     klog("[ok]\n");
+    return 0;
 }
+
+static int run_before_vfs(const char* cmd) {
+    return run_before_vfs_mode(cmd, 0);
+}
+
+static int run_before_vfs_sync(const char* cmd) {
+    return run_before_vfs_mode(cmd, 1);
+}
+
+/* kernel.conf is part of the boot image, so the rootfs choice is available
+ * before the persistent SD filesystem or USB VFS mount exists. */
+static int rootfs_policy(void) {
+    off_t size = 0;
+    char* conf = (char*)read_fs("/etc/kernel/kernel.conf", &size);
+    int policy = ROOTFS_AUTO;
+    _bootnet = 0;
+    if(conf == NULL)
+        return policy;
+    for(off_t i = 0; i < size; ) {
+        off_t end = i;
+        while(end < size && conf[end] != '\n')
+            end++;
+        off_t p = i;
+        while(p < end && (conf[p] == ' ' || conf[p] == '\t')) p++;
+        if(p + 6 <= end && memcmp(conf + p, "rootfs", 6) == 0) {
+            const char* v = conf + p + 6;
+            while(v < conf + end && (*v == ' ' || *v == '\t' || *v == '=')) v++;
+            if(end - (v - conf) >= 2 && strncmp(v, "sd", 2) == 0) policy = ROOTFS_SD;
+            else if(end - (v - conf) >= 3 && strncmp(v, "usb", 3) == 0) policy = ROOTFS_USB;
+            else if(end - (v - conf) >= 4 && strncmp(v, "self", 4) == 0) policy = ROOTFS_SELF;
+            else if(end - (v - conf) >= 4 && strncmp(v, "auto", 4) == 0) policy = 2;
+            /* Continue scanning for optional bootnet=1 recovery setting. */
+        }
+        if(p + 7 <= end && memcmp(conf + p, "bootnet", 7) == 0) {
+            const char* v = conf + p + 7;
+            while(v < conf + end && (*v == ' ' || *v == '\t' || *v == '=')) v++;
+            if(v < conf + end && *v == '1')
+                _bootnet = 1;
+        }
+        i = end + (end < size ? 1 : 0);
+    }
+    free(conf);
+    return policy;
+}
+
+static int start_usb_host(void) {
+    return run_before_vfs("/drivers/q8b/usbhostd /dev/usb0 --no-msc-mount");
+}
+
+static int start_bootfs(void) {
+    return run_before_vfs("/sbin/sdfsd -b /");
+}
+
+static int try_usb_rootfs(void) {
+    /* The boot USB is an ext3 rootfs.  Reuse the ext3 VFS server used by SD;
+     * usbfat32fsd remains available for ordinary FAT32 removable media. */
+    return run_before_vfs("/sbin/sdfsd -u /dev/usb0 /");
+}
+
+static void enable_usb_automount(void) {
+    fsinfo_t info;
+    proto_t in;
+    if(vfs_get_by_name("/dev/usb0", &info) != 0)
+        return;
+    PF->init(&in)->addi(&in, 1);
+    (void)dev_cntl_by_pid(info.mount_pid, USBMSC_CMD_AUTOMOUNT, &in, NULL);
+    PF->clear(&in);
+}
+
+#ifdef INIT_HAS_RAMFS_RELEASE
+static uint32_t boot_source(void) {
+    sys_info_t info;
+    if (sys_get_sys_info(&info) != 0)
+        return Q8B_BOOT_SOURCE_UNKNOWN;
+    return ((const q8b_platform_data_t*)info.platform_data)->rd.boot_source;
+}
+
+static const char* boot_source_name(uint32_t source) {
+    switch (source) {
+    case Q8B_BOOT_SOURCE_SD: return "sd";
+    case Q8B_BOOT_SOURCE_USB: return "usb";
+    case Q8B_BOOT_SOURCE_NVME: return "nvme";
+    case Q8B_BOOT_SOURCE_NET: return "net";
+    default: return "unknown";
+    }
+}
+
+/* NVMe and network rootfs daemons are not part of the Q8B boot image yet.
+ * Keep them explicit in the selector so adding those backends later cannot
+ * silently change the established SD/USB order. */
+static int try_nvme_rootfs(void) {
+    klog("init: NVMe rootfs backend unavailable, continuing\n");
+    return -1;
+}
+
+static int try_net_rootfs(void) {
+    klog("init: network rootfs backend unavailable, continuing\n");
+    return -1;
+}
+
+static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
+    uint32_t self = boot_source();
+    int usb_host = 0;
+    int usb_root = 0;
+    int selected = -1;
+
+    klog("init: rootfs policy=%d self=%s order=self,sd,usb,nvme,net\n",
+            policy, boot_source_name(self));
+
+    if (policy == ROOTFS_SD) {
+        selected = run_before_vfs("/sbin/sdfsd") == 0 ? ROOTFS_SD : -1;
+    } else if (policy == ROOTFS_USB) {
+        if (start_usb_host() == 0) {
+            usb_host = 1;
+            if (try_usb_rootfs() == 0) {
+                usb_root = 1;
+                selected = ROOTFS_USB;
+            }
+        }
+    } else {
+        /* Self first, followed by the fixed cross-device order.  Duplicate
+         * backends are skipped because the daemon represents the whole class
+         * of devices currently visible to the Q8B. */
+        uint32_t order[5];
+        order[0] = self;
+        order[1] = Q8B_BOOT_SOURCE_SD;
+        order[2] = Q8B_BOOT_SOURCE_USB;
+        order[3] = Q8B_BOOT_SOURCE_NVME;
+        order[4] = Q8B_BOOT_SOURCE_NET;
+        int tried_sd = 0, tried_usb = 0, tried_nvme = 0, tried_net = 0;
+        for (int i = 0; i < 5 && selected < 0; i++) {
+            uint32_t source = order[i];
+            if (source == Q8B_BOOT_SOURCE_SD) {
+                if (tried_sd++)
+                    continue;
+                if (run_before_vfs("/sbin/sdfsd") == 0)
+                    selected = ROOTFS_SD;
+            } else if (source == Q8B_BOOT_SOURCE_USB) {
+                if (tried_usb++)
+                    continue;
+                if (!usb_host && start_usb_host() == 0)
+                    usb_host = 1;
+                if (usb_host && try_usb_rootfs() == 0) {
+                    usb_root = 1;
+                    selected = ROOTFS_USB;
+                }
+            } else if (source == Q8B_BOOT_SOURCE_NVME) {
+                if (!tried_nvme++)
+                    (void)try_nvme_rootfs();
+            } else if (source == Q8B_BOOT_SOURCE_NET) {
+                if (!tried_net++)
+                    (void)try_net_rootfs();
+            }
+        }
+    }
+    *usb_host_out = usb_host;
+    *usb_root_out = usb_root;
+    return selected;
+}
+#endif
 
 static int run_init(const char* init_file) {
     if(access(init_file, R_OK) != 0) {
@@ -139,9 +346,57 @@ int main(int argc, char** argv) {
         idle();
 
     klog("\n[init process started]\n");
-    run_before_vfs("/sbin/core");
-    run_before_vfs("/sbin/vfsd");
-    run_before_vfs("/sbin/sdfsd");
+    if(run_before_vfs("/sbin/core") != 0 ||
+            run_before_vfs("/sbin/vfsd") != 0)
+        return -1;
+
+#ifdef INIT_HAS_RAMFS_RELEASE
+    /* Mount the boot image at the initial root long enough to execute its
+     * early profile.  The same daemon is moved to /boot after the persistent
+     * rootfs replaces that initial root. */
+    if(start_bootfs() != 0)
+        return -1;
+    if(run_init("/etc/init.ramfs.rd") != 0)
+        klog("init: boot init profile unavailable\n");
+    int policy = rootfs_policy();
+    int usb_host = 0;
+    int usb_root = 0;
+    if(select_rootfs(policy, &usb_host, &usb_root) < 0) {
+        klog("init: no rootfs backend succeeded\n");
+        return -1;
+    }
+    klog("init: rootfs selected=%s bootnet=%d\n",
+            usb_root ? "usb" : "sd", _bootnet);
+    if(_bootnet) {
+        /* Recovery profile: start the network from the boot image after the
+         * SD VFS is available, so SSH remains usable even if an older SD
+         * init script cannot reach its normal network stage. */
+        (void)run_before_vfs("/drivers/timerd");
+        (void)run_before_vfs("/drivers/piped /dev/pipe0");
+        (void)run_before_vfs("/drivers/q8b/net /dev/eth0");
+        (void)run_before_vfs("/drivers/netd /dev/net0 /dev/eth0");
+        /* sshd delegates password validation to sessiond.  Start it from
+         * the boot image as well, so the recovery profile remains usable
+         * even when the persistent rootfs has an older init script. */
+        (void)run_before_vfs("/sbin/sessiond --recovery");
+        (void)run_before_vfs("/sbin/sshd");
+    }
+    /* Move the boot filesystem to /boot and all device mounts from the
+     * RAMFS namespace into the new root's /dev. */
+    if(run_before_vfs_sync("/sbin/switchroot") != 0) {
+        klog("init: switchroot failed\n");
+        return -1;
+    }
+    /* A USB host used only for automounting starts in the persistent root.
+     * A host that supplied the USB rootfs was already moved by switchroot. */
+    if(!usb_host)
+        (void)start_usb_host();
+    if(!usb_root)
+        enable_usb_automount();
+#else
+    if(run_before_vfs("/sbin/sdfsd") != 0)
+        return -1;
+#endif
 
     if(access(CAP_CONF_FILE, R_OK) == 0) { /* no policy file: no cap setup */
         cap_policy_load(CAP_CONF_FILE);

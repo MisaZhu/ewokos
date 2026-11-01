@@ -160,11 +160,12 @@ static int32_t get_gds(ext3_t* ext3) {
     return 0;
 }
 
-static int32_t ext3_init(ext3_t* ext3) {
+static int32_t ext3_init_with_reader(ext3_t* ext3,
+        ext3_read_block_func_t reader, int32_t start_sector) {
     memset(&_partition, 0, sizeof(partition_t));
-    _partition.start_sector = get_rootfs_entry(sd_read_sector);
+    _partition.start_sector = (uint32_t)start_sector;
 
-    ext3->read_block = sd_read;
+    ext3->read_block = reader;
     ext3->gds = NULL;
     _ext3_block_size = EXT3_DEFAULT_BLOCK_SIZE;
 
@@ -181,6 +182,11 @@ static int32_t ext3_init(ext3_t* ext3) {
     }
 
     return 0;
+}
+
+static int32_t ext3_init(ext3_t* ext3) {
+    return ext3_init_with_reader(ext3, sd_read,
+            (int32_t)get_rootfs_entry(sd_read_sector));
 }
 
 static void ext3_quit(ext3_t* ext3) {
@@ -381,6 +387,19 @@ void* read_ext3(const char* fname, int32_t* size) {
         if (size != NULL) {
             *size = -1;
         }
+        return NULL;
+    }
+    void* ret = ext3_readfile(ext3, fname, size);
+    ext3_quit(ext3);
+    return ret;
+}
+
+void* read_ext3_with_reader(ext3_read_block_func_t reader,
+        int32_t start_sector, const char* fname, int32_t* size) {
+    ext3_t* ext3 = &_ext3;
+    if (reader == NULL || ext3_init_with_reader(ext3, reader, start_sector) != 0) {
+        if (size != NULL)
+            *size = -1;
         return NULL;
     }
     void* ret = ext3_readfile(ext3, fname, size);
