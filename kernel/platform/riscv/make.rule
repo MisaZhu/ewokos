@@ -79,6 +79,7 @@ ARCH_OBJS += \
 	$(ARCH_DIR)/$(ARCH)/system_arch.o \
 	$(ARCH_DIR)/common/src/mmu_pte_flags.o \
 	$(ARCH_DIR)/common/src/mmu_arch.o \
+	$(ARCH_DIR)/common/src/proc_arch.o \
 	$(ARCH_DIR)/common/src/memcpy.o \
 	$(BSP_DIR)/$(BSP)/uart.o \
 	$(BSP_DIR)/$(BSP)/hw_info_arch.o \

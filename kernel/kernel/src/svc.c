@@ -757,9 +757,10 @@ static int32_t sys_cache_sync(ewokos_addr_t vaddr, uint32_t size) {
  *
  * SYS_MMAP_ANON returns 0 rather than an error code on failure, because 0 can
  * never be a window address and libc reads it as "no window here, fall back to
- * the heap emulation" - which keeps mmap() working on any target where
- * DL_WINDOW_SIZE is 0 (every non-AArch64 arch, x86_64 included) and on any
- * kernel older than these three calls.
+ * the heap emulation". The window is now enabled on every architecture, so the
+ * normal path is dl_window_alloc() below; the 0-return only triggers when the
+ * window is exhausted (all slots committed) or on a kernel older than these
+ * three calls, and in both cases libc transparently falls back to the heap.
  */
 static ewokos_addr_t sys_mmap_anon(uint32_t size, uint32_t prot) {
     proc_t* cproc = get_current_proc();
@@ -768,8 +769,10 @@ static ewokos_addr_t sys_mmap_anon(uint32_t size, uint32_t prot) {
 #if DL_WINDOW_SLOTS > 0
     return dl_window_alloc(cproc->space, size, prot);
 #else
-    /* No anonymous-mapping window on this target: return 0 so libc falls back
-       to its heap emulation, exactly as the comment above describes. */
+    /* Defensive fallback only: DL_WINDOW_SIZE is unconditional now, so
+       DL_WINDOW_SLOTS is always >0 and this branch is never taken on a real
+       target. Kept so the file still compiles if the window is ever disabled;
+       returning 0 makes libc fall back to its heap emulation. */
     (void)size; (void)prot;
     return 0;
 #endif

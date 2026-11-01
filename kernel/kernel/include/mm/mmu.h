@@ -84,9 +84,9 @@
    overflowed and graph_new_shm() returned NULL, leaving xwin_open() to fail
    while the app kept running with no window. Real 1080p sessions measure
    ~57MB of scattered shm, i.e. ~230MB scaled to 4K, so 64-bit kernels get
-   512MB (~2x the 4K baseline); 32-bit ones keep 128MB. */
+   256MB (~2x the 4K baseline); 32-bit ones keep 128MB. */
 #ifdef __aarch64__
-#define SHM_MAX_SIZE                  (512*MB)
+#define SHM_MAX_SIZE                  (256*MB)
 #else
 #define SHM_MAX_SIZE                  (128*MB)
 #endif
@@ -103,42 +103,36 @@
    xwin_repaint.) SHM_CONTIG_VA_MAX is the STATIC reservation that anchors
    KMALLOC_VM below the largest slab a board may configure; sys_info_config caps
    shm_contig.size to it so the physical carve and this window always agree. */
+#ifdef __aarch64__
 #define SHM_CONTIG_VA_MAX             (512*MB)
+#else
+#define SHM_CONTIG_VA_MAX             (256*MB)
+#endif
 #define SHM_CONTIG_BASE               (SHM_BASE - SHM_CONTIG_VA_MAX)
 
 #define KMALLOC_VM_SIZE               (64*MB)
 #define KMALLOC_VM_BASE               (SHM_CONTIG_BASE - KMALLOC_VM_SIZE)
 
-/* Anonymous user-mapping window, the backing store for SYS_MMAP_ANON and the
-   place a dynamic loader's objects live. It is the next free slot in the
-   chain above: KMALLOC_VM ends at KMALLOC_VM_BASE, so
-   [DL_WINDOW_BASE, KMALLOC_VM_BASE) is unmapped in every process, because
-   clone_kernel_vm shares only the kernel upper half and each space maps the
-   user half itself.
+/* Anonymous user-mapping window: the backing store for SYS_MMAP_ANON and where
+   a dynamic loader's objects live. Enabled on EVERY architecture - it is the
+   next free slot in the chain above, [DL_WINDOW_BASE, KMALLOC_VM_BASE), left
+   unmapped in each process until the window commits a slot.
 
-   Why not the heap: a dlopen()'d object's text segment has to end up
-   read-only-and-executable so a stray store cannot rewrite instructions that
-   are about to be fetched, while its data segment stays writable. Every heap
-   page is RW+X and mprotect() over it was a no-op, so plugin code shared
-   pages with malloc's free lists - one heap overflow away from being
-   arbitrary code. The window has real per-page permissions, and because the
-   fault handler's copy_on_write() only recognises [rw_heap_base, heap_size)
-   and the user stack, a write to a window page the loader made read-only is a
-   genuine access-denied fault rather than a silently repaired one.
+   Why not the heap: heap pages are uniformly AP_RW_RW and, worse, a write fault
+   inside [rw_heap_base, heap_size) or the user stack is silently repaired by
+   copy_on_write() (irq.c), which remaps the page writable - so read-only text
+   cannot be enforced there at all. The window sits outside that range, so its
+   per-page permissions are real: a loader marks text AP_RW_R (read-only) and
+   data AP_RW_RW, and a stray store into text is a genuine access-denied fault.
 
-   AArch64 only. The window is gated on __aarch64__, not on address width: on
-   a 32-bit target KERNEL_BASE sits low enough that the chain above already
-   claims most of the user VA, and no non-AArch64 target wires up the W^X
-   window. DL_WINDOW_SIZE 0 there leaves the window empty so the three syscalls
-   fail cleanly and libc falls back to the RWX heap emulation it has always
-   used. dlopen() still loads and runs a plugin that way - the x86 dltest suite
-   passes - it just gets no per-page W^X. Nothing else in the tree has to
-   know. */
-#ifdef __aarch64__
+   Per-page R vs R+W is honored by map_page on every arch (x86 rw bit, arm ap
+   field, riscv permission bits), so read-only text works everywhere. The
+   execute-never half of W^X is best-effort: aarch64 marks UXN/PXN through its
+   arch_mark_pte_noexec, while other arches leave that hook as the weak no-op,
+   so their data pages may remain executable. On non-aarch64 SHM_CONTIG_VA_MAX
+   is halved to 256MB above precisely to fit this window inside the 2GB user
+   VA. */
 #define DL_WINDOW_SIZE                (256*MB)
-#else
-#define DL_WINDOW_SIZE                0
-#endif
 #define DL_WINDOW_BASE                (KMALLOC_VM_BASE - DL_WINDOW_SIZE)
 #define DL_WINDOW_END                 (KMALLOC_VM_BASE)
 /* Allocation granularity. Fixed by the user-visible ABI, never by PAGE_SIZE,

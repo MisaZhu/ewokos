@@ -130,10 +130,10 @@ libgloss 把它暴露为 `__clear_cache()`，libdl 在拷贝完每个对象后�
 专用窗口。
 
 `kernel/kernel/include/mm/mmu.h` 在 kmalloc-VM 窗口下方预留了一段每进程 VA 范围，
-且**仅在 `#ifdef __aarch64__` 下**：
+且**在所有架构上**（该宏是无条件的）：
 
 ```c
-#define DL_WINDOW_SIZE           (256*MB)          /* 非 aarch64 为 0 */
+#define DL_WINDOW_SIZE           (256*MB)          /* 所有架构 */
 #define DL_WINDOW_BASE           (KMALLOC_VM_BASE - DL_WINDOW_SIZE)
 #define DL_WINDOW_END            (KMALLOC_VM_BASE)
 #define DL_WINDOW_SLOT           EWOK_MMAP_ANON_ALIGN   /* 64 KB */
@@ -153,10 +153,15 @@ libgloss 把它暴露为 `__clear_cache()`，libdl 在拷贝完每个对象后�
 
 有两个细节对正确性至关重要：
 
-- **W^X 是真的。** `dl_map_page` 先按请求的 AP 位映射，然后对不可执行映射调用
-  `arch_mark_pte_noexec`。这个顺序是 `set_pte_flags` 逼出来的：在 AArch64 v8 上，
-  一个被复用的 PTE 槽会保留上一次映射在那里的 execute-never 位，所以 noexec 这一半
-  必须在 `map_page` *之后*施加——与用户栈路径用的是同一套技巧。
+- **逐页 R 与 R+W 在所有架构上都是真的；execute-never 仅限 AArch64。**
+  `dl_map_page` 按请求的 AP 位映射——`map_page` 在每个架构上都尊重只读
+  （`AP_RW_R`）与可写（`AP_RW_RW`），所以插件的 text 在 x86、arm32、riscv 上也
+  是真正只读、data 真正可写。对不可执行映射，它随后还会调用
+  `arch_mark_pte_noexec`；只有 AArch64 实现了这个钩子（设置 UXN/PXN，且必须在
+  `map_page` *之后*施加，因为在 v8 上一个被复用的 PTE 槽否则会保留上一次映射在那里
+  的 execute-never 位）。其他架构上该钩子是 weak 空操作，因此它们的窗口数据页仍可
+  执行——W^X 的“写入 text 被拒绝”这一半是通用的，“不可执行可写数据”这一半仅限
+  AArch64。
 - **窗口在退出时释放。** `dl_window_release(space)` 运行在 `proc_funeral` 的
   `TASK_TYPE_PROC` 分支里、`free_page_tables` 之前，所以一个进程死亡时——无论正常
   还是因异常——若仍有对象映射着，也会把每个槽位和页归还给分配器。所有退出路径在
@@ -165,8 +170,9 @@ libgloss 把它暴露为 `__clear_cache()`，libdl 在拷贝完每个对象后�
   异常或悄悄破坏 W^X）。
 
 `syscalls.h` 里的 `EWOK_PROT_*` 被定义为与 `<sys/mman.h>` 的 `PROT_*` 相等，所以
-libc 可以把 `prot` 直接透传。每个 `dl_window_*` 调用点都由 `#if DL_WINDOW_SLOTS > 0`
-守护，因此非 AArch64 内核仍能链接（这些定义会被编译掉，`SYS_MMAP_ANON` 返回 0）。
+libc 可以把 `prot` 直接透传。每个 `dl_window_*` 调用点仍由 `#if DL_WINDOW_SLOTS > 0`
+守护，但由于 `DL_WINDOW_SIZE` 现在是无条件的，这个守护恒为真——它只是作为防御性
+的编译开关保留，以备将来窗口再次被禁用。
 
 ---
 
@@ -319,8 +325,11 @@ PLT 调用、一次宿主回调，以及 `dl_host_lookup`）、`libdlplug_b.so`�
   `host_callback`。
 - **三种重定位类型都以正确的偏移施加**，依赖被加载，soname 去重为单一共享实例，
   init/fini 顺序为被依赖者在前。
-- **W^X 被强制执行**——单独的 `wxfault` 调用向插件只读 text 写入，触发真实的缺页
-  异常（`ESR 0x9200004f` = 权限故障，level 3，写），内核杀掉该进程。
+- **只读 text 被强制执行**——单独的 `wxfault` 调用向插件只读 text 写入，触发真实
+  缺页异常，内核杀掉该进程。在 AArch64（`machine.virt`）上这是一个权限 data abort
+  （`ESR 0x9200004f` = 权限故障，level 3，写）；由于只读 text 现在在每个架构上都
+  成立，x86 与 arm32 的 dltest 运行会触发等价的“写只读页”故障，而不再是旧的静默
+  堆写入。
 - **多对象 + 释放**——第 14 节同时打开八个不同对象（八个不同的加载基址，各自运行
   自己重定位后的代码与数据），全部关闭（`dl_object_count()` 回到 0），再重新打开
   一组新的；只有当窗口槽位*及其*后备页真的被释放时才会成功。
@@ -332,10 +341,13 @@ PLT 调用、一次宿主回调，以及 `dl_host_lookup`）、`libdlplug_b.so`�
 
 ## 25.11 局限
 
-- W^X 窗口**仅限 AArch64**；其他架构回退到堆模拟（RWX，无逐页权限）。`dlopen`
-  在这些架构上依然可用——x86 的 dltest 套件测试通过——只是插件运行在 RWX 堆里、
-  没有内核强制的 W^X，因此 `wxfault` 模式会报告 `W^X is NOT enforced`，而不是触发
-  权限缺页异常。
+- 窗口现在**在所有架构上启用**，并在每个架构上强制逐页的只读 text / 可写 data，
+  因此 `wxfault` 模式（向 text 写入）在 x86 与 arm32 上也会触发真实故障并杀掉进程
+  ——不再报告 `W^X is NOT enforced`。剩下的缺口只在 *execute-never* 这一半：
+  `arch_mark_pte_noexec` 仅在 AArch64 上实现（UXN/PXN），所以在 x86/arm32/riscv 上
+  窗口数据页仍可执行。riscv 另外根本无法运行 `dltest`——`libdl` 没有 `R_RISCV_*`
+  重定位分支，`system/platform/riscv` 也未定义 `EWOK_SO_FLAGS`，所以窗口在那里已激活，
+  但动态加载尚未接通。
 - 没有惰性绑定，没有拷贝重定位（插件读取宿主*变量*会被拒绝；宿主通过 `dlsym` 读
   插件变量则可用），没有 `RTLD_NEXT` 插桩链，插件没有 TLS。
 - `dlerror()` 是每进程的，所以两个线程并发失败时可能看到彼此的消息。

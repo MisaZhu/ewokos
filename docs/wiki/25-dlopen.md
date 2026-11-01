@@ -141,10 +141,10 @@ The heap cannot express permissions: every heap page is RW+X and the old
 as `malloc`'s free lists. Phase 6 of this work added a dedicated window.
 
 `kernel/kernel/include/mm/mmu.h` reserves a per-process VA range below the
-kmalloc-VM window, **only under `#ifdef __aarch64__`**:
+kmalloc-VM window, **on every architecture** (the macro is unconditional):
 
 ```c
-#define DL_WINDOW_SIZE           (256*MB)          /* 0 on non-aarch64 */
+#define DL_WINDOW_SIZE           (256*MB)          /* every arch */
 #define DL_WINDOW_BASE           (KMALLOC_VM_BASE - DL_WINDOW_SIZE)
 #define DL_WINDOW_END            (KMALLOC_VM_BASE)
 #define DL_WINDOW_SLOT           EWOK_MMAP_ANON_ALIGN   /* 64 KB */
@@ -164,11 +164,17 @@ existing number shifts:
 
 Two details matter for correctness:
 
-- **W^X is real.** `dl_map_page` maps with the requested AP bits and then, for a
-  non-executable mapping, calls `arch_mark_pte_noexec`. This ordering is forced
-  by `set_pte_flags`: on AArch64 v8 a reused PTE slot keeps the execute-never
-  bit of whatever was mapped there last, so the noexec half must be applied
-  *after* `map_page` — the same trick the user-stack path uses.
+- **Per-page R vs R+W is real everywhere; execute-never is AArch64-only.**
+  `dl_map_page` maps with the requested AP bits — `map_page` honors read-only
+  (`AP_RW_R`) vs read-write (`AP_RW_RW`) on every architecture, so a plugin's
+  text is genuinely read-only and data genuinely writable on x86, arm32 and
+  riscv too. For a non-executable mapping it then also calls
+  `arch_mark_pte_noexec`; only AArch64 implements that hook (setting UXN/PXN,
+  applied *after* `map_page` because on v8 a reused PTE slot otherwise keeps
+  the execute-never bit of whatever was mapped there last). On the other arches
+  the hook is the weak no-op, so their window data pages stay executable — the
+  "write-into-text is denied" half of W^X is universal, the "cannot-execute-
+  writable-data" half is AArch64-only.
 - **The window is released on exit.** `dl_window_release(space)` runs in the
   `TASK_TYPE_PROC` branch of `proc_funeral`, before `free_page_tables`, so a
   process that dies — normally *or* by a fault — with objects still mapped
@@ -178,9 +184,10 @@ Two details matter for correctness:
   copy-on-write, which would either fault or silently undo W^X).
 
 `EWOK_PROT_*` in `syscalls.h` are defined equal to `<sys/mman.h>`'s `PROT_*`, so
-libc can pass `prot` straight through. Every `dl_window_*` call site is guarded
-by `#if DL_WINDOW_SLOTS > 0`, so non-AArch64 kernels still link (the definitions
-compile away and `SYS_MMAP_ANON` returns 0).
+libc can pass `prot` straight through. Every `dl_window_*` call site is still
+guarded by `#if DL_WINDOW_SLOTS > 0`, but since `DL_WINDOW_SIZE` is now
+unconditional that guard is always true — it survives only as a defensive
+compile-out should the window ever be disabled again.
 
 ---
 
@@ -348,9 +355,12 @@ What the passing run demonstrates:
   registry resolves `host_callback` both directions.
 - **All three relocation types apply with the right bias**, dependencies load,
   sonames dedup to one shared instance, and init/fini order is dependent-first.
-- **W^X is enforced** — the separate `wxfault` invocation stores into a plugin's
-  read-only text and takes a real data abort (`ESR 0x9200004f` = permission
-  fault, level 3, write), and the kernel kills the process.
+- **Read-only text is enforced** — the separate `wxfault` invocation stores into
+  a plugin's read-only text and takes a real fault, and the kernel kills the
+  process. On AArch64 (`machine.virt`) that is a permission data abort
+  (`ESR 0x9200004f` = permission fault, level 3, write); because read-only text
+  now holds on every arch, the x86 and arm32 dltest runs take the equivalent
+  write-to-read-only fault instead of the old silent heap write.
 - **Many objects + release** — section 14 opens eight distinct objects at once
   (eight distinct load bases, each running its own relocated code and data),
   closes them all (`dl_object_count()` back to 0), and reopens a fresh set, which
@@ -365,11 +375,15 @@ What the passing run demonstrates:
 
 ## 25.11 Limitations
 
-- The W^X window is **AArch64-only**; other architectures fall back to heap
-  emulation (RWX, no per-page permissions). `dlopen()` still works there — the
-  x86 dltest suite passes — it just runs the plugin in RWX heap with no
-  kernel-enforced W^X, so the `wxfault` mode reports `W^X is NOT enforced`
-  instead of taking a permission fault.
+- The window is now **enabled on every architecture** and enforces per-page
+  read-only text / read-write data everywhere, so the `wxfault` mode (a store
+  into text) takes a real fault and kills the process on x86 and arm32 too — it
+  no longer reports `W^X is NOT enforced`. The remaining gap is only the
+  *execute-never* half: `arch_mark_pte_noexec` is implemented solely on AArch64
+  (UXN/PXN), so on x86/arm32/riscv a window data page is still executable.
+  riscv additionally cannot run `dltest` at all — `libdl` has no `R_RISCV_*`
+  relocation branches and `system/platform/riscv` defines no `EWOK_SO_FLAGS`, so
+  the window is active there but dynamic loading is not yet wired up.
 - No lazy binding, no copy relocations (a plugin reading a host *variable* is
   rejected; the host reading a plugin variable via `dlsym` works), no `RTLD_NEXT`
   interposition chain, no plugin TLS.

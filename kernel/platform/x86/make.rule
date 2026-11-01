@@ -80,6 +80,7 @@ ARCH_OBJS += \
 	$(ARCH_DIR)/common/src/memcpy.o \
 	$(ARCH_DIR)/common/src/mmu_pte_flags.o \
 	$(ARCH_DIR)/common/src/mmu_arch.o \
+	$(ARCH_DIR)/common/src/proc_arch.o \
 	$(ARCH_DIR)/common/src/kernel_arch.o
 
 LIB_EXT2_DIR = $(SRC_DIR)/lib/ext2
