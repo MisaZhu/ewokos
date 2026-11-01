@@ -56,6 +56,31 @@ EWOK_LIBC = --start-group -lewoksys -lc -lgloss --end-group
 EWOK_LIB_GRAPH = -lfont -lfreetype -liconbuf -lgraph -lg2dclient -lpng -ljpeg -lgif -ltga -lsvg -lz -lopenlibm -ldisplayman -ldisplay -lkeyb -lmouse  $(BSP_LFLAGS)
 EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl 
 
+# --- shared objects: plugins loaded at runtime with dlopen() ---
+#
+# -shared is what makes GNU ld emit ET_DYN with a PT_DYNAMIC segment. The two
+# near-misses do not work: -r produces ET_REL, which has relocations but no
+# dynamic section, and a plain static link produces ET_EXEC, whose addresses
+# are absolute - libdl rejects it rather than silently loading it at the wrong
+# place.
+#
+# -nostdlib: EwokOS has no ET_DYN crt, and a plugin resolves every symbol
+# against the host's export table (libs/dl/gen_export.sh) instead of carrying
+# libraries of its own. Linking EWOK_LIBC into a plugin would give it a private
+# malloc, a private stdio buffer and a private copy of the VFS state, none of
+# which can work alongside the host's.
+#
+# Link a .so with $(CC), not $(LD): the driver picks the right emulation, and
+# unlike ld it must not be given -Ttext - pinning the text section of a shared
+# object would defeat the position independence that makes it loadable.
+EWOK_SO_FLAGS = -shared -nostdlib
+
+# What an app that HOSTS plugins links. -ldl goes before the EWOK_LIBC group
+# because the generated export table's strong references are what make ld
+# extract the libc members a plugin might call; a table of weak references
+# would extract nothing and resolve to 0 at runtime.
+EWOK_LIB_DL = -ldl $(EWOK_LIBC)
+
 ifeq ($(DEBUG),yes)
 CFLAGS +=  -g
 CXXFLAGS +=  -g

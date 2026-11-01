@@ -18,6 +18,8 @@
 #include <setjmp.h>
 #include <ewoksys/trunkmem.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/sys.h>
+#include <ewoksys/syscall.h>
 #include <sys/mman.h>
 
 void ewok_longjmp(jmp_buf env, int val) {
@@ -998,19 +1000,126 @@ void *realloc(void *ptr, size_t size) {
 }
 
 int getpagesize(void) {
-    return 4096;
+    /*
+     * The real kernel page size, not a hard-coded 4096. machine.virt builds
+     * with PAGE_SIZE=16k, and mprotect()/munmap() over the anonymous window are
+     * page-granular: a caller (the dynamic loader's W^X pass) that rounded to
+     * 4096 would hand the kernel a range it rejects as mis-aligned. Queried once
+     * from the static sys_info and cached; 4096 is the fallback until the first
+     * successful query and on a target that does not report it.
+     */
+    static int cached = 0;
+    if (cached == 0) {
+        sys_info_t info;
+        if (sys_get_sys_info(&info) == 0 && info.page_size != 0)
+            cached = (int)info.page_size;
+        else
+            cached = 4096;
+    }
+    return cached;
 }
 
 /*
- * The kernel has no user-space memory mapping facility; anonymous private
- * mappings are emulated with zero-filled heap memory.
+ * EWOK_PROT_* (the kernel ABI in <syscalls.h>) must equal <sys/mman.h>'s PROT_*
+ * so mmap()/mprotect() can hand a prot word straight through untranslated. If a
+ * future newlib renumbers PROT_*, these fail the build instead of silently
+ * granting the wrong permission.
+ */
+typedef char ewok_prot_none_check [(PROT_NONE  == EWOK_PROT_NONE)  ? 1 : -1];
+typedef char ewok_prot_read_check [(PROT_READ  == EWOK_PROT_READ)  ? 1 : -1];
+typedef char ewok_prot_write_check[(PROT_WRITE == EWOK_PROT_WRITE) ? 1 : -1];
+typedef char ewok_prot_exec_check [(PROT_EXEC  == EWOK_PROT_EXEC)  ? 1 : -1];
+
+/*
+ * Registry of addresses handed out by the kernel's anonymous window
+ * (sys_mmap_anon). munmap()/mprotect() consult it to tell a window mapping from
+ * a heap-emulated one and to recover the exact length to release: a window
+ * mapping's pages belong to the kernel, so they must go back through
+ * sys_munmap() and never through trunk_free().
+ */
+struct ewok_win_reg {
+    void *ptr;
+    size_t size;
+    struct ewok_win_reg *next;
+};
+static struct ewok_win_reg *ewok_win_list = NULL;
+static volatile int ewok_win_lock = 0;
+
+static void ewok_win_lock_enter(void) {
+    while (__sync_lock_test_and_set(&ewok_win_lock, 1)) {
+    }
+}
+static void ewok_win_lock_leave(void) {
+    __sync_lock_release(&ewok_win_lock);
+}
+
+static int ewok_win_add(void *ptr, size_t size) {
+    struct ewok_win_reg *reg =
+        (struct ewok_win_reg *)malloc(sizeof(struct ewok_win_reg));
+    if (reg == NULL)
+        return 0;
+    reg->ptr = ptr;
+    reg->size = size;
+    ewok_win_lock_enter();
+    reg->next = ewok_win_list;
+    ewok_win_list = reg;
+    ewok_win_lock_leave();
+    return 1;
+}
+
+/* Unlink the window mapping that starts at ptr and return its recorded length,
+   or 0 when ptr is not a window allocation start. */
+static size_t ewok_win_take(void *ptr) {
+    struct ewok_win_reg **pp;
+    size_t size;
+    ewok_win_lock_enter();
+    for (pp = &ewok_win_list; *pp != NULL; pp = &(*pp)->next) {
+        if ((*pp)->ptr == ptr) {
+            struct ewok_win_reg *reg = *pp;
+            *pp = reg->next;
+            size = reg->size;
+            ewok_win_lock_leave();
+            free(reg);
+            return size;
+        }
+    }
+    ewok_win_lock_leave();
+    return 0;
+}
+
+/* True when [addr, addr+len) lies wholly inside one registered window mapping,
+   so mprotect() routes it to the kernel instead of treating it as a heap no-op.
+   A loader re-permissions a sub-range of its mapping (one PT_LOAD at a time),
+   hence the containment test rather than a start-address match. */
+static int ewok_win_contains(void *addr, size_t len) {
+    struct ewok_win_reg *reg;
+    uintptr_t a = (uintptr_t)addr;
+    int found = 0;
+    ewok_win_lock_enter();
+    for (reg = ewok_win_list; reg != NULL; reg = reg->next) {
+        uintptr_t lo = (uintptr_t)reg->ptr;
+        if (a >= lo && a + len <= lo + reg->size) {
+            found = 1;
+            break;
+        }
+    }
+    ewok_win_lock_leave();
+    return found;
+}
+
+/*
+ * Anonymous private mappings come from the kernel's window when it has one, so
+ * they get real per-page permissions and a caller can mprotect() a range
+ * read-only-and-executable (W^X). The window is preferred over the heap because
+ * every heap page is RW+X and mprotect() over it was a no-op. When there is no
+ * window - a 32-bit target, an older kernel, or the window is full - fall back
+ * to the zero-filled heap emulation this always used.
  */
 void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
     void *ptr;
 
-    (void)prot;
     (void)offset;
-    if (len == 0 || len > UINT32_MAX - 4096) {
+    if (len == 0 || len > UINT32_MAX - EWOK_MMAP_ANON_ALIGN) {
         errno = EINVAL;
         return MAP_FAILED;
     }
@@ -1018,6 +1127,15 @@ void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
         /* file-backed and fixed-address mappings are not supported */
         errno = ENODEV;
         return MAP_FAILED;
+    }
+
+    ptr = sys_mmap_anon((unsigned int)len, prot);
+    if (ptr != NULL) {
+        if (ewok_win_add(ptr, len))
+            return ptr;   /* window pages come back already zero-filled */
+        /* Could not record it, so munmap()/mprotect() would not recognise it
+           and its kernel pages would leak. Give it back and use the heap. */
+        sys_munmap(ptr, (unsigned int)len);
     }
 
     ptr = ewok_reg_alloc(len, 4096);
@@ -1030,11 +1148,23 @@ void *mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset) {
 }
 
 int munmap(void *addr, size_t len) {
-    (void)len;
+    size_t win_size;
     if (addr == NULL || addr == MAP_FAILED) {
         errno = EINVAL;
         return -1;
     }
+    /* A window mapping: return the pages to the kernel, using the recorded
+       length rather than the caller's `len` - the kernel releases whole slots
+       and the caller may pass the un-rounded request size. */
+    win_size = ewok_win_take(addr);
+    if (win_size != 0) {
+        if (sys_munmap(addr, (unsigned int)win_size) != 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        return 0;
+    }
+    (void)len;
     if (!ewok_reg_try_free(addr)) {
         errno = EINVAL;
         return -1;
@@ -1043,12 +1173,23 @@ int munmap(void *addr, size_t len) {
 }
 
 int mprotect(void *addr, size_t len, int prot) {
-    (void)len;
-    (void)prot;
     if (addr == NULL) {
         errno = EINVAL;
         return -1;
     }
+    /* Only a window mapping has real per-page permissions to change. Route it to
+       the kernel and report its result, so a loader enforcing W^X learns when a
+       downgrade did not take. Heap-emulated memory has no permission model, so
+       it keeps the historical no-op success. */
+    if (ewok_win_contains(addr, len)) {
+        if (sys_mprotect(addr, (unsigned int)len, prot) != 0) {
+            errno = EACCES;
+            return -1;
+        }
+        return 0;
+    }
+    (void)len;
+    (void)prot;
     return 0;
 }
 
@@ -1060,6 +1201,31 @@ int msync(void *addr, size_t len, int flags) {
         return -1;
     }
     return 0;
+}
+
+/*
+ * __clear_cache - the libgcc entry point that __builtin___clear_cache lowers
+ * to on aarch64/arm. EwokOS links with -nostdlib and no -lgcc, so nothing else
+ * supplies it, and EL0 cannot perform the maintenance itself: boot.S leaves
+ * SCTLR_EL1.UCI clear, which makes DC CIVAC / IC IVAU trap from user space.
+ * Hand the range to the kernel instead (SYS_CACHE_SYNC), which cleans the
+ * D-cache to PoU and broadcasts an I-cache invalidate across every core.
+ *
+ * GCC declares this as taking char* bounds; keep that signature exactly.
+ */
+void __clear_cache(char *begin, char *end) {
+    if (begin == NULL || end == NULL || end <= begin)
+        return;
+    sys_cache_sync((void *)begin, (unsigned int)(end - begin));
+}
+
+/*
+ * Some front ends and hand-written JITs call the GCC builtin through its
+ * void* spelling rather than the char* libgcc ABI one; provide both so a
+ * caller does not have to know which the toolchain picked.
+ */
+void __ewok_clear_cache_range(void *begin, void *end) {
+    __clear_cache((char *)begin, (char *)end);
 }
 
 int posix_madvise(void *addr, size_t len, int advice) {

@@ -28,6 +28,7 @@ The build is intentionally machine-centric. Instead of one monolithic top-level 
 
 Recent work visible in the current branch includes:
 
+- Runtime dynamic loading (`dlopen`/`dlsym`/`dlclose`) on AArch64: a user-space ELF dynamic loader (`libdl`) over a new kernel anonymous-mapping window with real per-page **W^X** permissions, a cache-sync syscall, and a build-time generated host ABI export table — boot-verified by a self-test on `machine.virt` (see [Dynamic Library Support](#dynamic-library-support-dlopen))
 - Ext3 ported as the default root filesystem: `sdfsd` now serves journaled, crash-safe ext3, with automatic ext2-compatible fallback when no journal is present; the kernel boot loader reads ext2/ext3 directly
 - SD card write performance improvements, including Raspberry Pi SD driver speed-ups, removal of per-write verification, and write-cache flushing tuned for ext3
 - Display rotation speed-ups via arch-accelerated `graph_rotate_to_arch` paths (ARM, AArch64, x86) and a faster display daemon
@@ -66,6 +67,7 @@ At a high level:
 - Networking tools including `ssh`, `scp`, `ping`, `host`, HTTPS test tooling, and WebSocket test tooling
 - Multiple machine ports for QEMU, Raspberry Pi families, x86, RISC-V, handheld devices, and special-purpose boards
 - Ext3 root filesystem image generation in-tree as the default (journaled, with ext2-compatible fallback); FAT32 support is also part of the broader stack
+- Runtime dynamic loading (`dlopen`) of `ET_DYN` plugin `.so` objects on AArch64, with kernel-enforced W^X and a POSIX `<dlfcn.h>` API
 
 ## Directory Structure
 
@@ -280,6 +282,7 @@ EWOK_LIBC = --start-group -lewoksys -lc -lgloss -lsoftfloat --end-group $(LIBGCC
 | Shared memory & IPC | `<sys/shm.h>`, `<sys/ipc.h>` | `shmget`/`shmat`/`shmdt`/`shmctl` |
 | System info & scatter/gather I/O | `<sys/ioctl.h>`, `<sys/uio.h>`, `<sys/utsname.h>`, `<sys/resource.h>`, `<sys/statvfs.h>`, `<sys/time.h>`, `<sys/times.h>` | `ioctl`, `readv`/`writev`, `uname`, resource/`statvfs` queries, time-of-day |
 | Misc utilities | `<getopt.h>`, `<glob.h>`, `<fnmatch.h>`, `<libgen.h>`, `<err.h>` | argument parsing, globbing, pattern matching, path helpers |
+| Dynamic loading | `<dlfcn.h>`, `<dl/dl.h>` | `dlopen`/`dlsym`/`dlclose`/`dlerror`/`dladdr`, plus the EwokOS host-ABI extensions `dl_host_publish`/`dl_host_lookup`/`dl_host_abi_version` (AArch64) |
 
 **BSD Sockets** — via the `socket` library (`system/network/libs/socket`):
 `<sys/socket.h>`, `<netinet/in.h>`, `<arpa/inet.h>`, `<netinet/if_ether.h>`, `<netinet/ether.h>`, with `socket`, `bind`, `listen`, `accept`, `connect`, `send`/`recv`, `sendmsg`/`recvmsg`, `shutdown`, `socketpair`, `getsockname`/`getpeername`, `gethostbyname`, and `inet_addr`/`inet_ntoa`/`inet_pton`/`inet_ntop`.
@@ -301,6 +304,7 @@ Beyond libc, the tree builds a set of static libraries grouped under `system/*/l
 | `tinyjson` | `system/basic/libs/tinyjson` | Minimal JSON parser/builder |
 | `sd` / `ext2` / `ext3` / `fat32` | `system/basic/libs/*` | Storage and filesystem readers/writers |
 | `elf` | `system/basic/libs/elf` | ELF parsing/loading |
+| `dl` | `system/basic/libs/dl` | Runtime dynamic loader: POSIX `dlopen`/`dlsym`/`dlclose` plus the generated host ABI export table (`-ldl`) |
 | `gpio` / `usb` | `system/basic/libs/*` | GPIO and USB helper libraries |
 | `socket` | `system/network/libs/socket` | BSD sockets client API |
 | `wolfssl` | `system/network/libs/wolfssl` | TLS/SSL |
@@ -317,6 +321,39 @@ Beyond libc, the tree builds a set of static libraries grouped under `system/*/l
 | `x` / `x++` / `widget++` | `system/xwin/libs/*` | X-like window system client libs (C, C++, widget toolkit) |
 
 The graphics and window-system groups are also declared in `make.rule` as `EWOK_LIB_GRAPH` and `EWOK_LIB_X`, so applications can link them as a unit.
+
+## Dynamic Library Support (dlopen)
+
+EwokOS links every program statically, so there is no `ld.so` and no ELF interpreter. Runtime dynamic loading is provided instead as an explicit **plugin** facility: `dlopen()` loads an `ET_DYN` shared object built with `-fPIC -shared`, relocates it against the host's exported ABI, and returns an opaque handle. It is implemented and boot-verified on **AArch64** (`machine.virt`); the kernel anonymous-mapping window that enforces W^X exists only under `#ifdef __aarch64__`, and other architectures fall back to heap emulation without per-page permissions.
+
+Three pieces cooperate:
+
+- **Kernel** (`kernel/kernel/src/svc.c`, `kernel/kernel/src/mm/mmu.c`, `kernel/kernel/include/mm/mmu.h`)
+  - `SYS_CACHE_SYNC` cleans the D-cache to PoU and broadcasts an I-cache invalidate, because EL0 cannot run `dc civac` / `ic ivau` itself (`SCTLR_EL1.UCI` is left clear). Without it, freshly-copied plugin code could never be fetched.
+  - `SYS_MMAP_ANON` / `SYS_MPROTECT` / `SYS_MUNMAP` draw from a per-process 256 MB anonymous window (`DL_WINDOW_*`, 64 KB slots) with real per-page permissions, so a plugin's text is mapped read-only-and-execute and its data read-write — true **W^X**. The window is released on process exit, including abnormal exit, in `proc_funeral`.
+- **`libdl`** (`system/basic/libs/dl`) — the user-space ELF dynamic loader: `ET_DYN` parsing, the mandatory `DT_HASH` symbol table, `R_AARCH64_RELATIVE`/`GLOB_DAT`/`JUMP_SLOT` relocations, `DT_NEEDED` dependency loading, `.init_array`/`.fini_array` ctor/dtor ordering, reference counting, `dlerror`, and `dladdr`.
+- **Host ABI table** (`system/basic/libs/dl/gen_export.sh`) — because a static `ET_EXEC` has no `.dynsym` (`--export-dynamic` is a no-op), the host's exportable surface is generated at build time by `nm`-ing the `EWOK_LIBC` archives into a sorted, **strongly-referenced** table (`__ewok_dl_abi[]`, ~730 symbols). Application-owned symbols are added at runtime with `dl_host_publish()`.
+
+libc routes `mmap`/`mprotect`/`munmap`/`getpagesize` to the new syscalls, falling back to the heap emulation when the window is absent.
+
+### Using it
+
+A plugin is a normal `-fPIC` shared object; the host links `EWOK_LIB_DL` (`-ldl $(EWOK_LIBC)`) and installs plugins into the rootfs `/lib` (the loader's default search path is `/lib:/usr/lib:/system/lib`):
+
+```c
+#include <dlfcn.h>
+
+void* h = dlopen("/lib/libdemo.so", RTLD_NOW);
+int (*fn)(int) = (int (*)(int))dlsym(h, "demo_entry");
+if(fn) fn(42);
+dlclose(h);
+```
+
+Two deliberate deviations from glibc/musl: `RTLD_LAZY` is accepted but binding is always eager, and `RTLD_NEXT` is refused by `dlsym()` (`RTLD_DEFAULT` works). `dlerror()` is per-process rather than per-thread.
+
+The `bin/dltest` app is a boot-time self-test that exercises the whole stack — host ABI, absolute/soname/`DT_NEEDED` loading, cross-object relocation, ctor/dtor ordering, refcounting, `dladdr`, error paths, eight simultaneous objects with slot release/reuse, and a `wxfault` mode that provably takes a data abort when writing to a plugin's read-only text. On `machine.virt` it reports **94 checks, 0 failures**.
+
+For the full mechanism, see the wiki chapter [25 Runtime Dynamic Loading (dlopen)](docs/wiki/25-dlopen.md) ([中文](docs/wiki/25-dlopen.zh.md)).
 
 ## Host Requirements
 

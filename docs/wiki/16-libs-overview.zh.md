@@ -151,3 +151,6 @@ c++/stl c++/object++: c++/c++
 - 构建按依赖顺序递归，产物统一安装到 `build_<arch>/<hw>/{include,lib}`。
 
 下一章：钻进最底层的那块拼图——EwokOS 的 **libc**，看 `printf` 是怎么一路走到内核的。
+
+> 上面几乎所有库都是*静态* `.a`。唯一刻意的例外是 `libdl`，它让一个静态宿主能在运行时
+> 通过 `dlopen()` 加载 `ET_DYN` 插件 `.so`——见 [25 运行时动态加载（dlopen）](25-dlopen.zh.md)。

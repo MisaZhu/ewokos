@@ -186,3 +186,7 @@ do their dependents start compiling".
 
 Next chapter: drill into the bottommost piece of the puzzle — EwokOS's
 **libc** — and see how `printf` walks all the way down to the kernel.
+
+> Almost every library above is a *static* `.a`. The one deliberate exception is
+> `libdl`, which lets a static host load an `ET_DYN` plugin `.so` at run time via
+> `dlopen()` — see [25 Runtime Dynamic Loading (dlopen)](25-dlopen.md).
