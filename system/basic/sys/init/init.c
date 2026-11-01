@@ -5,7 +5,6 @@
 #include <fcntl.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/vfs.h>
-#include <ewoksys/vdevice.h>
 
 #include <sysinfo.h>
 #include <ewoksys/klog.h>
@@ -76,8 +75,8 @@ static int32_t exec_from_storage(const char* prog, const char* cmdline,
     memcpy(shm_buf, elf, sz);
     free(elf);
 
-    /* The ELF is now independent of the boot RAMFS.  Let the parent release
-     * the physical RAMFS pages before entering SYS_EXEC_ELF. */
+    /* The ELF is now independent of the source filesystem.  Notify the
+     * parent before entering SYS_EXEC_ELF. */
     exec_ready_notify(ready_fd, 1);
 
     /* Keep the original command line so early daemons receive their options
@@ -98,9 +97,8 @@ static int32_t exec_from_storage(const char* prog, const char* cmdline,
 #define ROOTFS_SELF 3
 
 static int _bootnet;
-static int _usb_host_pid = -1;
 
-static int run_before_vfs(const char* cmd) {
+static int run_before_vfs_mode(const char* cmd, int wait_exit) {
     klog("init: %-16s   ", cmd);
 
     char prog[FS_FULL_NAME_MAX];
@@ -119,12 +117,27 @@ static int run_before_vfs(const char* cmd) {
             exit(-1);
         }
     }
-    else if(pid < 0 || ipc_wait_ready(pid) != 0) {
-            klog("[failed]!\n");
-            return -1;
+    else if(pid < 0) {
+        klog("[failed]!\n");
+        return -1;
+    }
+    else if(wait_exit) {
+        ewok_waitpid(pid);
+    }
+    else if(ipc_wait_ready(pid) != 0) {
+        klog("[failed]!\n");
+        return -1;
     }
     klog("[ok]\n");
     return 0;
+}
+
+static int run_before_vfs(const char* cmd) {
+    return run_before_vfs_mode(cmd, 0);
+}
+
+static int run_before_vfs_sync(const char* cmd) {
+    return run_before_vfs_mode(cmd, 1);
 }
 
 /* kernel.conf is part of the boot image, so the rootfs choice is available
@@ -164,37 +177,11 @@ static int rootfs_policy(void) {
 }
 
 static int start_usb_host(void) {
-    int ret = run_before_vfs("/drivers/q8b/usbhostd /dev/usb0 --no-msc-mount");
-    if(ret == 0)
-        _usb_host_pid = dev_get_pid("/dev/usb0");
-    return ret;
+    return run_before_vfs("/drivers/q8b/usbhostd /dev/usb0 --no-msc-mount");
 }
 
-static int remount_usb_host(void) {
-    if(_usb_host_pid < 0)
-        return -1;
-    klog("init: usbhostd remount pid=%d\n", _usb_host_pid);
-    proto_t in, out;
-    PF->init(&in)->adds(&in, "/dev/usb0");
-    PF->init(&out);
-    int ret = dev_cntl_by_pid(_usb_host_pid, DEV_CMD_REMOUNT, &in, &out);
-    PF->clear(&in);
-    PF->clear(&out);
-    if(ret != 0) {
-        klog("init: usbhostd remount request failed (%d)\n", ret);
-        return ret;
-    }
-
-    fsinfo_t info;
-    int lookup = vfs_get_by_name("/dev/usb0", &info);
-    if(lookup != 0 || info.mount_pid != _usb_host_pid) {
-        klog("init: usbhostd node check failed lookup=%d node=%u mount_pid=%d expected=%d\n",
-                lookup, lookup == 0 ? (unsigned)info.node : 0u,
-                lookup == 0 ? info.mount_pid : -1, _usb_host_pid);
-        return -1;
-    }
-    klog("init: usbhostd node=/dev/usb0 pid=%d\n", info.mount_pid);
-    return ret;
+static int start_bootfs(void) {
+    return run_before_vfs("/sbin/sdfsd -b /");
 }
 
 static int try_usb_rootfs(void) {
@@ -305,16 +292,6 @@ static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
 }
 #endif
 
-static void release_bootfs(void) {
-#ifdef INIT_HAS_RAMFS_RELEASE
-    int ret = (int)syscall3(SYS_PLATFORM_CTL, Q8B_PLATFORM_RAMFS_RELEASE, 0, 0);
-    if(ret == 0)
-        klog("init: boot ramfs released\n");
-    else
-        klog("init: boot ramfs release unavailable (%d)\n", ret);
-#endif
-}
-
 static int run_init(const char* init_file) {
     if(access(init_file, R_OK) != 0) {
         return -1;
@@ -374,6 +351,13 @@ int main(int argc, char** argv) {
         return -1;
 
 #ifdef INIT_HAS_RAMFS_RELEASE
+    /* Mount the boot image at the initial root long enough to execute its
+     * early profile.  The same daemon is moved to /boot after the persistent
+     * rootfs replaces that initial root. */
+    if(start_bootfs() != 0)
+        return -1;
+    if(run_init("/etc/init.ramfs.rd") != 0)
+        klog("init: boot init profile unavailable\n");
     int policy = rootfs_policy();
     int usb_host = 0;
     int usb_root = 0;
@@ -397,24 +381,18 @@ int main(int argc, char** argv) {
         (void)run_before_vfs("/sbin/sessiond --recovery");
         (void)run_before_vfs("/sbin/sshd");
     }
+    /* Move the boot filesystem to /boot and all device mounts from the
+     * RAMFS namespace into the new root's /dev. */
+    if(run_before_vfs_sync("/sbin/switchroot") != 0) {
+        klog("init: switchroot failed\n");
+        return -1;
+    }
+    /* A USB host used only for automounting starts in the persistent root.
+     * A host that supplied the USB rootfs was already moved by switchroot. */
     if(!usb_host)
         (void)start_usb_host();
-    else {
-        if(remount_usb_host() != 0) {
-            klog("init: usbhostd remount failed\n");
-            return -1;
-        }
-    }
     if(!usb_root)
         enable_usb_automount();
-    /* The recovery profile keeps its network tools in the boot RAMFS.  Keep
-     * those pages pinned while bootnet=1 is active so later SSH sessions can
-     * still exec commands from /bin and /sbin.  The normal profile has already
-     * copied each early daemon into private shm and can release the image. */
-    if(_bootnet)
-        klog("init: boot ramfs retained for recovery\n");
-    else
-        release_bootfs();
 #else
     if(run_before_vfs("/sbin/sdfsd") != 0)
         return -1;

@@ -104,21 +104,27 @@
 
 | 项 | 实现 |
 |---|---|
-| 启动 | `kernel/boot/uefi/BOOTAA64.EFI`：SFS / EFI_LOAD_FILE / EFI_LOAD_FILE2 读 `KERNEL.BIN`、最小 `RAMFS.IMG`，GOP/内存图/DTB，`ExitBootServices`，bootinfo @ `0x90070000`，跳 `0x90080000`；旧 `ROOTFS.IMG` 仍可回退 |
+| 启动 | `efi/BOOTAA64.EFI`：SFS / EFI_LOAD_FILE / EFI_LOAD_FILE2 读 `KERNEL.BIN`、最小 `INITRAMFS.IMG`，GOP/内存图/DTB，`ExitBootServices`，bootinfo @ `0x90070000`，跳 `0x90080000`；旧 `ROOTFS.IMG` 仍可回退 |
 | 内核 | RAM_BASE 感知 `mkos.lds.S`、早期页表 + 早期 vector、bootinfo 解析、GENI UART17、GICv3、CNTV、PSCI 8 核；启动 ramfs 只提供 `kernel.conf` 和 `/sbin/init`，内核同时预探测 SDCC2 |
 | 用户态 | `bsp_fb`（GOP，RGB/BGR 交换）、`bsp_sd`（检测启动 ramfs 标志后切换到用户态 SDCC2 读取持久 rootfs）、`uartd`（GENI TX/RX）、`fbdisplayd` + `displaymand/consoled/fontd` |
-| 根文件系统 | `RAMFS.IMG` 为小型 ext3 启动镜像，包含 `core/vfsd/init` 及 USB 启动驱动；`kernel.conf` 的 `rootfs=usb` 使用 U 盘 FAT32 作为 `/`，`rootfs=auto` 先探测 U 盘再回退 SD，`rootfs=sd` 固定使用 SD；普通图形启动的 U 盘挂载点为 `/mnt/udisk0` |
+| 根文件系统 | `INITRAMFS.IMG` 为小型 ext3 启动镜像，包含 `core/vfsd/init/sdfsd/switchroot` 及 USB 启动驱动；`rootfs=usb` 使用 U 盘 ext2/ext3 作为 `/`，`rootfs=auto` 先尝试自身来源，再按 SD/USB/NVMe/网络顺序尝试（NVMe/网络 rootfs 后端暂不可用），`rootfs=sd` 固定使用 SD；`switchroot` 将启动设备挂载迁移到新根的 `/dev`，启动镜像保留在 `/boot` |
 | microSD | SDCC2 4-bit/25MHz，CMD17/CMD18 PIO，CSD 容量解析；实机验证 32GB 卡 33-sector（内核启动期 32+1 分块）读取、GPT 条目与 ext superblock 可从用户态读取。运行期读写由用户态 SDCC2 驱动负责（CMD24 单扇区写；CMD25 未启用）；用户态自行映射 Command DB、解析 PMIC 轨地址并完成上电/识别，不依赖内核 SD 状态；内核不再提供 SD 块 syscall |
 | 回归 | `make test-loader`、`make test-kernel`：QEMU virt + EDK2，覆盖 UEFI→内核→ext3→init→core/vfsd/sdfsd 全链路 |
 
 QEMU 测试使用 Q8B 的同一份代码，仅把 RAM_BASE/PL011/GICv2 换成 QEMU virt
 （`TEST_QEMU=1`）；QCOM 专属的 GENI/GICv3/PSCI/UFS/GOP 仍需实机确认。
 
-U 盘根文件系统使用 FAT32 分区，目录内容直接对应完整 `rootfs`（至少要有
-`/etc/init.rd`、`/sbin`、`/drivers` 等）。构建 `ramfs` 目标会把 USB 主控和
-`usbfat32fsd` 放入启动镜像；把 U 盘插入后，将启动镜像中的
-`/etc/kernel/kernel.conf` 设为 `rootfs = usb`（或保留 `auto` 让 init 先探测
-U 盘），即可由 init 将 FAT32 卷挂到 `/`。未检测到 U 盘时，`auto` 回退到 SD。
+U 盘根文件系统使用 ext2/ext3 分区，目录内容直接对应完整 `rootfs`（至少要有
+`/etc/init.rd`、`/sbin`、`/drivers` 等）。先编译 `machines/q8b/kernel` 和
+`machines/q8b/system`，再执行 `make -C machines/q8b/efi`，生成
+`efi/BOOTAA64.EFI`、`efi/kernel.bin` 和 16 MB 的 `efi/initramfs.img`。
+EFI Makefile 检查已有产物，缺失时提示先编译 kernel/system。
+
+启动镜像包含 USB 主控、`sdfsd` 和读取 rootfs 所需的驱动。将启动镜像中的
+`/etc/kernel/kernel.conf` 设为 `rootfs = usb` 可固定使用 U 盘；默认 `auto`
+优先尝试自身来源，再尝试 SD/USB/NVMe/网络并跳过重复来源。init 先执行
+`/etc/init.ramfs.rd`，挂载持久 rootfs 后同步执行 `switchroot`，最后运行新根的
+`/etc/init.rd`。启动镜像不卸载，其普通文件从 `/boot` 访问。
 
 **踩坑记录（已修复）**：
 
@@ -128,7 +134,7 @@ U 盘），即可由 init 将 FAT32 卷挂到 `/`。未检测到 U 盘时，`aut
 2. 从 `.init`（低物理地址）访问高半区符号（如 `&interrupt_table_start`）会走
    GOT，而 GOT 可能在 ±4GB 之外；改为 `bsp/early_vectors.S` 的 `ldr =symbol`
    绝对字面量。
-3. UEFI `AllocatePages` 只保证 4KB 对齐，16KB 页内核映射 `RAMFS.IMG` 时必须
+3. UEFI `AllocatePages` 只保证 4KB 对齐，16KB 页内核映射 `INITRAMFS.IMG` 时必须
    把缓冲区向上圆整到 16KB，否则 `SYS_MEM_MAP` 解析出的物理地址会比 bootinfo
    低 0x0-0x3FFF，用户态读到错误数据。
 4. RAM disk 必须在 `load_kernel_config()` 之前映射（`arch_vm()` 里做），不能等

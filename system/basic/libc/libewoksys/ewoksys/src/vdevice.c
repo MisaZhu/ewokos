@@ -1052,8 +1052,20 @@ static void do_dev_cntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out,
         if(data != NULL && sz > 0)
             PF->copy(&in_arg, data, sz);
         const char* mnt_point = proto_read_str(&in_arg);
-        if(mnt_point != NULL && mnt_point[0] != 0)
-            res = do_remount(dev, mnt_point, FS_TYPE_CHAR, 0444);
+        if(mnt_point != NULL && mnt_point[0] != 0) {
+            /* Preserve the filesystem kind and permissions of the original
+             * mount.  Remount is also used when the boot filesystem moves
+             * from the temporary root to /boot; forcing a character node
+             * would leave the filesystem inaccessible after the root switch.
+             */
+            int type = FS_BASE_TYPE(dev->mnt_info.type);
+            int mode = dev->mnt_info.stat.mode;
+            if(type == 0)
+                type = FS_TYPE_CHAR;
+            if(mode == 0)
+                mode = 0444;
+            res = do_remount(dev, mnt_point, type, mode);
+        }
         PF->clear(&in_arg);
         PF->clear(out)->addi(out, res);
         return;
