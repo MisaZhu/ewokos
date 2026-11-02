@@ -25,13 +25,16 @@ static void input(int pid, mouse_evt_t* mevt) {
     ev.state = mevt->state;
     if(is_scroll) {
         /*
-         * Scroll events need the current cursor position so xserver can route
-         * them to the window under the pointer. Do not encode them as a large
-         * relative move.
+         * A wheel event belongs where the cursor already is: xserverd routes
+         * it by the cursor position and keeps cpos untouched for a relative
+         * event. Encoding it as an absolute position (this device's own last
+         * point) teleports the cursor and misroutes the wheel as soon as two
+         * pointers feed the server (USB mouse0 + Bluetooth mouse1 on q8b, or
+         * a touch panel that moved the cursor away from the last mouse move).
          */
-        ev.value.mouse.relative = 0;
-        ev.value.mouse.x = mevt->x;
-        ev.value.mouse.y = mevt->y;
+        ev.value.mouse.relative = 1;
+        ev.value.mouse.rx = 0;
+        ev.value.mouse.ry = 0;
     }
     else if(mevt->type == MOUSE_TYPE_REL){
         ev.value.mouse.relative = 1;
@@ -58,10 +61,6 @@ int main(int argc, char** argv) {
     uint64_t click_time = 0;
     uint64_t drag_time = 0;
 
-    // Last known mouse position for wheel events
-    int last_x = 0;
-    int last_y = 0;
-
     int fd = open(dev_name, O_RDONLY);
     if(fd < 0) {
         fprintf(stderr, "xmouse error: open [%s] failed!\n", dev_name);
@@ -87,27 +86,6 @@ int main(int argc, char** argv) {
             if(mevt.type == MOUSE_TYPE_ABS){
                 mevt.x = mevt.x * width / 32768;
                 mevt.y = mevt.y * height / 32768;
-            }
-
-            // Update last known position for relative movement
-            if(mevt.type == MOUSE_TYPE_REL){
-                last_x += mevt.x;
-                last_y += mevt.y;
-                // Clamp to screen bounds
-                if(last_x < 0) last_x = 0;
-                if(last_x >= width) last_x = width - 1;
-                if(last_y < 0) last_y = 0;
-                if(last_y >= height) last_y = height - 1;
-            }
-            else if(mevt.type == MOUSE_TYPE_ABS){
-                last_x = mevt.x;
-                last_y = mevt.y;
-            }
-
-            // For scroll wheel events, use last known position
-            if(mevt.button == MOUSE_BUTTON_SCROLL_UP || mevt.button == MOUSE_BUTTON_SCROLL_DOWN){
-                mevt.x = last_x;
-                mevt.y = last_y;
             }
 
             //double click detect
