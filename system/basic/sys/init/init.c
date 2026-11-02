@@ -496,6 +496,24 @@ int main(int argc, char** argv) {
             klog("init: switchroot failed\n");
             return -1;
         }
+        /* Q8B's WCN6855 exposes WLAN on PCIe and Bluetooth on USB.  The
+         * PCIe owner cold-cycles the shared module during link bring-up.
+         * Starting usbhostd first lets its root-hub worker reset/re-enumerate
+         * the Bluetooth function while LTSSM is training, which can hold the
+         * PCIe endpoint in Detect/Recovery.  For an SD root, finish the PCIe
+         * power/link transaction before publishing /dev/usb0.  USB-root
+         * booting already needs usbhostd before switchroot and is unchanged.
+         */
+#if defined(INIT_HAS_RAMFS_RELEASE)
+        if (!usb_host && !_pcie_owner_active) {
+            if (run_before_vfs("/drivers/q8b/pcied /dev/pcie0") == 0) {
+                _pcie_owner_active = 1;
+                klog("init: Q8B PCIe owner ready before USB host\n");
+            } else {
+                klog("init: Q8B PCIe owner failed before USB host\n");
+            }
+        }
+#endif
         /* A USB host used only for automounting starts in the persistent root.
          * A host that supplied the USB rootfs was already moved by switchroot. */
         if(!usb_host)
