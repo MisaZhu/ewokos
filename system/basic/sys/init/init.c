@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/vfs.h>
+#include <ewoksys/vdevice.h>
 
 #include <sysinfo.h>
 #include <ewoksys/klog.h>
@@ -97,6 +98,92 @@ static int32_t exec_from_storage(const char* prog, const char* cmdline,
 #define ROOTFS_SELF 3
 
 static int _bootnet;
+
+/* Optional early PCIe owners survive switchroot.  Filter a duplicate entry
+ * only when the early profile actually registered the host service. */
+static int _pcie_owner_active;
+
+static int write_all(int fd, const char* data, off_t size) {
+    off_t done = 0;
+    while(done < size) {
+        ssize_t n = write(fd, data + done, (size_t)(size - done));
+        if(n <= 0)
+            return -1;
+        done += n;
+    }
+    return 0;
+}
+
+static int make_init_without_pcied(const char* source, const char* target) {
+    char text[8192];
+    int source_fd = open(source, O_RDONLY);
+    if(source_fd < 0) {
+        klog("init: filter open failed %s\n", source);
+        return -1;
+    }
+    ssize_t read_size = read(source_fd, text, sizeof(text));
+    close(source_fd);
+    if(read_size < 0 || read_size >= (ssize_t)sizeof(text)) {
+        klog("init: filter read failed %s size=%d\n", source, (int)read_size);
+        return -1;
+    }
+    off_t size = read_size;
+
+    int fd = open(target, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if(fd < 0) {
+        klog("init: filter target open failed %s\n", target);
+        return -1;
+    }
+
+    off_t line = 0;
+    int rc = 0;
+    for(off_t i = 0; i <= size; i++) {
+        if(i != size && text[i] != '\n')
+            continue;
+        off_t end = i < size ? i + 1 : i;
+        int skip = 0;
+        for(off_t j = line; j < i; j++) {
+            if(j + 18 <= i && memcmp(text + j, "/drivers/q8b/pcied", 18) == 0) {
+                skip = 1;
+                break;
+            }
+        }
+        if(!skip && write_all(fd, text + line, end - line) != 0) {
+            rc = -1;
+            break;
+        }
+        line = end;
+    }
+    close(fd);
+    return rc;
+}
+
+static const char* filtered_profile_path(const char* source,
+        char* path, size_t path_size) {
+    const char* name = strrchr(source, '/');
+    name = name != NULL ? name + 1 : source;
+    snprintf(path, path_size, "/etc/.%s.no-pcied", name);
+    return path;
+}
+
+/* Create the filtered copies while init is still root.  switch_sys() drops
+ * to the system uid before it executes persistent profiles, so doing this
+ * lazily from run_init() would fail on a read-only /tmp or root-owned /etc. */
+static void prepare_persistent_profiles(void) {
+    char source[32];
+    char target[64];
+    for(int i = 0; i <= 8; i++) {
+        if(i == 8)
+            snprintf(source, sizeof(source), "/etc/init.rd");
+        else
+            snprintf(source, sizeof(source), "/etc/init%d.rd", i);
+        if(access(source, R_OK) != 0)
+            continue;
+        filtered_profile_path(source, target, sizeof(target));
+        if(make_init_without_pcied(source, target) != 0)
+            klog("init: failed to prepare filtered profile %s\n", source);
+    }
+}
 
 static int run_before_vfs_mode(const char* cmd, int wait_exit) {
     klog("init: %-16s   ", cmd);
@@ -297,10 +384,23 @@ static int run_init(const char* init_file) {
         return -1;
     }
 
+    const char* exec_file = init_file;
+    char filtered_file[64];
+    if(_pcie_owner_active && strcmp(init_file, "/etc/init.ramfs.rd") != 0) {
+        filtered_profile_path(init_file, filtered_file, sizeof(filtered_file));
+        if(access(filtered_file, R_OK) == 0) {
+            exec_file = filtered_file;
+            klog("init: filtered persistent pcied entry from %s\n", init_file);
+        } else {
+            klog("init: filtered profile missing %s\n", filtered_file);
+            return -1;
+        }
+    }
+
     int pid = fork();
     if(pid == 0) {
         char cmd[FS_FULL_NAME_MAX];
-        snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell %s", init_file);
+        snprintf(cmd, FS_FULL_NAME_MAX-1, "/bin/shell %s", exec_file);
         //klog("\ninit: loading '%s' ... \n", init_file);
         if(proc_exec(cmd) != 0) {
             //klog("[failed]!\n");
@@ -358,16 +458,24 @@ int main(int argc, char** argv) {
         return -1;
     if(run_init("/etc/init.ramfs.rd") != 0)
         klog("init: boot init profile unavailable\n");
+    _pcie_owner_active = dev_get_pid("/dev/pcie0") > 0;
     int policy = rootfs_policy();
     int usb_host = 0;
     int usb_root = 0;
-    if(select_rootfs(policy, &usb_host, &usb_root) < 0) {
-        klog("init: no rootfs backend succeeded\n");
-        return -1;
+    if(policy == ROOTFS_SELF) {
+        /* Bring-up mode: keep the boot RAMFS mounted after the early profile
+         * so a newly built pcied can be validated without a second daemon
+         * from the persistent SD rootfs resetting the controller. */
+        klog("init: rootfs=self; keeping boot RAMFS, switchroot skipped\n");
+    } else {
+        if(select_rootfs(policy, &usb_host, &usb_root) < 0) {
+            klog("init: no rootfs backend succeeded\n");
+            return -1;
+        }
+        klog("init: rootfs selected=%s bootnet=%d\n",
+                usb_root ? "usb" : "sd", _bootnet);
     }
-    klog("init: rootfs selected=%s bootnet=%d\n",
-            usb_root ? "usb" : "sd", _bootnet);
-    if(_bootnet) {
+    if(policy != ROOTFS_SELF && _bootnet) {
         /* Recovery profile: start the network from the boot image after the
          * SD VFS is available, so SSH remains usable even if an older SD
          * init script cannot reach its normal network stage. */
@@ -381,18 +489,22 @@ int main(int argc, char** argv) {
         (void)run_before_vfs("/sbin/sessiond --recovery");
         (void)run_before_vfs("/sbin/sshd");
     }
-    /* Move the boot filesystem to /boot and all device mounts from the
-     * RAMFS namespace into the new root's /dev. */
-    if(run_before_vfs_sync("/sbin/switchroot") != 0) {
-        klog("init: switchroot failed\n");
-        return -1;
+    if(policy != ROOTFS_SELF) {
+        /* Move the boot filesystem to /boot and all device mounts from the
+         * RAMFS namespace into the new root's /dev. */
+        if(run_before_vfs_sync("/sbin/switchroot") != 0) {
+            klog("init: switchroot failed\n");
+            return -1;
+        }
+        /* A USB host used only for automounting starts in the persistent root.
+         * A host that supplied the USB rootfs was already moved by switchroot. */
+        if(!usb_host)
+            (void)start_usb_host();
+        if(!usb_root)
+            enable_usb_automount();
     }
-    /* A USB host used only for automounting starts in the persistent root.
-     * A host that supplied the USB rootfs was already moved by switchroot. */
-    if(!usb_host)
-        (void)start_usb_host();
-    if(!usb_root)
-        enable_usb_automount();
+    if(_pcie_owner_active)
+        prepare_persistent_profiles();
 #else
     if(run_before_vfs("/sbin/sdfsd") != 0)
         return -1;

@@ -28,6 +28,7 @@
 
 #define ETHER_TAP_IRQ (2)
 #define ETHER_TAP_DRAIN_BURST 256
+#define ETHER_TAP_MAC_WAIT_MS 30000
 
 /*
  * TX batching: frames are coalesced as [u16 len][frame] entries and pushed to
@@ -127,23 +128,35 @@ ether_tap_reopen_locked(struct ether_tap *tap)
 
 static int
 ether_tap_addr(struct net_device *dev) {
-    int ret = -1;
     struct ether_tap *tap;
     tap = PRIV(dev);
     proto_t  out;
+    uint8_t mac[ETHER_ADDR_LEN];
+    uint64_t deadline = kernel_tic_ms(0) + ETHER_TAP_MAC_WAIT_MS;
+    unsigned warned = 0;
 
-    while (ret) {
+    for (;;) {
+        int ret;
         PF->init(&out);
         ret = dev_cntl (tap->name, 0, NULL, &out);
-        if(ret == 0){
-            proto_read_to(&out, dev->addr, 6);
+        memset(mac, 0, sizeof(mac));
+        if(ret == 0 && proto_read_to(&out, mac, sizeof(mac)) == sizeof(mac) &&
+           memcmp(mac, ETHER_ADDR_ANY, sizeof(mac)) != 0){
+            memcpy(dev->addr, mac, sizeof(mac));
             PF->clear(&out);
             return 0;
         }
         PF->clear(&out);
-        usleep(1000);
+        if (!warned) {
+            slog("netd: waiting for valid MAC on %s\n", tap->name);
+            warned = 1;
+        }
+        if (kernel_tic_ms(0) >= deadline) {
+            slog("netd: timed out waiting for MAC on %s\n", tap->name);
+            return -1;
+        }
+        usleep(10000);
     }
-    return -1;
 }
 
 static int
