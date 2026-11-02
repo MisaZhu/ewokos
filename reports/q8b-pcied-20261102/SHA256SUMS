@@ -1,0 +1,5 @@
+860d8b4260affae7e1854d86b2dfb67c956832c2072a1bbc8a643dfa77702c3c  system/build_aarch64/q8b/rootfs/sbin/init
+717008e953f6ca3bd9bd404e6d74fe01e208977ba33faa7328f030edc501096f  system/build_aarch64/q8b/rootfs/drivers/q8b/pcied
+bfe9df4df4ce5a7d6847aaca641b389c9dfa724e6d600f56dc7a8f4366f89e1a  system/build_aarch64/q8b/rootfs/drivers/q8b/net
+505c4ba9ed311f37583f73541e3be08a94ed9ae8501b4dd72a75f334b8be0d18  system/build_aarch64/q8b/rootfs/drivers/q8b/wlan
+c8324aa9d16bd25b7964e211b96e0aacf5e8275adcca082141e88f7f7387d325  machines/q8b/efi/initramfs.img
