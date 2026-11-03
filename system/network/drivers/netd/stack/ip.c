@@ -385,6 +385,302 @@ ip_iface_itor(struct ip_iface *priv)
     return entry;
 }
 
+/* ------------------------------------------------------------------ */
+/* IP fragment reassembly (RFC 815)                                    */
+/* ------------------------------------------------------------------ */
+
+#define IP_FRAG_TIMEOUT_SECS 30
+#define IP_FRAG_ENTRIES_MAX  64
+#define IP_FRAG_SWEEP_SECS   2
+
+static void ip_input(const uint8_t *data, size_t len, struct net_device *dev);
+
+struct ip_frag_piece {
+    struct ip_frag_piece *next;
+    uint16_t off;               /* payload offset in the reassembled datagram */
+    uint16_t len;
+    uint8_t data[0];
+};
+
+struct ip_frag {
+    struct ip_frag *next;
+    ip_addr_t src;
+    ip_addr_t dst;
+    uint16_t id;
+    uint8_t protocol;
+    uint16_t hlen;              /* IP header length of the datagram */
+    uint8_t have_first;         /* fragment with offset 0 arrived */
+    uint8_t hdr[IP_HDR_SIZE_MAX];
+    uint16_t total_payload;     /* payload length; valid once MF=0 fragment arrived */
+    struct ip_frag_piece *pieces;   /* sorted by off */
+    struct timeval stamp;
+};
+
+static struct ip_frag *ip_frags;
+
+static void
+ip_frag_table_drop(struct ip_frag *f)
+{
+    struct ip_frag_piece *p, *n;
+    for (p = f->pieces; p; p = n) {
+        n = p->next;
+        memory_free(p);
+    }
+    memory_free(f);
+}
+
+static void
+ip_frag_reap_expired(void)
+{
+    struct ip_frag **pp, *f;
+    struct timeval now, diff;
+
+    gettimeofday(&now, NULL);
+    pp = &ip_frags;
+    while (*pp) {
+        f = *pp;
+        timersub(&now, &f->stamp, &diff);
+        if (diff.tv_sec >= IP_FRAG_TIMEOUT_SECS) {
+            *pp = f->next;
+            ip_frag_table_drop(f);
+            continue;
+        }
+        pp = &f->next;
+    }
+}
+
+static struct ip_frag *
+ip_frag_table_find(ip_addr_t src, ip_addr_t dst, uint16_t id, uint8_t protocol)
+{
+    struct ip_frag *f;
+    for (f = ip_frags; f; f = f->next) {
+        if (f->src == src && f->dst == dst && f->id == id && f->protocol == protocol) {
+            return f;
+        }
+    }
+    return NULL;
+}
+
+static struct ip_frag *
+ip_frag_table_alloc(ip_addr_t src, ip_addr_t dst, uint16_t id, uint8_t protocol)
+{
+    struct ip_frag *f;
+    int count = 0;
+    struct ip_frag **pp;
+
+    ip_frag_reap_expired();
+
+    for (f = ip_frags; f; f = f->next) {
+        count++;
+    }
+    if (count >= IP_FRAG_ENTRIES_MAX) {
+        /* table full: drop the oldest (tail) entry */
+        pp = &ip_frags;
+        while ((*pp)->next) {
+            pp = &(*pp)->next;
+        }
+        f = *pp;
+        *pp = NULL;
+        ip_frag_table_drop(f);
+    }
+
+    f = memory_alloc(sizeof(*f));
+    if (!f) {
+        errorf("memory_alloc() failure");
+        return NULL;
+    }
+    f->src = src;
+    f->dst = dst;
+    f->id = id;
+    f->protocol = protocol;
+    gettimeofday(&f->stamp, NULL);
+    f->next = ip_frags;
+    ip_frags = f;
+    return f;
+}
+
+/*
+ * Insert the fragment's payload range into the sorted (by off) piece list.
+ * Overlaps are allowed; ip_frag_complete()/ip_frag_build() walk the sorted
+ * list with a fill cursor, so duplicate/overlapping fragments are harmless.
+ */
+static int
+ip_frag_piece_add(struct ip_frag *f, uint16_t off, uint16_t len, const uint8_t *data)
+{
+    struct ip_frag_piece *piece, **pp;
+
+    piece = memory_alloc(sizeof(*piece) + len);
+    if (!piece) {
+        errorf("memory_alloc() failure");
+        return -1;
+    }
+    piece->off = off;
+    piece->len = len;
+    memcpy(piece->data, data, len);
+
+    if (off == 0) {
+        f->have_first = 1;
+    }
+
+    pp = &f->pieces;
+    while (*pp && (*pp)->off < off) {
+        pp = &(*pp)->next;
+    }
+    piece->next = *pp;
+    *pp = piece;
+    gettimeofday(&f->stamp, NULL);
+    return 0;
+}
+
+/* 1 when every payload byte of [0, total_payload) is covered */
+static int
+ip_frag_complete(const struct ip_frag *f)
+{
+    struct ip_frag_piece *p;
+    uint32_t cursor = 0;
+
+    if (!f->have_first || f->total_payload == 0) {
+        return 0;
+    }
+    for (p = f->pieces; p; p = p->next) {
+        if (p->off > cursor) {
+            return 0; /* gap */
+        }
+        if ((uint32_t)p->off + p->len > cursor) {
+            cursor = (uint32_t)p->off + p->len;
+        }
+        if (cursor >= f->total_payload) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/*
+ * Build the reassembled datagram and deliver it through ip_input() again
+ * (the rebuilt header has offset=0 / MF=0, so it is not re-fragmented).
+ */
+static void
+ip_frag_build(struct ip_frag *f, struct net_device *dev)
+{
+    uint8_t *buf;
+    struct ip_hdr *hdr;
+    struct ip_frag_piece *p;
+    uint32_t filled = 0;
+    uint32_t s, e;
+    size_t total;
+
+    total = f->hlen + f->total_payload;
+    buf = memory_alloc(total);
+    if (!buf) {
+        errorf("memory_alloc() failure");
+        return;
+    }
+    memcpy(buf, f->hdr, f->hlen);
+    hdr = (struct ip_hdr *)buf;
+    hdr->total = hton16(total);
+    hdr->offset = 0; /* clear MF, offset */
+    hdr->sum = 0;
+    hdr->sum = cksum16((uint16_t *)buf, f->hlen, 0);
+
+    for (p = f->pieces; p; p = p->next) {
+        s = p->off;
+        if (s < filled) {
+            s = filled;
+        }
+        e = (uint32_t)p->off + p->len;
+        if (e > f->total_payload) {
+            e = f->total_payload;
+        }
+        if (e > s) {
+            memcpy(buf + f->hlen + s, p->data + (s - p->off), e - s);
+            filled = e;
+        }
+    }
+    ip_input(buf, total, dev);
+    memory_free(buf);
+}
+
+/*
+ * Handle an inbound fragmented datagram. Returns 1 if a full datagram was
+ * reassembled and handed back to ip_input(), 0 if the fragment was queued.
+ */
+static int
+ip_frag_input(const struct ip_hdr *hdr, size_t len, struct net_device *dev)
+{
+    struct ip_frag *f;
+    uint16_t hlen, off_field;
+    uint32_t off;
+    uint16_t plen;
+    int is_last;
+
+    hlen = (hdr->vhl & 0x0f) << 2;
+    off_field = ntoh16(hdr->offset);
+    off = (uint32_t)(off_field & 0x1fff) << 3;
+    plen = (uint16_t)(len - hlen);
+    is_last = !(off_field & 0x2000);
+
+    if (len < IP_HDR_SIZE_MIN || len < hlen) {
+        errorf("invalid fragment, len=%zu, hlen=%u", len, hlen);
+        return 0;
+    }
+    if (off + plen > IP_TOTAL_SIZE_MAX - hlen) {
+        errorf("fragment out of range, off=%u, plen=%u", off, plen);
+        return 0;
+    }
+
+    f = ip_frag_table_find(hdr->src, hdr->dst, ntoh16(hdr->id), hdr->protocol);
+    if (!f) {
+        f = ip_frag_table_alloc(hdr->src, hdr->dst, ntoh16(hdr->id), hdr->protocol);
+        if (!f) {
+            return 0;
+        }
+    } else {
+        gettimeofday(&f->stamp, NULL);
+    }
+
+    if (off == 0) {
+        /* first fragment carries the full IP header */
+        f->hlen = hlen;
+        memcpy(f->hdr, hdr, hlen);
+    }
+    if (is_last) {
+        f->total_payload = (uint16_t)(off + plen);
+    }
+
+    if (ip_frag_piece_add(f, (uint16_t)off, plen, (const uint8_t *)hdr + hlen) == -1) {
+        return 0;
+    }
+
+    if (ip_frag_complete(f)) {
+        struct ip_frag **pp;
+        for (pp = &ip_frags; *pp; pp = &(*pp)->next) {
+            if (*pp == f) {
+                *pp = f->next;
+                break;
+            }
+        }
+        ip_frag_build(f, dev);
+        /* pieces were freed by ip_frag_build()'s caller below */
+        struct ip_frag_piece *p, *pn;
+        for (p = f->pieces; p; p = pn) {
+            pn = p->next;
+            memory_free(p);
+        }
+        memory_free(f);
+        return 1;
+    }
+    return 0;
+}
+
+static void
+ip_frag_sweep(void)
+{
+    if (ip_frags) {
+        ip_frag_reap_expired();
+    }
+}
+
 static void
 ip_input(const uint8_t *data, size_t len, struct net_device *dev)
 {
@@ -424,7 +720,8 @@ ip_input(const uint8_t *data, size_t len, struct net_device *dev)
     }
     offset = ntoh16(hdr->offset);
     if (offset & 0x2000 || offset & 0x1fff) {
-        errorf("fragments does not support");
+        /* fragmented datagram: reassemble (RFC 815) */
+        ip_frag_input(hdr, len, dev);
         return;
     }
     iface = (struct ip_iface *)net_device_get_iface(dev, NET_IFACE_FAMILY_IP);
@@ -628,9 +925,33 @@ ip_output(uint8_t protocol, const uint8_t *data, size_t len, ip_addr_t src, ip_a
         }
     }
     if (NET_IFACE(iface)->dev->mtu < IP_HDR_SIZE_MIN + len) {
-        errorf("too long, dev=%s, mtu=%u, tatal=%zu",
-            NET_IFACE(iface)->dev->name, NET_IFACE(iface)->dev->mtu, IP_HDR_SIZE_MIN + len);
-        return -1;
+        /* Datagram exceeds the output MTU: fragment it (DF is never set by
+         * this stack, so fragmentation is always permitted). Each fragment
+         * carries a payload that is a multiple of 8 bytes except the last. */
+        size_t mtu = NET_IFACE(iface)->dev->mtu;
+        size_t frag_payload;
+        size_t off;
+        ssize_t ret = 0;
+
+        if (mtu < IP_HDR_SIZE_MIN + 8) {
+            errorf("mtu too small for fragmentation, mtu=%zu", mtu);
+            return -1;
+        }
+        frag_payload = (mtu - IP_HDR_SIZE_MIN) & ~7U;
+        for (off = 0; off < len; off += frag_payload) {
+            size_t chunk = len - off;
+            uint16_t field;
+            if (chunk > frag_payload) {
+                chunk = frag_payload;
+            }
+            field = (uint16_t)((off / 8) | ((off + chunk < len) ? 0x2000 : 0));
+            if (ip_output_core(iface, protocol, data + off, chunk,
+                               src_addr, dst, nexthop, id, field) == -1) {
+                ret = -1;
+                break;
+            }
+        }
+        return ret == 0 ? (ssize_t)len : ret;
     }
     id = ip_generate_id();
     if (ip_output_core(iface, protocol, data, len, src_addr, dst, nexthop, id, 0) == -1) {
@@ -685,9 +1006,15 @@ ip_protocol_name(uint8_t type)
 int
 ip_init(void)
 {
+    struct timeval iv;
+
     if (net_protocol_register("IP", NET_PROTOCOL_TYPE_IP, ip_input) == -1) {
         errorf("net_protocol_register() failure");
         return -1;
     }
+    /* Periodic sweep of expired fragment-reassembly entries */
+    iv.tv_sec = IP_FRAG_SWEEP_SECS;
+    iv.tv_usec = 0;
+    net_timer_register("ipfrag", iv, ip_frag_sweep);
     return 0;
 }

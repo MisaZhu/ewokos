@@ -88,6 +88,28 @@ tcp_seq_between(uint32_t seq, uint32_t first, uint32_t last)
 #define TCP_DELACK_TIMEOUT_USEC 40000 /* RFC 1122 delayed-ACK ceiling */
 #define TCP_DELACK_SEGS 2 /* ACK every 2nd in-order data segment */
 /*
+ * Idle-connection reaping. EwokOS has no SO_KEEPALIVE, and a peer that
+ * disappears without FIN/RST (WiFi drop, killed client, AP cut) leaves the
+ * ESTABLISHED pcb silent forever: no retransmit entry exists, so the 60s
+ * retransmit deadline never runs, and the orphan reaper below deliberately
+ * does not cover ESTABLISHED. Over time such connections fill the 64-slot
+ * PCB table and the 160-slot sock table, after which new SYNs are silently
+ * dropped (no SYN-ACK, no RST) and logins time out -- the "connection
+ * unstable under load" symptom. Close idling sessions with a best-effort RST
+ * so the peer fails fast and the slot is reclaimed. Orphans (owning sock
+ * already gone) get a much shorter grace: nobody is left to service them.
+ */
+#define TCP_IDLE_TIMEOUT_SECS 180 /* live connection idle close */
+#define TCP_ORPHAN_IDLE_TIMEOUT_SECS 60 /* sock-gone ESTABLISHED/CLOSE_WAIT */
+/*
+ * Half-open (SYN_RECEIVED) cap. A handshake that never completes otherwise
+ * occupies its PCB slot for the full TCP_RETRANSMIT_DEADLINE (60s); under a
+ * burst of SYNs that rapidly exhausts the table. Give up after a bounded
+ * number of SYN-ACK retries (~13s worst case) and let the orphan reaper
+ * reclaim the slot.
+ */
+#define TCP_SYN_RETRY_MAX 6
+/*
  * Download flow control (direction-aware, see the pcb->buf comment).
  * The advertised receive window gates inbound throughput:
  * throughput = window / effective_RTT, and the wland<->netd<->sshd IPC
@@ -185,6 +207,7 @@ struct tcp_pcb {
     struct timeval close_timer;   /* delayed FIN queue retry */
     int close_state;              /* state to enter after FIN is queued */
     struct timeval persist_timer; /* zero-window probe timer */
+    struct timeval idle_stamp;    /* last segment exchange; reaper input */
     unsigned int persist_rto;    /* current persist backoff (usec) */
     uint8_t persist_probing;     /* persist timer armed */
     uint8_t delack_pending;      /* delayed ACK armed (RFC 1122) */
@@ -206,6 +229,7 @@ struct tcp_queue_entry {
     uint32_t seq;
     uint8_t flg;
     uint8_t tx_pending; /* last local output attempt failed before the wire */
+    uint8_t retries;    /* retransmit attempts (SYN retry cap) */
     size_t len;
 };
 
@@ -442,6 +466,7 @@ tcp_pcb_alloc(void)
             sched_ctx_init(&pcb->state_ctx);
             sched_ctx_init(&pcb->send_ctx);
             sched_ctx_init(&pcb->recv_ctx);
+            gettimeofday(&pcb->idle_stamp, NULL);
             pcb_alloc_count++;
             infof("tcp_pcb_alloc: total=%d, released=%d, free=%d/%zu",
                   pcb_alloc_count, pcb_release_count, free_count, tailof(pcbs));
@@ -478,6 +503,7 @@ tcp_pcb_alloc(void)
         sched_ctx_init(&pcb->state_ctx);
         sched_ctx_init(&pcb->send_ctx);
         sched_ctx_init(&pcb->recv_ctx);
+        gettimeofday(&pcb->idle_stamp, NULL);
         pcb_alloc_count++;
         infof("tcp_pcb_alloc: evicted TIME_WAIT, total=%d, released=%d",
               pcb_alloc_count, pcb_release_count);
@@ -625,10 +651,10 @@ tcp_log_close_event(const char *tag, struct tcp_pcb *pcb)
     char ep1[IP_ENDPOINT_STR_LEN];
     char ep2[IP_ENDPOINT_STR_LEN];
 
-    (void)tag;
-    (void)pcb;
-    (void)ep1;
-    (void)ep2;
+    ip_endpoint_ntop(&pcb->local, ep1, sizeof(ep1));
+    ip_endpoint_ntop(&pcb->foreign, ep2, sizeof(ep2));
+    slog("tcpclose: %s st=%d local=%s foreign=%s\n",
+            tag, pcb->state, ep1, ep2);
 }
 
 /*
@@ -752,6 +778,13 @@ tcp_retransmit_queue_emit(void *arg, void *data)
     gettimeofday(&now, NULL);
     timersub(&now, &entry->first, &diff);
     if (diff.tv_sec >= TCP_RETRANSMIT_DEADLINE) {
+        /*
+         * Best-effort RST before closing so the peer unblocks with an error
+         * instead of hanging until ITS own retransmit timeout fires (observed
+         * as scp sessions stalling >40s with no error message).
+         */
+        tcp_output_segment(pcb->snd.una, pcb->rcv.nxt, TCP_FLG_RST, 0, NULL, 0,
+                           &pcb->local, &pcb->foreign);
         pcb->state = TCP_PCB_STATE_CLOSED;
         pcb->close_reason = 2; /* timeout */
         tcp_log_close_event("tcp_retransmit timeout close", pcb);
@@ -761,6 +794,20 @@ tcp_retransmit_queue_emit(void *arg, void *data)
     timeout = entry->last;
     timeval_add_usec(&timeout, entry->rto);
     if (timercmp(&now, &timeout, >)) {
+        /*
+         * Half-open handshake cap: a SYN/SYN-ACK that never completes the
+         * handshake releases its PCB slot after TCP_SYN_RETRY_MAX retries
+         * (~13s) instead of pinning it until the 60s deadline; the orphan
+         * reaper reclaims the slot on the next tick.
+         */
+        if (TCP_FLG_ISSET(entry->flg, TCP_FLG_SYN) &&
+                ++entry->retries >= TCP_SYN_RETRY_MAX) {
+            pcb->state = TCP_PCB_STATE_CLOSED;
+            pcb->close_reason = 2;
+            tcp_log_close_event("tcp_syn retries exhausted close", pcb);
+            tcp_sched_wakeup_all(pcb);
+            return;
+        }
         if (!entry->tx_pending && entry->len && pcb->mss) {
             tcp_cc_loss(pcb);
             pcb->cwnd = pcb->mss;
@@ -1026,6 +1073,8 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
         }
         return;
     }
+    /* Any valid segment counts as activity for the idle-connection reaper. */
+    gettimeofday(&pcb->idle_stamp, NULL);
     switch(pcb->state) {
     case TCP_PCB_STATE_LISTEN:
         /*
@@ -1153,6 +1202,21 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
      */
     switch (pcb->state) {
     case TCP_PCB_STATE_SYN_RECEIVED:
+        /*
+         * Duplicate SYN (peer retransmission - its SYN-ACK was slow or lost
+         * under load). The retransmitted SYN carries the same sequence the
+         * child consumed to enter SYN_RECEIVED (seq == irs). The generic
+         * acceptability test below would misjudge it as outside the window
+         * (RCV.NXT - 1 wraps to 0xffffffff when subtracted) and answer with a
+         * bare ACK, which the peer's SYN-SENT state drops, stalling the
+         * handshake until the next SYN-ACK retransmit. Resend the SYN-ACK
+         * with the SAME ISS so the peer always gets one consistent answer.
+         */
+        if (TCP_FLG_ISSET(flags, TCP_FLG_SYN) && seg->seq == pcb->irs) {
+            tcp_output(pcb, TCP_FLG_SYN | TCP_FLG_ACK, NULL, 0);
+            return;
+        }
+        /* fall through */
     case TCP_PCB_STATE_ESTABLISHED:
     case TCP_PCB_STATE_FIN_WAIT1:
     case TCP_PCB_STATE_FIN_WAIT2:
@@ -1202,9 +1266,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     switch (pcb->state) {
     case TCP_PCB_STATE_SYN_RECEIVED:
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
+            tcp_log_close_event("tcp_segment rst close", pcb);
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
-            tcp_log_close_event("tcp_segment rst close", pcb);
             tcp_pcb_release(pcb);
             return;
         }
@@ -1214,9 +1278,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_FIN_WAIT2:
     case TCP_PCB_STATE_CLOSE_WAIT:
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
+            tcp_log_close_event("tcp_segment rst close", pcb);
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
-            tcp_log_close_event("tcp_segment rst close", pcb);
             tcp_pcb_release(pcb);
             return;
         }
@@ -1225,9 +1289,9 @@ tcp_segment_arrives(struct tcp_segment_info *seg, uint8_t flags, uint8_t *data, 
     case TCP_PCB_STATE_LAST_ACK:
     case TCP_PCB_STATE_TIME_WAIT:
         if (TCP_FLG_ISSET(flags, TCP_FLG_RST)) {
+            tcp_log_close_event("tcp_segment rst close", pcb);
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 1; /* RST */
-            tcp_log_close_event("tcp_segment rst close", pcb);
             tcp_pcb_release(pcb);
             return;
         }
@@ -1783,6 +1847,36 @@ tcp_timer(void)
                     tcp_pcb_release(pcb);
                     continue;
                 }
+            }
+        }
+        /*
+         * Idle-connection reaper. A peer that vanished without FIN/RST
+         * (WiFi drop, killed client) leaves ESTABLISHED/CLOSE_WAIT silent
+         * forever: no retransmit entry exists, so the 60s deadline never
+         * runs, and the orphan branch above does not cover these states.
+         * Close idling sessions after TCP_IDLE_TIMEOUT_SECS (live socket)
+         * or the shorter TCP_ORPHAN_IDLE_TIMEOUT_SECS (owning sock already
+         * gone) so dead sessions cannot exhaust the 64-slot PCB table and
+         * 160-slot sock table -- the mechanism behind new logins timing
+         * out under load. Best-effort RST lets the peer fail fast.
+         */
+        if ((pcb->state == TCP_PCB_STATE_ESTABLISHED ||
+             pcb->state == TCP_PCB_STATE_CLOSE_WAIT) &&
+            pcb->mode == TCP_PCB_MODE_SOCKET) {
+            struct timeval idle = pcb->idle_stamp;
+            int limit = TCP_IDLE_TIMEOUT_SECS;
+            if (sock_id_from_tcp_desc(indexof(pcbs, pcb)) < 0) {
+                limit = TCP_ORPHAN_IDLE_TIMEOUT_SECS;
+            }
+            idle.tv_sec += limit;
+            if (timercmp(&now, &idle, >)) {
+                tcp_output_segment(pcb->snd.una, pcb->rcv.nxt, TCP_FLG_RST, 0,
+                                   NULL, 0, &pcb->local, &pcb->foreign);
+                tcp_log_close_event("tcp_timer idle timeout close", pcb);
+                pcb->state = TCP_PCB_STATE_CLOSED;
+                pcb->close_reason = 2;
+                tcp_pcb_release(pcb);
+                continue;
             }
         }
         if (pcb->close_state &&
@@ -2690,6 +2784,10 @@ RETRY:
              * (TCP_RETRANSMIT_QUEUE_MAX segments) still bounds one call's
              * burst, so the stack mutex is not held unboundedly.
              */
+        }
+        /* TX counts as activity for the idle-connection reaper. */
+        if (sent > 0) {
+            gettimeofday(&pcb->idle_stamp, NULL);
         }
         break;
     case TCP_PCB_STATE_FIN_WAIT1:

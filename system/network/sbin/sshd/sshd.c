@@ -61,7 +61,14 @@
 #define SSH_INTERNAL_SFTP_FEED_CHUNK (64 * 1024)
 #define SSH_PENDING_INPUT_WAIT_US 1000
 #define SSH_CHILD_STDIN_POLL_MS 5
-#define SSH_CHILD_READY_TIMEOUT_MS 2000
+#define SSH_CHILD_READY_TIMEOUT_MS 8000
+/*
+ * Concurrent sessions each fork()+exec() their own sftp-server; under load
+ * the kernel serializes fork/exec (proc_clone + ELF-in-shm exec) behind the
+ * kernel lock, so tail connections can take several seconds to start. The
+ * old 2s window failed those tails with "subsystem request failed". 8s
+ * covers the tail, and spawn_child_session() retries once more on timeout.
+ */
 #define SSH_SFTP_PENDING_HIGH_WATER (8*1024*1024)
 #define SSH_CLOSE_GRACE_POLL_MS 200
 #define SSH_CLOSE_GRACE_ROUNDS 5
@@ -114,25 +121,47 @@
 
 #define SSHD_CHILD_START_MAGIC 0x53534844u
 
-static void warm_inherited_socket(int sync_fd, int client_sock) {
+static int warm_inherited_socket(int sync_fd, int client_sock) {
     struct pollfd pfd;
     uint8_t ready = 1;
+    int own;
 
-    if(client_sock >= 0) {
-        pfd.fd = client_sock;
+    /*
+     * Re-own the accepted socket with our own dup() BEFORE the parent is
+     * allowed to close its copy. dup() round-trips to netd (FS_CMD_DUP bumps
+     * the socket task's refcount) through the SAME per-process IPC channel as
+     * our later socket writes, so once our first write has succeeded the dup
+     * has necessarily been processed and the refcount covers both copies.
+     * The inherited fd copy is kept open for the session and reaped by
+     * process-exit cleanup, so refs stay balanced. The parent's close is
+     * gated on phase 2 of the handshake (see serve_client), so it can never
+     * precede our registration.
+     */
+    own = dup(client_sock);
+    if(own < 0) {
+        /* Re-owning failed: fall back to the inherited fd (the connection
+         * will likely fail, but this can never crash or wedge anything). */
+        own = client_sock;
+    }
+
+    if(own >= 0) {
+        pfd.fd = own;
         pfd.events = 0;
         pfd.revents = 0;
         (void)poll(&pfd, 1, 0);
     }
 
     if(sync_fd >= 0) {
-        while(write(sync_fd, &ready, sizeof(ready)) < 0) {
+        uint8_t b1 = 1;
+        while(write(sync_fd, &b1, sizeof(b1)) < 0) {
             if(errno == EINTR)
                 continue;
             break;
         }
-        close(sync_fd);
+        /* Keep sync_fd open: serve_client() writes the phase-2 "close ok"
+         * byte after its first successful socket write, then closes it. */
     }
+    return own;
 }
 
 static void wait_inherited_socket_ready(int sync_fd) {
@@ -140,10 +169,46 @@ static void wait_inherited_socket_ready(int sync_fd) {
 
     if(sync_fd < 0)
         return;
-    while(read(sync_fd, &ready, sizeof(ready)) < 0) {
-        if(errno == EINTR)
-            continue;
-        break;
+    do {
+        ssize_t n = read(sync_fd, &ready, sizeof(ready));
+        if(n == 0)
+            break; /* child gone: nothing more to wait for */
+        if(n > 0)
+            break;
+    } while(errno == EINTR);
+    /* Keep sync_fd open for the phase-2 byte. */
+}
+
+/* Phase 2 of the accept handshake. The child writes this byte only after its
+ * first successful socket write (see serve_client()). An EOF here means the
+ * child failed/exited before that point; either way the parent may close its
+ * copy of the accepted socket -- after phase 2 the task refcount is known to
+ * be >= 2 (parent's accept ref + the child's dup ref), so this close can no
+ * longer reap the task out from under the live session. The wait is bounded
+ * by a poll timeout so a child that stalls (e.g. in entropy seeding, which
+ * runs after phase 2) can never wedge the accept loop: on timeout the parent
+ * closes anyway and the connection is left to fail on its own. */
+static void wait_inherited_socket_close_ok(int sync_fd) {
+    uint8_t b;
+    struct pollfd pfd;
+
+    if(sync_fd < 0)
+        return;
+    pfd.fd = sync_fd;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    /*
+     * Bounded but generous wait. A child can no longer stall forever ahead of
+     * phase 2: the entropy seeding moved to after the banner, so the only
+     * pre-phase-2 steps are our dup() IPC (bounded by netd's protocol loop,
+     * even under flood) and the first banner write (a fresh socket never
+     * back-pressures the first 26 bytes). 8s therefore bounds the accept
+     * loop against any pathological child without ever cutting off a healthy
+     * one whose dup was merely delayed by netd saturation.
+     */
+    if(poll(&pfd, 1, 8000) > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR))) {
+        ssize_t n = read(sync_fd, &b, sizeof(b));
+        (void)n;
     }
     close(sync_fd);
 }
@@ -793,7 +858,7 @@ static int ssh_read_n(sshd_session_t* s, void* buf, size_t len) {
                 }
                 continue;
             }
-            sshd_set_error("read failed: %s", strerror(saved_errno));
+            sshd_set_error("read failed: %s (errno=%d)", strerror(saved_errno), saved_errno);
             return -1;
         }
         if(n == 0) {
@@ -845,7 +910,7 @@ static int ssh_write_n(sshd_session_t* s, const void* buf, size_t len) {
                 }
                 continue;
             }
-            sshd_set_error("write failed: %s", strerror(saved_errno));
+            sshd_set_error("write failed: %s (errno=%d)", strerror(saved_errno), saved_errno);
             return -1;
         }
         if(n == 0) {
@@ -1201,6 +1266,26 @@ static int ssh_packet_receive(sshd_session_t* s, ssh_packet_t* packet) {
             return -1;
         packet_len = ssh_read_uint32(len_buf);
         if(packet_len > SSH_PACKET_LENGTH_MAX || packet_len < 5) {
+            /* DEBUG: the peer should never produce a 0-length SSH packet;
+             * dump the raw header bytes to find how the stream desyncs. */
+            int _dfd = open("/sshd_fail.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+            if(_dfd >= 0) {
+                uint8_t peek[16];
+                ssize_t pn = read(s->socket, peek, sizeof(peek));
+                char _dbuf[192];
+                int _dl = snprintf(_dbuf, sizeof(_dbuf),
+                        "badlen: len=%u, lenbuf=%02x%02x%02x%02x, nxt(n=%zd)=%02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x\n",
+                        packet_len, len_buf[0], len_buf[1], len_buf[2], len_buf[3],
+                        pn, peek[0], peek[1], peek[2], peek[3],
+                        pn > 4 ? peek[4] : 0, pn > 5 ? peek[5] : 0,
+                        pn > 6 ? peek[6] : 0, pn > 7 ? peek[7] : 0,
+                        pn > 8 ? peek[8] : 0, pn > 9 ? peek[9] : 0,
+                        pn > 10 ? peek[10] : 0, pn > 11 ? peek[11] : 0,
+                        pn > 12 ? peek[12] : 0, pn > 13 ? peek[13] : 0,
+                        pn > 14 ? peek[14] : 0, pn > 15 ? peek[15] : 0);
+                if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
+                close(_dfd);
+            }
             sshd_set_error("invalid packet length: %u", packet_len);
             return -1;
         }
@@ -2904,7 +2989,18 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
         return -1;
     }
     if(use_ready) {
-        if(wait_child_ready(s->child_control[CHILD_CTRL_READ]) < 0) {
+        int rc = wait_child_ready(s->child_control[CHILD_CTRL_READ]);
+        if(rc < 0 && errno == ETIMEDOUT) {
+            /*
+             * The child may still be starting: with several sessions
+             * forking/exec'ing at once the tail child can exceed even the
+             * enlarged window. Give it one more wait before declaring the
+             * spawn failed, rather than killing a child that was merely slow.
+             */
+            klog("sshd: child ready timeout, retrying once\n");
+            rc = wait_child_ready(s->child_control[CHILD_CTRL_READ]);
+        }
+        if(rc < 0) {
             sshd_set_error("spawn child ready wait failed: %s", strerror(errno));
             close_child_fds(s);
             if(pid > 1) {
@@ -2926,6 +3022,36 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
     s->child_started = 1;
     s->child_eof_seen = 0;
     return 0;
+}
+
+/*
+ * Spawn the login shell / sftp-server child, retrying the whole spawn once on
+ * failure. Under a burst of concurrent sessions the first fork()/exec()/ready
+ * handshake can lose a race (kernel serializes fork+exec, the ready child dies
+ * before its marker, a pipe is momentarily exhausted) even though the system
+ * has plenty of capacity; one immediate retry converts those ~4% spurious
+ * "subsystem request failed" / command failures into success. Used for shell,
+ * exec and subsystem requests alike.
+ */
+static int spawn_child_with_retry(sshd_session_t* s, const char* command, int is_shell) {
+    if(spawn_child_session(s, command, is_shell) == 0)
+        return 0;
+    /* First attempt failed (cleanup already done inside spawn_child_session).
+     * The session is left with child_started == 0 unless a partial child
+     * leaked, in which case it was SIGKILLed and reaped there. Try once more. */
+    int rc = spawn_child_session(s, command, is_shell);
+    if(rc != 0) {
+        int _dfd = open("/sshd_fail.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if(_dfd >= 0) {
+            char _dbuf[160];
+            int _dl = snprintf(_dbuf, sizeof(_dbuf),
+                    "spawn retry failed: %s\n",
+                    g_error[0] ? g_error : "unknown");
+            if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
+            close(_dfd);
+        }
+    }
+    return rc;
 }
 
 static int handle_channel_open(sshd_session_t* s, const ssh_packet_t* packet) {
@@ -2991,7 +3117,7 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
     }
 
     if(req_len == strlen("shell") && memcmp(req_type, "shell", req_len) == 0) {
-        if(!s->child_started && spawn_child_session(s, NULL, 1) < 0)
+        if(!s->child_started && spawn_child_with_retry(s, NULL, 1) != 0)
             return -1;
         if(want_reply)
             return send_channel_status(s, SSH_MSG_CHANNEL_SUCCESS);
@@ -3009,7 +3135,7 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
             return -1;
         memcpy(command, cmd, cmd_len);
         command[cmd_len] = 0;
-        if(!s->child_started && spawn_child_session(s, command, 0) < 0)
+        if(!s->child_started && spawn_child_with_retry(s, command, 0) != 0)
             return -1;
         if(want_reply)
             return send_channel_status(s, SSH_MSG_CHANNEL_SUCCESS);
@@ -3026,7 +3152,7 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
             goto subsystem_fail;
 
         if(sub_len == 4 && memcmp(sub, "sftp", 4) == 0) {
-            if(!s->child_started && spawn_child_session(s, "sftp-server", 0) < 0)
+            if(!s->child_started && spawn_child_with_retry(s, "sftp-server", 0) != 0)
                 goto subsystem_fail;
         } else {
             goto subsystem_fail;
@@ -3036,6 +3162,17 @@ static int handle_channel_request(sshd_session_t* s, const ssh_packet_t* packet)
         return 0;
 
 subsystem_fail:
+        {
+            int _dfd = open("/sshd_fail.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+            if(_dfd >= 0) {
+                char _dbuf[160];
+                int _dl = snprintf(_dbuf, sizeof(_dbuf),
+                        "subsystem spawn failed: child_started=%d gerr=%s\n",
+                        s->child_started, g_error[0] ? g_error : "-");
+                if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
+                close(_dfd);
+            }
+        }
         if(want_reply)
             return send_channel_status(s, SSH_MSG_CHANNEL_FAILURE);
         return 0;
@@ -3624,36 +3761,31 @@ static int session_init(sshd_session_t* s, int sock) {
         klog("sshd: session rx allocation failed\n");
         return -1;
     }
-    /*
-     * Seed this connection's packet-padding PRNG from a short-lived wolfSSL
-     * CSPRNG. Runs in the forked child, so every connection gets independent,
-     * unpredictable padding (the old fixed srand(42) made all connections emit
-     * the identical stream).
-     *
-     * The RNG is created and freed here, entirely BEFORE do_key_exchange() runs
-     * its own wc_InitRng/wc_FreeRng cycle. Do NOT keep a persistent WC_RNG in
-     * the session: on this port the entropy backend is a global singleton, so
-     * KEX's wc_FreeRng invalidates a still-open session RNG and the first
-     * post-KEX send's wc_RNG_GenerateBlock fails -- which dropped the
-     * connection right after login. rand() for padding is serialized by
-     * send_lock, so it is safe to use from both the main and SFTP threads.
-     */
-    {
-        WC_RNG seed_rng;
-        unsigned int seed = 0;
-        memset(&seed_rng, 0, sizeof(seed_rng));
-        if(wc_InitRng(&seed_rng) == 0) {
-            if(wc_RNG_GenerateBlock(&seed_rng, (byte*)&seed, sizeof(seed)) == 0)
-                srand(seed);
-            wc_FreeRng(&seed_rng);
-        }
-    }
     pthread_mutex_init(&s->state_lock, NULL);
     pthread_mutex_init(&s->send_lock, NULL);
     pthread_mutex_init(&s->sftp_lock, NULL);
     pthread_cond_init(&s->remote_window_cv, NULL);
     pthread_cond_init(&s->sftp_cv, NULL);
     return 0;
+}
+
+/* Seed this connection's packet-padding PRNG from a short-lived wolfSSL
+ * CSPRNG. Deliberately NOT in session_init(): the entropy backend is a global
+ * singleton and wc_InitRng() can stall while concurrent forked children drain
+ * it (measured during burst load), and that stall must never sit ahead of the
+ * accept handshake's "close ok" byte or it wedges the listener forever. This
+ * runs instead right after the banner write, which has already released the
+ * parent to close its fd copy. */
+static void session_seed_padding(sshd_session_t* s) {
+    WC_RNG seed_rng;
+    unsigned int seed = 0;
+    (void)s;
+    memset(&seed_rng, 0, sizeof(seed_rng));
+    if(wc_InitRng(&seed_rng) == 0) {
+        if(wc_RNG_GenerateBlock(&seed_rng, (byte*)&seed, sizeof(seed)) == 0)
+            srand(seed);
+        wc_FreeRng(&seed_rng);
+    }
 }
 
 static void session_destroy(sshd_session_t* s) {
@@ -3805,57 +3937,121 @@ static int init_host_key(void) {
     return 0;
 }
 
-static int serve_client(int sock) {
+static int serve_client(int sock, int sync_fd) {
     sshd_session_t* session;
+    const char* fail_step = NULL;
     int ret = -1;
 
     session = (sshd_session_t*)calloc(1, sizeof(*session));
     if(session == NULL) {
+        int _dfd = open("/sshd_fail.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if(_dfd >= 0) {
+            char _dbuf[80];
+            int _dl = snprintf(_dbuf, sizeof(_dbuf), "FAIL calloc session errno=%d\n", errno);
+            if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
+            close(_dfd);
+        }
+        if(sync_fd >= 0)
+            close(sync_fd);
         close(sock);
         return -1;
     }
 
     if(session_init(session, sock) < 0) {
+        int _dfd = open("/sshd_fail.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if(_dfd >= 0) {
+            char _dbuf[80];
+            int _dl = snprintf(_dbuf, sizeof(_dbuf), "FAIL session_init errno=%d gerr=%s\n",
+                    errno, g_error[0] ? g_error : "-");
+            if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
+            close(_dfd);
+        }
+        if(sync_fd >= 0)
+            close(sync_fd);
         close(sock);
         free(session);
         return -1;
     }
 
-    if(send_banner(session) < 0) {
+if(send_banner(session) < 0) {
+        fail_step = "send_banner";
         goto out;
     }
+    /*
+     * Phase 2 of the accept handshake: our first socket write has succeeded,
+     * so our dup() registration has been processed (same per-process IPC
+     * channel, FIFO) and the task refcount covers both copies. Release the
+     * parent to close its copy now; that close can no longer tear the task
+     * down under this session. Any earlier exit closes sync_fd (EOF), which
+     * tells the parent the same thing for the failure paths. */
+    if(sync_fd >= 0) {
+        uint8_t b2 = 2;
+        while(write(sync_fd, &b2, sizeof(b2)) < 0) {
+            if(errno == EINTR)
+                continue;
+            break;
+        }
+        close(sync_fd);
+        sync_fd = -1;
+    }
+    session_seed_padding(session);
     if(receive_banner(session) < 0) {
+        fail_step = "receive_banner";
         goto out;
     }
     if(receive_kexinit(session) < 0) {
+        fail_step = "receive_kexinit";
         goto out;
     }
     if(send_kexinit(session) < 0) {
+        fail_step = "send_kexinit";
         goto out;
     }
     if(do_key_exchange(session) < 0) {
+        fail_step = "do_key_exchange";
         goto out;
     }
     if(session->client_ext_info_c) {
         if(send_ext_info(session) < 0) {
+            fail_step = "send_ext_info";
             goto out;
         }
     }
     if(handle_service_and_auth(session) < 0) {
+        fail_step = "service_auth";
         goto out;
     }
     if(handle_session_packets(session) < 0) {
+        fail_step = "session_packets";
         goto out;
     }
 
     ret = 0;
 
 out:
-    if(ret < 0)
-        klog("sshd: client failed: %s\n", g_error[0] ? g_error : "session setup");
+    if(ret < 0) {
+        klog("sshd: client failed at %s: %s\n", fail_step ? fail_step : "-",
+                g_error[0] ? g_error : "session setup");
+        /* DEBUG: record failure reason to a readable file so the host can
+         * diagnose burst failures without serial access. */
+        int dfd = open("/sshd_fail.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if(dfd >= 0) {
+            char dbuf[220];
+            int dlen = snprintf(dbuf, sizeof(dbuf), "client failed at %s: %s\n",
+                    fail_step ? fail_step : "-",
+                    g_error[0] ? g_error : "session setup");
+            if(dlen > 0) {
+                ssize_t wr = write(dfd, dbuf, (size_t)dlen);
+                (void)wr;
+            }
+            close(dfd);
+        }
+    }
     if(ret < 0 && session->socket >= 0) {
         send_disconnect(session, SSH_DISCONNECT_BY_APPLICATION, g_error[0] ? g_error : "sshd error");
     }
+    if(sync_fd >= 0)
+        close(sync_fd); /* phase-2 never sent: EOF releases the parent */
     session_destroy(session);
     return ret;
 }
@@ -3901,6 +4097,14 @@ int main(int argc, char* argv[]) {
 
         int pid = fork();
         if(pid < 0) {
+            int _dfd = open("/sshd_fail.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+            if(_dfd >= 0) {
+                char _dbuf[100];
+                int _dl = snprintf(_dbuf, sizeof(_dbuf), "LISTENER fork failed: %s\n",
+                        strerror(errno));
+                if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
+                close(_dfd);
+            }
             if(sync_pipe[0] >= 0)
                 close(sync_pipe[0]);
             if(sync_pipe[1] >= 0)
@@ -3911,15 +4115,16 @@ int main(int argc, char* argv[]) {
         if(pid == 0) {
             if(sync_pipe[0] >= 0)
                 close(sync_pipe[0]);
-            warm_inherited_socket(sync_pipe[1], client_sock);
+            client_sock = warm_inherited_socket(sync_pipe[1], client_sock);
             close(server_sock);
-            serve_client(client_sock);
+            serve_client(client_sock, sync_pipe[1]);
             exit(0);
         }
         track_worker_pid(pid);
         if(sync_pipe[1] >= 0)
             close(sync_pipe[1]);
         wait_inherited_socket_ready(sync_pipe[0]);
+        wait_inherited_socket_close_ok(sync_pipe[0]);
         close(client_sock);
     }
 

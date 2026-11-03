@@ -476,6 +476,7 @@ sock_accept(int id, struct sockaddr *addr, int *addrlen)
             return ret;
         }
         errno = EMFILE;
+        slog("sock accept EMFILE: sock_used=%d tcp_desc=%d\n", sock_used_count(), ret);
         tcp_close(ret);
         return -1;
     }

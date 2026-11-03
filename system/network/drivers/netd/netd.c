@@ -103,8 +103,23 @@ static int network_dup(vdevice_t* dev, int from_fd, int from_pid, int dup_fd, in
      */
     net_task_t *task = task_find_live_by_node(node);
     if(task != NULL) {
+        /*
+         * A dup on a task that is already closing (its last close raced a
+         * delayed fork-time dup) must not resurrect it: bumping refs there
+         * hands the child a ref to a task that is off the list the instant
+         * the teardown proceeds, turning EBADF into a silent ref leak. The
+         * sshd child re-owns the socket with its own synchronous dup() before
+         * releasing the parent to close, so this path is a defensive backstop
+         * rather than the primary ordering guarantee.
+         */
+        if(task->closing) {
+            pthread_mutex_unlock(&task->lock);
+            return 0;
+        }
         task->refs++; /* task->lock already held by the lookup */
         pthread_mutex_unlock(&task->lock);
+    } else {
+            (void)node;
     }
     return 0;
 }
@@ -127,6 +142,7 @@ static int network_close(vdevice_t* dev, int fd, int from_pid, ewokos_addr_t nod
      */
     net_task_t *task = task_find_live_by_node(node);
     if(task == NULL) {
+            (void)node;
         return 0;
     }
     /* task->lock held from the lookup. */
