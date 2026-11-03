@@ -520,6 +520,35 @@ static uint32_t flush_g2d(const disp_info_t* fbinfo, const graph_t* g) {
     return blit_g2d_rect(fbinfo, g, 0, 0, g->w, g->h, 0, 0);
 }
 
+/*GPU-accelerated zoom: scale the source canvas directly into the physical
+  scan-out in one g2d dispatch, bypassing the CPU bilinear scale and the
+  intermediate _zoom_g buffer entirely.  Requires contig shm src + phy_base
+  dst + 32bpp.  Returns bytes written, or 0 to fall back to the CPU path.*/
+static uint32_t flush_g2d_zoom(const disp_info_t* fbinfo, const graph_t* g) {
+    uint32_t off;
+    ewokos_addr_t src_phy;
+    if(_g2d_blt_phy_unsupported)
+        return 0;
+    if(g == NULL || g->w <= 0 || g->h <= 0)
+        return 0;
+    if(!g2d_scanout_ok(fbinfo, g, &off, &src_phy))
+        return 0;
+
+    g2d_blit_to_phy_req_t req;
+    g2d_blit_to_phy_req_init(&req, g2d_scanout_canvas(g, src_phy),
+            g2d_rect(0, 0, g->w, g->h),
+            fbinfo->phy_base + off, fbinfo->size - off,
+            (int32_t)fbinfo->width, (int32_t)fbinfo->height, disp_pitch32(fbinfo),
+            g2d_rect(0, 0, (int32_t)fbinfo->width, (int32_t)fbinfo->height));
+    int ret = g2d_blit_to_phy(&req);
+    g2d_quiesce_on_fault(ret);
+    if(ret == G2D_ERR_NOT_SUPPORTED)
+        _g2d_blt_phy_unsupported = 1;
+    if(ret != 0)
+        return 0;
+    return fbinfo->width * fbinfo->height * 4u;
+}
+
 static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rotate) {
     if(fbinfo->depth != 32 && fbinfo->depth != 16)
         return 0;
@@ -559,8 +588,12 @@ static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rota
 
     graph_t* gzoom = NULL;
     if(zoomed) {
-        /*pooled like _rotate_g: allocating/freeing a contig shm segment
-          every frame is a slab round trip each way */
+        /*try GPU-accelerated scaled blit directly to the scan-out first:
+          one dispatch, no intermediate buffer, no CPU pixel work */
+        uint32_t zres = flush_g2d_zoom(fbinfo, tmp_g);
+        if(zres > 0)
+            return zres;
+        /*fallback: CPU scale into the pooled _zoom_g buffer*/
         gzoom = ensure_graph(&_zoom_g, fbinfo->width, fbinfo->height);
         if(gzoom != NULL) {
             graph_scale_tof(tmp_g, gzoom, _zoom);

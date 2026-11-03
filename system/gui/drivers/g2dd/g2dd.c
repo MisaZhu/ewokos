@@ -1295,12 +1295,14 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 	return ret;
 }
 
-/* blit a src crop 1:1 into a raw physical destination (scan-out
-   buffer): no dst canvas to attach, the back end writes the physical
-   range directly. the src must be a contig shm canvas (the only kind
-   the hardware 2d can read); the dst range is validated against the
+/* blit a src crop into a raw physical destination (scan-out buffer):
+   no dst canvas to attach, the back end writes the physical range
+   directly. the src must be a contig shm canvas (the only kind the
+   hardware 2d can read); the dst range is validated against the
    declared geometry and size here, and against the ram windows inside
-   the back end. */
+   the back end. supports both 1:1 copy and scaled (sw!=dw) blits;
+   machines whose bsp declines scaling return an error and the client
+   falls back to its own CPU path. */
 static int32_t g2dd_handle_blit_to_phy(proto_t* in) {
 	g2d_blit_to_phy_req_t req;
 	g2d_attached_t src;
@@ -1315,9 +1317,6 @@ static int32_t g2dd_handle_blit_to_phy(proto_t* in) {
 	if(req.sw <= 0 || req.sh <= 0 || req.dw <= 0 || req.dh <= 0 ||
 			req.dst_w <= 0 || req.dst_h <= 0 || req.dst_size == 0)
 		return G2D_ERR_FAILED;
-	/* 1:1 copy only; the dst stride must be whole pixels */
-	if(req.sw != req.dw || req.sh != req.dh)
-		return G2D_ERR_FAILED;
 	if(req.pitch < (uint32_t)req.dst_w * 4u || (req.pitch & 3u) != 0)
 		return G2D_ERR_FAILED;
 
@@ -1326,20 +1325,16 @@ static int32_t g2dd_handle_blit_to_phy(proto_t* in) {
 	if(src.contig == 0 || src.phy == 0)
 		goto done;
 
-	/* clip the crop to the src canvas, scaling the dst rect with the
-	   same proportion (exact here: 1:1) */
+	/* clip the src rect to the src canvas, proportionally adjusting the
+	   dst rect (handles both 1:1 and scaled blits) */
 	sx = req.sx; sy = req.sy; sw = req.sw; sh = req.sh;
 	dx = req.dx; dy = req.dy; dw = req.dw; dh = req.dh;
 	if(!g2d_clip_dst((int32_t)src.width, (int32_t)src.height,
 			&dx, &dy, &dw, &dh, &sx, &sy, &sw, &sh))
 		goto done;
-	if(sw != dw || sh != dh)
-		goto done;
 	/* clip the dst rect to the visible geometry */
 	if(!g2d_clip_dst(req.dst_w, req.dst_h,
 			&sx, &sy, &sw, &sh, &dx, &dy, &dw, &dh))
-		goto done;
-	if(sw != dw || sh != dh)
 		goto done;
 	/* the touched rows must fit the declared physical segment */
 	if((uint64_t)(dy + dh - 1) * req.pitch +
