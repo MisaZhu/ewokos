@@ -280,12 +280,19 @@ static int guid_is_rootfs(const struct gpt_guid* guid) {
 static uint32_t mbr_rootfs_start(const uint8_t* mbr) {
     const struct gpt_record* records =
         (const struct gpt_record*)(mbr + 0x1be);
+    uint32_t rootfs_start = 0;
     for(int i = 0; i < 4; i++) {
-        if(records[i].os_type == 0x83 && records[i].starting_lba != 0 &&
-                records[i].size_in_lba != 0)
-            return records[i].starting_lba;
+        /* same selection as the kernel-side MBR fallback
+         * (kernel/lib/ext2/src/partition.c): take the last partition
+         * with a nonzero start sector, without requiring os_type 0x83.
+         * On cards prepared by third-party tools the rootfs partition
+         * often carries a non-0x83 type (e.g. 0x0C/0x0E/0x07), which the
+         * old 0x83-only check rejected, leaving start_sector = 0 and
+         * making the ext3 superblock read land at the raw disk offset. */
+        if(records[i].starting_lba > 0)
+            rootfs_start = records[i].starting_lba;
     }
-    return 0;
+    return rootfs_start;
 }
 
 uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf)){
@@ -318,7 +325,7 @@ uint32_t get_rootfs_entry(int32_t (*read_sector)(int32_t sector, void* buf)){
             free(gpt.pheader);
         }
     }
-    if(rootfs_start == 0 && mbr_type >= 0)
+    if(rootfs_start == 0 && mbr_type == 0)
         rootfs_start = mbr_rootfs_start(mbr);
 out:
     free(mbr);
