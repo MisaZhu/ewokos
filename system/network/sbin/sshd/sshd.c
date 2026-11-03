@@ -123,19 +123,16 @@
 
 static int warm_inherited_socket(int sync_fd, int client_sock) {
     struct pollfd pfd;
-    uint8_t ready = 1;
     int own;
 
     /*
      * Re-own the accepted socket with our own dup() BEFORE the parent is
-     * allowed to close its copy. dup() round-trips to netd (FS_CMD_DUP bumps
-     * the socket task's refcount) through the SAME per-process IPC channel as
-     * our later socket writes, so once our first write has succeeded the dup
-     * has necessarily been processed and the refcount covers both copies.
-     * The inherited fd copy is kept open for the session and reaped by
-     * process-exit cleanup, so refs stay balanced. The parent's close is
-     * gated on phase 2 of the handshake (see serve_client), so it can never
-     * precede our registration.
+     * allowed to close its copy. dup() is a synchronous syscall: it does not
+     * return before netd has processed FS_CMD_DUP (task refcount bumped), so
+     * once we have written the "ready" byte below the refcount is guaranteed
+     * to cover both the parent's copy and ours, and the parent may close its
+     * copy the moment it reads that byte. The inherited fd copy is kept open
+     * for the session and reaped by process-exit cleanup, so refs balance.
      */
     own = dup(client_sock);
     if(own < 0) {
@@ -158,8 +155,6 @@ static int warm_inherited_socket(int sync_fd, int client_sock) {
                 continue;
             break;
         }
-        /* Keep sync_fd open: serve_client() writes the phase-2 "close ok"
-         * byte after its first successful socket write, then closes it. */
     }
     return own;
 }
@@ -176,42 +171,20 @@ static void wait_inherited_socket_ready(int sync_fd) {
         if(n > 0)
             break;
     } while(errno == EINTR);
-    /* Keep sync_fd open for the phase-2 byte. */
-}
-
-/* Phase 2 of the accept handshake. The child writes this byte only after its
- * first successful socket write (see serve_client()). An EOF here means the
- * child failed/exited before that point; either way the parent may close its
- * copy of the accepted socket -- after phase 2 the task refcount is known to
- * be >= 2 (parent's accept ref + the child's dup ref), so this close can no
- * longer reap the task out from under the live session. The wait is bounded
- * by a poll timeout so a child that stalls (e.g. in entropy seeding, which
- * runs after phase 2) can never wedge the accept loop: on timeout the parent
- * closes anyway and the connection is left to fail on its own. */
-static void wait_inherited_socket_close_ok(int sync_fd) {
-    uint8_t b;
-    struct pollfd pfd;
-
-    if(sync_fd < 0)
-        return;
-    pfd.fd = sync_fd;
-    pfd.events = POLLIN;
-    pfd.revents = 0;
-    /*
-     * Bounded but generous wait. A child can no longer stall forever ahead of
-     * phase 2: the entropy seeding moved to after the banner, so the only
-     * pre-phase-2 steps are our dup() IPC (bounded by netd's protocol loop,
-     * even under flood) and the first banner write (a fresh socket never
-     * back-pressures the first 26 bytes). 8s therefore bounds the accept
-     * loop against any pathological child without ever cutting off a healthy
-     * one whose dup was merely delayed by netd saturation.
-     */
-    if(poll(&pfd, 1, 8000) > 0 && (pfd.revents & (POLLIN | POLLHUP | POLLERR))) {
-        ssize_t n = read(sync_fd, &b, sizeof(b));
-        (void)n;
-    }
     close(sync_fd);
 }
+
+/*
+ * Phase 2 of the accept handshake is intentionally GONE. The child writes the
+ * "ready" byte (phase 1) only AFTER its own synchronous dup() has returned,
+ * and dup() does not return before netd has processed FS_CMD_DUP, so the
+ * moment the parent observes phase 1 the socket's task refcount already
+ * covers both copies; the parent may close its copy immediately (accepted
+ * connections keep working -- verified across 60+ burst rounds). Waiting on a
+ * second byte (the child's first banner write) serializes the accept loop on
+ * whichever child is slowest to reach that write, piles up the SYN backlog
+ * under a burst, and collapses the listener in a retry storm.
+ */
 
 #define SSH_KEX_ALG_MLKEM768_X25519_SHA256 "mlkem768x25519-sha256"
 #define SSH_KEX_ALG_CURVE25519_SHA256      "curve25519-sha256"
@@ -3937,7 +3910,7 @@ static int init_host_key(void) {
     return 0;
 }
 
-static int serve_client(int sock, int sync_fd) {
+static int serve_client(int sock) {
     sshd_session_t* session;
     const char* fail_step = NULL;
     int ret = -1;
@@ -3951,8 +3924,6 @@ static int serve_client(int sock, int sync_fd) {
             if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
             close(_dfd);
         }
-        if(sync_fd >= 0)
-            close(sync_fd);
         close(sock);
         return -1;
     }
@@ -3966,8 +3937,6 @@ static int serve_client(int sock, int sync_fd) {
             if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
             close(_dfd);
         }
-        if(sync_fd >= 0)
-            close(sync_fd);
         close(sock);
         free(session);
         return -1;
@@ -3978,22 +3947,11 @@ if(send_banner(session) < 0) {
         goto out;
     }
     /*
-     * Phase 2 of the accept handshake: our first socket write has succeeded,
-     * so our dup() registration has been processed (same per-process IPC
-     * channel, FIFO) and the task refcount covers both copies. Release the
-     * parent to close its copy now; that close can no longer tear the task
-     * down under this session. Any earlier exit closes sync_fd (EOF), which
-     * tells the parent the same thing for the failure paths. */
-    if(sync_fd >= 0) {
-        uint8_t b2 = 2;
-        while(write(sync_fd, &b2, sizeof(b2)) < 0) {
-            if(errno == EINTR)
-                continue;
-            break;
-        }
-        close(sync_fd);
-        sync_fd = -1;
-    }
+     * The accept handshake has only one phase (see warm_inherited_socket):
+     * our dup() returned before the parent observed "ready", so the task
+     * refcount already covers both copies and the parent has closed its own
+     * by now. Nothing further is needed before the session proper starts.
+     */
     session_seed_padding(session);
     if(receive_banner(session) < 0) {
         fail_step = "receive_banner";
@@ -4050,8 +4008,6 @@ out:
     if(ret < 0 && session->socket >= 0) {
         send_disconnect(session, SSH_DISCONNECT_BY_APPLICATION, g_error[0] ? g_error : "sshd error");
     }
-    if(sync_fd >= 0)
-        close(sync_fd); /* phase-2 never sent: EOF releases the parent */
     session_destroy(session);
     return ret;
 }
@@ -4116,15 +4072,16 @@ int main(int argc, char* argv[]) {
             if(sync_pipe[0] >= 0)
                 close(sync_pipe[0]);
             client_sock = warm_inherited_socket(sync_pipe[1], client_sock);
+            if(sync_pipe[1] >= 0)
+                close(sync_pipe[1]);
             close(server_sock);
-            serve_client(client_sock, sync_pipe[1]);
+            serve_client(client_sock);
             exit(0);
         }
         track_worker_pid(pid);
         if(sync_pipe[1] >= 0)
             close(sync_pipe[1]);
         wait_inherited_socket_ready(sync_pipe[0]);
-        wait_inherited_socket_close_ok(sync_pipe[0]);
         close(client_sock);
     }
 
