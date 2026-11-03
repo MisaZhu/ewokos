@@ -178,6 +178,7 @@ LIB_EWOKSYS_OBJS =  \
 	$(ARCH)/src/termios/termios.o \
 	$(ARCH)/src/fnmatch/fnmatch.o \
 	$(ARCH)/src/glob/glob.o \
+	$(ARCH)/src/regex/regex.o \
 	$(ARCH)/src/pwd/pwd.o \
 	$(ARCH)/src/grp/grp.o \
 	$(ARCH)/src/sys/inotify/inotify.o \

@@ -189,6 +189,21 @@ static char* find_unquoted_pipe(char* cmd) {
     return NULL;
 }
 
+/* Locate the next unquoted ';' command separator (bash-style). A ';'
+ * inside double quotes is treated as a literal character. Returns NULL
+ * when no separator remains. */
+static char* find_unquoted_semicolon(char* cmd) {
+    bool inQ = false;
+    while(*cmd != 0) {
+        if(*cmd == '"')
+            inQ = !inQ;
+        else if(!inQ && *cmd == ';')
+            return cmd;
+        cmd++;
+    }
+    return NULL;
+}
+
 static int do_stage_cmd(char* cmd) {
     char* proc = NULL;
     bool inQ = false;
@@ -309,6 +324,57 @@ static int run_cmd(char* cmd) {
     return do_stage_cmd(cmd);
 }
 
+/* Execute one ';'-separated segment: handles the optional '@' no-echo
+ * prefix, shell builtins, a trailing '&' for background, then forks and
+ * waits (or lets the child detach). Mirrors the previous top-level body
+ * of main() so each segment behaves like a standalone command line. */
+static void wait_child_detached(int32_t pid); /* fwd: defined below */
+static void exec_segment(char* cmd) {
+    while(*cmd == ' ' || *cmd == '\t')
+        cmd++;
+    if(cmd[0] == 0)
+        return;
+    if(cmd[0] == '#') /* comment: skip to end of segment */
+        return;
+
+    if(cmd[0] == '@')
+        cmd++;
+    else if(_script_mode)
+        printf("%s\n", cmd);
+
+    if(handle_shell_cmd(cmd) == 0)
+        return;
+    if(_terminated) /* builtin (exit) may have set this */
+        return;
+
+    int len = (int)strlen(cmd)-1;
+    int fg = 1;
+    if(len >= 0 && cmd[len] == '&') {
+        cmd[len] = 0;
+        fg = 0;
+    }
+
+    int child_pid = fork();
+    if(child_pid == 0) {
+        if(fg == 0)
+            proc_detach();
+        close_exec_fds();
+        int res = run_cmd(cmd);
+        exit(res);
+    }
+    else if(child_pid < 0) {
+        printf("fork failed! errno=%d\n", errno);
+    }
+    else if(fg != 0) {
+        ewok_waitpid(child_pid);
+    }
+    else {
+        /* background: make sure the child has detached before we go on
+         * (and possibly exit), or the kernel kills it with us. */
+        wait_child_detached(child_pid);
+    }
+}
+
 /* Not static: cmd_gets reprints the prompt after listing TAB candidates. */
 void prompt(void) {
     int uid = getuid();
@@ -417,42 +483,24 @@ int main(int argc, char* argv[]) {
 
         if(cmd[0] == '#')
             continue;
-        if(cmd[0] == '@')
-            cmd++;
-        else if(_script_mode)
-            printf("%s\n", cmd);
 
         add_history(cmdstr->cstr);
-        if(handle_shell_cmd(cmd) == 0)
-            continue;
 
-        int len = strlen(cmd)-1;
-        int fg = 1;
-        if(cmd[len] == '&') {
-            cmd[len] = 0;
-            fg = 0;
-        }	
-
-        int child_pid = fork();
-        if (child_pid == 0) {
-            //if(fg == 0 || _script_mode)
-            if(fg == 0)
-                proc_detach();
-            close_exec_fds();
-            int res = run_cmd(cmd);
-            str_free(cmdstr);	
-            return res;
-        }
-        else if(child_pid < 0) {
-            printf("fork failed! errno=%d\n", errno);
-        }
-        else if(fg != 0) {
-            ewok_waitpid(child_pid);
-        }
-        else {
-            /* background: make sure the child has detached before we go on
-             * (and possibly exit), or the kernel kills it with us. */
-            wait_child_detached(child_pid);
+        /* Split on unquoted ';' and run each segment in order (bash-style).
+         * Segments are terminated in place by writing '\0' over the ';', so
+         * the buffer is safe to hand to exec_segment() as a C string. Stops
+         * early once a segment sets _terminated (e.g. `exit`). */
+        char* seg = cmd;
+        while(_terminated == 0) {
+            char* sep = find_unquoted_semicolon(seg);
+            if(sep != NULL) {
+                *sep = 0;
+                exec_segment(seg);
+                seg = sep + 1;
+                continue;
+            }
+            exec_segment(seg);
+            break;
         }
     }
     if(fd_in > 0) //close initrd file
