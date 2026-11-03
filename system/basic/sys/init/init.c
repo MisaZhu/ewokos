@@ -268,7 +268,8 @@ static int start_usb_host(void) {
 }
 
 static int start_bootfs(void) {
-    return run_before_vfs("/sbin/sdfsd -b /");
+    //return run_before_vfs("/sbin/sdfsd -b /");
+    return run_before_vfs("/sbin/sdfsd");
 }
 
 static int try_usb_rootfs(void) {
