@@ -52,6 +52,10 @@
 /* REQUESTs retried with the same xid before falling back to re-discovery. */
 #define DHCP_REQUEST_RETRY_MAX 3
 #define DHCP_DEFAULT_LEASE   3600
+/* Renewal retries back off exponentially from DHCP_RETRY_INTERVAL up to
+ * this cap, so an unreachable server does not put a 3s broadcast storm on
+ * the air for the whole remaining half-lease. */
+#define DHCP_RENEW_RETRY_MAX 60
 
 enum {
     DHCP_STATE_INIT = 0,
@@ -127,6 +131,7 @@ typedef struct dhcp_client{
     int   validity; 
     int   state;
     int   retries;   /* REQUEST retries within the current xid */
+    int   renew_retry; /* current RENEWING retry interval in seconds */
 
 }dhcp_client_t;
 
@@ -440,7 +445,9 @@ dhcp_renew(struct net_device *dev, dhcp_client_t *dhc)
     }
     dhc->xid = dhcp_generate_xid(dev);
     dhc->state = DHCP_STATE_RENEWING;
+    dhc->renew_retry = DHCP_RETRY_INTERVAL;
     gettimeofday(&dhc->update, NULL);
+    slog("DHCP renew: T1 reached, lease=%ds, sending REQUEST\n", dhc->validity);
     dhcp_send(dev, dhc, DHCP_OPTION_REQUEST);
 }
 
@@ -655,10 +662,15 @@ done:
     if (dhc->state == DHCP_STATE_RENEWING &&
         dhcp->yiaddr != 0 && dhcp->yiaddr != dhc->ip) {
         /*
-         * RFC 2131 renewal should extend the current lease. Do not hot-swap
-         * the live interface address out from under established TCP PCBs.
+         * RFC 2131: an ACK carrying a different address during RENEWING is a
+         * legitimate rebind (the server moved us). Accept it now instead of
+         * ignoring it and waiting for the lease to expire: expiry would end
+         * in the same address change anyway, but through a re-DISCOVER window
+         * with no valid lease, which is exactly how inbound reachability used
+         * to break silently. ip_iface_update() below is the lease-change path
+         * and revalidates neighbors on the new address.
          */
-        return;
+        slog("DHCP renew: server moved lease, accepting new address\n");
     }
 
     if (dhcp->yiaddr != 0) {
@@ -673,7 +685,18 @@ done:
     if (server_id != 0)
         dhc->server_id = server_id;
     dhc->last_ip = dhc->ip;
-    dhc->validity = lease_time > 0 ? lease_time : DHCP_DEFAULT_LEASE;
+    if (lease_time > 0) {
+        dhc->validity = lease_time;
+    } else if (dhc->state != DHCP_STATE_RENEWING) {
+        dhc->validity = DHCP_DEFAULT_LEASE;
+    }
+    /*
+     * Servers may omit lease-time on renewal ACKs (RFC 2131 4.3.2 only
+     * requires it on the original offer path). Keep the known validity in
+     * that case: clamping a 24h lease to the 1h default here would move the
+     * expiry 12x earlier and re-DISCOVER (potentially onto a new address)
+     * while the real lease is still perfectly valid.
+     */
     dhc->state = DHCP_STATE_BOUND;
     gettimeofday(&dhc->update, NULL);
     dhc->lease_start = dhc->update;
@@ -696,6 +719,7 @@ dhcp_timer(void)
             timersub(&now, &dhc->lease_start, &lease_diff);
             if (lease_diff.tv_sec >= dhc->validity) {
                 /* lease fully expired: fall back to re-discovery */
+                slog("DHCP lease expired (validity=%ds): re-discovering\n", dhc->validity);
                 dhcp_reset(dhc->dev, dhc);
             } else if (dhc->state == DHCP_STATE_BOUND) {
                 /*
@@ -707,9 +731,16 @@ dhcp_timer(void)
                 if (lease_diff.tv_sec >= dhc->validity / 2) {
                     dhcp_renew(dhc->dev, dhc);
                 }
-            } else if (diff.tv_sec >= DHCP_RETRY_INTERVAL) {
-                /* renewal unanswered: keep retrying until the lease expires */
+            } else if (diff.tv_sec >= dhc->renew_retry) {
+                /* renewal unanswered: retry with exponential backoff until
+                 * the lease expires */
                 gettimeofday(&dhc->update, NULL);
+                if (dhc->renew_retry < DHCP_RENEW_RETRY_MAX) {
+                    dhc->renew_retry *= 2;
+                    if (dhc->renew_retry > DHCP_RENEW_RETRY_MAX) {
+                        dhc->renew_retry = DHCP_RENEW_RETRY_MAX;
+                    }
+                }
                 dhcp_send(dhc->dev, dhc, DHCP_OPTION_REQUEST);
             }
         } else if (diff.tv_sec >= DHCP_RETRY_INTERVAL) {
