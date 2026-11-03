@@ -136,16 +136,41 @@ static int warm_inherited_socket(int sync_fd, int client_sock) {
      */
     own = dup(client_sock);
     if(own < 0) {
-        /* Re-owning failed: fall back to the inherited fd (the connection
-         * will likely fail, but this can never crash or wedge anything). */
-        own = client_sock;
+        /*
+         * Re-owning failed. Do NOT fall back to the inherited fd: the task
+         * refcount then still covers only the parent's copy, so the parent's
+         * close (triggered by our "ready" byte) can reap the task out from
+         * under us and the first write fails EBADF. Instead signal the parent
+         * by closing sync_fd (EOF: never send "ready") and let the caller
+         * exit; the parent cleans the connection up. Record why it failed. */
+        int _dfd = open("/sshd_fail.log", O_WRONLY | O_CREAT | O_APPEND, 0644);
+        if(_dfd >= 0) {
+            char _dbuf[80];
+            int _dl = snprintf(_dbuf, sizeof(_dbuf), "warm dup failed errno=%d\n", errno);
+            if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
+            close(_dfd);
+        }
+        return -1;
     }
 
     if(own >= 0) {
+        /*
+         * A REAL netd round-trip before signalling "ready": poll(POLLOUT)
+         * consults netd (writability is driver state), so it rides the same
+         * per-process IPC channel as our dup(). By the time it returns, the
+         * dup's FS_CMD_DUP (queued before it on that channel) has been
+         * processed and the task refcount covers both copies. dup() itself
+         * is fire-and-forget from the kernel's point of view: it can return
+         * before netd has bumped the refcount, and the parent's close rides
+         * a DIFFERENT IPC channel, so "dup returned then ready byte" alone
+         * does not order the parent's close after the refcount bump. The
+         * poll is that ordering barrier. A timeout/error here means the
+         * connection is unusable anyway; fall through and let it fail.
+         */
         pfd.fd = own;
-        pfd.events = 0;
+        pfd.events = POLLOUT;
         pfd.revents = 0;
-        (void)poll(&pfd, 1, 0);
+        (void)poll(&pfd, 1, 2000);
     }
 
     if(sync_fd >= 0) {
@@ -159,31 +184,17 @@ static int warm_inherited_socket(int sync_fd, int client_sock) {
     return own;
 }
 
-static void wait_inherited_socket_ready(int sync_fd) {
-    uint8_t ready;
-
-    if(sync_fd < 0)
-        return;
-    do {
-        ssize_t n = read(sync_fd, &ready, sizeof(ready));
-        if(n == 0)
-            break; /* child gone: nothing more to wait for */
-        if(n > 0)
-            break;
-    } while(errno == EINTR);
-    close(sync_fd);
-}
-
 /*
- * Phase 2 of the accept handshake is intentionally GONE. The child writes the
- * "ready" byte (phase 1) only AFTER its own synchronous dup() has returned,
- * and dup() does not return before netd has processed FS_CMD_DUP, so the
- * moment the parent observes phase 1 the socket's task refcount already
- * covers both copies; the parent may close its copy immediately (accepted
- * connections keep working -- verified across 60+ burst rounds). Waiting on a
- * second byte (the child's first banner write) serializes the accept loop on
- * whichever child is slowest to reach that write, piles up the SYN backlog
- * under a burst, and collapses the listener in a retry storm.
+ * The accept handshake has two non-blocking phases (see the listener loop):
+ * phase 1 "ready" is written by warm_inherited_socket() after the child's
+ * dup() and a POLLOUT barrier; phase 2 is written by serve_client() after
+ * the first successful socket write. The listener never blocks on either --
+ * it sweeps the sync pipes with poll(0) and closes its socket copy only on
+ * phase 2 / child EOF / sweep-age timeout. dup() is fire-and-forget at the
+ * kernel level (it may return before netd registers the ref bump) and the
+ * parent's close rides a different IPC channel, so phase 2 (trailing the
+ * dup registration on the child's own FIFO channel) is the only reliable
+ * ordering barrier; phasing-1 semantics alone cannot order the close.
  */
 
 #define SSH_KEX_ALG_MLKEM768_X25519_SHA256 "mlkem768x25519-sha256"
@@ -3910,7 +3921,7 @@ static int init_host_key(void) {
     return 0;
 }
 
-static int serve_client(int sock) {
+static int serve_client(int sock, int sync_fd) {
     sshd_session_t* session;
     const char* fail_step = NULL;
     int ret = -1;
@@ -3924,6 +3935,8 @@ static int serve_client(int sock) {
             if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
             close(_dfd);
         }
+        if(sync_fd >= 0)
+            close(sync_fd);
         close(sock);
         return -1;
     }
@@ -3937,6 +3950,8 @@ static int serve_client(int sock) {
             if(_dl > 0) { ssize_t _wr = write(_dfd, _dbuf, (size_t)_dl); (void)_wr; }
             close(_dfd);
         }
+        if(sync_fd >= 0)
+            close(sync_fd);
         close(sock);
         free(session);
         return -1;
@@ -3947,11 +3962,18 @@ if(send_banner(session) < 0) {
         goto out;
     }
     /*
-     * The accept handshake has only one phase (see warm_inherited_socket):
-     * our dup() returned before the parent observed "ready", so the task
-     * refcount already covers both copies and the parent has closed its own
-     * by now. Nothing further is needed before the session proper starts.
+     * Phase 2: our first ACTUAL socket write succeeded. This is the only
+     * reliable "the task is ours" barrier -- dup() is fire-and-forget at the
+     * kernel level and cannot order anything, but our write rode the same
+     * per-process channel as the dup registration and trails it, so netd has
+     * the ref bump by now. The listener closes its copy only on this byte.
      */
+    if(sync_fd >= 0) {
+        uint8_t b2 = 2;
+        (void)write(sync_fd, &b2, sizeof(b2));
+        close(sync_fd);
+        sync_fd = -1;
+    }
     session_seed_padding(session);
     if(receive_banner(session) < 0) {
         fail_step = "receive_banner";
@@ -4005,6 +4027,8 @@ out:
             close(dfd);
         }
     }
+    if(sync_fd >= 0)
+        close(sync_fd); /* phase 2 never sent: EOF releases the parent's close */
     if(ret < 0 && session->socket >= 0) {
         send_disconnect(session, SSH_DISCONNECT_BY_APPLICATION, g_error[0] ? g_error : "sshd error");
     }
@@ -4035,12 +4059,77 @@ int main(int argc, char* argv[]) {
      * At this point the listening socket and all boot-time dependencies are
      * ready, so the daemon no longer needs to touch the RAMFS image. */
     ipc_ready();
+    /*
+     * Accepted sockets are closed by the LISTENER only after the child has
+     * written its phase-2 byte (banner written), or on child exit (EOF), or
+     * after a bounded sweep age. The parent NEVER blocks on a child: dup()
+     * is fire-and-forget from the kernel's side (it can return before netd
+     * has registered the ref bump), and the parent's close rides a different
+     * IPC channel, so any synchronisation based on "dup returned" or on a
+     * blocking wait can either tear the task out from under the child (EBADF)
+     * or serialize the accept loop into burst collapse. Phase 2 -- the
+     * child's first ACTUAL socket write -- is the only reliable barrier: it
+     * trails the dup registration on the child's own FIFO IPC channel.
+     */
+    struct pending_conn {
+        struct pending_conn *next;
+        int sync_fd;
+        int sock;
+        int age;
+    } *pending = NULL;
     while(true) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int sync_pipe[2] = {-1, -1};
+        int i;
 
         reap_finished_workers();
+        /* Non-blocking sweep of pending phase-2 waits. */
+        {
+            struct pending_conn **pp = &pending;
+            while(*pp != NULL) {
+                struct pending_conn *p = *pp;
+                struct pollfd pf;
+                uint8_t b = 0;
+                ssize_t n;
+
+                if(++(p->age) > 1600) { /* ~10-30s: child wedged, force-drop */
+                    close(p->sock);
+                    close(p->sync_fd);
+                    *pp = p->next;
+                    free(p);
+                    continue;
+                }
+                pf.fd = p->sync_fd;
+                pf.events = POLLIN;
+                pf.revents = 0;
+                if(poll(&pf, 1, 0) > 0 &&
+                        (pf.revents & (POLLIN | POLLHUP | POLLERR))) {
+                    n = read(p->sync_fd, &b, sizeof(b));
+                    if(n == 1 && b == 2) {
+                        /* phase 2: child's banner write succeeded -> its dup
+                         * registration is done, close is now safe. */
+                        close(p->sock);
+                        close(p->sync_fd);
+                        *pp = p->next;
+                        free(p);
+                        continue;
+                    }
+                    if(n <= 0) {
+                        /* EOF: child exited before phase 2; task goes away
+                         * with it, our close cannot race anything. */
+                        close(p->sock);
+                        close(p->sync_fd);
+                        *pp = p->next;
+                        free(p);
+                        continue;
+                    }
+                    /* n == 1 && b == 1: phase 1 (re-own done), keep waiting. */
+                }
+                pp = &(p->next);
+            }
+        }
+
         int client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_len);
         if(client_sock < 0) {
             usleep(10000);
@@ -4072,17 +4161,36 @@ int main(int argc, char* argv[]) {
             if(sync_pipe[0] >= 0)
                 close(sync_pipe[0]);
             client_sock = warm_inherited_socket(sync_pipe[1], client_sock);
-            if(sync_pipe[1] >= 0)
-                close(sync_pipe[1]);
             close(server_sock);
-            serve_client(client_sock);
+            if(client_sock < 0) {
+                if(sync_pipe[1] >= 0)
+                    close(sync_pipe[1]);
+                exit(1);  /* re-own failed; parent sees EOF on sync_pipe */
+            }
+            serve_client(client_sock, sync_pipe[1]);  /* writes phase 2, closes it */
             exit(0);
         }
         track_worker_pid(pid);
         if(sync_pipe[1] >= 0)
             close(sync_pipe[1]);
-        wait_inherited_socket_ready(sync_pipe[0]);
-        close(client_sock);
+        if(sync_pipe[0] >= 0) {
+            struct pending_conn *pc = (struct pending_conn*)calloc(1, sizeof(*pc));
+            if(pc == NULL) {
+                /* Cannot track: close now; the child still holds its dup and
+                 * the session works, the task is only reaped early. */
+                close(sync_pipe[0]);
+                close(client_sock);
+            } else {
+                pc->sync_fd = sync_pipe[0];
+                pc->sock = client_sock;
+                pc->age = 0;
+                pc->next = pending;
+                pending = pc;
+            }
+        } else {
+            close(client_sock);
+        }
+        (void)i;
     }
 
     return 0;
