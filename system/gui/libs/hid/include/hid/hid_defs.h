@@ -22,6 +22,10 @@
 #define HID_REPORT_ID_KEYBOARD 2u
 #define HID_REPORT_ID_TOUCH 3u
 #define HID_REPORT_ID_JOYSTICK 4u
+/* Precision-Touchpad (multi-contact digitizer touch pad) frames. A PTP
+   touchpad shares the mouse report id 1 for its buttons/pointer report,
+   so its digitizer contacts get their own id here. */
+#define HID_REPORT_ID_TOUCHPAD 5u
 
 /*
  * The joystick report id carries a fixed HID_JOYSTICK_RAW_SIZE-stride frame,
@@ -44,10 +48,21 @@
  */
 #define HID_JOYSTICK_RAW_SIZE 24
 
+/* Windows Precision Touchpad multi-contact frame. The PTP spec requires a
+   device to report at least five simultaneous contacts, so the fixed frame
+   carries that many slots; contact_count tells how many are valid. A frame
+   is exactly HID_TOUCHPAD_EVENT_SIZE bytes, so a consumer can batch-drain
+   the subscriber queue with a fixed stride. */
+#define HID_TOUCHPAD_MAX_CONTACTS 5
+/* 8-byte header (buttons/contact_count/in_range/reserved + x_max/y_max)
+   plus HID_TOUCHPAD_MAX_CONTACTS packed contact slots of 10 bytes each */
+#define HID_TOUCHPAD_EVENT_SIZE (8 + HID_TOUCHPAD_MAX_CONTACTS * 10) /* 58 */
+
 #define HID_QUEUE_DEPTH 32
-/* wide enough for a raw gamepad report prefix; keyboard/mouse events still
-   carry their own smaller sizes, so their framing is unaffected */
-#define HID_MAX_EVENT_SIZE HID_JOYSTICK_RAW_SIZE
+/* wide enough for the largest fixed event frame in the subscriber queues:
+   a raw gamepad report prefix (24) or a multi-contact touchpad frame (58).
+   Smaller events are zero-padded to this stride in the queue. */
+#define HID_MAX_EVENT_SIZE HID_TOUCHPAD_EVENT_SIZE
 #define HID_POINTER_EVENT_SIZE 7
 #define HID_KEYBOARD_EVENT_SIZE 8
 #define HID_MAX_REPORT 64
@@ -77,6 +92,14 @@
 #define HID_USAGE_TOUCH_SCREEN 0x04
 #define HID_USAGE_TOUCH_PAD 0x05
 #define HID_USAGE_FINGER 0x22
+/* Digitizer-page usages used by the Precision Touchpad multi-contact
+   parser: per-contact fields and the report-level contact count */
+#define HID_USAGE_IN_RANGE 0x32
+#define HID_USAGE_CONFIDENCE 0x47
+#define HID_USAGE_WIDTH 0x48
+#define HID_USAGE_HEIGHT 0x49
+#define HID_USAGE_CONTACT_ID 0x51
+#define HID_USAGE_CONTACT_COUNT 0x54
 #define HID_USAGE_TIP_SWITCH 0x42
 #define HID_USAGE_X 0x30
 #define HID_USAGE_Y 0x31

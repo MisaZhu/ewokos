@@ -16,12 +16,14 @@
 #include <stdbool.h>
 #include <hid/hid_defs.h>
 #include <hid/hid_joystick.h>
+#include <hid/hid_touchpad.h>
 
 typedef enum {
     HID_DEV_TYPE_UNKNOWN = 0,
     HID_DEV_TYPE_KEYBOARD,
     HID_DEV_TYPE_MOUSE,
     HID_DEV_TYPE_TOUCH,
+    HID_DEV_TYPE_TOUCHPAD, /* multi-contact digitizer touch pad (PTP) */
     HID_DEV_TYPE_JOYSTICK,
 } hid_dev_type_t;
 
@@ -130,6 +132,11 @@ bool hid_probe_touch_report(const uint8_t* desc, int len, touch_parser_t* out);
 int hid_parse_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out);
 bool hid_probe_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out);
 
+/* extract the multi-contact bit layout of a Precision Touchpad digitizer
+   report from a descriptor */
+int hid_parse_touchpad_report(const uint8_t* desc, int len, touchpad_parser_t* out);
+bool hid_probe_touchpad_report(const uint8_t* desc, int len, touchpad_parser_t* out);
+
 /* extract the bit layout of a joystick/gamepad report from a descriptor */
 int hid_parse_joystick_report(const uint8_t* desc, int len, joystick_parser_t* out);
 bool hid_probe_joystick_report(const uint8_t* desc, int len, joystick_parser_t* out);
@@ -146,6 +153,12 @@ int mouse_normalize_report(const mouse_parser_t* m,
         const uint8_t* report, int len, uint8_t* out);
 int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
         const uint8_t* report, int len, uint8_t* out);
+
+/* normalize one raw touchpad digitizer report into a fixed-size
+   touchpad_evt_t frame (HID_TOUCHPAD_EVENT_SIZE bytes). Returns 0 on
+   success, -1 when the report does not match the parser. */
+int touchpad_normalize_report(const touchpad_parser_t* p,
+        const uint8_t* report, int len, touchpad_evt_t* out);
 
 /* Normalize a raw joystick/gamepad report straight into a js_evt_t using the
    descriptor-driven layout. Returns 0 on success (out->connected set) or -1
