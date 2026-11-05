@@ -120,28 +120,11 @@ void sync_exception_handle(uint64_t esr, uint64_t far, context_t* ctx){
         return;
     }
 
-    /*
-     * EC == 0 (unknown reason): the recurring D0 external-abort family
-     * arrives through the SYNC vector with EC=0 (async/imprecise
-     * external abort; FAR in the low-RAM 0x2xxxx-0x34xxx band whenever
-     * the V3D runs).  Old behaviour dumped and killed the current
-     * process, taking g2dd and bystanders down although the GPU jobs
-     * complete.  Swallow it like serror_swallow: log (rate limited),
-     * set PSTATE.A in the saved SPSR so it stays masked, and return to
-     * the interrupted context.
-     */
-    if(EC == 0x00) {
-        static uint32_t ec0_cnt = 0;
-        uint32_t n = ++ec0_cnt;
-
-        if(n <= 8 || (n & 0xFF) == 0)
-            printf("kernel: ec0 #%u far=%08x%08x pc=%08x%08x spsr=%08x%08x pid=%d\n",
-                   n,
-                   SPLIT(far), SPLIT(ctx->pc), SPLIT(ctx->spsr_el1),
-                   cproc ? (int)cproc->info.pid : -1);
-        ctx->spsr_el1 |= 0x100u;    /* PSTATE.A: mask async aborts */
-        return;
-    }
+    /* EC=0 includes undefined instructions, not asynchronous SError. FAR
+     * is not valid for this class. Returning to the same PC, even with
+     * PSTATE.A set, repeats a synchronous fault forever. Handle it through
+     * the normal diagnostic/termination path below; SError has its own
+     * vector and must not be inferred from a stale FAR value. */
 
     uint32_t abort_core = abort_guard_enter("sync");
     printf("\n--------------------core dump infomation------------------\n");
