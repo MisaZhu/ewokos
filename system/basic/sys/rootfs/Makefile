@@ -20,5 +20,7 @@ $(SDFSD): $(SDFSD_OBJS) \
 		$(BUILD_DIR)/lib/libext3.a 
 	$(LD) -Ttext=100 $(SDFSD_OBJS) -o $(SDFSD) $(LDFLAGS)  $(BSP_LFLAGS) -lsd -lext3  $(EWOK_LIBC) 
 
+$(ARCH)/sdfsd.o: usb_ext_read.h
+
 clean:
 	rm -fr $(SDFSD) $(SDFSD_OBJS)

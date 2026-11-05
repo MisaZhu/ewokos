@@ -195,7 +195,9 @@ static int usb_msc_io(int write, int32_t sector, void* buf, uint32_t count) {
     proto_t in, out;
     int ret = -1;
 
-    if (count == 0 || count > USBMSC_MAX_SECTORS || sector < 0)
+    if (count == 0 || count > USBMSC_MAX_SECTORS || sector < 0 ||
+            (uint64_t)(uint32_t)sector + _usb_partition_start + count >
+                    0x100000000ULL)
         return -1;
     PF->init(&in)->addi(&in,
             (ewokos_addr_t)((uint32_t)sector + _usb_partition_start))->addi(&in, count);
@@ -220,22 +222,7 @@ static int usb_msc_io(int write, int32_t sector, void* buf, uint32_t count) {
     return ret;
 }
 
-static int32_t usb_ext_read_block(int32_t block, void* buf) {
-    uint32_t block_size = sd_get_block_size();
-    uint32_t sectors = block_size / SECTOR_SIZE;
-    uint8_t* p = (uint8_t*)buf;
-    if (block < 0 || sectors == 0 || block_size % SECTOR_SIZE != 0)
-        return -1;
-    /* Some MSC bridges stall a READ10 data phase larger than one sector.
-     * Keep ext3 block semantics while issuing the transport as single-sector
-     * requests; this also keeps journal recovery compatible with those disks. */
-    for (uint32_t i = 0; i < sectors; i++) {
-        if (usb_msc_io(0, block * (int32_t)sectors + (int32_t)i,
-                p + i * SECTOR_SIZE, 1) != 0)
-            return -1;
-    }
-    return 0;
-}
+#include "usb_ext_read.h"
 
 static int32_t usb_ext_write_block(int32_t block, const void* buf) {
     uint32_t block_size = sd_get_block_size();
@@ -247,30 +234,6 @@ static int32_t usb_ext_write_block(int32_t block, const void* buf) {
         if (usb_msc_io(1, block * (int32_t)sectors + (int32_t)i,
                 (void*)(p + i * SECTOR_SIZE), 1) != 0)
             return -1;
-    }
-    return 0;
-}
-
-static int32_t usb_ext_read_blocks(int32_t block, void* buf, uint32_t count) {
-    uint32_t block_size = sd_get_block_size();
-    uint32_t sectors = block_size / SECTOR_SIZE;
-    uint8_t* p = (uint8_t*)buf;
-    if (block < 0 || sectors == 0 || block_size % SECTOR_SIZE != 0)
-        return -1;
-    while (count != 0) {
-        uint32_t blocks = count;
-        if (blocks * sectors > USBMSC_MAX_SECTORS)
-            blocks = USBMSC_MAX_SECTORS / sectors;
-        if (blocks == 0)
-            return -1;
-        for (uint32_t i = 0; i < blocks; i++) {
-            if (usb_ext_read_block(block + (int32_t)i,
-                    p + i * block_size) != 0)
-                return -1;
-        }
-        block += (int32_t)blocks;
-        p += blocks * block_size;
-        count -= blocks;
     }
     return 0;
 }
