@@ -55,8 +55,8 @@ static int32_t ext3_read_indirect_block(ext3_t* ext3, uint32_t blk, uint32_t* bu
  * Keep its indirect-pointer snapshot private to this read, rather than
  * replacing the global deferred-write cache under sdfsd's shared lock. */
 typedef struct {
-    uint32_t block;
-    uint32_t pointers[EXT3_MAX_BLOCK_SIZE / sizeof(uint32_t)];
+    uint32_t block[3];
+    uint32_t pointers[3][EXT3_MAX_BLOCK_SIZE / sizeof(uint32_t)];
 } ext3_read_map_t;
 
 /* RAM caches for the "one bitmap / one indirect block at a time" access
@@ -281,9 +281,8 @@ static int32_t ext3_write_blocks_io(ext3_t* ext3, int32_t block, const void* buf
  */
 static int32_t ext3_map_data_block(ext3_t* ext3, EXT3_INODE* node, int32_t lbk,
         int32_t* blk, ext3_read_map_t* map) {
-    uint32_t entries_per_block = ext3_indirect_entries(ext3);
-    uint32_t ptr_buf[EXT3_MAX_BLOCK_SIZE / sizeof(uint32_t)];
-
+    uint32_t entries = ext3_indirect_entries(ext3);
+    uint32_t scratch[EXT3_MAX_BLOCK_SIZE / sizeof(uint32_t)];
     *blk = 0;
     if(lbk < 0)
         return -1;
@@ -291,68 +290,40 @@ static int32_t ext3_map_data_block(ext3_t* ext3, EXT3_INODE* node, int32_t lbk,
         *blk = node->i_block[lbk];
         return 0;
     }
-    else if(lbk < (int32_t)(entries_per_block + 12)) {
-        uint32_t* indirect;
-        if(node->i_block[12] == 0)
-            return 0;
+
+    uint32_t index = (uint32_t)lbk - 12;
+    uint32_t span = entries;
+    unsigned depth = 1;
+    while(index >= span && depth < 3) {
+        index -= span;
+        span *= entries;
+        depth++;
+    }
+    if(index >= span)
+        return -1;
+    uint32_t block = node->i_block[11 + depth];
+    uint32_t stride = span / entries;
+    for(unsigned level = depth; level > 0; level--) {
+        if(block == 0)
+            return 0; /* sparse subtree */
+        uint32_t* pointers = scratch;
         if(map != NULL) {
-            if(map->block != node->i_block[12]) {
-                if(ext3_read_indirect_block(ext3, node->i_block[12], map->pointers) != 0)
+            unsigned slot = level - 1;
+            pointers = map->pointers[slot];
+            if(map->block[slot] != block) {
+                if(ext3_read_indirect_block(ext3, block, pointers) != 0)
                     return -1;
-                map->block = node->i_block[12];
+                map->block[slot] = block;
             }
-            indirect = map->pointers;
         }
-        else {
-            if(ext3_read_indirect_block(ext3, node->i_block[12], ptr_buf) != 0)
-                return -1;
-            indirect = ptr_buf;
-        }
-        *blk = (int32_t)indirect[lbk - 12];
-        return 0;
+        else if(ext3_read_indirect_block(ext3, block, pointers) != 0)
+            return -1;
+        block = pointers[index / stride];
+        index %= stride;
+        stride /= entries;
     }
-    else if(lbk < (int32_t)(entries_per_block * entries_per_block + entries_per_block + 12)) {
-        int32_t count = lbk - 12 - (int32_t)entries_per_block;
-        int32_t num = count / (int32_t)entries_per_block;
-        int32_t pos_offset = count % (int32_t)entries_per_block;
-        uint32_t indirect1[EXT3_MAX_BLOCK_SIZE / sizeof(uint32_t)];
-        if(node->i_block[13] == 0)
-            return 0;
-        if(ext3_read_blk(ext3, node->i_block[13], (char*)indirect1) != 0)
-            return -1;
-        if(indirect1[num] == 0)
-            return 0;
-        if(ext3_read_blk(ext3, indirect1[num], (char*)ptr_buf) != 0)
-            return -1;
-        *blk = (int32_t)ptr_buf[pos_offset];
-        return 0;
-    }
-    else if(lbk < (int32_t)(entries_per_block * entries_per_block * entries_per_block +
-            entries_per_block * entries_per_block + entries_per_block + 12)) {
-        int32_t count = lbk - 12 - (int32_t)entries_per_block -
-            (int32_t)(entries_per_block * entries_per_block);
-        int32_t num1 = count / (int32_t)(entries_per_block * entries_per_block);
-        int32_t rem = count % (int32_t)(entries_per_block * entries_per_block);
-        int32_t num2 = rem / (int32_t)entries_per_block;
-        int32_t pos_offset = rem % (int32_t)entries_per_block;
-        uint32_t indirect1[EXT3_MAX_BLOCK_SIZE / sizeof(uint32_t)];
-        uint32_t indirect2[EXT3_MAX_BLOCK_SIZE / sizeof(uint32_t)];
-        if(node->i_block[14] == 0)
-            return 0;
-        if(ext3_read_blk(ext3, node->i_block[14], (char*)indirect1) != 0)
-            return -1;
-        if(indirect1[num1] == 0)
-            return 0;
-        if(ext3_read_blk(ext3, indirect1[num1], (char*)indirect2) != 0)
-            return -1;
-        if(indirect2[num2] == 0)
-            return 0;
-        if(ext3_read_blk(ext3, indirect2[num2], (char*)ptr_buf) != 0)
-            return -1;
-        *blk = (int32_t)ptr_buf[pos_offset];
-        return 0;
-    }
-    return -1;
+    *blk = (int32_t)block;
+    return 0;
 }
 
 static int32_t ext3_get_data_block(ext3_t* ext3, EXT3_INODE* node, int32_t lbk, int32_t* blk) {
@@ -1076,7 +1047,7 @@ int32_t ext3_read_block(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbyte
 
 int32_t ext3_read(ext3_t* ext3, EXT3_INODE* node, char *buf, int32_t nbytes, off_t offset) {
     ext3_read_map_t map;
-    map.block = 0;
+    memset(map.block, 0, sizeof(map.block));
     char* p = buf;
     int32_t ret = nbytes;
     off_t avil = (off_t)ext3_inode_file_size(node) - offset;

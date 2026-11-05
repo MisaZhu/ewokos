@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <bsp/bsp_sd.h>
 #include <ewoksys/usbmsc.h>
+#include <ewoksys/kernel_tic.h>
 
 #if defined(__has_include)
 # if __has_include(<q8b_platform.h>)
@@ -45,13 +46,35 @@
  *   and would otherwise deadlock waiting on a locked-out sdfsd worker.
  */
 static pthread_rwlock_t _fs_lock = {0};
+static usbfs_stats_t _io_stats;
+
+static uint32_t profile_us(void) {
+    uint64_t ns = 0;
+    kernel_tic_nsec(&ns);
+    return (uint32_t)(ns / 1000);
+}
+
+static void profile_lock(uint32_t start, int write) {
+    uint32_t elapsed = profile_us() - start;
+    uint32_t* total = write ? &_io_stats.write_wait_us : &_io_stats.read_wait_us;
+    uint32_t* maximum = write ? &_io_stats.write_wait_max_us : &_io_stats.read_wait_max_us;
+    __atomic_fetch_add(write ? &_io_stats.writers : &_io_stats.readers, 1, __ATOMIC_RELAXED);
+    __atomic_fetch_add(total, elapsed, __ATOMIC_RELAXED);
+    uint32_t old = __atomic_load_n(maximum, __ATOMIC_RELAXED);
+    while (elapsed > old && !__atomic_compare_exchange_n(maximum, &old, elapsed,
+                0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {}
+}
 
 static inline void fs_rdlock(void) {
+    uint32_t start = profile_us();
     pthread_rwlock_rdlock(&_fs_lock);
+    profile_lock(start, 0);
 }
 
 static inline void fs_wrlock(void) {
+    uint32_t start = profile_us();
     pthread_rwlock_wrlock(&_fs_lock);
+    profile_lock(start, 1);
 }
 
 static inline void fs_unlock(void) {
@@ -204,6 +227,7 @@ static int usb_msc_io(int write, int32_t sector, void* buf, uint32_t count) {
     if (write)
         PF->add(&in, buf, count * SECTOR_SIZE);
     PF->init(&out);
+    uint32_t start = profile_us();
     if (dev_cntl_by_pid(_usb_dev_pid, write ? USBMSC_CMD_WRITE : USBMSC_CMD_READ,
             &in, &out) == 0) {
         if (write) {
@@ -217,6 +241,9 @@ static int usb_msc_io(int write, int32_t sector, void* buf, uint32_t count) {
             }
         }
     }
+    __atomic_fetch_add(&_io_stats.io_calls, 1, __ATOMIC_RELAXED);
+    __atomic_fetch_add(&_io_stats.io_bytes, count * SECTOR_SIZE, __ATOMIC_RELAXED);
+    __atomic_fetch_add(&_io_stats.io_us, profile_us() - start, __ATOMIC_RELAXED);
     PF->clear(&in);
     PF->clear(&out);
     return ret;
@@ -900,6 +927,20 @@ static int usb_wait_ready(void) {
     return -1;
 }
 
+static int sdext_dev_cntl(vdevice_t* dev, int from_pid, int cmd,
+        proto_t* in, proto_t* out, void* p) {
+    (void)dev; (void)from_pid; (void)in; (void)p;
+    if (cmd != USBFS_CMD_STATS)
+        return -1;
+    usbfs_stats_t stats;
+    uint32_t* dst = (uint32_t*)&stats;
+    uint32_t* src = (uint32_t*)&_io_stats;
+    for (unsigned i = 0; i < sizeof(stats) / sizeof(uint32_t); i++)
+        dst[i] = __atomic_load_n(&src[i], __ATOMIC_RELAXED);
+    PF->add(out, &stats, sizeof(stats));
+    return 0;
+}
+
 int main(int argc, char** argv) {
     const char* mount_point = "/";
     int sd_mode = 1;
@@ -1004,6 +1045,7 @@ int main(int argc, char** argv) {
             (ext3_has_journal(&ext3) ? "rootfs:ext3" : "rootfs:ext2"));
     dev.mount = sdext_mount;
     dev.read = sdext_read;
+    dev.dev_cntl = sdext_dev_cntl;
     dev.write = readonly ? NULL : sdext_write;
     dev.create = readonly ? NULL : sdext_create;
     dev.open = sdext_open;
