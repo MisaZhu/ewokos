@@ -50,6 +50,13 @@ extern void bsp_usb_set_msc_auto_mount(bool enabled) __attribute__((weak));
 #define USB_IDLE_SLEEP_MAX_US 8000u
 #define USB_NO_INPUT_SLEEP_US 20000u
 #define USB_MAX_HUB_DEPTH 2
+
+/* A touchpad that goes silent for this long while a contact was active is
+   treated as lifted: some pads never send the final all-up report. Kept
+   comfortably above a natural movement pause so a stopped finger that the
+   pad still reports (or that merely idles for a frame or two) is not cut
+   off, while a lifted finger always yields the release. */
+#define TP_SILENCE_MS 300u
 /* hub downstream-port bring-up: cap the bPwrOn2PwrGood wait, give
    slow-debouncing devices a grace window after power-good, and pace
    attach retries for ports whose first enumeration failed */
@@ -116,6 +123,13 @@ typedef struct {
     uint8_t last_mouse_btn;  /* buttons of the last dispatched mouse frame */
     js_evt_t last_js;        /* last dispatched joystick frame (dedupe) */
     bool last_js_valid;
+    /* touchpad report-silence tracking: some pads stop sending entirely on
+       finger lift instead of a final all-up report. usb_poll_inputs() turns
+       that silence into a synthetic all-up frame so gesture clients always
+       get the release. */
+    uint64_t tp_last_activity_ms;
+    bool tp_has_contact;
+    bool tp_silence_fired;
 } usb_input_dev_t;
 
 static usb_dev_t _devs[USB_MAX_DEVS];
@@ -548,6 +562,7 @@ static int usb_register_touchpad(int dev_idx, const hid_candidate_t* cand,
        packets and filter by report id when polling */
     _inputs[slot].report_len = (uint8_t)_inputs[slot].max_packet;
     _inputs[slot].touchpad = *parser;
+    _inputs[slot].tp_last_activity_ms = kernel_tic_ms(0);
     slog("usbhostd: register touchpad slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u contacts=%d slot_bits=%d x=%d y=%d\n",
             slot, dev_idx, cand->iface_num, cand->ep_addr, parser->report_id,
             parser->report_bytes, parser->max_contacts, parser->slot_bits,
@@ -1369,6 +1384,29 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                     input_error_logs++;
                 }
             }
+            /* touchpad silence fallback: a pad that stopped reporting while
+               a contact was active never sent the lift frame -- synthesize
+               one all-up frame so the gesture client releases. One-shot
+               until a new contact arrives. */
+            if (in->type == HID_INPUT_TOUCHPAD && in->tp_has_contact &&
+                    !in->tp_silence_fired &&
+                    kernel_tic_ms(0) - in->tp_last_activity_ms >= TP_SILENCE_MS) {
+                touchpad_evt_t tp;
+                uint8_t payload[HID_MAX_EVENT_SIZE];
+                memset(&tp, 0, sizeof(tp));
+                tp.x_max = in->touchpad.x_max > 0xFFFFu ?
+                        (uint16_t)0xFFFFu : (uint16_t)in->touchpad.x_max;
+                tp.y_max = in->touchpad.y_max > 0xFFFFu ?
+                        (uint16_t)0xFFFFu : (uint16_t)in->touchpad.y_max;
+                memset(payload, 0, sizeof(payload));
+                memcpy(payload, &tp, sizeof(tp));
+                if (hid_dispatch_evt(HID_REPORT_ID_TOUCHPAD, payload,
+                        HID_TOUCHPAD_EVENT_SIZE)) {
+                    any_edge = true;
+                }
+                got = true;
+                in->tp_silence_fired = true;
+            }
             continue;
         }
 
@@ -1455,11 +1493,15 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                     (ret < 2 || report[0] != in->touchpad.report_id)) {
                 continue;
             }
-            if ((uint8_t)ret == in->last_len && memcmp(in->last_report, report, ret) == 0) {
-                continue;
-            }
-            memcpy(in->last_report, report, ret);
-            in->last_len = (uint8_t)ret;
+            /* any touchpad report -- even a byte-identical one -- proves the
+               pad is awake and (probably) still holding a contact, so it
+               refreshes the silence clock */
+            in->tp_last_activity_ms = kernel_tic_ms(0);
+            /* the pad is a contact stream: identical reports are forwarded
+               too, so the gesture client can tell "finger still down" from
+               "silence" (its 100 ms stuck-release must not fire while a
+               held finger keeps being reported). Per-frame cost is on the
+               same order as the report rate. */
             {
                 touchpad_evt_t tp;
                 if (touchpad_normalize_report(&in->touchpad, report, ret, &tp) == 0) {
@@ -1471,6 +1513,13 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                         any_edge = true;
                     }
                     got = true;
+                    if (tp.contact_count > 0) {
+                        in->tp_has_contact = true;
+                        in->tp_silence_fired = false;
+                    }
+                    else {
+                        in->tp_has_contact = false;
+                    }
                 }
                 else {
                     /* normalize failed: log the first few so the user can

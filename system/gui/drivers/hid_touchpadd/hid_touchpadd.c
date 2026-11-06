@@ -20,10 +20,10 @@
  * PTP digitizer reports arrive on the HID subscriber queue (usbhostd on
  * /dev/usb0, btd on /dev/bt0) under HID_REPORT_ID_TOUCHPAD as fixed-size
  * touchpad_evt_t frames. This daemon drains that queue and publishes the
- * frames verbatim on /dev/touchpad0, so the gesture client (xtouchpad) gets
- * every contact transition - unlike the single-contact /dev/touch0 path,
- * there is NO movement coalescing here, because the gesture engine must see
- * every frame to track fingers by contact id.
+ * frames verbatim on /dev/touchpad0, so the gesture client (xtouch in -m
+ * mode) gets every contact transition - unlike the single-contact
+ * /dev/touch0 path, there is NO movement coalescing here, because the
+ * gesture engine must see every frame to track fingers by contact id.
  *
  * The fixed HID_TOUCHPAD_EVENT_SIZE stride lets one read drain a whole
  * backlog of frames in a single vfsd/usbhostd round-trip, exactly like the

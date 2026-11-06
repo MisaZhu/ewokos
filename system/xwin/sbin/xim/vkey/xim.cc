@@ -221,9 +221,9 @@ static IOSKey layout_symbols[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"<","", '<',0,KT_NORMAL,1.0f,KA_NONE},
         {">","", '>',0,KT_NORMAL,1.0f,KA_NONE},
         {"$","", '$',0,KT_NORMAL,1.0f,KA_NONE},
-        {"\xc2\xa3","", 0xA3,0,KT_NORMAL,1.0f,KA_NONE},
-        {"\xc2\xa5","", 0xA5,0,KT_NORMAL,1.0f,KA_NONE},
-        {"\xe2\x80\xa2","", 0x95,0,KT_NORMAL,1.0f,KA_NONE},
+        {"\xc2\xa3","", (char)0xA3,0,KT_NORMAL,1.0f,KA_NONE},
+        {"\xc2\xa5","", (char)0xA5,0,KT_NORMAL,1.0f,KA_NONE},
+        {"\xe2\x80\xa2","", (char)0x95,0,KT_NORMAL,1.0f,KA_NONE},
     },
     // Row 2: 123 . , ? ! ' backspace
     {

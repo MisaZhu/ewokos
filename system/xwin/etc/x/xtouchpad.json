@@ -1,0 +1,8 @@
+{
+    "tap_enable": true,
+    "tap_time": 300,
+    "tap_move": 5,
+    "move_threshold": 20,
+    "gain_x": 1.0,
+    "gain_y": 1.0
+}
