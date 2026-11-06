@@ -31,8 +31,117 @@ static xtouch_t _xtouch;
 static uint64_t _drag_time = 0;
 static const char* _default_config = "/etc/x/xtouch.json";
 
+/* -m: mouse-relative mode. Touch motion moves the cursor by relative deltas
+   instead of teleporting it to the touched point (touchpad style: touching
+   down does not move the cursor, only the finger's travel does). A contact
+   does not press the left button right away: it stays a plain move until the
+   finger has been held for XT_HOLD_MS, so a slide never turns into a drag.
+   Only after that hold expires is the button pressed, and further travel
+   becomes a drag. A short tap (released before the hold) synthesizes a
+   down+up pair at the release point, so every press is matched by a release
+   and the server never sees a dangling button. */
+static bool _mouse_mode = false;
+#define XT_HOLD_MS 500
+static uint64_t _press_time = 0;  /* kernel tic of the current contact, 0 = released */
+static bool _press_sent = false;  /* left-button DOWN already reported */
+static int _last_mx = 0, _last_my = 0; /* last mapped touch position (relative anchor) */
+
 static void usage(const char* prog) {
-    printf("Usage: %s [-c config_file] [touch_dev]\n", prog);
+    printf("Usage: %s [-c config_file] [-m] [touch_dev]\n", prog);
+    printf("  -m  mouse-relative mode: touch moves the cursor relatively,\n");
+    printf("      move by default, hold %dms then move to drag\n", XT_HOLD_MS);
+}
+
+/* one relative pointer event: rx/ry carry the motion, state is MOVE/DRAG/
+   DOWN/UP. xserverd applies the delta to the cursor first, then routes the
+   button state at the resulting position, so a single event is enough. */
+static void mouse_rel_event(int32_t rx, int32_t ry, int32_t state, int32_t button) {
+    xevent_t ev;
+    memset(&ev, 0, sizeof(xevent_t));
+    ev.type = XEVT_MOUSE;
+    ev.state = state;
+    ev.value.mouse.relative = 1;
+    ev.value.mouse.rx = rx;
+    ev.value.mouse.ry = ry;
+    ev.value.mouse.button = button;
+
+    proto_t in;
+    PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
+    dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
+    PF->clear(&in);
+}
+
+/* map raw touch coordinates to screen coordinates (same mapping as the
+   absolute path in input()) */
+static void map_touch_pos(int16_t tx, int16_t ty, int* x, int* y) {
+    if(_xtouch.x_rev)
+        *x = _scr_w - (tx*_scr_w / _xtouch.x_max);
+    else
+        *x = (tx*_scr_w / _xtouch.x_max);
+
+    if(_xtouch.y_rev)
+        *y = (ty*_scr_h / _xtouch.y_max);
+    else
+        *y = _scr_h - (ty*_scr_h / _xtouch.y_max);
+}
+
+/* consume the travel since the last sample as a relative delta */
+static int mouse_rel_delta(int nx, int ny, int* rx, int* ry) {
+    *rx = nx - _last_mx;
+    *ry = ny - _last_my;
+    _last_mx = nx;
+    _last_my = ny;
+    return (*rx != 0 || *ry != 0);
+}
+
+static void input_mouse(int state, int nx, int ny) {
+    int rx, ry;
+
+    if(state == 1) { //contact
+        if(_press_time == 0) {
+            //fresh touch: anchor here, do not move the cursor or press yet
+            _press_time = kernel_tic_ms(0);
+            _press_sent = false;
+            _last_mx = nx;
+            _last_my = ny;
+            return;
+        }
+        if(!mouse_rel_delta(nx, ny, &rx, &ry))
+            return;
+        //held long enough -> drag; otherwise just move the cursor
+        if(_press_sent)
+            mouse_rel_event(rx, ry, MOUSE_STATE_DRAG, MOUSE_BUTTON_LEFT);
+        else
+            mouse_rel_event(rx, ry, MOUSE_STATE_MOVE, 0);
+    }
+    else { //release
+        if(_press_time == 0)
+            return;
+        mouse_rel_delta(nx, ny, &rx, &ry);
+        if(_press_sent) {
+            //end the drag: travel to the release point, then release there
+            mouse_rel_event(rx, ry, MOUSE_STATE_UP, MOUSE_BUTTON_LEFT);
+        }
+        else {
+            //short tap: press at the release point then release -> clean click
+            mouse_rel_event(rx, ry, MOUSE_STATE_DOWN, MOUSE_BUTTON_LEFT);
+            mouse_rel_event(0, 0, MOUSE_STATE_UP, MOUSE_BUTTON_LEFT);
+        }
+        _press_time = 0;
+        _press_sent = false;
+    }
+}
+
+/* hold timer tick: a stationary held finger generates no read events, so the
+   deferred press is armed from the main loop once the hold expires. The
+   cursor is already where the finger settled, so press in place (rx=ry=0). */
+static void input_mouse_tick(void) {
+    if(_press_time == 0 || _press_sent)
+        return;
+    if(kernel_tic_ms(0) - _press_time < XT_HOLD_MS)
+        return;
+    mouse_rel_event(0, 0, MOUSE_STATE_DOWN, MOUSE_BUTTON_LEFT);
+    _press_sent = true;
 }
 
 static void input(uint16_t state, int16_t tx, int16_t ty) {
@@ -106,10 +215,13 @@ int main(int argc, char** argv) {
     const char* touch_dev = "/dev/touch0";
     int opt;
 
-    while((opt = getopt(argc, argv, "c:h")) != -1) {
+    while((opt = getopt(argc, argv, "c:mh")) != -1) {
         switch(opt) {
         case 'c':
             config = optarg;
+            break;
+        case 'm':
+            _mouse_mode = true;
             break;
         case 'h':
         default:
@@ -126,8 +238,9 @@ int main(int argc, char** argv) {
 
     int fd = -1;
     while(true) {
-        //fd = open(touch_dev, O_RDONLY | O_NONBLOCK);
-        fd = open(touch_dev, O_RDONLY);
+        /* mouse mode polls for the deferred long-press, so the device must
+           not block the loop; absolute mode keeps the original blocking read */
+        fd = open(touch_dev, _mouse_mode ? (O_RDONLY | O_NONBLOCK) : O_RDONLY);
         if(fd > 0)
             break;
         usleep(100000);
@@ -140,6 +253,23 @@ int main(int argc, char** argv) {
             x_screen_info(&scr, 0);
             _scr_w = scr.size.w;
             _scr_h = scr.size.h;
+            if(_mouse_mode) {
+                /* one-time absolute placement: the relative cursor starts at
+                   the screen center instead of wherever it happened to be */
+                _last_mx = _scr_w / 2;
+                _last_my = _scr_h / 2;
+                xevent_t ev;
+                memset(&ev, 0, sizeof(xevent_t));
+                ev.type = XEVT_MOUSE;
+                ev.state = MOUSE_STATE_MOVE;
+                ev.value.mouse.relative = 0;
+                ev.value.mouse.x = _last_mx;
+                ev.value.mouse.y = _last_my;
+                proto_t in;
+                PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
+                dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
+                PF->clear(&in);
+            }
             break;
         }
         usleep(100000);
@@ -169,8 +299,17 @@ int main(int argc, char** argv) {
             tx = tx < 0 ? 0 : tx;
             ty = ty < 0 ? 0 : ty;
 
-            input(mv[0], tx, ty);
+            if(_mouse_mode) {
+                int nx, ny;
+                map_touch_pos(tx, ty, &nx, &ny);
+                input_mouse(mv[0], nx, ny);
+            }
+            else {
+                input(mv[0], tx, ty);
+            }
         }
+        if(_mouse_mode)
+            input_mouse_tick();
         usleep(3000);
     }
 
