@@ -59,6 +59,7 @@ hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
     bool found_keyboard = false;
     bool found_mouse = false;
     bool found_touch = false;
+    bool found_touchpad = false;
     bool found_joystick = false;
 
     for (int off = 0; off < len; ) {
@@ -128,6 +129,14 @@ hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
                             usage == HID_USAGE_FINGER) {
                         found_touch = true;
                     }
+                    /* a Digitizer/Touch Pad application collection is a
+                       Precision Touchpad (multi-contact), not a touchscreen:
+                       it must take the touchpad path even though its report
+                       also carries a Generic-Desktop mouse/pointer report
+                       for the buttons */
+                    if (usage == HID_USAGE_TOUCH_PAD) {
+                        found_touchpad = true;
+                    }
                 }
             }
             usage_count = 0;
@@ -139,6 +148,9 @@ hid_dev_type_t hid_detect_device_type(const uint8_t* desc, int len) {
      * Digitizer touch collections in one report descriptor. Prefer the
      * explicit digitizer collection, otherwise hid_touchd never gets data.
      */
+    if (found_touchpad) {
+        return HID_DEV_TYPE_TOUCHPAD;
+    }
     if (found_touch) {
         return HID_DEV_TYPE_TOUCH;
     }
@@ -933,6 +945,436 @@ int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
     out[5] = 0;
     out[6] = 0;
     return HID_POINTER_EVENT_SIZE;
+}
+
+/* ---------------- Precision Touchpad (multi-contact) ---------------- */
+
+/* Record one per-contact field of contact slot 0 (first occurrence wins).
+   The normalizer reads contact i's fields at slot0_bit + i*slot_bits, so
+   only the offsets of the first slot are stored here. X/Y are Generic
+   Desktop usages but PTP descriptors declare them inside the Digitizer
+   application collection without a page switch, so they are accepted under
+   either page (0x30/0x31 do not collide with any Digitizer usage). */
+static void touchpad_capture_slot_field(touchpad_parser_t* out,
+        uint8_t report_id, bool has_report_id, uint32_t usage_page,
+        uint32_t usage, int bit, int size, int32_t logical_max) {
+    bool is_slot = false;
+
+    if (usage_page == HID_USAGE_PAGE_DIGITIZER) {
+        if (usage == HID_USAGE_TIP_SWITCH && out->tip_bit < 0) {
+            out->tip_bit = bit;
+            out->tip_size = size;
+            is_slot = true;
+        }
+        else if (usage == HID_USAGE_CONTACT_ID && out->contact_id_bit < 0) {
+            out->contact_id_bit = bit;
+            out->contact_id_size = size;
+            is_slot = true;
+        }
+        else if (usage == HID_USAGE_CONFIDENCE && out->confidence_bit < 0) {
+            out->confidence_bit = bit;
+            out->confidence_size = size;
+            is_slot = true;
+        }
+        else if (usage == HID_USAGE_WIDTH && out->width_bit < 0) {
+            out->width_bit = bit;
+            out->width_size = size;
+            is_slot = true;
+        }
+        else if (usage == HID_USAGE_HEIGHT && out->height_bit < 0) {
+            out->height_bit = bit;
+            out->height_size = size;
+            is_slot = true;
+        }
+    }
+    if (usage == HID_USAGE_X && out->x_bit < 0) {
+        out->x_bit = bit;
+        out->x_size = size;
+        out->x_max = logical_max > 0 ? (uint32_t)logical_max : 0;
+        is_slot = true;
+    }
+    else if (usage == HID_USAGE_Y && out->y_bit < 0) {
+        out->y_bit = bit;
+        out->y_size = size;
+        out->y_max = logical_max > 0 ? (uint32_t)logical_max : 0;
+        is_slot = true;
+    }
+    if (is_slot && !out->has_report_id) {
+        out->has_report_id = has_report_id;
+        out->report_id = report_id;
+    }
+}
+
+/* Extract the multi-contact bit layout of a Precision Touchpad digitizer
+   report. The parser enters the Digitizer/Touch Pad application collection,
+   captures the report-level fields (buttons, contact count, in range) and
+   the per-contact fields of the first Finger slot, and derives the slot
+   stride from where the first slot's block ends - PTP descriptors group
+   every contact's fields into its own contiguous block (Finger logical
+   collection, or a plain block on legacy pads). Returns 0 on success. */
+int hid_parse_touchpad_report(const uint8_t* desc, int len, touchpad_parser_t* out) {
+    uint32_t usages[HID_MAX_USAGE_LIST];
+    int usage_count = 0;
+    uint32_t usage_page = 0;
+    uint32_t usage_min = 0;
+    uint32_t usage_max = 0;
+    bool usage_range_valid = false;
+    uint32_t report_size = 0;
+    uint32_t report_count = 0;
+    uint8_t current_report_id = 0;
+    uint32_t report_bits[256];
+    int collection_depth = 0;
+    int touchpad_depth = -1;
+    bool touchpad_active = false;
+    int finger_depth = -1;
+    bool finger_active = false;
+    bool saw_finger = false;
+    int32_t logical_max = 0;
+    int slot_start_bit = -1;
+
+    memset(report_bits, 0, sizeof(report_bits));
+    memset(out, 0, sizeof(*out));
+    out->tip_bit = -1;
+    out->contact_id_bit = -1;
+    out->confidence_bit = -1;
+    out->x_bit = -1;
+    out->y_bit = -1;
+    out->width_bit = -1;
+    out->height_bit = -1;
+    out->button_bit[0] = out->button_bit[1] = out->button_bit[2] = -1;
+    out->contact_count_bit = -1;
+    out->in_range_bit = -1;
+    out->max_contacts = 1; /* no contact count: legacy single-slot pad */
+
+    for (int off = 0; off < len; ) {
+        uint8_t prefix = desc[off++];
+        uint32_t value = 0;
+        int size_code;
+        int size;
+        int type;
+        int tag;
+
+        if (prefix == 0xFE) {
+            if (off + 2 > len) {
+                break;
+            }
+            size = desc[off];
+            off += 2 + size;
+            continue;
+        }
+
+        size_code = prefix & 0x3;
+        size = (size_code == 3) ? 4 : size_code;
+        type = (prefix >> 2) & 0x3;
+        tag = (prefix >> 4) & 0xF;
+        if (off + size > len) {
+            break;
+        }
+        for (int i = 0; i < size; ++i) {
+            value |= (uint32_t)desc[off + i] << (i * 8);
+        }
+        off += size;
+
+        if (type == 1) {
+            switch (tag) {
+            case 0:
+                usage_page = value;
+                break;
+            case 2:
+                logical_max = hid_sign_extend(value, size * 8);
+                break;
+            case 7:
+                report_size = value;
+                break;
+            case 8:
+                current_report_id = (uint8_t)value;
+                if (report_bits[current_report_id] == 0) {
+                    report_bits[current_report_id] = 8;
+                }
+                break;
+            case 9:
+                report_count = value;
+                break;
+            default:
+                break;
+            }
+        }
+        else if (type == 2) {
+            switch (tag) {
+            case 0:
+                if (usage_count < HID_MAX_USAGE_LIST) {
+                    usages[usage_count++] = value;
+                }
+                break;
+            case 1:
+                usage_min = value;
+                usage_range_valid = true;
+                break;
+            case 2:
+                usage_max = value;
+                usage_range_valid = true;
+                break;
+            default:
+                break;
+            }
+        }
+        else if (type == 0) {
+            switch (tag) {
+            case 8: {
+                bool constant = (value & 0x1u) != 0;
+                bool variable = (value & 0x2u) != 0;
+
+                if (touchpad_active && !constant && variable && report_size > 0) {
+                    for (uint32_t idx = 0; idx < report_count; ++idx) {
+                        uint32_t usage = hid_usage_for_index(usages, usage_count,
+                                usage_range_valid, usage_min, usage_max, (int)idx);
+                        int bit = (int)report_bits[current_report_id] +
+                                (int)(idx * report_size);
+
+                        if (finger_active) {
+                            /* per-contact fields of the first Finger slot */
+                            touchpad_capture_slot_field(out, current_report_id,
+                                    current_report_id != 0, usage_page, usage,
+                                    bit, (int)report_size, logical_max);
+                            if (slot_start_bit < 0) {
+                                slot_start_bit = (int)report_bits[current_report_id];
+                            }
+                        }
+                        else {
+                            /* report-level fields live at app-collection level:
+                               buttons, contact count, in range. X/Y/Tip at that
+                               level only exist on legacy pads without Finger
+                               collections, so they double as the single slot. */
+                            if (usage_page == HID_USAGE_PAGE_BUTTON &&
+                                    usage >= 1u && usage <= 3u) {
+                                int bi = (int)usage - 1;
+                                if (out->button_bit[bi] < 0) {
+                                    out->button_bit[bi] = bit;
+                                    out->button_size[bi] = (int)report_size;
+                                }
+                            }
+                            else if (usage_page == HID_USAGE_PAGE_DIGITIZER &&
+                                    usage == HID_USAGE_CONTACT_COUNT) {
+                                if (out->contact_count_bit < 0) {
+                                    out->contact_count_bit = bit;
+                                    out->contact_count_size = (int)report_size;
+                                    int mc = logical_max > 0 ?
+                                            logical_max : HID_TOUCHPAD_MAX_CONTACTS;
+                                    if (mc > HID_TOUCHPAD_MAX_CONTACTS) {
+                                        mc = HID_TOUCHPAD_MAX_CONTACTS;
+                                    }
+                                    if (mc < 1) {
+                                        mc = 1;
+                                    }
+                                    out->max_contacts = mc;
+                                }
+                            }
+                            else if (usage_page == HID_USAGE_PAGE_DIGITIZER &&
+                                    usage == HID_USAGE_IN_RANGE) {
+                                if (out->in_range_bit < 0) {
+                                    out->in_range_bit = bit;
+                                    out->in_range_size = (int)report_size;
+                                }
+                            }
+                            else if (!saw_finger &&
+                                    (usage_page == HID_USAGE_PAGE_DIGITIZER ||
+                                     usage_page == HID_USAGE_PAGE_GENERIC_DESKTOP)) {
+                                touchpad_capture_slot_field(out, current_report_id,
+                                        current_report_id != 0, usage_page, usage,
+                                        bit, (int)report_size, logical_max);
+                                if (slot_start_bit < 0) {
+                                    slot_start_bit = (int)report_bits[current_report_id];
+                                }
+                            }
+                        }
+                    }
+                }
+                report_bits[current_report_id] += report_size * report_count;
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+            case 10: {
+                uint32_t usage = hid_usage_for_index(usages, usage_count,
+                        usage_range_valid, usage_min, usage_max, 0);
+                uint8_t collection_type = (uint8_t)value;
+
+                if (!touchpad_active && collection_type == 1 &&
+                        usage_page == HID_USAGE_PAGE_DIGITIZER &&
+                        usage == HID_USAGE_TOUCH_PAD) {
+                    touchpad_depth = collection_depth + 1;
+                    touchpad_active = true;
+                }
+                else if (touchpad_active && !finger_active &&
+                        collection_type == 2 &&
+                        usage_page == HID_USAGE_PAGE_DIGITIZER &&
+                        usage == HID_USAGE_FINGER) {
+                    finger_depth = collection_depth + 1;
+                    finger_active = true;
+                    saw_finger = true;
+                }
+                collection_depth++;
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+            case 12:
+                if (finger_active && collection_depth == finger_depth) {
+                    /* the first slot ends where the finger collection's
+                       fields end: that is the stride to the next slot */
+                    if (slot_start_bit >= 0) {
+                        int sb = (int)report_bits[current_report_id] - slot_start_bit;
+                        if (sb > 0 && out->slot_bits <= 0) {
+                            out->slot_bits = sb;
+                        }
+                    }
+                    finger_active = false;
+                    finger_depth = -1;
+                }
+                if (touchpad_active && collection_depth == touchpad_depth) {
+                    /* legacy pads: no Finger collection, the app collection
+                       itself is the single slot */
+                    if (!saw_finger && out->slot_bits <= 0 && slot_start_bit >= 0) {
+                        int sb = (int)report_bits[current_report_id] - slot_start_bit;
+                        if (sb > 0) {
+                            out->slot_bits = sb;
+                        }
+                    }
+                    touchpad_active = false;
+                    touchpad_depth = -1;
+                }
+                if (collection_depth > 0) {
+                    collection_depth--;
+                }
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            default:
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+        }
+    }
+
+    if (out->tip_bit < 0 || out->x_bit < 0 || out->y_bit < 0 ||
+            out->slot_bits <= 0) {
+        return -1;
+    }
+    if (out->slot_bits > (int)report_bits[out->report_id]) {
+        return -1;
+    }
+
+    out->valid = true;
+    out->report_bytes = (uint8_t)((report_bits[out->report_id] + 7u) / 8u);
+    if (out->report_bytes == 0 || out->report_bytes > HID_MAX_REPORT) {
+        return -1;
+    }
+    return 0;
+}
+
+bool hid_probe_touchpad_report(const uint8_t* desc, int len, touchpad_parser_t* out) {
+    touchpad_parser_t parser;
+
+    if (hid_parse_touchpad_report(desc, len, &parser) != 0) {
+        return false;
+    }
+    if (out != NULL) {
+        *out = parser;
+    }
+    return true;
+}
+
+/* Bounds-checked bit read for the touchpad normalizer: contact i's fields
+   can fall past the end of a short/truncated report, which must decode as
+   0 instead of reading past the report buffer. */
+static uint32_t touchpad_extract(const uint8_t* report, int len,
+        int bit, int bits) {
+    if (bit < 0 || bits <= 0 || bit + bits > len * 8) {
+        return 0;
+    }
+    return bit_extract_le(report, bit, bits);
+}
+
+/* Normalize one raw touchpad digitizer report into a fixed-size
+   touchpad_evt_t frame. Returns 0 on success, -1 when the report does not
+   match the parser. The frame carries the report-level buttons / contact
+   count / in-range plus one entry per reported contact. */
+int touchpad_normalize_report(const touchpad_parser_t* p,
+        const uint8_t* report, int len, touchpad_evt_t* out) {
+    int count;
+
+    if (!p->valid) {
+        return -1;
+    }
+    if (p->has_report_id) {
+        if (len <= 0 || report[0] != p->report_id) {
+            return -1;
+        }
+    }
+    if (len < p->report_bytes) {
+        return -1;
+    }
+    memset(out, 0, sizeof(*out));
+
+    for (int i = 0; i < 3; ++i) {
+        if (p->button_bit[i] >= 0 &&
+                touchpad_extract(report, len, p->button_bit[i],
+                    p->button_size[i]) != 0) {
+            out->buttons |= (uint8_t)(1u << i);
+        }
+    }
+
+    count = 0;
+    if (p->contact_count_bit >= 0) {
+        count = (int)touchpad_extract(report, len, p->contact_count_bit,
+                p->contact_count_size);
+    }
+    if (count > p->max_contacts) {
+        count = p->max_contacts;
+    }
+    if (count > HID_TOUCHPAD_MAX_CONTACTS) {
+        count = HID_TOUCHPAD_MAX_CONTACTS;
+    }
+    if (count < 0) {
+        count = 0;
+    }
+    out->contact_count = (uint8_t)count;
+    if (p->in_range_bit >= 0) {
+        out->in_range = touchpad_extract(report, len, p->in_range_bit,
+                p->in_range_size) != 0;
+    }
+    out->x_max = p->x_max > 0xFFFFu ? 0xFFFFu : (uint16_t)p->x_max;
+    out->y_max = p->y_max > 0xFFFFu ? 0xFFFFu : (uint16_t)p->y_max;
+
+    for (int i = 0; i < count; ++i) {
+        touchpad_contact_t* c = &out->contacts[i];
+        int base = i * p->slot_bits;
+        uint32_t v;
+
+        if (p->contact_id_bit >= 0) {
+            v = touchpad_extract(report, len, p->contact_id_bit + base,
+                    p->contact_id_size);
+            c->id = v > 0xFFu ? 0xFFu : (uint8_t)v;
+        }
+        if (p->tip_bit >= 0) {
+            c->tip = touchpad_extract(report, len, p->tip_bit + base,
+                    p->tip_size) != 0;
+        }
+        if (p->confidence_bit >= 0) {
+            c->confidence = touchpad_extract(report, len, p->confidence_bit + base,
+                    p->confidence_size) != 0;
+        }
+        v = touchpad_extract(report, len, p->x_bit + base, p->x_size);
+        c->x = v > 0xFFFFu ? 0xFFFFu : (uint16_t)v;
+        v = touchpad_extract(report, len, p->y_bit + base, p->y_size);
+        c->y = v > 0xFFFFu ? 0xFFFFu : (uint16_t)v;
+        if (p->width_bit >= 0) {
+            v = touchpad_extract(report, len, p->width_bit + base, p->width_size);
+            c->width = v > 0xFFu ? 0xFFu : (uint8_t)v;
+        }
+        if (p->height_bit >= 0) {
+            v = touchpad_extract(report, len, p->height_bit + base, p->height_size);
+            c->height = v > 0xFFu ? 0xFFu : (uint8_t)v;
+        }
+    }
+    return 0;
 }
 
 bool mouse_parser_is_absolute(const mouse_parser_t* m) {

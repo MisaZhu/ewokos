@@ -35,8 +35,12 @@
 /* Older BSPs do not implement the Q8B MSC auto-mount policy hook. */
 extern void bsp_usb_set_msc_auto_mount(bool enabled) __attribute__((weak));
 
+#ifndef USB_MAX_INPUTS
 #define USB_MAX_INPUTS 8
+#endif
+#ifndef USB_MAX_DEVS
 #define USB_MAX_DEVS 8
+#endif
 #define USB_SCAN_INTERVAL_MS 1000u
 /* active-loop pacing floor. Interrupt reports arrive at most every 8ms
    (INT_IN_MIN_EXP clamp in the xhci bsp), so a 2ms loop floor adds at
@@ -105,6 +109,7 @@ typedef struct {
     uint8_t joystick_report_id; /* composite: the gamepad collection's id */
     mouse_parser_t mouse;
     touch_parser_t touch;
+    touchpad_parser_t touchpad;
     joystick_parser_t joystick;
     uint8_t last_report[HID_MAX_REPORT];
     uint8_t last_len;
@@ -522,6 +527,34 @@ static int usb_register_touch(int dev_idx, const hid_candidate_t* cand,
     return 0;
 }
 
+/* Register a Precision Touchpad digitizer interface: one interrupt source
+   whose report descriptor drives the multi-contact touchpad parser. The
+   endpoint may also carry the pad's button/mouse report (report id 1), so
+   request a full packet and filter by report id when polling. */
+static int usb_register_touchpad(int dev_idx, const hid_candidate_t* cand,
+        const touchpad_parser_t* parser) {
+    bsp_usb_dev_t* hdev = _devs[dev_idx].hdev;
+    int slot;
+
+    if (cand->subclass == USB_SUBCLASS_BOOT) {
+        (void)usb_hid_set_protocol(hdev, cand->iface_num, 1);
+    }
+    (void)usb_hid_set_idle(hdev, cand->iface_num);
+    slot = usb_input_setup(dev_idx, cand, HID_INPUT_TOUCHPAD);
+    if (slot < 0) {
+        return -1;
+    }
+    /* the endpoint may multiplex the mouse/button report: request full
+       packets and filter by report id when polling */
+    _inputs[slot].report_len = (uint8_t)_inputs[slot].max_packet;
+    _inputs[slot].touchpad = *parser;
+    slog("usbhostd: register touchpad slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u contacts=%d slot_bits=%d x=%d y=%d\n",
+            slot, dev_idx, cand->iface_num, cand->ep_addr, parser->report_id,
+            parser->report_bytes, parser->max_contacts, parser->slot_bits,
+            parser->x_bit, parser->y_bit);
+    return 0;
+}
+
 /* A standalone joystick/gamepad interface. Its reports are variable-size and
    (when the descriptor declares one) prefixed by a report id, so request a
    full packet and let the descriptor-driven normalizer pick the fields out. */
@@ -735,6 +768,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         bool desc_ok = false;
         bool mouse_desc_ok = false;
         bool touch_desc_ok = false;
+        bool touchpad_desc_ok = false;
         bool joy_desc_ok = false;
         uint8_t kbd_id = 0, mouse_id = 0;
         uint8_t probe_kbd_id = 0, probe_mouse_id = 0;
@@ -742,6 +776,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         hid_dev_type_t dev_type = HID_DEV_TYPE_UNKNOWN;
         mouse_parser_t mouse_probe;
         touch_parser_t touch_probe;
+        touchpad_parser_t touchpad_probe;
         joystick_parser_t joy_probe;
 
         if (!candidates[i].valid) {
@@ -766,10 +801,12 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
                     candidates[i].report_desc_len, &mouse_probe);
             touch_desc_ok = hid_probe_touch_report(report_desc,
                     candidates[i].report_desc_len, &touch_probe);
+            touchpad_desc_ok = hid_probe_touchpad_report(report_desc,
+                    candidates[i].report_desc_len, &touchpad_probe);
             joy_desc_ok = hid_probe_joystick_report(report_desc,
                     candidates[i].report_desc_len, &joy_probe);
             dev_type = hid_detect_device_type(report_desc, candidates[i].report_desc_len);
-            if (!mouse_desc_ok && !touch_desc_ok && !joy_desc_ok &&
+            if (!mouse_desc_ok && !touch_desc_ok && !touchpad_desc_ok && !joy_desc_ok &&
                     dev_type == HID_DEV_TYPE_UNKNOWN) {
                 /* nothing recognized: the control read may have returned
                    garbled data of the right length -- refetch once */
@@ -780,6 +817,8 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
                             candidates[i].report_desc_len, &mouse_probe);
                     touch_desc_ok = hid_probe_touch_report(report_desc,
                             candidates[i].report_desc_len, &touch_probe);
+                    touchpad_desc_ok = hid_probe_touchpad_report(report_desc,
+                            candidates[i].report_desc_len, &touchpad_probe);
                     joy_desc_ok = hid_probe_joystick_report(report_desc,
                             candidates[i].report_desc_len, &joy_probe);
                     dev_type = hid_detect_device_type(report_desc, candidates[i].report_desc_len);
@@ -791,17 +830,23 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
             if (joy_desc_ok && dev_type == HID_DEV_TYPE_UNKNOWN) {
                 dev_type = HID_DEV_TYPE_JOYSTICK;
             }
-            if (touch_desc_ok) {
+            /* a PTP descriptor also satisfies the single-contact touch
+               parser (it sees contact 0's tip/x/y), so the multi-contact
+               touchpad result must win the type decision */
+            if (touchpad_desc_ok) {
+                dev_type = HID_DEV_TYPE_TOUCHPAD;
+            }
+            else if (touch_desc_ok) {
                 dev_type = HID_DEV_TYPE_TOUCH;
             }
             composite_ok = hid_parse_report_ids(report_desc,
                     candidates[i].report_desc_len, &probe_kbd_id,
                     &probe_mouse_id) == 0;
         }
-        klog("usbhostd: hid probe dev=%d iface=%u desc=%d type=%d mouse=%d touch=%d joy=%d kbd_rid=%u mouse_rid=%u\n",
+        klog("usbhostd: hid probe dev=%d iface=%u desc=%d type=%d mouse=%d touch=%d touchpad=%d joy=%d kbd_rid=%u mouse_rid=%u\n",
                 dev_idx, candidates[i].iface_num, desc_ok ? 1 : 0,
                 dev_type, mouse_desc_ok ? 1 : 0, touch_desc_ok ? 1 : 0,
-                joy_desc_ok ? 1 : 0,
+                touchpad_desc_ok ? 1 : 0, joy_desc_ok ? 1 : 0,
                 desc_ok ? hid_find_kbd_report_id(report_desc,
                         candidates[i].report_desc_len) : 0,
                 composite_ok ? probe_mouse_id : 0);
@@ -813,6 +858,11 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
             if (usb_register_composite(dev_idx, &candidates[i], kbd_id, mouse_id,
                     mouse_desc_ok ? &mouse_probe : NULL,
                     joy_desc_ok ? &joy_probe : NULL) == 0) {
+                registered++;
+            }
+        }
+        else if (dev_type == HID_DEV_TYPE_TOUCHPAD && touchpad_desc_ok) {
+            if (usb_register_touchpad(dev_idx, &candidates[i], &touchpad_probe) == 0) {
                 registered++;
             }
         }
@@ -1395,6 +1445,47 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 }
             }
             got = true;
+        }
+        else if (in->type == HID_INPUT_TOUCHPAD) {
+            /* digitizer reports arrive as full packets: strip the leading
+               report id when polling the endpoint, then filter on the
+               parser's id (the endpoint also carries the pad's mouse report
+               id 1, which must not reach the touchpad consumers) */
+            if (in->touchpad.has_report_id &&
+                    (ret < 2 || report[0] != in->touchpad.report_id)) {
+                continue;
+            }
+            if ((uint8_t)ret == in->last_len && memcmp(in->last_report, report, ret) == 0) {
+                continue;
+            }
+            memcpy(in->last_report, report, ret);
+            in->last_len = (uint8_t)ret;
+            {
+                touchpad_evt_t tp;
+                if (touchpad_normalize_report(&in->touchpad, report, ret, &tp) == 0) {
+                    uint8_t payload[HID_MAX_EVENT_SIZE];
+                    memset(payload, 0, sizeof(payload));
+                    memcpy(payload, &tp, sizeof(tp));
+                    if (hid_dispatch_evt(HID_REPORT_ID_TOUCHPAD, payload,
+                            HID_TOUCHPAD_EVENT_SIZE)) {
+                        any_edge = true;
+                    }
+                    got = true;
+                }
+                else {
+                    /* normalize failed: log the first few so the user can
+                       diagnose descriptor/report-length mismatches */
+                    static int touchpad_norm_fails = 0;
+                    if (touchpad_norm_fails < 5) {
+                        touchpad_norm_fails++;
+                        slog("usbhostd: touchpad normalize FAILED slot=%d len=%d expect=%u rid=%u has_rid=%d report[0]=%02x\n",
+                                i, ret, in->touchpad.report_bytes,
+                                in->touchpad.report_id,
+                                in->touchpad.has_report_id,
+                                ret > 0 ? report[0] : 0);
+                    }
+                }
+            }
         }
         else if (in->type == HID_INPUT_TOUCH) {
             if ((uint8_t)ret == in->last_len && memcmp(in->last_report, report, ret) == 0) {
