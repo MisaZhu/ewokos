@@ -35,15 +35,29 @@ static const char* _default_config = "/etc/x/xtouch.json";
    instead of teleporting it to the touched point (touchpad style: touching
    down does not move the cursor, only the finger's travel does). A contact
    does not press the left button right away: it stays a plain move until the
-   finger has been held for XT_HOLD_MS, so a slide never turns into a drag.
-   Only after that hold expires is the button pressed, and further travel
-   becomes a drag. A short tap (released before the hold) synthesizes a
-   down+up pair at the release point, so every press is matched by a release
-   and the server never sees a dangling button. */
+   finger has been held still for XT_HOLD_MS, so a slide never turns into a
+   drag. Only a finger kept still for that whole window is then pressed, and
+   further travel becomes a drag; once a contact has slid it is locked to pure
+   cursor motion for its whole lifetime, so pausing mid-slide never presses
+   the button either. Release never carries motion: the lift-off sample's
+   coordinates are not trustworthy, so every event on release is emitted in
+   place. Before any press there are two cases - a slide (travel past
+   XT_TAP_SLOP) ignores the button entirely (no DOWN, no UP), while a
+   stationary tap synthesizes a down+up click in place, so every press is
+   matched by a release and the server never sees a dangling button. */
 static bool _mouse_mode = false;
 #define XT_HOLD_MS 500
-static uint64_t _press_time = 0;  /* kernel tic of the current contact, 0 = released */
+/* A finger "held still" for the long-press still jitters on the panel, so this
+   slop must be wide enough that hold-jitter never counts as a slide, while a
+   deliberate slide (well past it) does. 20 screen px is a safe middle ground:
+   press-and-hold jitter stays under it, real drags fly past it. */
+#define XT_TAP_SLOP 20
+static bool _in_contact = false;  /* finger currently down */
+static int _prev_state = 0;       /* previous report state, for edge detection */
+static uint64_t _press_time = 0;  /* kernel tic when the current contact began */
 static bool _press_sent = false;  /* left-button DOWN already reported */
+static bool _moved = false;       /* current contact travelled past the tap slop */
+static int _down_x = 0, _down_y = 0; /* mapped press point of the current contact */
 static int _last_mx = 0, _last_my = 0; /* last mapped touch position (relative anchor) */
 
 static void usage(const char* prog) {
@@ -96,17 +110,32 @@ static int mouse_rel_delta(int nx, int ny, int* rx, int* ry) {
 
 static void input_mouse(int state, int nx, int ny) {
     int rx, ry;
+    bool rising = (state == 1 && _prev_state == 0);
+    _prev_state = state;
 
     if(state == 1) { //contact
-        if(_press_time == 0) {
-            //fresh touch: anchor here, do not move the cursor or press yet
+        /* A rising edge - or any leftover inconsistent state - always begins a
+           fresh contact and re-anchors here. Re-anchoring is what stops the
+           cursor from jumping: without it the first sample of a new touch gets
+           diffed against the previous gesture's last point and flings the
+           cursor across the screen. */
+        if(rising || !_in_contact) {
+            _in_contact = true;
             _press_time = kernel_tic_ms(0);
             _press_sent = false;
+            _moved = false;
+            _down_x = nx;
+            _down_y = ny;
             _last_mx = nx;
             _last_my = ny;
             return;
         }
-        if(!mouse_rel_delta(nx, ny, &rx, &ry))
+        int has_delta = mouse_rel_delta(nx, ny, &rx, &ry);
+        //classify as a slide once it strays past the slop from the press point
+        if(!_moved &&
+                (abs(nx - _down_x) > XT_TAP_SLOP || abs(ny - _down_y) > XT_TAP_SLOP))
+            _moved = true;
+        if(!has_delta)
             return;
         //held long enough -> drag; otherwise just move the cursor
         if(_press_sent)
@@ -115,28 +144,39 @@ static void input_mouse(int state, int nx, int ny) {
             mouse_rel_event(rx, ry, MOUSE_STATE_MOVE, 0);
     }
     else { //release
-        if(_press_time == 0)
+        if(!_in_contact)
             return;
-        mouse_rel_delta(nx, ny, &rx, &ry);
+        _in_contact = false;
+        /* Release never carries motion: some panels report (0,0) or a stale
+           point on lift-off, and diffing that flings the cursor on every
+           release. All real travel was already emitted by the contact samples,
+           so here we only send the button transition, in place. */
         if(_press_sent) {
-            //end the drag: travel to the release point, then release there
-            mouse_rel_event(rx, ry, MOUSE_STATE_UP, MOUSE_BUTTON_LEFT);
-        }
-        else {
-            //short tap: press at the release point then release -> clean click
-            mouse_rel_event(rx, ry, MOUSE_STATE_DOWN, MOUSE_BUTTON_LEFT);
+            //end the long-press drag with a clean button-up
             mouse_rel_event(0, 0, MOUSE_STATE_UP, MOUSE_BUTTON_LEFT);
         }
-        _press_time = 0;
+        else if(_moved) {
+            //a slide that never reached the long-press is pure cursor motion:
+            //ignore the button entirely - no DOWN was sent, so send no UP
+        }
+        else {
+            //stationary tap: click in place (down+up), never a jump
+            mouse_rel_event(0, 0, MOUSE_STATE_DOWN, MOUSE_BUTTON_LEFT);
+            mouse_rel_event(0, 0, MOUSE_STATE_UP, MOUSE_BUTTON_LEFT);
+        }
         _press_sent = false;
+        _moved = false;
     }
 }
 
 /* hold timer tick: a stationary held finger generates no read events, so the
    deferred press is armed from the main loop once the hold expires. The
-   cursor is already where the finger settled, so press in place (rx=ry=0). */
+   cursor is already where the finger settled, so press in place (rx=ry=0).
+   A contact that has already turned into a slide stays pure cursor motion for
+   its whole lifetime, so a mid-slide pause never re-arms the long-press and
+   the rest of the gesture cannot become a drag. */
 static void input_mouse_tick(void) {
-    if(_press_time == 0 || _press_sent)
+    if(!_in_contact || _press_sent || _moved)
         return;
     if(kernel_tic_ms(0) - _press_time < XT_HOLD_MS)
         return;
