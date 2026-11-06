@@ -8,22 +8,15 @@
 #include <ewoksys/vdevice.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/klog.h>
-#include <sysinfo.h>
 #include <fcntl.h>
 #include <sd/sd.h>
 #include <sd/partition.h>
 #include <ext3/ext3fs.h>
 #include <stdio.h>
 #include <bsp/bsp_sd.h>
+#include <bsp/bsp_bootfs.h>
 #include <ewoksys/usbmsc.h>
 #include <ewoksys/kernel_tic.h>
-
-#if defined(__has_include)
-# if __has_include(<q8b_platform.h>)
-#  include <q8b_platform.h>
-#  define SDFSD_HAS_Q8B_BOOTFS 1
-# endif
-#endif
 
 #define SD_BUFFER_SIZE (1024*1024*64) //64M buffer size
 
@@ -130,89 +123,9 @@ static void set_inode_stat(node_stat_t* stat, EXT3_INODE* inode);
 static int _usb_mode = 0;
 static int _usb_dev_pid = -1;
 static uint32_t _usb_partition_start = 0;
+/* "-b" serves a firmware boot initramfs through the bsp_bootfs backend
+ * implemented by this machine's libbsp (see <bsp/bsp_bootfs.h>). */
 static int _boot_mode = 0;
-
-#ifdef SDFSD_HAS_Q8B_BOOTFS
-#define Q8B_BOOTFS_VA 0x60000000ULL
-static uint8_t* _bootfs_va;
-static uint32_t _bootfs_size;
-static uint32_t _bootfs_block_size = 1024;
-
-static int bootfs_map(void) {
-    sys_info_t info;
-    const q8b_platform_data_t* pd;
-    if (sys_get_sys_info(&info) != 0)
-        return -1;
-    pd = (const q8b_platform_data_t*)info.platform_data;
-    if (pd == NULL || pd->rd.phy_base == 0 || pd->rd.size == 0 ||
-            (pd->rd.flags & Q8B_RD_FLAG_BOOT_ONLY) == 0)
-        return -1;
-    ewokos_addr_t ret = syscall3(SYS_MEM_MAP, (ewokos_addr_t)Q8B_BOOTFS_VA,
-            (ewokos_addr_t)pd->rd.phy_base, (ewokos_addr_t)pd->rd.size);
-    if (ret != (ewokos_addr_t)Q8B_BOOTFS_VA)
-        return -1;
-    _bootfs_va = (uint8_t*)(uintptr_t)Q8B_BOOTFS_VA;
-    _bootfs_size = pd->rd.size;
-    _bootfs_block_size = 1024;
-    return 0;
-}
-
-static void bootfs_unmap(void) {
-    if (_bootfs_va != NULL && _bootfs_size != 0)
-        (void)syscall3(SYS_MEM_UNMAP, (ewokos_addr_t)Q8B_BOOTFS_VA,
-                (ewokos_addr_t)_bootfs_size, 0);
-    _bootfs_va = NULL;
-    _bootfs_size = 0;
-    _bootfs_block_size = 1024;
-}
-
-static int32_t bootfs_read_block(int32_t block, void* buf) {
-    uint64_t off;
-    uint32_t bytes = _bootfs_block_size;
-    if (block < 0 || buf == NULL || bytes == 0 || _bootfs_va == NULL)
-        return -1;
-    off = (uint64_t)(uint32_t)block * bytes;
-    if (off + bytes < off || off + bytes > _bootfs_size)
-        return -1;
-    memcpy(buf, _bootfs_va + off, bytes);
-    if (block == 1 && bytes == 1024) {
-        const uint8_t* sb = (const uint8_t*)buf;
-        uint32_t log = (uint32_t)sb[24];
-        if (log <= 2)
-            _bootfs_block_size = 1024U << log;
-    }
-    return 0;
-}
-
-static int32_t bootfs_read_blocks(int32_t block, void* buf, uint32_t count) {
-    uint32_t bytes = _bootfs_block_size;
-    if (count == 0 || bytes == 0)
-        return 0;
-    for (uint32_t i = 0; i < count; i++) {
-        if (bootfs_read_block(block + (int32_t)i,
-                (uint8_t*)buf + i * bytes) != 0)
-            return -1;
-    }
-    return 0;
-}
-
-static int32_t bootfs_write_block(int32_t block, const void* buf) {
-    (void)block;
-    (void)buf;
-    return -1;
-}
-
-static int32_t bootfs_write_blocks(int32_t block, const void* buf,
-        uint32_t count) {
-    (void)block;
-    (void)buf;
-    (void)count;
-    return -1;
-}
-#else
-static void bootfs_unmap(void) {
-}
-#endif
 
 static int usb_msc_io(int write, int32_t sector, void* buf, uint32_t count) {
     proto_t in, out;
@@ -294,42 +207,32 @@ static int32_t usb_read_sector(int32_t sector, void* buf) {
 }
 
 static int32_t rootfs_read_block(int32_t block, void* buf) {
-#ifdef SDFSD_HAS_Q8B_BOOTFS
     if (_boot_mode)
-        return bootfs_read_block(block, buf);
-#endif
+        return bsp_bootfs_read_block(block, buf);
     return _usb_mode ? usb_ext_read_block(block, buf) : sd_read(block, buf);
 }
 
 static int32_t rootfs_read_blocks(int32_t block, void* buf, uint32_t count) {
-#ifdef SDFSD_HAS_Q8B_BOOTFS
     if (_boot_mode)
-        return bootfs_read_blocks(block, buf, count);
-#endif
+        return bsp_bootfs_read_blocks(block, buf, count);
     return _usb_mode ? usb_ext_read_blocks(block, buf, count) : sd_read_blocks(block, buf, count);
 }
 
 static int32_t rootfs_write_block(int32_t block, const void* buf) {
-#ifdef SDFSD_HAS_Q8B_BOOTFS
     if (_boot_mode)
-        return bootfs_write_block(block, buf);
-#endif
+        return bsp_bootfs_write_block(block, buf);
     return _usb_mode ? usb_ext_write_block(block, buf) : sd_write(block, buf);
 }
 
 static int32_t rootfs_write_blocks(int32_t block, const void* buf, uint32_t count) {
-#ifdef SDFSD_HAS_Q8B_BOOTFS
     if (_boot_mode)
-        return bootfs_write_blocks(block, buf, count);
-#endif
+        return bsp_bootfs_write_blocks(block, buf, count);
     return _usb_mode ? usb_ext_write_blocks(block, buf, count) : sd_write_blocks(block, buf, count);
 }
 
 static int32_t rootfs_flush(void) {
-#ifdef SDFSD_HAS_Q8B_BOOTFS
     if (_boot_mode)
         return 0;
-#endif
     if (!_usb_mode)
         return sd_flush();
     proto_t in, out;
@@ -950,18 +853,13 @@ int main(int argc, char** argv) {
     }
 
     if(argc >= 2 && strcmp(argv[1], "-b") == 0) {
-#ifdef SDFSD_HAS_Q8B_BOOTFS
         _boot_mode = 1;
         sd_mode = 0;
         mount_point = argc >= 3 ? argv[2] : "/boot";
-        if (bootfs_map() != 0) {
+        if (bsp_bootfs_map() != 0) {
             klog("sdfsd: boot initramfs unavailable!\n");
             return -1;
         }
-#else
-        klog("sdfsd: boot initramfs unsupported!\n");
-        return -1;
-#endif
     } else if(argc >= 2 && strcmp(argv[1], "-u") == 0) {
         const char* dev_path;
         fsinfo_t dev_info;
@@ -995,7 +893,7 @@ int main(int argc, char** argv) {
         klog("sdfsd: no ext2/ext3 filesystem found on %s!\n",
                 _boot_mode ? "boot initramfs" : (sd_mode ? "sd card" : "usb disk"));
         if(_boot_mode)
-            bootfs_unmap();
+            bsp_bootfs_unmap();
         else if(sd_mode)
             sd_quit();
         return -1;
@@ -1026,7 +924,7 @@ int main(int argc, char** argv) {
         }
         if(ret != 0) {
             if(_boot_mode)
-                bootfs_unmap();
+                bsp_bootfs_unmap();
             else if(sd_mode)
                 sd_quit();
             return -1;
@@ -1066,7 +964,7 @@ int main(int argc, char** argv) {
     device_run(&dev, mount_point, FS_TYPE_DIR, 0777, true);
     ext3_quit(&ext3);
     if(_boot_mode)
-        bootfs_unmap();
+        bsp_bootfs_unmap();
     else if(sd_mode)
         sd_quit();
     return 0;
