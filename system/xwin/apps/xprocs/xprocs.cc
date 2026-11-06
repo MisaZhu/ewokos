@@ -229,15 +229,15 @@ protected:
 	void build() {
 		colNum = 0;
 		if(fullInfo) {
-			add("OWNER", 64);
-			add("PID", 48);
-			add("CPU", 56);
-			add("STATE", 72);
-			add("HEAP", 64);
+			add("OWNER", X::dpiSize(64));
+			add("PID", X::dpiSize(48));
+			add("CPU", X::dpiSize(56));
+			add("STATE", X::dpiSize(72));
+			add("HEAP", X::dpiSize(64));
 		}
 		else {
-			add("PID", 48);
-			add("CPU", 56);
+			add("PID", X::dpiSize(48));
+			add("CPU", X::dpiSize(56));
 		}
 		add("CMD", 0);
 	}
