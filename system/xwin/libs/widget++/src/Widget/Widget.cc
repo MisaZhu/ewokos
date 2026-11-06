@@ -1,6 +1,7 @@
 #include <Widget/Widget.h>
 #include <Widget/RootWidget.h>
 #include <Widget/WidgetWin.h>
+#include <x++/X.h>
 
 namespace Ewok {
 
@@ -38,16 +39,16 @@ void Widget::setAttr(const string& attr, json_var_t*value) {
 		setName(json_var_get_str(value));
 	}
 	else if(attr == "marginH") {
-		setMarginH(json_var_get_int(value));
+		setMarginH(X::dpiSize(json_var_get_int(value)));
 	}
 	else if(attr == "marginV") {
-		setMarginV(json_var_get_int(value));
+		setMarginV(X::dpiSize(json_var_get_int(value)));
 	}
 	else if(attr == "w") {
-		fix(json_var_get_int(value), area.h);
+		fix(X::dpiSize(json_var_get_int(value)), area.h);
 	}
 	else if(attr == "h") {
-		fix(area.w, json_var_get_int(value));
+		fix(area.w, X::dpiSize(json_var_get_int(value)));
 	}
 	else if(attr == "alpha") {
 		setAlpha(json_var_get_int(value));

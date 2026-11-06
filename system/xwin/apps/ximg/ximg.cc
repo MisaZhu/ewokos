@@ -382,8 +382,8 @@ int main(int argc, char** argv) {
 
 	Menubar* menubar = new Menubar();
 	root->add(menubar);
-	menubar->fix(0, 20);
-	menubar->setItemSize(48);
+	menubar->fix(0, X::dpiSize(20));
+	menubar->setItemSize(X::dpiSize(48));
 	win.setMenubar(menubar);
 
 	Container* c = new Container();
@@ -394,18 +394,18 @@ int main(int argc, char** argv) {
 	c->add(imgView);
 
 	Scroller *sr = new Scroller();
-	sr->fix(8, 0);
+	sr->fix(X::dpiSize(8), 0);
 	imgView->setScrollerV(sr);
 	c->add(sr);
 
 	sr = new Scroller(true);
-	sr->fix(0, 8);
+	sr->fix(0, X::dpiSize(8));
 	imgView->setScrollerH(sr);
 	root->add(sr);
 
 	StatusLabel* statusLabel = new StatusLabel("");
 	imgView->setStatusLabel(statusLabel);
-	statusLabel->fix(0, 20);
+	statusLabel->fix(0, X::dpiSize(20));
 	root->add(statusLabel);
 	win.setStatusLabel(statusLabel);
 

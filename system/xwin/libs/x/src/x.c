@@ -273,6 +273,10 @@ static int x_update_theme(void) {
     return 0;
 }
 
+int x_dpi_size(int size) {
+    return _x_theme.dpi ? size*2 : size;
+}
+
 int x_get_theme(x_theme_t* theme) {
     if(theme == NULL)
         return -1;

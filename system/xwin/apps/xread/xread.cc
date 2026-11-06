@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
-	c->fix(0, 20);
+	c->fix(0, X::dpiSize(20));
 	root->add(c);
 
 	Menu* menu = new Menu();
@@ -187,12 +187,12 @@ int main(int argc, char** argv) {
 
 	LabelButton* zoomInButton = new LabelButton("+");
 	zoomInButton->setEventFunc(onZoomInClickFunc);
-	zoomInButton->fix(48, 0);
+	zoomInButton->fix(X::dpiSize(48), 0);
 	c->add(zoomInButton);
 
 	LabelButton* zoomOutButton = new LabelButton("-");
 	zoomOutButton->setEventFunc(onZoomOutClickFunc);
-	zoomOutButton->fix(48, 0);
+	zoomOutButton->fix(X::dpiSize(48), 0);
 	c->add(zoomOutButton);
 
 	c = new Container();
@@ -205,12 +205,12 @@ int main(int argc, char** argv) {
 	win.text = text;
 
 	Scroller* scrollerV = new Scroller();
-	scrollerV->fix(8, 0);
+	scrollerV->fix(X::dpiSize(8), 0);
 	c->add(scrollerV);
 	text->setScrollerV(scrollerV);
 
 	StatusLabel* statusLabel = new StatusLabel("");
-	statusLabel->fix(0, 20);
+	statusLabel->fix(0, X::dpiSize(20));
 	root->add(statusLabel);
 	text->statusLabel = statusLabel;
 

@@ -8,17 +8,20 @@
 #include <stdio.h>
 #include "xtheme.h"
 
-int x_load_theme(const char* name, x_theme_t* theme) {
-    if(theme == NULL || name == NULL || name[0] == 0) 
+int x_load_theme(x_t* x, const char* name, x_theme_t* theme) {
+    if(x == NULL || theme == NULL || name == NULL || name[0] == 0) 
         return -1;
 
     strncpy(theme->name, name, THEME_NAME_MAX-1);
+    theme->dpi = x->config.dpi;
 
     char fname[FS_FULL_NAME_MAX];
     snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.json", X_THEME_ROOT, name);
     json_var_t *conf_var = json_parse_file(fname);	
 
     theme->fontSize = json_get_int_def(conf_var, "font_size", DEFAULT_SYSTEM_FONT_SIZE);
+    if(theme->dpi != 0)
+        theme->fontSize *= 2;
 
     const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
     memset(theme->fontName, 0, FONT_NAME_MAX);
@@ -44,7 +47,7 @@ int x_load_theme(const char* name, x_theme_t* theme) {
     return 0;
 }
 
-int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
+int x_load_xwm_theme(x_t* x, const char* name, xwm_theme_t* theme) {
     if(theme == NULL || name == NULL || name[0] == 0) 
         return -1;
 
@@ -61,6 +64,12 @@ int x_load_xwm_theme(const char* name, xwm_theme_t* theme) {
     theme->round = json_get_int_def(conf_var, "round", 0);
     theme->titleH = json_get_int_def(conf_var, "title_h", 24);
     theme->fontSize = json_get_int_def(conf_var, "font_size", 14);
+
+    if(x->config.dpi != 0) {
+        theme->fontSize *= 2;
+        theme->titleH *= 2;
+        theme->round *= 2;
+    }
 
     const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
     memset(theme->fontName, 0, FONT_NAME_MAX);

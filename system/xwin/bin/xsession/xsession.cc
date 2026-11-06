@@ -167,8 +167,8 @@ protected:
 	}
 
 public:
-	XSession() {
-		theme.setFont(theme.basic.fontName, 16);
+	XSession(int fontSize) {
+		theme.setFont(theme.basic.fontName, fontSize);
 		passwordMode = false;
 		logoUser = graph_image_new("/usr/system/icons/ewok.png");
 		logoPasswd = graph_image_new("/usr/system/icons/storm.png");
@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	X x;
-	XSession xwin;
+	XSession xwin(X::dpiSize(16));
 	xwin.open(&x, -1, 0, 0, 0, 0, "XSessioin", XWIN_STYLE_NO_FRAME | XWIN_STYLE_SYSTOP | XWIN_STYLE_NO_BG_EFFECT);
 	xwin.max();
 	xwin.callXIM();

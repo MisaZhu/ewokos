@@ -59,3 +59,8 @@ bool X::setDesktopSpace(const grect_t& r, int index) {
 		return true;
 	return false;
 }
+
+int X::dpiSize(int size) {
+	return x_dpi_size(size);
+}
+

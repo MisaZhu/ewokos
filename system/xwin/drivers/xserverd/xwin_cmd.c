@@ -616,7 +616,7 @@ int x_dev_load_theme(x_t* x, proto_t* in, proto_t* out) {
     const char* name = proto_read_str(in);
     if(name == NULL)
         return -1;
-    return x_load_theme(name, &x->config.theme);
+    return x_load_theme(x, name, &x->config.theme);
 }
 
 int x_dev_get_theme(x_t* x, proto_t* in, proto_t* out) {
@@ -665,7 +665,7 @@ int x_dev_load_xwm_theme(x_t* x, proto_t* in, proto_t* out) {
         return -1;
 
     cursor_init(name, &x->cursor);
-    if(x_load_xwm_theme(name, &x->config.xwm_theme) != 0)
+    if(x_load_xwm_theme(x, name, &x->config.xwm_theme) != 0)
         return -1;
     return xwm_theme_update(x);
 }

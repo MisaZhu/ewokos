@@ -33,7 +33,7 @@ void ConfirmDialog::onBuild() {
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
-	c->fix(0, 20);
+	c->fix(0, X::dpiSize(20));
 	root->add(c);
 
 	RoundLabelButton* okButton = new RoundLabelButton("OK");

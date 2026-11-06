@@ -11,7 +11,7 @@ protected:
 		dialog->submit(Dialog::RES_OK);
 	}
 public: 
-	FWidget(FileDialog* d) {
+	FWidget(FileDialog* d) : FileWidget(X::dpiSize(72)) {
 		dialog = d;
 	}
 };
@@ -42,7 +42,7 @@ void FileDialog::onBuild() {
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
-	c->fix(0, 20);
+	c->fix(0, X::dpiSize(20));
 	root->add(c);
 
 	RoundLabelButton* okButton = new RoundLabelButton("OK");

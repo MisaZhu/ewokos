@@ -21,7 +21,7 @@ protected:
 	void onFocus();
 
 public:
-	FileWidget();
+	FileWidget(uint32_t itemSize = 72);
 
 	void loadDir(const string& dirName);
 	void load(const string& fname, const string& open_with);

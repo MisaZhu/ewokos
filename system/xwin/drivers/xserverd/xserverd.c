@@ -168,6 +168,7 @@ static int32_t read_config(x_t* x, const char* fname) {
     x->config.fps = json_get_int_def(conf_var, "fps", 30);
     x->config.multi_task = json_get_int_def(conf_var, "multi_task", 0);
     x->config.fps_async = json_get_int_def(conf_var, "fps_async", 0);
+    x->config.dpi = json_get_int_def(conf_var, "dpi", 0);
     x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
     x->show_cursor = true;
@@ -246,7 +247,7 @@ int main(int argc, char** argv) {
     }
 
     cursor_init("default", &x.cursor);
-    x_load_theme("default", &x.config.theme);
+    x_load_theme(&x, "default", &x.config.theme);
     x_dirty(&x, -1);
 
     vdevice_t dev;

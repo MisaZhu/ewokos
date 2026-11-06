@@ -32,7 +32,7 @@ protected:
 		getWin()->busy(true);
 
 		uint32_t y = 0;
-		uint16_t margin = 4;
+		uint16_t margin = X::dpiSize(4);
 		/*
 		for(int i=0; i<4; i++) {
 			uint16_t size = (i+1) * 8;
@@ -49,16 +49,16 @@ protected:
 		}
 		*/
 
-		uint16_t size = 16;
-		graph_draw_text_font(g, r.x+10, y - off_y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
+		uint16_t size = X::dpiSize(16);
+		graph_draw_text_font(g, r.x+X::dpiSize(10), y - off_y, "abcdefghijklmn", font, size, theme->basic.docFGColor);
 		y += size + margin;
-		graph_draw_text_font(g, r.x+10, y - off_y, "opqrstuvwxyz", font, size, theme->basic.docFGColor);
+		graph_draw_text_font(g, r.x+X::dpiSize(10), y - off_y, "opqrstuvwxyz", font, size, theme->basic.docFGColor);
 		y += size + margin;
-		graph_draw_text_font(g, r.x+10, y - off_y, "0123456789.+-", font, size, theme->basic.docFGColor);
+		graph_draw_text_font(g, r.x+X::dpiSize(10), y - off_y, "0123456789.+-", font, size, theme->basic.docFGColor);
 		y += size + margin;
-		graph_draw_text_font(g, r.x+10, y - off_y, "~!@#$%%^&*()", font, size, theme->basic.docFGColor);
+		graph_draw_text_font(g, r.x+X::dpiSize(10), y - off_y, "~!@#$%%^&*()", font, size, theme->basic.docFGColor);
 		y += size + margin;
-		graph_draw_text_font(g, r.x+10, y - off_y, "中文字体演示", font, size, theme->basic.docFGColor);
+		graph_draw_text_font(g, r.x+X::dpiSize(10), y - off_y, "中文字体演示", font, size, theme->basic.docFGColor);
 		y += (size + margin)*2;
 
 		demoH = y;
@@ -158,7 +158,7 @@ protected:
 			graph_fill_rect(g, r.x, r.y, r.w, r.h, theme->basic.selectBGColor);
 			color = theme->basic.selectColor;
 		}
-		graph_draw_text_font(g, r.x+2, r.y+2, fonts[index].name.c_str(), theme->getFont(), theme->basic.fontSize, color);
+		graph_draw_text_font(g, r.x+X::dpiSize(2), r.y+X::dpiSize(2), fonts[index].name.c_str(), theme->getFont(), theme->basic.fontSize, color);
 	}
 
 	void onEnter(int index) {
@@ -235,13 +235,13 @@ void FontDialog::onBuild() {
 
 	FontList* list = new FontList(this);
 	list->loadFont();
-	list->setItemSize(20);
-	list->fix(120, 0);
+	list->setItemSize(X::dpiSize(20));
+	list->fix(X::dpiSize(120), 0);
 	c->add(list);
 	root->focus(list);
 
 	Scroller* scrollerV = new Scroller();
-	scrollerV->fix(8, 0);
+	scrollerV->fix(X::dpiSize(8), 0);
 	c->add(scrollerV);
 	list->setScrollerV(scrollerV);
 
@@ -254,13 +254,13 @@ void FontDialog::onBuild() {
 	list->setDemo(demo);
 
 	scrollerV = new Scroller();
-	scrollerV->fix(8, 0);
+	scrollerV->fix(X::dpiSize(8), 0);
 	c->add(scrollerV);
 	demo->setScrollerV(scrollerV);
 
 	c = new Container();
 	c->setType(Container::HORIZONTAL);
-	c->fix(0, 20);
+	c->fix(0, X::dpiSize(20));
 	root->add(c);
 
 	RoundLabelButton* okButton = new RoundLabelButton("OK");

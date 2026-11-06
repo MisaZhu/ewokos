@@ -652,8 +652,8 @@ int main(int argc, char** argv) {
 
     Menubar* menubar = new Menubar();
     root->add(menubar);
-    menubar->fix(0, 24);
-    menubar->setItemSize(50);
+    menubar->fix(0, X::dpiSize(24));
+    menubar->setItemSize(X::dpiSize(50));
     menubar->add(0, "Open", NULL, NULL, onOpenFunc, &win);
 
     SpectrumView* spectrum = new SpectrumView();
@@ -662,7 +662,7 @@ int main(int argc, char** argv) {
 
     // Progress bar
     ProgressBar* progressBar = new ProgressBar();
-    progressBar->fix(0, 16);
+    progressBar->fix(0, X::dpiSize(16));
     progressBar->setSeekCallback(onSeekProgress, &win);
     root->add(progressBar);
     win.setProgressBar(progressBar);
@@ -670,20 +670,20 @@ int main(int argc, char** argv) {
     Container* controls = new Container();
     controls->setType(Container::HORIZONTAL);
     root->add(controls);
-    controls->fix(0, 24);
+    controls->fix(0, X::dpiSize(24));
 
     LabelButton* playBtn = new LabelButton(">");
-    playBtn->fix(40, 0);
+    playBtn->fix(X::dpiSize(40), 0);
     playBtn->setEventFunc(onPlayBtnClick, &win);
     controls->add(playBtn);
     win.setPlayBtn(playBtn);
 
     Label* timeLabel = new Label("00:00 / 00:00");
-    timeLabel->fix(140, 0);
+    timeLabel->fix(X::dpiSize(140), 0);
     controls->add(timeLabel);
     win.setTimeLabel(timeLabel);
 
-    win.open(&x, -1, -1, -1, 300, 140, "SndPlayer", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT, true);
+    win.open(&x, -1, -1, -1, X::dpiSize(300), X::dpiSize(140), "SndPlayer", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT, true);
     win.setTimer(16);
 
     if (argc >= 2) {

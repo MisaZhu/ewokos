@@ -1,5 +1,6 @@
 #include <Widget/Split.h>
 #include <Widget/Container.h>
+#include <x++/X.h>
 
 namespace Ewok {
 
@@ -51,7 +52,7 @@ void Split::onAdd() {
 void Split::setAttr(const string& attr, json_var_t*value) {
 	Widget::setAttr(attr, value);
 	if(attr == "width") {
-		setWidth(json_var_get_int(value));
+		setWidth(X::dpiSize(json_var_get_int(value)));
 	}
 }
 

@@ -265,16 +265,18 @@ int main(int argc, char** argv) {
 	win.setRoot(root);
 	root->setType(Container::HORIZONTAL);
 
+	/* scale item/icon sizes on high-DPI screens, same as xlauncher */
+	uint32_t itemSize = X::dpiSize(_itemSize);
 	AppGrid* apps = new AppGrid();
 	apps->setAlpha(true);
-	apps->setItemSize(_itemSize, _itemSize);
-	apps->setIconSize(_itemSize*2/3);
+	apps->setItemSize(itemSize, itemSize);
+	apps->setIconSize(itemSize*2/3);
 	root->add(apps);
 	root->focus(apps);
 
 	Scroller* scrollerV = new Scroller();
 	scrollerV->setAlpha(true);
-	scrollerV->fix(8, 0);
+	scrollerV->fix(X::dpiSize(8), 0);
 	root->add(scrollerV);
 	apps->setScrollerV(scrollerV);
 

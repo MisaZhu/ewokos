@@ -26,7 +26,7 @@ protected:
 		graph_fill_3d(g, r.x, r.y, r.w, r.h, theme->basic.titleBGColor, true);
 		font_t* font = theme->getFont();
 		int y = r.y + (r.h-font_get_height(font, theme->basic.fontSize))/2;
-		graph_draw_text_font(g, r.x+4, y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
+		graph_draw_text_font(g, r.x+X::dpiSize(4), y, label.c_str(), font, theme->basic.fontSize, theme->basic.titleColor);
 	}
 public:
 	CWDLabel(const char* label) : Label(label) {}
@@ -378,7 +378,7 @@ protected:
 			return;
 
 		if(index == itemSelected)
-			graph_fill_round(g, r.x, r.y, r.w, r.h, 12, theme->basic.selectBGColor);
+			graph_fill_round(g, r.x, r.y, r.w, r.h, X::dpiSize(12), theme->basic.selectBGColor);
 
 		drawIcon(g, index, theme, r.x , r.y, r.w, r.h);
 		drawTitle(g, index, theme, r.x , r.y, r.w, r.h);
@@ -459,7 +459,7 @@ void FileWidget::build() {
 	setAlpha(false);
 
 	CWDLabel* cwdLabel = new CWDLabel("/");
-	cwdLabel->fix(0, 20);
+	cwdLabel->fix(0, X::dpiSize(20));
 	add(cwdLabel);
 
 	Container* c = new Container();
@@ -473,13 +473,13 @@ void FileWidget::build() {
 	fileGrid = fgrid;
 
 	Scroller* scrollerV = new Scroller();
-	scrollerV->fix(8, 0);
+	scrollerV->fix(X::dpiSize(8), 0);
 	c->add(scrollerV);
 	fgrid->setScrollerV(scrollerV);
 }
 
-FileWidget::FileWidget() {
-	itemSize = 72;
+FileWidget::FileWidget(uint32_t sz) {
+	itemSize = sz;
 	build();
 }
 

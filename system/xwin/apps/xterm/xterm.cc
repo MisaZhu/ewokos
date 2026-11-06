@@ -427,6 +427,14 @@ static bool readConfig(const char* fname) {
 	uint32_t font_size = json_get_int_def(conf_var, "font_size", 12);
 	int32_t char_space = json_get_int_def(conf_var, "char_space", -1);
 	int32_t line_space = json_get_int_def(conf_var, "line_space", 0);
+
+	x_theme_t theme;
+	if(x_get_theme(&theme) == 0 && theme.dpi != 0) {
+		font_size *= 2;
+		char_space *= 2;
+		line_space *= 2;
+	}
+
 	uint32_t fg_color = json_get_int_def(conf_var, "fg_color", 0xffdddddd);
 	uint32_t bg_color = json_get_int_def(conf_var, "bg_color", 0xff000000);
 	uint32_t transparent = json_get_int_def(conf_var, "transparent", 255);
@@ -476,10 +484,10 @@ static void* thread_loop(void* p) {
 	menu->add(1, "bgcolor", NULL, NULL, onBGColor, &win);
 
 	Menubar* menubar = new Menubar();
-	menubar->setItemSize(42);
+	menubar->setItemSize(X::dpiSize(42));
 	menubar->add(2, "font", NULL, NULL, onFontFunc, &win);
 	menubar->add(7, "color", NULL, menu, NULL, NULL);
-	menubar->fix(0, 20);
+	menubar->fix(0, X::dpiSize(20));
 	root->add(menubar);
 	_menubar = menubar;
 

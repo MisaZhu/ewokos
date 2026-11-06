@@ -171,14 +171,14 @@ int main(int argc, char** argv) {
 	root->add(blank);
 
 	DateTime* datetime = new DateTime();
-	datetime->fix(96, 0);
+	datetime->fix(X::dpiSize(96), 0);
 	root->add(datetime);
 
 	PowerInfo* powerInfo = new PowerInfo();
-	powerInfo->fix(48, 0);
+	powerInfo->fix(X::dpiSize(48), 0);
 	root->add(powerInfo);
 
-	win.open(&x, -1, 0, 0, scr.size.w, 20, "statusbar", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT);
+	win.open(&x, -1, 0, 0, scr.size.w, X::dpiSize(20), "statusbar", XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSBOTTOM | XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_TITLE | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(2);
 	widgetXRun(&x, &win);
 	return 0;

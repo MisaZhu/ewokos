@@ -272,7 +272,7 @@ int main(int argc, char* argv[]) {
     xtest_init();
 
     x.on_loop = loop;
-    xwin_t* xwin = xwin_open(&x, -1, 32, 32, 320, 200, "xDemo", XWIN_STYLE_NORMAL);
+    xwin_t* xwin = xwin_open(&x, -1, 32, 32, x_dpi_size(320), x_dpi_size(200), "xDemo", XWIN_STYLE_NORMAL);
     if(xwin == NULL) {
         xtest_free();
         return -1;

@@ -13,7 +13,10 @@ using namespace std;
 using namespace Ewok;
 
 class FileManager: public FileWidget {
+public:
+	FileManager(uint32_t itemSize) : FileWidget(itemSize) {}
 
+private:
 	bool check_elf(const string& fname) {
 		elf_header_t header;
 		if(elf_read_header(fname.c_str(), &header) != 0)
@@ -59,7 +62,8 @@ int main(int argc, char** argv) {
 	root->setType(Container::VERTICAL);
 	
 
-	FileManager* fm = new FileManager();
+	/* scale the file grid item size on high-DPI screens, same as xlauncher */
+	FileManager* fm = new FileManager(X::dpiSize(72));
 	root->add(fm);
 	root->focus(fm);
 

@@ -45,6 +45,7 @@ int      x_get_display_num(void);
 void     x_init(x_t* x, void* data);
 int      x_run(x_t* x, void* loop_data);
 void     x_terminate(x_t* x);
+int      x_dpi_size(int size);
 
 /*
  * The two halves of x_run()'s loop body, published for event loops that are not

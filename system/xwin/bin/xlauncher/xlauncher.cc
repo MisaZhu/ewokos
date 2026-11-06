@@ -157,7 +157,7 @@ public:
 		clearItem();
 	}
 
-	bool loadConfig() {
+	bool loadConfig(const X& x) {
 		int sz = 0;
 		json_var_t* var = NULL;
 		char* str = (char*)vfs_readfile("/usr/x/xlauncher/xlauncher.json", &sz);
@@ -174,8 +174,8 @@ public:
 
 		loadApps(var);
 
-		itemSize = json_get_int_def(var, "item_size", 64);
-		iconSize = json_get_int_def(var, "icon_size", 32);
+		itemSize = X::dpiSize(json_get_int_def(var, "item_size", 64));
+		iconSize = X::dpiSize(json_get_int_def(var, "icon_size", 32));
 
 		json_var_unref(var);
 		return true;
@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
 	
 
 	AppList* apps = new AppList();
-	apps->loadConfig();
+	apps->loadConfig(x);
 	root->add(apps);
 	root->focus(apps);
 
