@@ -7,7 +7,7 @@
     "frame_fg_color": "0xffffffff",
 
     "font_size": 13,
-    "title_h": 24,
+    "title_h": 20,
     "#frame_width": "thickness of the frosted-glass border band; the glass border follows this exactly",
     "frame_width": 1,
     "shadow": 5,
