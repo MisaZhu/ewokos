@@ -1,5 +1,6 @@
 {
     "cursor": "cursors/mouse.png",
+    "cursor_hidpi": "cursors/mouse_hidpi.png",
     "x_offset": 0,
     "y_offset": 0
 }

@@ -484,10 +484,10 @@ static void* thread_loop(void* p) {
 	menu->add(1, "bgcolor", NULL, NULL, onBGColor, &win);
 
 	Menubar* menubar = new Menubar();
-	menubar->setItemSize(X::dpiSize(42));
+	menubar->setItemSize(X::hidpiSize(42));
 	menubar->add(2, "font", NULL, NULL, onFontFunc, &win);
 	menubar->add(7, "color", NULL, menu, NULL, NULL);
-	menubar->fix(0, X::dpiSize(20));
+	menubar->fix(0, X::hidpiSize(20));
 	root->add(menubar);
 	_menubar = menubar;
 

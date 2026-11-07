@@ -230,7 +230,7 @@ int main(int argc, char** argv) {
 	layout->setEventFunc(onEventFunc);
 	layout->setCreateByTypeFunc(createByTypeFunc);
 
-	win.open(&x, -1, -1, -1, X::dpiSize(280), X::dpiSize(320), "xwm_theme", XWIN_STYLE_NORMAL);
+	win.open(&x, -1, -1, -1, X::hidpiSize(280), X::hidpiSize(320), "xwm_theme", XWIN_STYLE_NORMAL);
 	win.loadConfig(X::getResFullName("layout.xwl").c_str()); // load the layout file
 	win.setOnDialogedFunc(_dialogedFunc);
 

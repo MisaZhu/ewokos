@@ -35,10 +35,10 @@ void RoundButton::setRound(uint32_t r, uint32_t rw) {
 void RoundButton::setAttr(const string& attr, json_var_t*value) {
 	Button::setAttr(attr, value);
 	if(attr == "round") {
-		setRound(X::dpiSize(json_var_get_int(value)), roundWidth);
+		setRound(X::hidpiSize(json_var_get_int(value)), roundWidth);
 	}
 	else if(attr == "roundWidth") {
-		setRound(round, X::dpiSize(json_var_get_int(value)));
+		setRound(round, X::hidpiSize(json_var_get_int(value)));
 	}
 }
 

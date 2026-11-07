@@ -266,7 +266,7 @@ int main(int argc, char** argv) {
 	root->setType(Container::HORIZONTAL);
 
 	/* scale item/icon sizes on high-DPI screens, same as xlauncher */
-	uint32_t itemSize = X::dpiSize(_itemSize);
+	uint32_t itemSize = X::hidpiSize(_itemSize);
 	AppGrid* apps = new AppGrid();
 	apps->setAlpha(true);
 	apps->setItemSize(itemSize, itemSize);
@@ -276,7 +276,7 @@ int main(int argc, char** argv) {
 
 	Scroller* scrollerV = new Scroller();
 	scrollerV->setAlpha(true);
-	scrollerV->fix(X::dpiSize(8), 0);
+	scrollerV->fix(X::hidpiSize(8), 0);
 	root->add(scrollerV);
 	apps->setScrollerV(scrollerV);
 

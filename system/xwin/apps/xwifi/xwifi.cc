@@ -641,35 +641,35 @@ int main(int argc, char** argv) {
 	left->add(listRow);
 
 	WifiList* wifiList = new WifiList(&win);
-	wifiList->setItemSize(X::dpiSize(24));
+	wifiList->setItemSize(X::hidpiSize(24));
 	listRow->add(wifiList);
 
 	Scroller* scroller = new Scroller();
-	scroller->fix(X::dpiSize(8), 0);
+	scroller->fix(X::hidpiSize(8), 0);
 	listRow->add(scroller);
 	wifiList->setScrollerV(scroller);
 
 	Container* controls = new Container();
 	controls->setType(Container::VERTICAL);
-	controls->fix(0, X::dpiSize(84));
+	controls->fix(0, X::hidpiSize(84));
 	left->add(controls);
 
 	Blank* gap = new Blank();
-	gap->fix(0, X::dpiSize(6));
+	gap->fix(0, X::hidpiSize(6));
 	controls->add(gap);
 
 	EditLine* password = new EditLine();
-	password->fix(0, X::dpiSize(36));
+	password->fix(0, X::hidpiSize(36));
 	controls->add(password);
 	root->focus(password);
 
 	gap = new Blank();
-	gap->fix(0, X::dpiSize(6));
+	gap->fix(0, X::hidpiSize(6));
 	controls->add(gap);
 
 	Container* buttonRow = new Container();
 	buttonRow->setType(Container::HORIZONTAL);
-	buttonRow->fix(0, X::dpiSize(36));
+	buttonRow->fix(0, X::hidpiSize(36));
 	controls->add(buttonRow);
 
 	LabelButton* connect = new LabelButton("connect");
@@ -677,7 +677,7 @@ int main(int argc, char** argv) {
 	buttonRow->add(connect);
 
 	gap = new Blank();
-	gap->fix(X::dpiSize(6), 0);
+	gap->fix(X::hidpiSize(6), 0);
 	buttonRow->add(gap);
 
 	LabelButton* refresh = new LabelButton("refresh");
@@ -692,7 +692,7 @@ int main(int argc, char** argv) {
 	root->add(info);
 
 	win.setWidgets(wifiList, password, info);
-	win.open(&x, -1, -1, -1, X::dpiSize(560), X::dpiSize(320), "xwifi", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
+	win.open(&x, -1, -1, -1, X::hidpiSize(560), X::hidpiSize(320), "xwifi", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(4);
 	win.triggerScan();
 	win.refreshState();

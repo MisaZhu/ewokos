@@ -1,5 +1,6 @@
 {
     "cursor": "cursors/busy.png",
+    "cursor_hidpi": "cursors/busy_hidpi.png",
     "x_offset": 12,
     "y_offset": 12
 }

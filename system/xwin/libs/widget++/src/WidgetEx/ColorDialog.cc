@@ -38,7 +38,7 @@ protected:
     void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
         graph_set(g, r.x, r.y, r.w, r.h, color | 0xFF000000);
         graph_set(g, r.x, r.y+r.h/2, r.w, r.h/2, color);
-		graph_frame(g, r.x, r.y, r.w, r.h, X::dpiSize(2), theme->basic.bgColor, true);
+		graph_frame(g, r.x, r.y, r.w, r.h, X::hidpiSize(2), theme->basic.bgColor, true);
     }
 public:
     ColorPanel() {
@@ -248,10 +248,10 @@ void ColorDialog::onBuild() {
     Container* c = new Container();
     c->setType(Container::HORIZONTAL);
 	root->add(c);
-	c->fix(0, X::dpiSize(60));
+	c->fix(0, X::hidpiSize(60));
 
     ColorPanel* colorPanel = new ColorPanel();
-	colorPanel->fix(X::dpiSize(60), 0);
+	colorPanel->fix(X::hidpiSize(60), 0);
     c->add(colorPanel);
     colorWidget->setColorPanel(colorPanel);
 
@@ -271,7 +271,7 @@ void ColorDialog::onBuild() {
 
     c = new Container();
     c->setType(Container::HORIZONTAL);
-    c->fix(0, X::dpiSize(20));
+    c->fix(0, X::hidpiSize(20));
     root->add(c);
 
     RoundLabelButton* okButton = new RoundLabelButton("OK");

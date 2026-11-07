@@ -25,6 +25,9 @@
 #include "xserver.h"
 #include "xtheme.h"
 
+/*from libx: keeps its x_hidpi_size theme cache in sync with the config*/
+void x_set_hidpi(bool hidpi);
+
 bool check_xwm(x_t* x) {
     if(x->xwm_pid < 0) {
         x->xwm_uuid = 0;
@@ -169,6 +172,8 @@ static int32_t read_config(x_t* x, const char* fname) {
     x->config.multi_task = json_get_int_def(conf_var, "multi_task", 0);
     x->config.fps_async = json_get_int_def(conf_var, "fps_async", 0);
     x->config.hidpi = json_get_int_def(conf_var, "hidpi", 0);
+    x->cursor.hidpi = x->config.hidpi;
+    x_set_hidpi(x->config.hidpi);
     x->config.bg_proc_priority = json_get_int_def(conf_var, "bg_proc_priority", 2);
 
     x->show_cursor = true;

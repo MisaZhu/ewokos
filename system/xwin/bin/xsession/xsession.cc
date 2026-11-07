@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	X x;
-	XSession xwin(X::dpiSize(16));
+	XSession xwin(X::hidpiSize(16));
 	xwin.open(&x, -1, 0, 0, 0, 0, "XSessioin", XWIN_STYLE_NO_FRAME | XWIN_STYLE_SYSTOP | XWIN_STYLE_NO_BG_EFFECT);
 	xwin.max();
 	xwin.callXIM();

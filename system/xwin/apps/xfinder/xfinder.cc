@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
 	
 
 	/* scale the file grid item size on high-DPI screens, same as xlauncher */
-	FileManager* fm = new FileManager(X::dpiSize(72));
+	FileManager* fm = new FileManager(X::hidpiSize(72));
 	root->add(fm);
 	root->focus(fm);
 

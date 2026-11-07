@@ -126,13 +126,13 @@ int main(int argc, char** argv) {
 	root->setAlpha(false);
 
 	EditLine* editLine = new EditLine();
-	editLine->fix(0, X::dpiSize(30));
+	editLine->fix(0, X::hidpiSize(30));
 	editLine->setContent("hello!");
 	root->focus(editLine);
 	root->add(editLine);
 
 	Widget* wd = new Anim(editLine);
-	wd->fix(0, X::dpiSize(72));
+	wd->fix(0, X::hidpiSize(72));
 	root->add(wd);
 
 	Container* c = new Container();
@@ -155,10 +155,10 @@ int main(int argc, char** argv) {
 	MyList* list = new MyList();
 	c->add(list);
 	list->setItemNum(100);
-	list->setItemSize(X::dpiSize(20));
+	list->setItemSize(X::hidpiSize(20));
 
 	Scroller *sr = new Scroller();
-	sr->fix(X::dpiSize(8), 0);
+	sr->fix(X::hidpiSize(8), 0);
 	list->setScrollerV(sr);
 	c->add(sr);
 
@@ -169,15 +169,15 @@ int main(int argc, char** argv) {
 	list = new MyList();
 	root->add(list);
 	list->setItemNum(100);
-	list->setItemSize(X::dpiSize(20));
+	list->setItemSize(X::hidpiSize(20));
 	list->setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
 
 	sr = new Scroller(true);
-	sr->fix(0, X::dpiSize(8));
+	sr->fix(0, X::hidpiSize(8));
 	list->setScrollerH(sr);
 	root->add(sr);
 
-	win.open(&x, 0, -1, -1, X::dpiSize(400), X::dpiSize(300), "widgetTest", XWIN_STYLE_NORMAL);
+	win.open(&x, 0, -1, -1, X::hidpiSize(400), X::hidpiSize(300), "widgetTest", XWIN_STYLE_NORMAL);
 	win.setTimer(16);
 
 	widgetXRun(&x, &win);	

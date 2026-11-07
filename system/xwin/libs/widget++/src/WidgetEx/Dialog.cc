@@ -18,11 +18,11 @@ bool Dialog::popup(XWin* owner, uint32_t w, uint32_t h, const char* title, uint3
 	if(w == 0)
 		w = scr.size.w*2/3;
 	else
-		w = X::dpiSize(w);
+		w = X::hidpiSize(w);
 	if(h == 0)
 		h = scr.size.h*2/3;
 	else
-		h = X::dpiSize(h);
+		h = X::hidpiSize(h);
 
 	int x = (scr.size.w - (int)w)/2;
 	int y = (scr.size.h - (int)h)/2;

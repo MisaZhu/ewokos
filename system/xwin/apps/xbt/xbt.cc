@@ -681,36 +681,36 @@ int main(int argc, char** argv) {
 	left->add(listRow);
 
 	BtList* btList = new BtList(&win);
-	btList->setItemSize(X::dpiSize(24));
+	btList->setItemSize(X::hidpiSize(24));
 	listRow->add(btList);
 
 	Scroller* scroller = new Scroller();
-	scroller->fix(X::dpiSize(8), 0);
+	scroller->fix(X::hidpiSize(8), 0);
 	listRow->add(scroller);
 	btList->setScrollerV(scroller);
 
 	Container* controls = new Container();
 	controls->setType(Container::VERTICAL);
-	controls->fix(0, X::dpiSize(122));
+	controls->fix(0, X::hidpiSize(122));
 	left->add(controls);
 
 	Blank* gap = new Blank();
-	gap->fix(0, X::dpiSize(6));
+	gap->fix(0, X::hidpiSize(6));
 	controls->add(gap);
 
 	/* pairing PIN / passkey; btd defaults to "0000" when left blank */
 	EditLine* pin = new EditLine();
-	pin->fix(0, X::dpiSize(30));
+	pin->fix(0, X::hidpiSize(30));
 	controls->add(pin);
 	root->focus(pin);
 
 	gap = new Blank();
-	gap->fix(0, X::dpiSize(6));
+	gap->fix(0, X::hidpiSize(6));
 	controls->add(gap);
 
 	Container* row1 = new Container();
 	row1->setType(Container::HORIZONTAL);
-	row1->fix(0, X::dpiSize(34));
+	row1->fix(0, X::hidpiSize(34));
 	controls->add(row1);
 
 	LabelButton* connectBtn = new LabelButton("connect");
@@ -718,7 +718,7 @@ int main(int argc, char** argv) {
 	row1->add(connectBtn);
 
 	gap = new Blank();
-	gap->fix(X::dpiSize(6), 0);
+	gap->fix(X::hidpiSize(6), 0);
 	row1->add(gap);
 
 	LabelButton* pairBtn = new LabelButton("pair");
@@ -726,7 +726,7 @@ int main(int argc, char** argv) {
 	row1->add(pairBtn);
 
 	gap = new Blank();
-	gap->fix(X::dpiSize(6), 0);
+	gap->fix(X::hidpiSize(6), 0);
 	row1->add(gap);
 
 	LabelButton* unpairBtn = new LabelButton("unpair");
@@ -734,12 +734,12 @@ int main(int argc, char** argv) {
 	row1->add(unpairBtn);
 
 	gap = new Blank();
-	gap->fix(0, X::dpiSize(6));
+	gap->fix(0, X::hidpiSize(6));
 	controls->add(gap);
 
 	Container* row2 = new Container();
 	row2->setType(Container::HORIZONTAL);
-	row2->fix(0, X::dpiSize(34));
+	row2->fix(0, X::hidpiSize(34));
 	controls->add(row2);
 
 	LabelButton* discBtn = new LabelButton("disconnect");
@@ -747,7 +747,7 @@ int main(int argc, char** argv) {
 	row2->add(discBtn);
 
 	gap = new Blank();
-	gap->fix(X::dpiSize(6), 0);
+	gap->fix(X::hidpiSize(6), 0);
 	row2->add(gap);
 
 	LabelButton* scanBtn = new LabelButton("scan");
@@ -755,7 +755,7 @@ int main(int argc, char** argv) {
 	row2->add(scanBtn);
 
 	gap = new Blank();
-	gap->fix(X::dpiSize(6), 0);
+	gap->fix(X::hidpiSize(6), 0);
 	row2->add(gap);
 
 	LabelButton* powerBtn = new LabelButton("power off");
@@ -770,7 +770,7 @@ int main(int argc, char** argv) {
 	root->add(info);
 
 	win.setWidgets(btList, pin, info, powerBtn);
-	win.open(&x, -1, -1, -1, X::dpiSize(600), X::dpiSize(360), "xbt", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
+	win.open(&x, -1, -1, -1, X::hidpiSize(600), X::hidpiSize(360), "xbt", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(4);
 	win.refreshState();
 	win.refreshList();
