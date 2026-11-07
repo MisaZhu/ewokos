@@ -229,15 +229,15 @@ protected:
 	void build() {
 		colNum = 0;
 		if(fullInfo) {
-			add("OWNER", X::dpiSize(64));
-			add("PID", X::dpiSize(48));
-			add("CPU", X::dpiSize(56));
-			add("STATE", X::dpiSize(72));
-			add("HEAP", X::dpiSize(64));
+			add("OWNER", X::hidpiSize(64));
+			add("PID", X::hidpiSize(48));
+			add("CPU", X::hidpiSize(56));
+			add("STATE", X::hidpiSize(72));
+			add("HEAP", X::hidpiSize(64));
 		}
 		else {
-			add("PID", X::dpiSize(48));
-			add("CPU", X::dpiSize(56));
+			add("PID", X::hidpiSize(48));
+			add("CPU", X::hidpiSize(56));
 		}
 		add("CMD", 0);
 	}
@@ -618,22 +618,22 @@ int main(int argc, char** argv) {
 
 	Container* c = new Container();
 	c->setType(Container::VERTICAL);
-	c->fix(X::dpiSize(120), 0);
+	c->fix(X::hidpiSize(120), 0);
 	root->add(c);
 
 	CoreList* list = new CoreList();
 	list->loadCores(0);
-	list->setItemSize(X::dpiSize(20));
-	list->fix(0, list->getItemNum()*X::dpiSize(20));
+	list->setItemSize(X::hidpiSize(20));
+	list->fix(0, list->getItemNum()*X::hidpiSize(20));
 	c->add(list);
 
 	Blank* gap = new Blank();
-	gap->fix(0, X::dpiSize(8));
+	gap->fix(0, X::hidpiSize(8));
 	c->add(gap);
 
 	Container* swRow = new Container();
 	swRow->setType(Container::HORIZONTAL);
-	swRow->fix(0, X::dpiSize(24));
+	swRow->fix(0, X::hidpiSize(24));
 	c->add(swRow);
 
 	Label* swLabel = new Label("full ");
@@ -641,7 +641,7 @@ int main(int argc, char** argv) {
 
 	SwitchButton* fullinfoSwitch = new SwitchButton();
 	fullinfoSwitch->setName("fullinfoSwitch");
-	fullinfoSwitch->fix(X::dpiSize(40), 0);
+	fullinfoSwitch->fix(X::hidpiSize(40), 0);
 	fullinfoSwitch->setOn(true);
 	swRow->add(fullinfoSwitch);
 	swRow->add(new Blank());
@@ -649,11 +649,11 @@ int main(int argc, char** argv) {
 	c->add(new Blank());
 
 	MemInfo* memInfo = new MemInfo();
-	memInfo->fix(0, X::dpiSize(20));
+	memInfo->fix(0, X::hidpiSize(20));
 	c->add(memInfo);
 
 	Cores* cores = new Cores();
-	cores->fix(0, X::dpiSize(72));
+	cores->fix(0, X::hidpiSize(72));
 	c->add(cores);
 
 	Splitter *splitter = new Splitter();
@@ -669,7 +669,7 @@ int main(int argc, char** argv) {
 	}, procs);
 
 	Scroller* scrollerV = new Scroller();
-	scrollerV->fix(X::dpiSize(8), 0);
+	scrollerV->fix(X::hidpiSize(8), 0);
 	root->add(scrollerV);
 	procs->setScrollerV(scrollerV);
 

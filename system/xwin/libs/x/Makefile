@@ -10,7 +10,8 @@ CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
 LIB_X_OBJS = $(ARCH)/src/x.o \
 	$(ARCH)/src/xwin.o \
-	$(ARCH)/src/xwm.o
+	$(ARCH)/src/xwm.o \
+	$(ARCH)/src/xhidpi.o
 
 X = $(TARGET_DIR)/lib/libx.a
 

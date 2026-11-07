@@ -174,8 +174,8 @@ public:
 
 		loadApps(var);
 
-		itemSize = X::dpiSize(json_get_int_def(var, "item_size", 64));
-		iconSize = X::dpiSize(json_get_int_def(var, "icon_size", 32));
+		itemSize = X::hidpiSize(json_get_int_def(var, "item_size", 64));
+		iconSize = X::hidpiSize(json_get_int_def(var, "icon_size", 32));
 
 		json_var_unref(var);
 		return true;

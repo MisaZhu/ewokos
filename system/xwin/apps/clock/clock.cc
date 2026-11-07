@@ -28,7 +28,7 @@ class CircularClock : public Widget {
 
         // Draw the hour numbers.
         font_t* font = theme->getFont();
-        int fontSize = X::dpiSize(10);
+        int fontSize = X::hidpiSize(10);
         for (int hour = 1; hour <= 12; ++hour) {
             double angle = (hour * 30 - 90) * M_PI / 180; // Offset by 90 degrees so 12 o'clock is at the top
             int textX = centerX + (int)((radius - 12) * cos(angle));
@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
     CircularClock* clock = new CircularClock();
     root->add(clock);
 
-    win.open(&x, -1, -1, -1, X::dpiSize(160), X::dpiSize(160), "Circular Clock", XWIN_STYLE_SPRITE);
+    win.open(&x, -1, -1, -1, X::hidpiSize(160), X::hidpiSize(160), "Circular Clock", XWIN_STYLE_SPRITE);
     win.setTimer(1);
     win.setAlpha(true);
     widgetXRun(&x, &win);

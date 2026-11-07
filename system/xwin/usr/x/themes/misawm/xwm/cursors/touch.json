@@ -1,5 +1,6 @@
 {
     "cursor": "cursors/touch.png",
+    "cursor_hidpi": "cursors/touch_hidpi.png",
     "x_offset": 9,
     "y_offset": 7 
 }

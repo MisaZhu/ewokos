@@ -20,7 +20,7 @@ void SpriteWin::onEvent(xevent_t* ev) {
         static int lastX = -1, lastY = -1;
         if (ev->state == MOUSE_STATE_CLICK) {
             gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-            if(pos.x > 0 && pos.x < X::dpiSize(24) && pos.y > 0 && pos.y < X::dpiSize(24))
+            if(pos.x > 0 && pos.x < X::hidpiSize(24) && pos.y > 0 && pos.y < X::hidpiSize(24))
                 this->close();
         }
         else if (ev->state == MOUSE_STATE_DOWN) {
@@ -44,10 +44,10 @@ void SpriteWin::onEvent(xevent_t* ev) {
 void SpriteWin::onRepaint(graph_t* g) {
     WidgetWin::onRepaint(g);
     if(focused()) {
-        int x = X::dpiSize(12);
-        int y = X::dpiSize(12);
-        graph_fill_circle(g, x, y, X::dpiSize(8), 0xffcccccc);
-        graph_fill_circle(g, x, y, X::dpiSize(4), 0xff222222);
-        graph_circle(g, x, y, X::dpiSize(8), 2, 0xff222222);
+        int x = X::hidpiSize(12);
+        int y = X::hidpiSize(12);
+        graph_fill_circle(g, x, y, X::hidpiSize(8), 0xffcccccc);
+        graph_fill_circle(g, x, y, X::hidpiSize(4), 0xff222222);
+        graph_circle(g, x, y, X::hidpiSize(8), 2, 0xff222222);
     }
 }

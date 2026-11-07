@@ -24,6 +24,9 @@ typedef struct {
 
 	uint32_t type;
 	bool down;
+	/*hidpi: cursor_init prefers the 2x cursor_hidpi assets and scales
+	  the json offsets up by 2*/
+	bool hidpi;
 
 	/*state of the cursor currently sitting on the display: as long as none
 	  of it changed and nothing gets drawn underneath, it does not have to be

@@ -39,16 +39,16 @@ void Widget::setAttr(const string& attr, json_var_t*value) {
 		setName(json_var_get_str(value));
 	}
 	else if(attr == "marginH") {
-		setMarginH(X::dpiSize(json_var_get_int(value)));
+		setMarginH(X::hidpiSize(json_var_get_int(value)));
 	}
 	else if(attr == "marginV") {
-		setMarginV(X::dpiSize(json_var_get_int(value)));
+		setMarginV(X::hidpiSize(json_var_get_int(value)));
 	}
 	else if(attr == "w") {
-		fix(X::dpiSize(json_var_get_int(value)), area.h);
+		fix(X::hidpiSize(json_var_get_int(value)), area.h);
 	}
 	else if(attr == "h") {
-		fix(area.w, X::dpiSize(json_var_get_int(value)));
+		fix(area.w, X::hidpiSize(json_var_get_int(value)));
 	}
 	else if(attr == "alpha") {
 		setAlpha(json_var_get_int(value));

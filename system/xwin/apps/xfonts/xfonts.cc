@@ -205,13 +205,13 @@ int main(int argc, char** argv) {
 
 	FontList* list = new FontList();
 	list->loadFont();
-	list->setItemSize(X::dpiSize(20));
-	list->fix(X::dpiSize(120), 0);
+	list->setItemSize(X::hidpiSize(20));
+	list->fix(X::hidpiSize(120), 0);
 	root->add(list);
 	root->focus(list);
 
 	Scroller* scrollerV = new Scroller();
-	scrollerV->fix(X::dpiSize(8), 0);
+	scrollerV->fix(X::hidpiSize(8), 0);
 	root->add(scrollerV);
 	list->setScrollerV(scrollerV);
 
@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
 	list->setDemo(demo);
 
 	scrollerV = new Scroller();
-	scrollerV->fix(X::dpiSize(8), 0);
+	scrollerV->fix(X::hidpiSize(8), 0);
 	root->add(scrollerV);
 	demo->setScrollerV(scrollerV);
 

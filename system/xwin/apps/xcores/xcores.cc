@@ -50,9 +50,9 @@ public:
 	inline Cores() {
 		index = 0;
 		loop = false;
-		x_off = X::dpiSize(6);
-		y_off = X::dpiSize(18);
-		y_off_bottom = X::dpiSize(6);
+		x_off = X::hidpiSize(6);
+		y_off = X::hidpiSize(18);
+		y_off_bottom = X::hidpiSize(6);
 		memset(cores, 0, sizeof(cores));
 		memset(memData, 0, sizeof(memData));
 		memset(&sysInfo, 0, sizeof(sys_info_t));
@@ -91,15 +91,15 @@ public:
 protected:
 	void drawTitle(graph_t* g, XTheme* theme, uint32_t i, uint32_t color, const grect_t& r) {
 		//int x = r.x + x_off + i*60;
-		int x = r.x + i*(theme->basic.fontSize*3+X::dpiSize(4)) + theme->basic.fontSize*5;
-		graph_fill_rect(g, x, r.y+X::dpiSize(4), X::dpiSize(10), X::dpiSize(10), color);
+		int x = r.x + i*(theme->basic.fontSize*3+X::hidpiSize(4)) + theme->basic.fontSize*5;
+		graph_fill_rect(g, x, r.y+X::hidpiSize(4), X::hidpiSize(10), X::hidpiSize(10), color);
 		char s[16];
 		int32_t perc = 100 - (sysInfo.core_idles[i]/10000);
 		if(perc < 0)
 			perc = 0;
 		snprintf(s, 15, "%d%%", perc);
 		//snprintf(s, 15, "%d", i);
-		graph_draw_text_font(g, x+X::dpiSize(12), r.y, s, theme->getFont(), theme->basic.fontSize, color);
+		graph_draw_text_font(g, x+X::hidpiSize(12), r.y, s, theme->getFont(), theme->basic.fontSize, color);
 	}
 
 	void drawChat(graph_t* g, uint32_t i, float xstep, float yzoom, uint32_t color, const grect_t& r) {
@@ -122,7 +122,7 @@ protected:
 			if(last_y < 0)
 				last_y = y;
 
-			graph_wline(g, r.x+x_off+last_x, r.y+last_y, r.x+x_off+x, r.y+y, X::dpiSize(2), color);
+			graph_wline(g, r.x+x_off+last_x, r.y+last_y, r.x+x_off+x, r.y+y, X::hidpiSize(2), color);
 			last_x = x;
 			last_y = y;
 		}
@@ -174,7 +174,7 @@ protected:
 		memSizeStr(totalMem, totalMemStr, 31);
 
 		snprintf(s, 63, "Mem: %s/%s (%u%%)", usedMemStr, totalMemStr, usedPercent);
-		graph_draw_text_font(g, r.x + x_off, r.y - y_off_bottom + X::dpiSize(2), s, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
+		graph_draw_text_font(g, r.x + x_off, r.y - y_off_bottom + X::hidpiSize(2), s, theme->getFont(), theme->basic.fontSize, theme->basic.fgColor);
 	}
 
 	void drawMemGraph(graph_t* g, float xstep, float yzoom, const grect_t& r) {
@@ -196,7 +196,7 @@ protected:
 				last_y = usedY;
 
 			// Draw used memory line
-			graph_wline(g, r.x+x_off+last_x, r.y+usedY, r.x+x_off+x, r.y+usedY, X::dpiSize(2), memColors[2]);
+			graph_wline(g, r.x+x_off+last_x, r.y+usedY, r.x+x_off+x, r.y+usedY, X::hidpiSize(2), memColors[2]);
 			last_x = x;
 			last_y = usedY;
 		}
@@ -207,7 +207,7 @@ protected:
 
 		// Calculate layout: top part for CPU cores, bottom part for memory with 2px gap
 		int cpuHeight = r.h * 3 / 5;
-		int memHeight = r.h - cpuHeight - X::dpiSize(2); // 2px gap between CPU and memory parts
+		int memHeight = r.h - cpuHeight - X::hidpiSize(2); // 2px gap between CPU and memory parts
 
 		// CPU cores part
 		grect_t cpuRect = { r.x, r.y, r.w, cpuHeight };
@@ -261,7 +261,7 @@ int main(int argc, char** argv) {
 	Cores* cores = new Cores();
 	root->add(cores);
 
-	win.open(&x, -1, -1, -1, X::dpiSize(240), X::dpiSize(120), "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
+	win.open(&x, -1, -1, -1, X::hidpiSize(240), X::hidpiSize(120), "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(2);
 
 	widgetXRun(&x, &win);	
