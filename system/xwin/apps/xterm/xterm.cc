@@ -429,7 +429,7 @@ static bool readConfig(const char* fname) {
 	int32_t line_space = json_get_int_def(conf_var, "line_space", 0);
 
 	x_theme_t theme;
-	if(x_get_theme(&theme) == 0 && theme.dpi != 0) {
+	if(x_get_theme(&theme) == 0 && theme.hidpi != 0) {
 		font_size *= 2;
 		char_space *= 2;
 		line_space *= 2;

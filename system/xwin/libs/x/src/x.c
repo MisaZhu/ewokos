@@ -274,7 +274,7 @@ static int x_update_theme(void) {
 }
 
 int x_dpi_size(int size) {
-    return _x_theme.dpi ? size*2 : size;
+    return _x_theme.hidpi ? size*2 : size;
 }
 
 int x_get_theme(x_theme_t* theme) {
