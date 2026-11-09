@@ -651,6 +651,13 @@ int main(int argc, char** argv) {
         int8_t buf[6];
         memset(buf, 0, 6);
         ensure_x_server();
+        /*
+         * Blocking read: the device node has no data until the driver has a
+         * position for us, so the read itself is the wait.  This loop used to
+         * poll it and then usleep(3000) on every pass, which added up to 3 ms
+         * of pure delay to every touch sample (and did so whether or not an
+         * event was waiting, because the sleep was unconditional).
+         */
         if(read(fd, buf, 6) == 6) {
             uint16_t* mv = (uint16_t*)buf;
             if(mv[0] == 0 && prev_ev == 0)
@@ -669,7 +676,6 @@ int main(int argc, char** argv) {
 
             input(mv[0], tx, ty);
         }
-        usleep(3000);
     }
 
     close(fd);
