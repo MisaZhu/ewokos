@@ -20,6 +20,9 @@ extern "C" {
 #define 	IPC_SET     1 /* set ipc_perm options */
 #define 	IPC_STAT    2 /* get ipc_perm options */
 #define 	IPC_INFO    3 /* see ipcs */
+/* EwokOS shmctl extensions (kernel/kernel/src/mm/shm.c). */
+#define     IPC_DMA_PIN   4 /* hold a contig DMA segment against free */
+#define     IPC_DMA_UNPIN 5 /* release the pin once hardware quiesced */
 
 typedef long int key_t;
 

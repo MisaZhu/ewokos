@@ -23,6 +23,11 @@
    hardware. only affects creation; fails (never silently falls back) when
    the slab is unconfigured or full */
 #define 	IPC_CONTIG  0x01000000
+/* DMA pin hold: prevents the contig physical run from being freed while a
+   device (e.g. GPI) may still read/write it.  pin must be balanced by an
+   unpin from the same DMA owner before segment teardown. */
+#define 	IPC_DMA_PIN   4
+#define 	IPC_DMA_UNPIN 5
 
 #ifdef KERNEL_SMP
 extern void mcore_lock(int32_t* v);
@@ -43,6 +48,7 @@ typedef struct share_mem {
     int32_t flag; 
     int32_t owner_pid; //process id which alloced this shm
     int32_t refs;
+    uint32_t pins;   // DMA-pinned while hardware may still reference it
     uint8_t contig; //backed by the contiguous slab instead of kalloc pages
     ewokos_addr_t phy_base; //slab physical base, valid when contig
     struct share_mem* next;
@@ -618,7 +624,7 @@ static int32_t shm_proc_unmap_it(proc_t* proc, share_mem_t* it, bool free_it) {
         proc->info.shm_size = 0;
 
     it->refs--;
-    if(free_it && it->refs <= 0) {
+    if(free_it && it->refs <= 0 && it->pins == 0) {
         free_item(it);
     }
     return 0;
@@ -671,7 +677,8 @@ void shm_release_orphans(int32_t owner_pid) {
     shm_lock();
     share_mem_t* it = _shm_head;
     while(it != NULL) {
-        if(it->used && it->owner_pid == owner_pid && it->refs <= 0) {
+        if(it->used && it->owner_pid == owner_pid && it->refs <= 0 &&
+                it->pins == 0) {
             /*
              * free_item may merge the freed block with a free prev or
              * next neighbour; its return value is always the next safe
@@ -703,13 +710,25 @@ int32_t shm_ctrl(int32_t id, int32_t cmd) {
     }
     int32_t ret = -1;
     if(cmd == IPC_RMID) {
-        if(it->refs <= 0) {
+        if(it->refs <= 0 && it->pins == 0) {
             free_item(it);
             ret = 0;
         }
     }
     else if(cmd == IPC_SHM_IS_CONTIG) {
         ret = it->contig ? 1 : 0;
+    }
+    else if(cmd == IPC_DMA_PIN) {
+        if(it->contig && it->phy_base != 0 && it->pins != 0xffffffffu) {
+            it->pins++;
+            ret = 0;
+        }
+    }
+    else if(cmd == IPC_DMA_UNPIN) {
+        if(it->pins > 0) {
+            it->pins--;
+            ret = 0;
+        }
     }
     shm_unlock();
     return ret;
