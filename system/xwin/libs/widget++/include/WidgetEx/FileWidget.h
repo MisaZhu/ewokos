@@ -27,6 +27,7 @@ public:
 	void load(const string& fname, const string& open_with);
 	void enter(const string& pathname);
 	void select(const string& fname);
+	void refreshDir();
 
 	inline uint32_t getItemSize() { return itemSize; }
 	inline const string& getPath() {return path;}

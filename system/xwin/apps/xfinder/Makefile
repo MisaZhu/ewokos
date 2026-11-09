@@ -27,6 +27,7 @@ $(XFINDER): $(XFINDER_OBJS) \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libsvg.a \
 		$(BUILD_DIR)/lib/libiconbuf.a \
+		$(BUILD_DIR)/lib/libclipboard.a \
 		$(BUILD_DIR)/lib/libcxx.a 
 	$(LD) -Ttext=100 $(XFINDER_OBJS) -o $(XFINDER) $(LDFLAGS) $(EWOK_LIB_X) $(EWOK_LIB_GRAPH) -lelf $(EWOK_LIBC) -lcxx
 

@@ -1,6 +1,7 @@
 #include <WidgetEx/Menu.h>
 #include <WidgetEx/Menubar.h>
 #include <Widget/RootWidget.h>
+#include <x++/X.h>
 
 using namespace Ewok;
 
@@ -18,14 +19,18 @@ protected:
         MenuItem *item = items.at(index);
 
         if(index == itemSelected)
-            graph_fill_round(g, r.x+1, r.y+1, r.w-2, r.h-2, 3, theme->basic.selectBGColor);
+            graph_fill_round(g, r.x+1, r.y+1, r.w-2, r.h-2, X::hidpiSize(3), theme->basic.selectBGColor);
 
         int dx = 0;
 
         if(item->icon != NULL) {
-            graph_blt_alpha(item->icon, 0, 0, item->icon->w, item->icon->h, 
-                    g, r.x+dx, r.y, item->icon->w, item->icon->h, 0xff);
-            dx += item->icon->w;
+            /*hidpi: icons are 1x assets, blit-fit them into a hidpiSize-scaled
+              cell so they match the 2x text and row height*/
+            int32_t iw = X::hidpiSize(item->icon->w);
+            int32_t ih = X::hidpiSize(item->icon->h);
+            graph_blt_fit_alpha(item->icon, 0, 0, item->icon->w, item->icon->h,
+                    g, r.x+dx, r.y+(r.h-ih)/2, iw, ih, 0xff);
+            dx += iw;
         }
 
         if(item->title.length() > 0) {
@@ -34,7 +39,8 @@ protected:
         }
 
         if(item->menu != NULL) {
-            graph_fill_rect(g, r.x+r.w-9, r.y+(r.h/2)-2, 4, 4, theme->basic.fgColor);
+            int32_t aw = X::hidpiSize(4);
+            graph_fill_rect(g, r.x+r.w-X::hidpiSize(9), r.y+(r.h-aw)/2, aw, aw, theme->basic.fgColor);
         }
     }
 
@@ -49,7 +55,7 @@ protected:
             gpos_t pos = getScreenPos(area.x, area.y);
             if(item->menu->getCWin() == NULL) {
                 item->menu->open(getWin()->getX(), 0, pos.x + area.w, pos.y+ index*itemSize,
-                        100, item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_TITLE);
+                        X::hidpiSize(100), item->menu->getItemNum()*item->menu->getItemSize(), "menu", XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_TITLE);
             }
             else  {
         		item->menu->moveTo(pos.x + area.w, pos.y+ index*itemSize);
@@ -94,7 +100,7 @@ Menu::Menu() {
     subMenued = false;
     menubar = NULL;
     menu = NULL;
-    itemSize = 24;
+    itemSize = X::hidpiSize(24);
     onMenuItemFunc = NULL;
     build();
 }

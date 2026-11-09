@@ -9,9 +9,9 @@
 static int wait_reap_child(pid_t pid, int *status) {
     /* A concurrent timed reclaim may already have freed the slot; the child
      * is gone either way, which is what the caller is waiting for. */
-    ewok_waitpid(pid);
+    int code = ewok_waitpid(pid);
     if (status != NULL) {
-        *status = 0;
+        *status = (code < 0) ? 0 : (code & 0xff);
     }
     return pid;
 }
@@ -76,8 +76,8 @@ pid_t waitpid(pid_t pid, int *status, int options) {
              * The kernel reclaims a zombie once it has been dead for
              * ZOMBIE_TIMEOUT and a later fork needs the slot, so a child
              * that exited before this call may already be gone. Report a
-             * normal exit instead of ECHILD; exit codes are not tracked
-             * here anyway.
+             * normal exit instead of ECHILD; exit codes are not available
+             * in this path.
              */
             if (status != NULL) {
                 *status = 0;
@@ -94,7 +94,8 @@ pid_t waitpid(pid_t pid, int *status, int options) {
         if ((options & WNOHANG) != 0) {
             return 0;
         }
-        if (ewok_waitpid(pid) != 0) {
+        int code = ewok_waitpid(pid);
+        if (code < 0) {
             /* Lost the race with the kernel's timed zombie reclaim. */
             if (status != NULL) {
                 *status = 0;
@@ -102,7 +103,7 @@ pid_t waitpid(pid_t pid, int *status, int options) {
             return pid;
         }
         if (status != NULL) {
-            *status = 0;
+            *status = (code & 0xff);
         }
         return pid;
     }

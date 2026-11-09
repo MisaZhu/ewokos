@@ -82,6 +82,7 @@ typedef struct st_proc {
 	uint64_t          run_usec_counter; //runtime usec in current accounting window
 	uint64_t          run_last_start_usec; //last runtime accounting start
 	uint64_t          zombie_since_usec;
+	int32_t           exit_code;      /* exit code passed to proc_exit, valid in ZOMBIE state */
 	bool              run_accounting_active;
 
 	proc_space_t*     space; //threads share the space from owner proc

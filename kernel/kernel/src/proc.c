@@ -1674,7 +1674,6 @@ static inline void proc_kick_ready_core(proc_t* proc) {
 
 /* proc_free frees all resources allocated by proc. */
 void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
-    (void)res;
     /*
      * The abort handlers (undef/prefetch/data and aarch64 sync) reach this
      * through proc_get_proc(cproc), which returns NULL when the faulting task
@@ -1688,8 +1687,10 @@ void proc_exit(context_t* ctx, proc_t *proc, int32_t res) {
      */
     if(proc == NULL)
         proc = get_current_proc();
-    if(proc != NULL && proc->info.state != UNUSED && proc->info.state != ZOMBIE)
+    if(proc != NULL && proc->info.state != UNUSED && proc->info.state != ZOMBIE) {
+        proc->exit_code = res;
         proc_terminate(ctx, proc);
+    }
     schedule(ctx);
 }
 
@@ -2339,11 +2340,12 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
         return;
     }
     if(p->info.state == ZOMBIE) {
+        int32_t code = p->exit_code;
         proc_lock_leave();
         p = proc_take_zombie_by_pid(pid);
         if(p != NULL)
             proc_funeral(p);
-        ctx->gpr[0] = 0;
+        ctx->gpr[0] = code;
         return;
     }
 
@@ -2363,8 +2365,10 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
     proc_account_resume_current();
 
     p = proc_take_zombie_by_pid(pid);
-    if(p != NULL)
+    if(p != NULL) {
+        ctx->gpr[0] = p->exit_code;
         proc_funeral(p);
+    }
 }
 
 static void proc_wakeup_all_state(proc_t* proc) {

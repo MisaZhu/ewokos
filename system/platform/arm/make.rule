@@ -56,7 +56,7 @@ endif
        
 EWOK_LIBC = --start-group -lewoksys -lc -lgloss -lsoftfloat --end-group $(LIBGCC)
 EWOK_LIB_GRAPH = -lfont -lfreetype -liconbuf -lgraph -lg2dclient -lpng -ljpeg -lgif -ltga -lsvg -lz -lopenlibm -ldisplayman -ldisplay -lkeyb -lmouse  $(BSP_LFLAGS)
-EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lewokstl
+EWOK_LIB_X = -lwidget++ -lx++ -lx -ltinyjson -lclipboard -lewokstl
 
 # --- shared objects: plugins loaded at runtime with dlopen() ---
 #
