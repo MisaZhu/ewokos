@@ -15,6 +15,11 @@ int do_xwin_grab_mouse(int fd, int from_pid, proto_t* in, x_t* x);
 int x_win_space(x_t* x, proto_t* in, proto_t* out);
 int xwin_call_xim(x_t* x, proto_t* in, proto_t* out);
 
+/*query every /dev/keyb* daemon for a physical-keyboard connection; true
+  when any USB or BT keyboard is attached. Issues bounded dev_cmd
+  round-trips, so the caller must run it OUTSIDE the server lock.*/
+bool x_probe_keyboard_connected(void);
+
 /*theme handling*/
 int x_dev_load_theme(x_t* x, proto_t* in, proto_t* out);
 int x_dev_get_theme(x_t* x, proto_t* in, proto_t* out);

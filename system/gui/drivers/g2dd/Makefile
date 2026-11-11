@@ -11,7 +11,7 @@ CFLAGS += -I $(BUILD_DIR)/include \
 
 # A2D alignment applies to surface pitch/base, not rectangle width. Route
 # the complete Q8B crop to the BSP so the daemon never CPU-rasterizes tails.
-ifeq ($(HW),q8b)
+ifeq ($(HW),8gen3)
 CFLAGS += -DG2D_PITCH_ALIGN=4
 # With no CPU tail the geometry helper first pulls g2d_arch.o from libbsp,
 # after EWOK_LIB_GRAPH's libopenlibm was scanned. Resolve its math imports.

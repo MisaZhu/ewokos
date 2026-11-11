@@ -260,6 +260,34 @@ int xserver_step(vdevice_t* dev, void* p) {
     uint64_t tik = kernel_tic_ms(0);
     uint32_t tm = 1000/x->config.fps;
 
+    /*physical-keyboard probe: while a real USB/BT keyboard is attached the
+      on-screen XIM must not be shown, and when it goes away the XIM comes
+      back so touch input is available again. Edge-triggered on the
+      connection transition (not level) so an unrelated x_unfocus hide is
+      not undone on every pass. Paced to XIM_KBD_POLL_MS and only once an
+      XIM window registered. The dev_cmd round-trips run OUTSIDE the server
+      lock so a slow keyb daemon can never stall compositing or input; the
+      lock is taken only to publish the cached flag and apply the change.*/
+    if(x->im_state.win_xim != NULL) {
+        uint64_t now_kbd = kernel_tic_ms(0);
+        if(now_kbd - x->im_state.last_kbd_probe_ms >= XIM_KBD_POLL_MS) {
+            x->im_state.last_kbd_probe_ms = now_kbd;
+            bool conn = x_probe_keyboard_connected();
+            x_server_lock_enter();
+            bool prev = x->im_state.phys_kbd_connected;
+            x->im_state.phys_kbd_connected = conn;
+            if(x->im_state.win_xim != NULL && conn != prev) {
+                if(conn)
+                    /*a physical keyboard just attached: put the XIM down*/
+                    hide_win(x, x->im_state.win_xim);
+                else
+                    /*the physical keyboard just went away: bring the XIM back*/
+                    show_win(x, x->im_state.win_xim);
+            }
+            x_server_lock_leave();
+        }
+    }
+
     /*a new xwm took over: windows sized while the previous one was down
       hold a winr equal to their wsr (the fallback of get_xwm_win_space),
       which no decorated window can have. Re-fetch their geometry before

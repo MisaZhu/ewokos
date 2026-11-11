@@ -143,7 +143,7 @@ static int make_init_without_pcied(const char* source, const char* target) {
         off_t end = i < size ? i + 1 : i;
         int skip = 0;
         for(off_t j = line; j < i; j++) {
-            if(j + 18 <= i && memcmp(text + j, "/drivers/q8b/pcied", 18) == 0) {
+            if(j + 18 <= i && memcmp(text + j, "/drivers/8gen3/pcied", 18) == 0) {
                 skip = 1;
                 break;
             }
@@ -264,7 +264,7 @@ static int rootfs_policy(void) {
 }
 
 static int start_usb_host(void) {
-    return run_before_vfs("/drivers/q8b/usbhostd /dev/usb0 --no-msc-mount");
+    return run_before_vfs("/drivers/8gen3/usbhostd /dev/usb0 --no-msc-mount");
 }
 
 static int start_bootfs(void) {
@@ -447,7 +447,7 @@ static void idle(void) {
  * process. */
 static void rescue_shell(void) {
     klog("init: starting rescue shell\n");
-    run_before_vfs("/drivers/q8b/uartd /dev/tty0");
+    run_before_vfs("/drivers/8gen3/uartd /dev/tty0");
     run_before_vfs("/sbin/sessiond");
     run_before_vfs("/bin/bgrun /bin/session -r -t /dev/tty0");
     while(true)
@@ -487,7 +487,7 @@ int main(int argc, char** argv) {
      * the file present).  Bring the PCIe owner up before the USB host's
      * first root-hub scan for every rootfs source; the persistent
      * profiles' pcied line is filtered once /dev/pcie0 is owned. */
-    if(run_before_vfs("/drivers/q8b/pcied /dev/pcie0") == 0)
+    if(run_before_vfs("/drivers/8gen3/pcied /dev/pcie0") == 0)
         klog("init: Q8B PCIe owner ready before USB host\n");
     if(run_init("/etc/init.ramfs.rd") != 0)
         klog("init: boot init profile unavailable\n");
@@ -518,7 +518,7 @@ int main(int argc, char** argv) {
          * init script cannot reach its normal network stage. */
         (void)run_before_vfs("/drivers/timerd");
         (void)run_before_vfs("/drivers/piped /dev/pipe0");
-        (void)run_before_vfs("/drivers/q8b/net /dev/eth0");
+        (void)run_before_vfs("/drivers/8gen3/net /dev/eth0");
         (void)run_before_vfs("/drivers/netd /dev/net0 /dev/eth0");
         /* sshd delegates password validation to sessiond.  Start it from
          * the boot image as well, so the recovery profile remains usable
@@ -544,7 +544,7 @@ int main(int argc, char** argv) {
          */
 #if defined(INIT_HAS_RAMFS_RELEASE)
         if (!usb_host && !_pcie_owner_active) {
-            if (run_before_vfs("/drivers/q8b/pcied /dev/pcie0") == 0) {
+            if (run_before_vfs("/drivers/8gen3/pcied /dev/pcie0") == 0) {
                 _pcie_owner_active = 1;
                 klog("init: Q8B PCIe owner ready before USB host\n");
             } else {

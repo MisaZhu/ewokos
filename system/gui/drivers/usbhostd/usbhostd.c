@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <ewoksys/vdevice.h>
@@ -1714,6 +1715,38 @@ static int usb_step(vdevice_t* dev, void* p) {
     return 0;
 }
 
+/*
+ * Textual status query served on the device node (dev_cmd). "kbd_state"
+ * reports whether a USB keyboard is currently enumerated, so hid_keybd can
+ * track connect/unplug: an unplug does not fail its subscriber reads (the
+ * node stays mounted, reports just stop), so it must be able to ask.
+ * keyboard=1 means a keyboard input slot is present -- a boot/report
+ * keyboard, or a composite interface carrying a keyboard collection.
+ */
+static char* usb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
+    (void)dev;
+    (void)from_pid;
+    (void)p;
+
+    if (argc <= 0 || strcmp(argv[0], "kbd_state") != 0)
+        return NULL;
+
+    int present = 0;
+    for (int i = 0; i < USB_MAX_INPUTS; ++i) {
+        if (_inputs[i].present &&
+                (_inputs[i].type == HID_INPUT_KEYBOARD ||
+                 _inputs[i].kbd_report_id != 0)) {
+            present = 1;
+            break;
+        }
+    }
+    char* ret = (char*)malloc(24);
+    if (ret == NULL)
+        return NULL;
+    snprintf(ret, 24, "keyboard=%d\n", present);
+    return ret;
+}
+
 int main(int argc, char** argv) {
     const char* mnt_point = "/dev/usb0";
     bool rootfs_probe = false;
@@ -1760,5 +1793,7 @@ int main(int argc, char** argv) {
     /* USBMSC_CMD_* sector I/O for a claimed mass-storage device;
        platforms without MSC always return -1 */
     dev.dev_cntl = usb_dev_cntl;
+    /* "kbd_state" text query: keyboard presence for hid_keybd's unplug detect */
+    dev.cmd = usb_dev_cmd;
     return device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 }

@@ -1,6 +1,6 @@
 ROOT := $(abspath ../..)
-SDK := $(ROOT)/system/build_aarch64/q8b
-ADRENO := $(ROOT)/machines/q8b/system/libs/adreno
+SDK := $(ROOT)/system/build_aarch64/8gen3
+ADRENO := $(ROOT)/machines/qcom/8gen3/system/libs/adreno
 FE := $(ROOT)/projects/opengl/libs/gles/pglcompiler
 OUT ?= /tmp/q8b-gpu-bench
 COMPILER_OUT ?= /tmp/q8b-builtin-shaders

@@ -4,6 +4,7 @@
 #include <sys/shm.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/vfs.h>
 #include <ewoksys/klog.h>
 #include <x/xwm.h>
 #include "xwin_cmd.h"
@@ -743,8 +744,53 @@ int xwin_call_xim(x_t* x, proto_t* in, proto_t* out) {
 
     if(proto_read_int(in) == 0)
         hide_win(x, x->im_state.win_xim);
+    else if(x->im_state.phys_kbd_connected)
+        /*a physical keyboard (USB/BT) is attached: refuse to pop the
+          on-screen XIM and make sure it is down. phys_kbd_connected is a
+          cached flag refreshed by the paced probe in xserver_step, so this
+          runs without any IPC under the server lock.*/
+        hide_win(x, x->im_state.win_xim);
     else
         show_win(x, x->im_state.win_xim);
     PF->clear(out)->addi(out, 0);
     return 0;
+}
+
+/*
+ * Enumerate every keyboard node under /dev (keyb0, keyb1, ...) and ask each
+ * hid_keybd daemon whether a physical keyboard is attached upstream. The
+ * daemon answers its "state" dev_cmd with "connected=1" while a real USB or
+ * BT keyboard is present. Returns true on the first connected keyboard.
+ *
+ * Each dev_cmd is a bounded synchronous IPC, but a keyb daemon could still
+ * take a moment to answer, so the caller runs this OUTSIDE the server lock
+ * (see xserver_step) to keep compositing and input delivery unaffected.
+ */
+bool x_probe_keyboard_connected(void) {
+    fsinfo_t dev_info;
+    if(vfs_get_by_name("/dev", &dev_info) != 0)
+        return false;
+
+    uint32_t num = 0;
+    fsinfo_t* kids = vfs_kids(&dev_info, &num);
+    if(kids == NULL)
+        return false;
+
+    bool connected = false;
+    for(uint32_t i = 0; i < num; i++) {
+        if(strncmp(kids[i].name, "keyb", 4) != 0)
+            continue;
+        if(kids[i].mount_pid <= 0)
+            continue;
+        char* st = dev_cmd_by_pid(kids[i].mount_pid, "state");
+        if(st != NULL) {
+            if(strstr(st, "connected=1") != NULL)
+                connected = true;
+            free(st);
+        }
+        if(connected)
+            break;
+    }
+    free(kids);
+    return connected;
 }

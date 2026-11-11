@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
-#include "../../machines/q8b/kernel/bsp/memory_pool.h"
+#include "../../machines/qcom/8gen3/kernel/bsp/memory_pool.h"
 
 static const q8b_mem_range_t split[] = {
     {0xe0000000, 0xf0000000}, {0xc8600000, 0xd0000000},

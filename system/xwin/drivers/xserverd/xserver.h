@@ -25,6 +25,12 @@
    paces x_poll_updates asking such a window for its picture again. */
 #define X_NOT_READY_TIMEOUT_MS 500
 
+/* cadence for probing every /dev/keyb* daemon for a physical-keyboard
+   connection: while one is attached the on-screen XIM stays hidden. The
+   probe issues bounded dev_cmd round-trips, so it is paced well above the
+   frame rate and only runs once an XIM window has registered. */
+#define XIM_KBD_POLL_MS 1000
+
 enum {
 	X_win_DRAG_MOVE = 1,
 	X_win_DRAG_RESIZE
@@ -205,6 +211,12 @@ typedef struct {
 	xwin_t* win_xim;
 	bool    win_xim_actived;
 	int     down_win_fd;
+	/*a physical keyboard (USB or BT) is attached: the on-screen XIM must
+	  stay hidden while this holds. Refreshed by the paced /dev/keyb* probe
+	  in xserver_step; read by xwin_call_xim to refuse a show request.*/
+	bool    phys_kbd_connected;
+	/*tic (ms) of the last /dev/keyb* connection probe, for XIM_KBD_POLL_MS*/
+	uint64_t last_kbd_probe_ms;
 } x_im_state_t;
 
 typedef struct {

@@ -53,6 +53,17 @@
 #define BT_ATTACH_POLL_MS 2000u
 
 /*
+ * USB mode: an unplug does NOT fail our subscriber reads -- usbhostd keeps
+ * /dev/usb0 mounted and simply stops delivering keyboard reports -- so the
+ * idle wait is bounded and the loop polls usbhostd's "kbd_state" for real
+ * keyboard presence. This is what lets a removed keyboard be noticed (and
+ * a present-but-idle one be reported connected). 500ms keeps the cost at
+ * ~2 wakeups/sec, far below the per-report polling this driver replaced.
+ */
+#define USB_KBD_WAIT_US 500000u
+#define USB_KBD_POLL_MS 500u
+
+/*
  * Subscriber-queue protocol (libs/hid): fixed 8-byte keyboard snapshots,
  * queue depth 32. One read sized for the whole queue drains an entire
  * backlog in a single vfsd round-trip (same batching hid_moused uses);
@@ -111,6 +122,14 @@ static int _tap_count = 0;
 static bool _release_pending = false;
 /* timestamp of the last drain pass, for the KEYB_PASS_MS rate cap */
 static uint64_t _last_pass_ms = 0;
+/*
+ * Whether a physical keyboard is currently attached upstream. USB mode
+ * latches it on the first report drained and clears it when the upstream
+ * node drops (read hard-fails -> reconnect); BT mode mirrors btd's
+ * hid_state (active=1). xserverd polls this through the "state" dev_cmd so
+ * it can keep the on-screen XIM hidden while a real keyboard is present.
+ */
+static bool _dev_connected = false;
 
 const char downMap[] = {  
         ' ',' ',' ',' ','a','b','c','d',    'e','f','g','h','i','j','k','l',
@@ -333,7 +352,9 @@ static void hid_wait_report(void) {
         proc_block_timeout(_hid_info.node, BT_WAIT_REPORT_US);
     }
     else {
-        proc_block_by(_hid_info.node);
+        /* USB idle wait is bounded so the keyboard-presence poller in
+           loop() runs even while an idle keyboard sends no reports */
+        proc_block_timeout(_hid_info.node, USB_KBD_WAIT_US);
     }
 }
 
@@ -513,6 +534,7 @@ static int loop(vdevice_t* dev, void* p) {
         memset(&_hid_info, 0, sizeof(fsinfo_t));
         /* the upstream is gone (btd/usbhostd restarted): whatever it last
            showed as held is released, and the consumer must see that too */
+        _dev_connected = false;
         if (_key_count > 0) {
             _release_pending = true;
         }
@@ -525,6 +547,10 @@ static int loop(vdevice_t* dev, void* p) {
         usleep(HID_CONNECT_SLEEP_US);
         return 0;
     }
+
+    /* a drained report proves a real keyboard is attached upstream */
+    if (got_state)
+        _dev_connected = true;
 
     /* BT mode: keep the HID session attach attempt going while no session
        is up (a BT keyboard asleep at boot, or paired after the daemon
@@ -539,6 +565,10 @@ static int loop(vdevice_t* dev, void* p) {
             bool session_up = st != NULL && strstr(st, "active=1") != NULL;
             if (st != NULL)
                 free(st);
+            /* btd's hid_state is authoritative for the BT link: a session
+               that dropped clears the connection unless a report this very
+               pass already proved it up */
+            _dev_connected = session_up || got_state;
             if (!session_up) {
                 /*
                  * No link, so nothing can be held: a snapshot left over from
@@ -555,6 +585,24 @@ static int loop(vdevice_t* dev, void* p) {
                     _release_pending = true;
                 }
                 bt_try_attach_hid();
+            }
+        }
+    }
+    else {
+        /* USB mode: poll usbhostd for real keyboard presence. An unplug
+           leaves our subscriber fd open and reads just return EAGAIN, so
+           the report stream alone can never distinguish a removed keyboard
+           from an idle one; kbd_state can. A NULL reply (transient IPC
+           miss) is ignored so it cannot falsely clear the connection. */
+        static uint64_t last_kbd_ms = 0;
+        uint64_t nowk = kernel_tic_ms(0);
+        if (nowk - last_kbd_ms >= USB_KBD_POLL_MS) {
+            last_kbd_ms = nowk;
+            char* st = dev_cmd(_dev_point, "kbd_state");
+            if (st != NULL) {
+                bool kbd = strstr(st, "keyboard=1") != NULL;
+                free(st);
+                _dev_connected = kbd || got_state;
             }
         }
     }
@@ -585,6 +633,28 @@ static int loop(vdevice_t* dev, void* p) {
     return 0;
 }
 
+/*
+ * Textual status query served on the device node (dev_cmd). "state" reports
+ * whether a physical keyboard is currently attached upstream, so xserverd
+ * can decide whether the on-screen XIM should stay hidden. The reply is a
+ * malloc'd string the vdevice framework frees; connected=1 means attached.
+ */
+static char* keyb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
+    (void)dev;
+    (void)from_pid;
+    (void)p;
+
+    if (argc <= 0 || strcmp(argv[0], "state") != 0)
+        return NULL;
+
+    char* ret = (char*)malloc(40);
+    if (ret == NULL)
+        return NULL;
+    snprintf(ret, 40, "connected=%d mode=%s\n",
+            _dev_connected ? 1 : 0, _bt_mode ? "bt" : "usb");
+    return ret;
+}
+
 int main(int argc, char** argv) {
     const char* mnt_point = argc > 1 ? argv[1]: "/dev/keyb0";
     if (argc > 2) {
@@ -601,6 +671,7 @@ int main(int argc, char** argv) {
     dev.read = keyb_read;
     dev.loop_step = loop;
     dev.check_poll_events = keyb_check_poll_events;
+    dev.cmd = keyb_dev_cmd;
 
     device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
     return 0;

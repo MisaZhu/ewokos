@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 out = pathlib.Path(sys.argv[1])
-source_dir = pathlib.Path(__file__).resolve().parents[2] / "machines/q8b/system/libs/adreno/shaders"
+source_dir = pathlib.Path(__file__).resolve().parents[2] / "machines/qcom/8gen3/system/libs/adreno/shaders"
 baseline_dir = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else source_dir
 for name in ("blit", "raster"):
     source = (source_dir / f"{name}.comp").read_text()
