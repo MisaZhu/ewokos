@@ -268,8 +268,14 @@ static int start_usb_host(void) {
 }
 
 static int start_bootfs(void) {
-    //return run_before_vfs("/sbin/sdfsd -b /");
-    return run_before_vfs("/sbin/sdfsd");
+    /* Boot the BOOT_ONLY initramfs through sdfsd's bootfs mode: bootfs_map()
+     * maps the firmware ramdisk directly, so a USB-only boot (no card in the
+     * SD slot) can still mount the boot image.  The plain "sdfsd" form probes
+     * the physical SD card instead and fails without one, killing the boot
+     * before the USB rootfs is ever tried.  The mount also carries the
+     * "bootfs:" descriptor switchroot() requires when it moves this
+     * filesystem to /boot. */
+    return run_before_vfs("/sbin/sdfsd -b /");
 }
 
 static int try_usb_rootfs(void) {
@@ -434,6 +440,20 @@ static void idle(void) {
     while(1);
 }
 
+/* The boot RAMFS cannot mount the persistent rootfs (no backend succeeded or
+ * switchroot failed): bring up a serial rescue console directly -- the boot
+ * image's /etc is read-only, so this must not depend on writing script
+ * files.  Init idles afterwards and must not return: it is the first user
+ * process. */
+static void rescue_shell(void) {
+    klog("init: starting rescue shell\n");
+    run_before_vfs("/drivers/q8b/uartd /dev/tty0");
+    run_before_vfs("/sbin/sessiond");
+    run_before_vfs("/bin/bgrun /bin/session -r -t /dev/tty0");
+    while(true)
+        usleep(100000);
+}
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -457,6 +477,18 @@ int main(int argc, char** argv) {
      * rootfs replaces that initial root. */
     if(start_bootfs() != 0)
         return -1;
+    /* Q8B WCN6855 exposes WLAN on PCIe and Bluetooth on USB.  The PCIe
+     * owner cold-cycles the shared module (E-key rail, PERST, root-complex
+     * reset) during bring-up, and that power-cycle churns the USB bus (the
+     * BT function drops and re-enumerates).  When the rootfs itself lives
+     * on USB the early usbhostd is already scanning the live bus, so the
+     * churn lands on the rootfs device's transfers and transient read
+     * failures leak into the boot (observed: btd firmware open() fails with
+     * the file present).  Bring the PCIe owner up before the USB host's
+     * first root-hub scan for every rootfs source; the persistent
+     * profiles' pcied line is filtered once /dev/pcie0 is owned. */
+    if(run_before_vfs("/drivers/q8b/pcied /dev/pcie0") == 0)
+        klog("init: Q8B PCIe owner ready before USB host\n");
     if(run_init("/etc/init.ramfs.rd") != 0)
         klog("init: boot init profile unavailable\n");
     _pcie_owner_active = dev_get_pid("/dev/pcie0") > 0;
@@ -464,13 +496,17 @@ int main(int argc, char** argv) {
     int usb_host = 0;
     int usb_root = 0;
     if(policy == ROOTFS_SELF) {
-        /* Bring-up mode: keep the boot RAMFS mounted after the early profile
-         * so a newly built pcied can be validated without a second daemon
-         * from the persistent SD rootfs resetting the controller. */
+        /* Maintenance mode: keep the boot RAMFS mounted after the early
+         * profile so a newly built pcied can be validated without a second
+         * daemon from the persistent SD rootfs resetting the controller. */
         klog("init: rootfs=self; keeping boot RAMFS, switchroot skipped\n");
+        rescue_shell();
+        while(true)
+            usleep(100000);
     } else {
         if(select_rootfs(policy, &usb_host, &usb_root) < 0) {
             klog("init: no rootfs backend succeeded\n");
+            rescue_shell();
             return -1;
         }
         klog("init: rootfs selected=%s bootnet=%d\n",
@@ -495,6 +531,7 @@ int main(int argc, char** argv) {
          * RAMFS namespace into the new root's /dev. */
         if(run_before_vfs_sync("/sbin/switchroot") != 0) {
             klog("init: switchroot failed\n");
+            rescue_shell();
             return -1;
         }
         /* Q8B's WCN6855 exposes WLAN on PCIe and Bluetooth on USB.  The
