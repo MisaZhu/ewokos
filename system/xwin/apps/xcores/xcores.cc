@@ -261,7 +261,39 @@ int main(int argc, char** argv) {
 	Cores* cores = new Cores();
 	root->add(cores);
 
-	win.open(&x, -1, -1, -1, X::hidpiSize(240), X::hidpiSize(120), "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
+	/* Size the window from the core count so every core's title label
+	   stays fully visible: the per-core advance mirrors drawTitle(). */
+	sys_info_t si;
+	memset(&si, 0, sizeof(si));
+	sys_get_sys_info(&si);
+	uint32_t ncores = si.cores;
+	if(ncores == 0)
+		ncores = 1;
+	if(ncores > MAX_CORE_NUM)
+		ncores = MAX_CORE_NUM;
+
+	x_theme_t theme;
+	memset(&theme, 0, sizeof(theme));
+	if(X::getTheme(&theme) != 0 || theme.fontSize < 8)
+		theme.fontSize = X::hidpiSize(12);
+
+	font_t* font = X::getSysFont();
+	uint32_t tw = 0, th = 0;
+	font_text_size("100%", font, theme.fontSize, &tw, &th);
+
+	uint32_t w = X::hidpiSize(6) + theme.fontSize*5 +
+			(ncores-1)*(theme.fontSize*3 + X::hidpiSize(4)) +
+			X::hidpiSize(12) + tw + X::hidpiSize(6);
+	if(w < X::hidpiSize(240))
+		w = X::hidpiSize(240);
+
+	/* Keep the window inside the screen; never wider than the desktop. */
+	xscreen_info_t scr;
+	if(X::getScreenInfo(scr) && scr.size.w > X::hidpiSize(8))
+		if(w > scr.size.w - X::hidpiSize(8))
+			w = scr.size.w - X::hidpiSize(8);
+
+	win.open(&x, -1, -1, -1, w, X::hidpiSize(120), "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(2);
 
 	widgetXRun(&x, &win);	
