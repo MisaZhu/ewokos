@@ -760,37 +760,58 @@ int xwin_call_xim(x_t* x, proto_t* in, proto_t* out) {
  * Enumerate every keyboard node under /dev (keyb0, keyb1, ...) and ask each
  * hid_keybd daemon whether a physical keyboard is attached upstream. The
  * daemon answers its "state" dev_cmd with "connected=1" while a real USB or
- * BT keyboard is present. Returns true on the first connected keyboard.
+ * BT keyboard is present.
+ *
+ * Tri-state return so a failed query can never masquerade as an unplug:
+ *   1  a keyboard definitively reports connected;
+ *   0  the keyboard daemons were reached and definitively report none (or
+ *      there is no keyb node at all);
+ *  -1  the query could not be completed (/dev unenumerable, or keyb nodes
+ *      exist but every dev_cmd round-trip failed). This means "unknown":
+ *      the caller MUST keep its previous state, so a transient IPC failure
+ *      under load (e.g. a window opening) cannot fire a spurious detach edge
+ *      that pops the on-screen XIM while a keyboard is still attached.
  *
  * Each dev_cmd is a bounded synchronous IPC, but a keyb daemon could still
  * take a moment to answer, so the caller runs this OUTSIDE the server lock
  * (see xserver_step) to keep compositing and input delivery unaffected.
  */
-bool x_probe_keyboard_connected(void) {
+int x_probe_keyboard_connected(void) {
     fsinfo_t dev_info;
     if(vfs_get_by_name("/dev", &dev_info) != 0)
-        return false;
+        return -1; /*cannot enumerate /dev: unknown, not "disconnected"*/
 
     uint32_t num = 0;
     fsinfo_t* kids = vfs_kids(&dev_info, &num);
     if(kids == NULL)
-        return false;
+        return -1; /*enumeration failed: unknown*/
 
-    bool connected = false;
+    bool saw_keyb = false;   /*at least one keyb* node exists*/
+    bool answered = false;   /*at least one keyb daemon gave an authoritative reply*/
+    bool connected = false;  /*some daemon reported connected=1*/
     for(uint32_t i = 0; i < num; i++) {
         if(strncmp(kids[i].name, "keyb", 4) != 0)
             continue;
         if(kids[i].mount_pid <= 0)
             continue;
+        saw_keyb = true;
         char* st = dev_cmd_by_pid(kids[i].mount_pid, "state");
-        if(st != NULL) {
-            if(strstr(st, "connected=1") != NULL)
-                connected = true;
-            free(st);
-        }
+        if(st == NULL)
+            continue; /*no reply from this daemon: inconclusive, try the rest*/
+        answered = true;
+        if(strstr(st, "connected=1") != NULL)
+            connected = true;
+        free(st);
         if(connected)
             break;
     }
     free(kids);
-    return connected;
+
+    if(connected)
+        return 1;
+    if(!saw_keyb)
+        return 0;  /*no keyboard node at all: definitively none*/
+    if(!answered)
+        return -1; /*keyb nodes exist but none replied: unknown, keep previous*/
+    return 0;      /*reached the daemons, none report a keyboard*/
 }

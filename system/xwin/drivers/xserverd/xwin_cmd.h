@@ -15,10 +15,13 @@ int do_xwin_grab_mouse(int fd, int from_pid, proto_t* in, x_t* x);
 int x_win_space(x_t* x, proto_t* in, proto_t* out);
 int xwin_call_xim(x_t* x, proto_t* in, proto_t* out);
 
-/*query every /dev/keyb* daemon for a physical-keyboard connection; true
-  when any USB or BT keyboard is attached. Issues bounded dev_cmd
-  round-trips, so the caller must run it OUTSIDE the server lock.*/
-bool x_probe_keyboard_connected(void);
+/*Query every /dev/keyb* daemon for a physical-keyboard connection.
+  Tri-state: 1 a keyboard is definitively attached, 0 definitively none,
+  -1 the query failed (unknown). A -1 MUST be treated as "keep previous
+  state", never as a disconnect, so a transient IPC failure under load
+  cannot pop the XIM while a keyboard is still attached. Issues bounded
+  dev_cmd round-trips, so the caller must run it OUTSIDE the server lock.*/
+int x_probe_keyboard_connected(void);
 
 /*theme handling*/
 int x_dev_load_theme(x_t* x, proto_t* in, proto_t* out);

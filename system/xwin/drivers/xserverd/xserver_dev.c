@@ -272,19 +272,28 @@ int xserver_step(vdevice_t* dev, void* p) {
         uint64_t now_kbd = kernel_tic_ms(0);
         if(now_kbd - x->im_state.last_kbd_probe_ms >= XIM_KBD_POLL_MS) {
             x->im_state.last_kbd_probe_ms = now_kbd;
-            bool conn = x_probe_keyboard_connected();
-            x_server_lock_enter();
-            bool prev = x->im_state.phys_kbd_connected;
-            x->im_state.phys_kbd_connected = conn;
-            if(x->im_state.win_xim != NULL && conn != prev) {
-                if(conn)
-                    /*a physical keyboard just attached: put the XIM down*/
-                    hide_win(x, x->im_state.win_xim);
-                else
-                    /*the physical keyboard just went away: bring the XIM back*/
-                    show_win(x, x->im_state.win_xim);
+            /*tri-state: 1 attached, 0 definitively none, -1 query failed.
+              A -1 (e.g. a dev_cmd round-trip dropped under window-open IPC
+              load) MUST NOT be read as an unplug: skip it and keep the
+              cached flag, so it can never fire a spurious detach edge that
+              pops the XIM while a keyboard is still attached. Only a
+              definitive answer updates state and drives the edge.*/
+            int conn = x_probe_keyboard_connected();
+            if(conn >= 0) {
+                bool now = (conn == 1);
+                x_server_lock_enter();
+                bool prev = x->im_state.phys_kbd_connected;
+                x->im_state.phys_kbd_connected = now;
+                if(x->im_state.win_xim != NULL && now != prev) {
+                    if(now)
+                        /*a physical keyboard just attached: put the XIM down*/
+                        hide_win(x, x->im_state.win_xim);
+                    else
+                        /*the physical keyboard just went away: bring the XIM back*/
+                        show_win(x, x->im_state.win_xim);
+                }
+                x_server_lock_leave();
             }
-            x_server_lock_leave();
         }
     }
 
