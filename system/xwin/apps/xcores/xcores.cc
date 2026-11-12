@@ -284,14 +284,14 @@ int main(int argc, char** argv) {
 	uint32_t w = X::hidpiSize(6) + theme.fontSize*5 +
 			(ncores-1)*(theme.fontSize*3 + X::hidpiSize(4)) +
 			X::hidpiSize(12) + tw + X::hidpiSize(6);
-	if(w < X::hidpiSize(240))
+	if(w < (uint32_t)X::hidpiSize(240))
 		w = X::hidpiSize(240);
 
 	/* Keep the window inside the screen; never wider than the desktop. */
 	xscreen_info_t scr;
 	if(X::getScreenInfo(scr) && scr.size.w > X::hidpiSize(8))
-		if(w > scr.size.w - X::hidpiSize(8))
-			w = scr.size.w - X::hidpiSize(8);
+		if(w > (uint32_t)(scr.size.w - X::hidpiSize(8)))
+			w = (uint32_t)(scr.size.w - X::hidpiSize(8));
 
 	win.open(&x, -1, -1, -1, w, X::hidpiSize(120), "xcores", XWIN_STYLE_NORMAL | XWIN_STYLE_NO_BG_EFFECT);
 	win.setTimer(2);
