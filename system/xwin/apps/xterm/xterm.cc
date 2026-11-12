@@ -144,18 +144,6 @@ public:
 		unlock();
 	}
 
-	void fontZoom(bool zoomIn) {
-		lock();
-		if(zoomIn)
-			terminal.font_size++;
-		else  {
-			if(terminal.font_size > 5)
-				terminal.font_size--;
-		}
-		gterminal_resize(&terminal, area.w-scrollW, area.h);
-		unlock();
-	}
-
 	void charSpaceChange(bool incr) {
 		lock();
 		if(incr) {
@@ -219,29 +207,10 @@ protected:
 	}
 
 	bool onMouse(xevent_t* ev) {
-		static bool zooming = false;
 		if(ev->state == MOUSE_STATE_CLICK) {
 			showXIM = !showXIM;
 			getWin()->callXIM(showXIM);
 			return true;
-		}
-		else if(ev->state == MOUSE_STATE_DRAG) {
-			if(abs(ev->value.mouse.rx) > abs(ev->value.mouse.ry)) {
-				if(!zooming) {
-					if(ev->value.mouse.rx > 0)
-						fontZoom(true);
-					else
-						fontZoom(false);
-				}
-				zooming = true;
-				/* keep the scroll anchor in sync, otherwise the first vertical
-				 * move after a zoom scrolls by the whole zoom duration */
-				mouse_last_y = ev->value.mouse.y;
-				return true;
-			}
-		}
-		else if(ev->state == MOUSE_STATE_UP) {
-			zooming = false;
 		}
 
 		static bool draging = false;
@@ -261,17 +230,19 @@ protected:
 
 		lock();
 		if(ev->state == MOUSE_STATE_DRAG || draging) {
-			if(ev->value.mouse.y > mouse_last_y) {
-				needUpdate = gterminal_scroll(&terminal, -1);
+			if(abs(ev->value.mouse.rx) < abs(ev->value.mouse.ry)) {
+				if(ev->value.mouse.y > mouse_last_y) {
+					needUpdate = gterminal_scroll(&terminal, -1);
+				}
+				else if(ev->value.mouse.y < mouse_last_y) {
+					needUpdate = gterminal_scroll(&terminal, 1);
+				}
+				mouse_last_y = ev->value.mouse.y;
+				unlock();
+				if(needUpdate)
+					update();
+				return true;
 			}
-			else if(ev->value.mouse.y < mouse_last_y) {
-				needUpdate = gterminal_scroll(&terminal, 1);
-			}
-			mouse_last_y = ev->value.mouse.y;
-			unlock();
-			if(needUpdate)
-				update();
-			return true;
 		}
 		else if(ev->state == MOUSE_STATE_MOVE) {
 			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
@@ -307,8 +278,8 @@ protected:
 				lock();
 				/* Arrow keys are not terminal-view shortcuts any more: they are
 				 * handed to the shell as-is (up/down recall history, left/right
-				 * move the in-line cursor). Scrolling and font zooming stay on
-				 * the mouse and the menubar. */
+				 * move the in-line cursor). Scrolling stays on the mouse, font
+				 * settings stay on the menubar. */
 				if(c != KEY_LSHIFT && c != KEY_RSHIFT && c != KEY_CTRL) {
 					input(c);
 					gterminal_scroll(&terminal, 0);
