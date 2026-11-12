@@ -269,7 +269,6 @@ struct KeyRect {
 class XIMIOS : public XWin {
     int xPid;
     font_t* font;
-    font_t* fontSmall;
 
     gsize_t scrSize;
     gsize_t panelSize;
@@ -282,7 +281,6 @@ class XIMIOS : public XWin {
     int  popupKey;         // key index showing popup bubble
 
     /* Responsive parameters */
-    bool isPad;            // true if screen is wide (tablet)
     int fontSize;
     int keyGap;            // gap between keys in pixels
     int rowGap;            // gap between rows
@@ -310,43 +308,17 @@ class XIMIOS : public XWin {
 protected:
     /* --- Layout computation --- */
     void computeResponsiveParams(int w, int h) {
-        isPad = (scrSize.w >= 600 && scrSize.h >= 600);
-        bool portrait = (scrSize.w <= scrSize.h);
-
-        if(isPad) {
-            fontSize = 18;
-            keyGap = 6;
-            rowGap = 8;
-            /* iPad landscape insets the board from the screen edges
-               (~10% per side on real hardware); portrait spans nearly
-               the full width. */
-            sideMargin = portrait ? w / 32 : w / 10;
-            bottomMargin = 8;
-            topMargin = 8;
-            keyRadius = 6;
-            popupH = 60;
-        } else {
-            fontSize = 14;
-            keyGap = 4;
-            rowGap = 6;
-            sideMargin = 3;
-            bottomMargin = 4;
-            topMargin = 4;
-            keyRadius = 5;
-            popupH = 48;
-        }
-
-        /* iOS key proportion: the unit width (top row of 10) drives the
-           key height -- portrait keys are taller than wide, landscape
-           keys are wide and flat. The panel height then follows from
-           the key geometry, not the other way around. */
+        fontSize = X::hidpiSize(14);
+        keyGap = 4;
+        rowGap = 6;
+        sideMargin = 6;
+        bottomMargin = 4;
+        topMargin = 4;
+        keyRadius = 5;
+        popupH = 48;
         int fullW = w - sideMargin * 2;
         int unit = (fullW - keyGap * 9) / 10;
-        float aspect;
-        if(portrait)
-            aspect = isPad ? 1.15f : 1.25f;
-        else
-            aspect = isPad ? 0.75f : 0.55f;
+        float aspect = 0.85f;
         keyHeight = (int)(unit * aspect);
 
         /* Never grow beyond the panel we were given. */
@@ -476,7 +448,6 @@ protected:
     void drawKeyShadow(graph_t* g, KeyRect* kr) {
         // Subtle shadow below key
         int sh = 1;
-        if(isPad) sh = 2;
         graph_fill_round(g, kr->x, kr->y + sh, kr->w, kr->h, keyRadius, IOS_SHADOW_COLOR);
     }
 
@@ -538,28 +509,17 @@ protected:
             textColor = pressed ? 0xFFFFFFFF : IOS_SPACE_TEXT;
         }
 
-        int fs = fontSize;
-        if(isPad) fs = fontSize;
-        else {
-            /* Smaller font for long labels */
-            uint32_t tw;
-            font_text_size(label, font, fs, &tw, NULL);
-            if(tw > (uint32_t)(kr->w - 4))
-                fs = fs - 2;
-        }
-
-        font_t* f = (fs == fontSize) ? font : fontSmall;
         uint32_t tw, th;
-        font_text_size(label, f, fs, &tw, &th);
+        font_text_size(label, font, fontSize, &tw, &th);
         int tx = kr->x + (kr->w - tw) / 2;
-        int ty = kr->y + (kr->h - fs) / 2;
-        graph_draw_text_font(g, tx, ty, label, f, fs, textColor);
+        int ty = kr->y + (kr->h - fontSize) / 2;
+        graph_draw_text_font(g, tx, ty, label, font, fontSize, textColor);
     }
 
     void drawShiftIcon(graph_t* g, KeyRect* kr, bool pressed) {
         int cx = kr->x + kr->w / 2;
         int cy = kr->y + kr->h / 2;
-        int sz = isPad ? 10 : 7;
+        int sz = X::hidpiSize(10);
         uint32_t color = pressed ? 0xFFFFFFFF : 0xFF000000;
 
         /* Draw up arrow triangle */
@@ -591,7 +551,7 @@ protected:
     void drawBackspaceIcon(graph_t* g, KeyRect* kr, bool pressed) {
         int cx = kr->x + kr->w / 2;
         int cy = kr->y + kr->h / 2;
-        int sz = isPad ? 9 : 6;
+        int sz = X::hidpiSize(9);
         uint32_t color = pressed ? 0xFFFFFFFF : 0xFF000000;
 
         /* Draw a left-pointing arrow with x */
@@ -612,7 +572,7 @@ protected:
     void drawGlobeIcon(graph_t* g, KeyRect* kr, bool pressed) {
         int cx = kr->x + kr->w / 2;
         int cy = kr->y + kr->h / 2;
-        int r = isPad ? 9 : 7;
+        int r = X::hidpiSize(9);
         uint32_t color = pressed ? 0xFFFFFFFF : 0xFF000000;
 
         /* Draw a simple globe: circle + horizontal/vertical lines */
@@ -647,12 +607,12 @@ protected:
         if(py < 2) py = 2;
 
         /* Draw popup bubble */
-        int pr = isPad ? 10 : 8;
+        int pr = 10;
         graph_fill_round(g, px, py, pw, ph, pr, IOS_POPUP_BG);
         graph_round(g, px, py, pw, ph, pr, 1, IOS_POPUP_BORDER);
 
         /* Draw enlarged character */
-        int bigFs = fontSize + (isPad ? 10 : 6);
+        int bigFs = fontSize + 10;
         uint32_t tw, th;
         font_text_size(label, font, bigFs, &tw, &th);
         int tx = px + (pw - tw) / 2;
@@ -928,7 +888,6 @@ public:
         panelSize.w = pw;
         panelSize.h = ph;
         font = font_new(DEFAULT_SYSTEM_FONT, true);
-        fontSmall = font_new(DEFAULT_SYSTEM_FONT, true);
         xPid = dev_get_pid("/dev/x");
         currentLayout = KBL_QWERTY;
         shiftActive = false;
@@ -939,8 +898,7 @@ public:
         inputS[0] = 0;
         lastShiftTap = 0;
         keyCount = 0;
-        isPad = false;
-        fontSize = 14;
+        fontSize = X::hidpiSize(14);
         keyGap = 4;
         rowGap = 6;
         sideMargin = 3;
@@ -953,7 +911,6 @@ public:
 
     inline ~XIMIOS() {
         if(font != NULL) font_free(font);
-        if(fontSmall != NULL) font_free(fontSmall);
     }
 };
 
@@ -978,10 +935,10 @@ static int doargs(int argc, char* argv[]) {
             break;
         switch(c) {
         case 'w':
-            _panelW = atoi(optarg);
+            _panelW = X::hidpiSize(atoi(optarg));
             break;
         case 'h':
-            _panelH = atoi(optarg);
+            _panelH = X::hidpiSize(atoi(optarg));
             break;
         default:
             c = -1;
@@ -999,15 +956,19 @@ int main(int argc, char* argv[]) {
     x.getScreenInfo(scr, 0);
 
     doargs(argc, argv);
+
     if(_panelW == 0)
         _panelW = scr.size.w;
+    if(_panelW > X::hidpiSize(640))
+        _panelW = X::hidpiSize(640);
+
     /* Height 0 means auto: onShow() sizes the panel from the key
        geometry; open() only needs a placeholder. */
     int openH = (_panelH > 0) ? _panelH : scr.size.h / 2;
 
     XIMIOS xwin(scr.size.w, scr.size.h, _panelW, _panelH);
     xwin.open(&x, -1, scr.size.w - _panelW, scr.size.h - openH, _panelW, openH, "xim_ios",
-            XWIN_STYLE_NO_FRAME | XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_NO_TITLE, false);
+            XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_NO_TITLE, false);
     x.run(NULL, &xwin);
     return 0;
 }
