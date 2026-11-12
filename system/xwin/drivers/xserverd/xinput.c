@@ -2,6 +2,7 @@
   testing, drag move/resize gestures and event routing to windows*/
 #include <stdlib.h>
 #include <ewoksys/basic_math.h>
+#include <ewoksys/kernel_tic.h>
 #include "xinput.h"
 #include "xwin.h"
 #include "xrepaint.h" //hide_cursor
@@ -351,9 +352,26 @@ static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
     return 0;
 }
 
+/*touchpad input landing within this window after an IME event is dropped:
+  the fingers that just tapped the on-screen keyboard lift onto the touchpad
+  and would otherwise click through into the focused window*/
+#define X_IM_TPAD_SUPPRESS_MS 300
+
 void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
-    if(ev->type == XEVT_IM) {
+    if(ev->type == XEVT_IM || ev->type == XEVT_IM_VKEYB) {
+        if(ev->type == XEVT_IM) //virtual keyboard events don't arm the suppression
+            x->im_state.last_im_ms = kernel_tic_ms(0);
+        ev->type = XEVT_IM;
         im_handle(x, from_pid, ev);
+    }
+    else if(ev->type == XEVT_MOUSE_TPAD) {
+        uint64_t now = kernel_tic_ms(0);
+        if(x->im_state.last_im_ms != 0 &&
+                (now - x->im_state.last_im_ms) < X_IM_TPAD_SUPPRESS_MS)
+            return; //too soon after an IME event: ignore the touchpad input
+        ev->type = XEVT_MOUSE;
+        mouse_handle(x, ev);
+        x_repaint_req(x, x->current_display);
     }
     else if(ev->type == XEVT_MOUSE) {
         mouse_handle(x, ev);

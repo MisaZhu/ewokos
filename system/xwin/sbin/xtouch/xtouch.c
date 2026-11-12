@@ -247,7 +247,11 @@ static void ensure_x_server(void) {
 static void tp_mouse(int state, int button, int rx, int ry) {
     xevent_t ev;
     memset(&ev, 0, sizeof(ev));
-    ev.type = XEVT_MOUSE;
+    if(_mouse_mode)
+        ev.type = XEVT_MOUSE_TPAD;
+    else
+        ev.type = XEVT_MOUSE;
+
     ev.state = state;
     ev.value.mouse.relative = 1;
     ev.value.mouse.rx = rx;

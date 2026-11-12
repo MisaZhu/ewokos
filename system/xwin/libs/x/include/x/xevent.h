@@ -14,7 +14,9 @@ enum {
 	XEVT_NONE = 0,
 	XEVT_MOUSE,
 	XEVT_IM, //input method
-	XEVT_WIN
+	XEVT_WIN,
+	XEVT_MOUSE_TPAD, //touchpad mouse
+	XEVT_IM_VKEYB //vkeyb
 };
 
 enum {

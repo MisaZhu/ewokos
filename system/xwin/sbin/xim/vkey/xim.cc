@@ -654,7 +654,7 @@ protected:
     /* --- Input handling --- */
     void inputX(char c) {
         xevent_t ev;
-        ev.type = XEVT_IM;
+        ev.type = XEVT_IM_VKEYB;
         ev.value.im.value = c;
         ev.value.im.key_code = c;
         ev.value.im.shift = 0;

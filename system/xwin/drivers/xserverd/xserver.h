@@ -225,6 +225,9 @@ typedef struct {
 	bool    phys_kbd_connected;
 	/*tic (ms) of the last /dev/keyb* connection probe, for XIM_KBD_POLL_MS*/
 	uint64_t last_kbd_probe_ms;
+	/*tic (ms) of the last IME input event: touchpad events landing within
+	  X_IM_TPAD_SUPPRESS_MS of it are dropped (palm rejection)*/
+	uint64_t last_im_ms;
 } x_im_state_t;
 
 typedef struct {
