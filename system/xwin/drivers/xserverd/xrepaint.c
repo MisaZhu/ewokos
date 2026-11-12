@@ -218,7 +218,15 @@ static bool x_is_hide_cursor_on_win(x_t* x) {
   Runs inside the input IPC handler (a worker thread holding the server
   lock), so it must never block and must never touch the buffer or the
   ctrl dirty list while a push/flush is in flight - skipped then, and
-  the frame path retries it via display->cursor_task.*/
+  the frame path retries it via display->cursor_task.
+
+  The flush is fire-and-forget (IPC_NON_RETURN): the daemon consumes the
+  dirty list when it PROCESSES the queued flush, not when it was issued.
+  If the flush cannot run at all (device busy) the cursor rects are kept
+  in display->cursor_pending and false is returned, so the caller keeps
+  cursor_task set and the frame path re-declares them on its blocking
+  flush - otherwise the old cursor position's restore rect would be lost
+  and its image would stay on the panel (ghost cursor).*/
 bool x_cursor_redraw_now(x_t* x, uint32_t display_index) {
     x_display_t* display = &x->displays[display_index];
     if(!display->active || display->g == NULL ||
@@ -230,13 +238,36 @@ bool x_cursor_redraw_now(x_t* x, uint32_t display_index) {
             x_is_hide_cursor_on_win(x))
         return false;
 
-    grect_t dirty[2];
-    x_get_cursor_rect(x, &dirty[0], true);
+    /*2 current cursor rects + up to 4 pending from earlier skipped flushes;
+      display_set_dirty turns an overflow (> DISPLAY_DIRTY_MAX) into a
+      full-frame flush, so nothing is ever silently dropped*/
+    grect_t dirty[6];
+    uint32_t dirty_num = 0;
+    grect_t r;
+    x_get_cursor_rect(x, &r, true);
+    dirty[dirty_num++] = r;
     hide_cursor(x);
-    x_get_cursor_rect(x, &dirty[1], false);
+    x_get_cursor_rect(x, &r, false);
+    dirty[dirty_num++] = r;
     refresh_cursor(x);
-    display_set_dirty(&display->display, dirty, 2);
-    display_flush(&display->display, false);
+
+    /*rects of an earlier skipped flush: their composite only exists in the
+      back buffer, so this flush re-declares them too*/
+    for(uint32_t i = 0; i < display->cursor_pending_num; i++)
+        dirty[dirty_num++] = display->cursor_pending[i];
+
+    display_set_dirty(&display->display, dirty, dirty_num);
+    if(display_flush(&display->display, false) != 0) {
+        /*device busy: nothing was synced or pushed. The composite stays in
+          the back buffer; keep every declared rect pending for the next
+          flush and leave cursor_task set so the frame path redraws.*/
+        for(uint32_t i = 0; i < dirty_num; i++)
+            display->cursor_pending[i] = dirty[i];
+        display->cursor_pending_num = (uint8_t)dirty_num;
+        return false;
+    }
+    /*the sync covered all pending rects, so they are repaired on the fb*/
+    display->cursor_pending_num = 0;
     return true;
 }
 
@@ -491,6 +522,21 @@ void x_repaint(x_t* x, uint32_t display_index) {
     }
     if(cursor_refreshed) {
         x_repaint_add_dirty(display->g, dirty_rects, &dirty_num, &cursor_new_rect);
+    }
+
+    /*dirty rects of a cursor fast-path flush that was skipped (device busy):
+      their composite sits in the back buffer but never reached the
+      framebuffer. Re-declare them here so this frame's blocking flush
+      repairs the panel - and only clear them now, under the lock, because
+      the frame's pending flush is guaranteed to consume them. A fast path
+      that runs between this point and the flush landing re-sets them if its
+      own flush is skipped again.*/
+    if(display->cursor_pending_num > 0) {
+        for(uint32_t i = 0; i < display->cursor_pending_num; i++)
+            x_repaint_add_dirty(display->g, dirty_rects, &dirty_num,
+                    &display->cursor_pending[i]);
+        display->cursor_pending_num = 0;
+        do_flush = true;
     }
 
     display->dirty = desktop_retry;

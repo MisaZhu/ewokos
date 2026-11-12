@@ -74,31 +74,37 @@ int display_info(display_t* display, int* w, int* h, int* bpp) {
     return 0;
 }
 
-/*upper bound (in ~1ms parks) a blocking flush waits for the device to finish
-  the previous presentation before pushing. Bounded so a daemon that died with
-  busy latched cannot hang the compositor forever.*/
+/*return:
+  0:  flushed - the dirty rects were synced to the framebuffer and the
+      daemon was asked to push them (async for waiting==false, or after
+      the idle wait for waiting==true)
+  1:  skipped - the device is still pushing the previous frame, so nothing
+      was synced or submitted (only when waiting==false); the declared
+      dirty rects stay pending in the ctrl block for the next flush
+  <0: error
+
+  presentation-completion gate. ctrl->busy is held by the daemon for the
+  whole time it pushes the previous frame to the physical panel (reading
+  this framebuffer shm for scan-out, or streaming it over SPI). Flushing
+  now would either race that read (a half-synced shm reaches the panel) or
+  start a new presentation on top of an unfinished one, so we never push
+  cache_g while the device is still drawing:
+    - opportunistic flush (waiting==false, e.g. the cursor fast path):
+      skip it. The frame is already complete in cache_g and is presented by
+      the next flush, so intermediate frames simply coalesce (nothing lost).
+    - blocking flush (waiting==true): wait for the device to go idle (with a
+      bound, so a dead daemon cannot hang us), then present the full frame.*/
 #define DISPLAY_FLUSH_BUSY_WAIT_MAX 200
 
 int display_flush(display_t* display, bool waiting) {
     if(display == NULL || display->fd < 0)
         return -1;
 
-    /*presentation-completion gate. ctrl->busy is held by the daemon for the
-      whole time it pushes the previous frame to the physical panel (reading
-      this framebuffer shm for scan-out, or streaming it over SPI). Flushing
-      now would either race that read (a half-synced shm reaches the panel) or
-      start a new presentation on top of an unfinished one, so we never push
-      cache_g while the device is still drawing:
-        - opportunistic flush (waiting==false, e.g. the cursor fast path):
-          skip it. The frame is already complete in cache_g and is presented by
-          the next flush, so intermediate frames simply coalesce (nothing lost).
-        - blocking flush (waiting==true): wait for the device to go idle (with a
-          bound, so a dead daemon cannot hang us), then present the full frame.*/
     if(display->ctrl != NULL) {
         volatile uint8_t* busy = &display->ctrl->busy;
         if(*busy != 0) {
             if(!waiting)
-                return 0;
+                return 1;
             uint32_t guard = DISPLAY_FLUSH_BUSY_WAIT_MAX;
             while(*busy != 0 && guard > 0) {
                 usleep(1000);
@@ -161,9 +167,41 @@ bool display_busy(display_t* display) {
     return ctrl->busy != 0;
 }
 
+static inline void dirty_rect_union_to(grect_t* dst, const grect_t* src) {
+    int32_t x0 = dst->x < src->x ? dst->x : src->x;
+    int32_t y0 = dst->y < src->y ? dst->y : src->y;
+    int32_t x1 = (dst->x + dst->w) > (src->x + src->w) ? (dst->x + dst->w) : (src->x + src->w);
+    int32_t y1 = (dst->y + dst->h) > (src->y + src->h) ? (dst->y + dst->h) : (src->y + src->h);
+    dst->x = x0;
+    dst->y = y0;
+    dst->w = x1 - x0;
+    dst->h = y1 - y0;
+}
+
+static inline bool dirty_rect_overlap_or_touch(const grect_t* a, const grect_t* b) {
+    if((a->x + a->w) < b->x || (b->x + b->w) < a->x)
+        return false;
+    if((a->y + a->h) < b->y || (b->y + b->h) < a->y)
+        return false;
+    return true;
+}
+
+static inline bool dirty_rect_contains(const grect_t* out, const grect_t* in) {
+    return in->x >= out->x && in->y >= out->y &&
+            (in->x + in->w) <= (out->x + out->w) &&
+            (in->y + in->h) <= (out->y + out->h);
+}
+
 /*declare the damaged area of the next flush. rects == NULL or num == 0
   means the whole framebuffer. The daemon consumes and clears it on every
-  flush, so it has to be set again for each partial frame.*/
+  flush, so it has to be set again for each partial frame.
+
+  New rects are UNIONED into the pending list instead of replacing it:
+  the daemon consumes the list when it processes a queued flush, which may
+  happen long after the declaration. Overwriting drops rects declared by an
+  earlier, not-yet-consumed flush (the cursor fast path declares old+new
+  cursor rects on every move) - the old cursor restore then never reaches
+  the panel and leaves a ghost cursor behind.*/
 int display_set_dirty(display_t* display, const grect_t* rects, uint32_t num) {
     display_ctrl_t* ctrl = display_ctrl(display);
     if(ctrl == NULL)
@@ -174,8 +212,33 @@ int display_set_dirty(display_t* display, const grect_t* rects, uint32_t num) {
         return 0;
     }
 
-    memcpy(ctrl->dirty, rects, num * sizeof(grect_t));
-    ctrl->dirty_num = (uint8_t)num;
+    uint32_t total = ctrl->dirty_num;
+    if(total > DISPLAY_DIRTY_MAX)
+        total = 0;
+
+    for(uint32_t i = 0; i < num; i++) {
+        const grect_t* r = &rects[i];
+        uint32_t j;
+        for(j = 0; j < total; j++) {
+            if(dirty_rect_contains(&ctrl->dirty[j], r))
+                break;
+            if(dirty_rect_overlap_or_touch(&ctrl->dirty[j], r)) {
+                dirty_rect_union_to(&ctrl->dirty[j], r);
+                break;
+            }
+        }
+        if(j < total)
+            continue;
+        if(total < DISPLAY_DIRTY_MAX) {
+            ctrl->dirty[total] = *r;
+            total++;
+        }
+        else {
+            ctrl->dirty_num = 0; //overflow: pushing everything is cheaper
+            return 0;
+        }
+    }
+    ctrl->dirty_num = (uint8_t)total;
     return 0;
 }
 

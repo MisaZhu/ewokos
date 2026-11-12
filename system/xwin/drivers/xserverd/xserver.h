@@ -195,6 +195,14 @@ typedef struct {
 	  would overwrite the frame's dirty rects before the daemon reads
 	  them*/
 	bool flush_inflight;
+	/*cursor dirty rects whose flush was skipped because the daemon was still
+	  pushing (display_flush returned "skipped"): their composite sits in the
+	  back buffer but never reached the framebuffer, so the next flush must
+	  re-declare them or the old cursor image stays on the panel (ghost
+	  cursor). Re-declared by the cursor fast path and by x_repaint; cleared
+	  once a flush that covered them has actually landed.*/
+	grect_t cursor_pending[6];
+	uint8_t cursor_pending_num;
 	uint32_t wait_ready; //frames spent waiting for the windows to get ready
 
 	bool active;
