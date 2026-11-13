@@ -26,6 +26,7 @@ QEMU_GUI_DISPLAY ?= cocoa,zoom-to-fit=on,zoom-interpolation=on
 QEMU_AUDIODEV ?= coreaudio
 QEMU_HOST_ACCEL ?= hvf
 QEMU_HOST_CPU ?= host
+QEMU_MEM ?= 8192
 else
 QEMU_GUI_DISPLAY ?= gtk,zoom-to-fit=on
 QEMU_AUDIODEV ?= pa
@@ -38,6 +39,12 @@ QEMU_AUDIODEV ?= pa
 # line works whether or not kvm is available.
 QEMU_HOST_ACCEL ?= kvm:tcg
 QEMU_HOST_CPU ?= max
+# 8 GB of guest RAM is fine under macOS hvf, but a TCG fallback on a Linux host
+# must reserve the whole guest RAM in host memory up front and often fails with
+# "cannot set up guest memory 'mach-virt.ram': Cannot allocate memory".  Default
+# to a smaller 2 GB there; raise it (e.g. once KVM works, or on a big host) with
+#   make run QEMU_MEM=8192
+QEMU_MEM ?= 2048
 endif
 
 # Filter out harmless macOS Input Method Kit (IMK) console spam from QEMU's
@@ -67,9 +74,9 @@ ifeq ($(ARCH), aarch64)
 		QEMU_GUI_ACCEL ?= $(QEMU_HOST_ACCEL)
 		QEMU_GUI_CPU ?= $(QEMU_HOST_CPU)
 	endif
-	QEMU_RUN_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=$(QEMU_RUN_ACCEL) -cpu $(QEMU_RUN_CPU) -m 8192 \
+	QEMU_RUN_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=$(QEMU_RUN_ACCEL) -cpu $(QEMU_RUN_CPU) -m $(QEMU_MEM) \
 		-serial mon:stdio -nographic
-	QEMU_GUI_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=$(QEMU_GUI_ACCEL) -cpu $(QEMU_GUI_CPU) -m 8192 \
+	QEMU_GUI_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=$(QEMU_GUI_ACCEL) -cpu $(QEMU_GUI_CPU) -m $(QEMU_MEM) \
 		-serial mon:stdio -device ramfb \
 		-display $(QEMU_GUI_DISPLAY)
 else
