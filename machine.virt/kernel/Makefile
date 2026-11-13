@@ -20,16 +20,24 @@ HOST_OS := $(shell echo '$(UNAME_S)' | tr 'A-Z' 'a-z')
 endif
 
 # Host-appropriate defaults for the GUI display backend, the audio backend and
-# (in the aarch64 block below) the hardware accelerator.  `-cpu host` pairs
-# with both hvf and kvm, so only the accel name differs between the two hosts.
+# (in the aarch64 block below) the hardware accelerator + CPU model.
 ifeq ($(HOST_OS),macos)
 QEMU_GUI_DISPLAY ?= cocoa,zoom-to-fit=on,zoom-interpolation=on
 QEMU_AUDIODEV ?= coreaudio
 QEMU_HOST_ACCEL ?= hvf
+QEMU_HOST_CPU ?= host
 else
 QEMU_GUI_DISPLAY ?= gtk,zoom-to-fit=on
 QEMU_AUDIODEV ?= pa
-QEMU_HOST_ACCEL ?= kvm
+# KVM is not always usable on a Linux/other host: it needs the host CPU arch to
+# match the aarch64 guest, an accessible /dev/kvm (user in the kvm group) and,
+# inside a VM, nested virtualisation.  When any of those is missing QEMU aborts
+# with "could not access kvm kernel module".  List tcg as a fallback so QEMU
+# tries kvm first and silently drops to TCG otherwise.  -cpu max is valid under
+# both accelerators (unlike -cpu host, which is KVM-only), so the same command
+# line works whether or not kvm is available.
+QEMU_HOST_ACCEL ?= kvm:tcg
+QEMU_HOST_CPU ?= max
 endif
 
 # Filter out harmless macOS Input Method Kit (IMK) console spam from QEMU's
@@ -55,9 +63,9 @@ ifeq ($(ARCH), aarch64)
 		QEMU_GUI_CPU ?= cortex-a72
 	else
 		QEMU_RUN_ACCEL ?= $(QEMU_HOST_ACCEL)
-		QEMU_RUN_CPU ?= host
+		QEMU_RUN_CPU ?= $(QEMU_HOST_CPU)
 		QEMU_GUI_ACCEL ?= $(QEMU_HOST_ACCEL)
-		QEMU_GUI_CPU ?= host
+		QEMU_GUI_CPU ?= $(QEMU_HOST_CPU)
 	endif
 	QEMU_RUN_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=$(QEMU_RUN_ACCEL) -cpu $(QEMU_RUN_CPU) -m 8192 \
 		-serial mon:stdio -nographic
