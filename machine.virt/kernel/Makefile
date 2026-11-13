@@ -62,7 +62,15 @@ ifeq ($(ARCH), aarch64)
 	OS_IMG = kernel8.img
 	OS_ELF = kernel8.elf
 	QEMU_CMD = qemu-system-aarch64
-	ARCH_CFLAGS = -Wa,-march=armv8-a -DMAX_USABLE_MEM_SIZE='(8ull*GB)'
+	# The virt BSP hardcodes 8 GB of physical RAM (bsp/hw_info_arch.c) and only
+	# clamps it to MAX_USABLE_MEM_SIZE, so the size the kernel actually maps is
+	# MAX_USABLE_MEM_SIZE -- NOT whatever QEMU's -m provides.  Derive it from
+	# QEMU_MEM so the kernel maps exactly the RAM QEMU backs; otherwise a smaller
+	# -m (e.g. the 2 GB TCG default on Linux) leaves init_allocable_mem() walking
+	# page tables past the backed RAM and hanging right after the
+	# "remapping kernel mem ... [OK]" line.  Changing QEMU_MEM therefore REQUIRES
+	# rebuilding kernel8.img (make) before make run.
+	ARCH_CFLAGS = -Wa,-march=armv8-a -DMAX_USABLE_MEM_SIZE='($(QEMU_MEM)ull*MB)'
 	ifeq ($(PAGE_SIZE),64k)
 		QEMU_RUN_ACCEL ?= tcg
 		QEMU_RUN_CPU ?= cortex-a72
