@@ -5,27 +5,58 @@ SHELL := /bin/bash
 
 LDS = mkos.lds.S
 
+# Detect the host OS so QEMU is given host-appropriate parameters.  macOS
+# (Darwin) uses the Cocoa display, Hypervisor.framework (hvf) acceleration and
+# the coreaudio backend; Linux and other hosts use GTK, KVM and PulseAudio.
+# HOST_OS is "macos" on Darwin, otherwise the lowercased `uname -s` (e.g.
+# "linux").  Every derived default below stays `?=`-overridable on the command
+# line, so e.g. cross-arch emulation on Linux can still force tcg:
+#   make run QEMU_RUN_ACCEL=tcg QEMU_RUN_CPU=cortex-a72
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+HOST_OS := macos
+else
+HOST_OS := $(shell echo '$(UNAME_S)' | tr 'A-Z' 'a-z')
+endif
+
+# Host-appropriate defaults for the GUI display backend, the audio backend and
+# (in the aarch64 block below) the hardware accelerator.  `-cpu host` pairs
+# with both hvf and kvm, so only the accel name differs between the two hosts.
+ifeq ($(HOST_OS),macos)
+QEMU_GUI_DISPLAY ?= cocoa,zoom-to-fit=on,zoom-interpolation=on
+QEMU_AUDIODEV ?= coreaudio
+QEMU_HOST_ACCEL ?= hvf
+else
+QEMU_GUI_DISPLAY ?= gtk,zoom-to-fit=on
+QEMU_AUDIODEV ?= pa
+QEMU_HOST_ACCEL ?= kvm
+endif
+
 # Filter out harmless macOS Input Method Kit (IMK) console spam from QEMU's
 # Cocoa display backend, e.g. "error messaging the mach port for
 # IMKCFRunLoopWakeUpReliable". The serial console uses stdout, so filtering
-# stderr keeps real QEMU errors visible while dropping this noise.
+# stderr keeps real QEMU errors visible while dropping this noise.  Only
+# relevant on macOS; left empty elsewhere so no grep subprocess is spawned.
+ifeq ($(HOST_OS),macos)
 QEMU_STDERR_FILTER = 2> >(grep -v 'IMKCFRunLoopWakeUpReliable' >&2)
+else
+QEMU_STDERR_FILTER =
+endif
 
 ifeq ($(ARCH), aarch64)
 	OS_IMG = kernel8.img
 	OS_ELF = kernel8.elf
 	QEMU_CMD = qemu-system-aarch64
 	ARCH_CFLAGS = -Wa,-march=armv8-a -DMAX_USABLE_MEM_SIZE='(8ull*GB)'
-	QEMU_GUI_DISPLAY ?= cocoa,zoom-to-fit=on,zoom-interpolation=on
 	ifeq ($(PAGE_SIZE),64k)
 		QEMU_RUN_ACCEL ?= tcg
 		QEMU_RUN_CPU ?= cortex-a72
 		QEMU_GUI_ACCEL ?= tcg
 		QEMU_GUI_CPU ?= cortex-a72
 	else
-		QEMU_RUN_ACCEL ?= hvf
+		QEMU_RUN_ACCEL ?= $(QEMU_HOST_ACCEL)
 		QEMU_RUN_CPU ?= host
-		QEMU_GUI_ACCEL ?= hvf
+		QEMU_GUI_ACCEL ?= $(QEMU_HOST_ACCEL)
 		QEMU_GUI_CPU ?= host
 	endif
 	QEMU_RUN_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=$(QEMU_RUN_ACCEL) -cpu $(QEMU_RUN_CPU) -m 8192 \
@@ -37,7 +68,6 @@ else
 	OS_IMG = kernel7.img
 	OS_ELF = kernel7.elf
 	QEMU_CMD = qemu-system-arm
-	QEMU_GUI_DISPLAY ?= cocoa,zoom-to-fit=on,zoom-interpolation=on
 	QEMU_RUN_FLAGS = -M $(QEMU_MACHINE) -cpu cortex-a15 -m 1024 -serial mon:stdio -nographic
 	QEMU_GUI_FLAGS = -M $(QEMU_MACHINE) -cpu cortex-a15 -m 1024 -serial mon:stdio -device ramfb \
 		-display $(QEMU_GUI_DISPLAY)
@@ -62,7 +92,6 @@ QEMU_AUDIO_ENABLE ?= yes
 # reboot. Use `make ... QEMU_SNAPSHOT=yes` when a disposable session is needed.
 QEMU_SNAPSHOT ?= no
 QEMU_AUDIO_ID ?= audio0
-QEMU_AUDIODEV ?= coreaudio
 QEMU_AUDIO_ARGS = -audiodev $(QEMU_AUDIODEV),id=$(QEMU_AUDIO_ID)
 QEMU_HOSTFWD ?= hostfwd=tcp:127.0.0.1:2222-:22
 ifeq ($(strip $(QEMU_HOSTFWD)),)
