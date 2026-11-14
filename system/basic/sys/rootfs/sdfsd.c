@@ -18,6 +18,17 @@
 #include <ewoksys/usbmsc.h>
 #include <ewoksys/kernel_tic.h>
 
+/* The NVMe backend is optional: only machines whose libbsp provides the
+ * shared <bsp/bsp_nvme.h> block API (raspi5/x86/q8b) build the "-n" mode.
+ * The machine-specific bsp_nvme_init() owns controller bring-up; this file
+ * only adds the partition-table offset and the ext3 block translation. */
+#if defined(__has_include)
+#  if __has_include(<bsp/bsp_nvme.h>)
+#    define SDFSD_HAS_NVME 1
+#    include <bsp/bsp_nvme.h>
+#  endif
+#endif
+
 #define SD_BUFFER_SIZE (1024*1024*64) //64M buffer size
 
 /*
@@ -126,6 +137,13 @@ static uint32_t _usb_partition_start = 0;
 /* "-b" serves a firmware boot initramfs through the bsp_bootfs backend
  * implemented by this machine's libbsp (see <bsp/bsp_bootfs.h>). */
 static int _boot_mode = 0;
+#ifdef SDFSD_HAS_NVME
+/* "-n" serves the first ext3 partition of the NVMe disk through the
+ * machine's bsp_nvme block backend.  _nvme_partition_start is the
+ * partition's first LBA; all block callbacks add it on every transfer. */
+static int _nvme_mode = 0;
+static uint64_t _nvme_partition_start = 0;
+#endif
 
 static int usb_msc_io(int write, int32_t sector, void* buf, uint32_t count) {
     proto_t in, out;
@@ -206,33 +224,226 @@ static int32_t usb_read_sector(int32_t sector, void* buf) {
     return usb_msc_io(0, sector, buf, 1) == 0 ? SECTOR_SIZE : -1;
 }
 
+#ifdef SDFSD_HAS_NVME
+/* The ext3 library selects the device block size through
+ * sd_set_block_size() (1024/2048/4096); every fs-block request below is
+ * translated into that many NVMe LBAs at the partition offset. */
+static uint32_t nvme_lba_size(void) {
+    uint32_t bs = bsp_nvme_get_block_size();
+    return bs != 0 ? bs : SECTOR_SIZE;
+}
+
+static int32_t nvme_ext_read_blocks(int32_t block, void* buf, uint32_t count) {
+    uint32_t lba_size = nvme_lba_size();
+    uint32_t fs_block = sd_get_block_size();
+    uint64_t sectors;
+    uint64_t first;
+
+    if (block < 0 || lba_size == 0 || fs_block == 0 ||
+            fs_block % lba_size != 0)
+        return -1;
+    if (count == 0)
+        return 0;
+    sectors = (uint64_t)count * (fs_block / lba_size);
+    first = _nvme_partition_start + (uint64_t)(uint32_t)block *
+            (fs_block / lba_size);
+    if (sectors > 0xffffffffULL)
+        return -1;
+    if (bsp_nvme_read(first, buf, (uint32_t)sectors) != (int32_t)sectors)
+        return -1;
+    return 0;
+}
+
+static int32_t nvme_ext_read_block(int32_t block, void* buf) {
+    return nvme_ext_read_blocks(block, buf, 1);
+}
+
+static int32_t nvme_ext_write_blocks(int32_t block, const void* buf,
+        uint32_t count) {
+    uint32_t lba_size = nvme_lba_size();
+    uint32_t fs_block = sd_get_block_size();
+    uint64_t sectors;
+    uint64_t first;
+
+    if (block < 0 || lba_size == 0 || fs_block == 0 ||
+            fs_block % lba_size != 0)
+        return -1;
+    if (count == 0)
+        return 0;
+    sectors = (uint64_t)count * (fs_block / lba_size);
+    first = _nvme_partition_start + (uint64_t)(uint32_t)block *
+            (fs_block / lba_size);
+    if (sectors > 0xffffffffULL)
+        return -1;
+    if (bsp_nvme_write(first, buf, (uint32_t)sectors) != (int32_t)sectors)
+        return -1;
+    return 0;
+}
+
+static int32_t nvme_ext_write_block(int32_t block, const void* buf) {
+    return nvme_ext_write_blocks(block, buf, 1);
+}
+
+static int32_t nvme_read_sector64(uint64_t lba, void* buf) {
+    return bsp_nvme_read(lba, buf, 1) == 1 ? SECTOR_SIZE : -1;
+}
+
+/* ext2/3/4 keep the superblock at byte offset 1024 of their volume, magic
+ * (0xef53) at +56.  The scan works in 512-byte sectors so it is
+ * independent of the NVMe's own LBA size. */
+static int nvme_probe_ext3_magic(uint64_t start_lba) {
+    uint8_t buf[SECTOR_SIZE];
+    if (nvme_read_sector64(start_lba + 2, buf) != SECTOR_SIZE)
+        return 0;
+    if (buf[56] == 0x53 && buf[57] == 0xef)
+        return 1;
+    /* Diagnostics: name what occupies the partition so a missed rootfs
+     * is visible in the boot log (boot signature / OEM name). */
+    klog("sdfsd: nvme part lba=%llu not ext3 (sig=%02x%02x '%.4s')\n",
+            (unsigned long long)start_lba,
+            buf[510], buf[511], (const char*)buf + 3);
+    return 0;
+}
+
+/* Pick the first ext3 partition on the NVMe disk: GPT entries in table
+ * order, then MBR entries in table order, then a raw whole-disk ext image
+ * (partition table absent).  GUID-based rootfs typing is deliberately NOT
+ * used as the primary rule -- the volume is identified by its filesystem,
+ * not by the partition label. */
+static int nvme_find_first_ext3(uint64_t* start_lba) {
+    uint8_t buf[SECTOR_SIZE];
+
+    /* GPT: header at LBA 1. */
+    if (nvme_read_sector64(1, buf) == SECTOR_SIZE &&
+            memcmp(buf, "EFI PART", 8) == 0) {
+        uint64_t entry_lba = 0;
+        uint32_t entry_count = 0;
+        uint32_t entry_size = 0;
+        uint32_t table_sectors;
+        uint8_t* entries;
+
+        /* GPT header fields are little-endian. */
+        for (int i = 7; i >= 0; i--)
+            entry_lba = (entry_lba << 8) | buf[72 + i];
+        for (int i = 3; i >= 0; i--) {
+            entry_count = (entry_count << 8) | buf[80 + i];
+            entry_size = (entry_size << 8) | buf[84 + i];
+        }
+        if (entry_count != 0 && entry_count <= 4096 &&
+                entry_size >= 128 && entry_size <= 4096) {
+            table_sectors = (entry_count * entry_size + SECTOR_SIZE - 1) /
+                    SECTOR_SIZE;
+            entries = (uint8_t*)malloc((size_t)table_sectors * SECTOR_SIZE);
+            if (entries != NULL) {
+                int found = 0;
+                for (uint32_t s = 0; s < table_sectors; s++) {
+                    if (nvme_read_sector64(entry_lba + s,
+                            entries + (size_t)s * SECTOR_SIZE) !=
+                            SECTOR_SIZE) {
+                        free(entries);
+                        return -1;
+                    }
+                }
+                for (uint32_t i = 0; i < entry_count && !found; i++) {
+                    const uint8_t* e = entries + (size_t)i * entry_size;
+                    uint64_t first = 0;
+                    int used = 0;
+                    for (int j = 0; j < 16; j++)
+                        used |= e[j];
+                    if (!used)
+                        continue;
+                    for (int j = 7; j >= 0; j--)
+                        first = (first << 8) | e[32 + j];
+                    if (first != 0 && nvme_probe_ext3_magic(first)) {
+                        *start_lba = first;
+                        found = 1;
+                    }
+                }
+                free(entries);
+                if (found)
+                    return 0;
+                if (table_sectors > 0)
+                    return -1; /* GPT present but no ext3 partition */
+            }
+        }
+    }
+
+    /* MBR: four entries in table order (GPT disks reach here only when
+     * the entries table could not be read). */
+    if (nvme_read_sector64(0, buf) == SECTOR_SIZE &&
+            buf[510] == 0x55 && buf[511] == 0xaa) {
+        for (int i = 0; i < 4; i++) {
+            const uint8_t* e = buf + 0x1be + i * 16;
+            uint32_t first = 0;
+            for (int j = 3; j >= 0; j--)
+                first = (first << 8) | e[8 + j];
+            if (first != 0 && nvme_probe_ext3_magic(first)) {
+                *start_lba = first;
+                return 0;
+            }
+        }
+    }
+
+    /* No partition table matched: a raw ext image spanning the whole
+     * namespace. */
+    if (nvme_probe_ext3_magic(0)) {
+        *start_lba = 0;
+        return 0;
+    }
+    return -1;
+}
+#endif
+
 static int32_t rootfs_read_block(int32_t block, void* buf) {
     if (_boot_mode)
         return bsp_bootfs_read_block(block, buf);
+#ifdef SDFSD_HAS_NVME
+    if (_nvme_mode)
+        return nvme_ext_read_block(block, buf);
+#endif
     return _usb_mode ? usb_ext_read_block(block, buf) : sd_read(block, buf);
 }
 
 static int32_t rootfs_read_blocks(int32_t block, void* buf, uint32_t count) {
     if (_boot_mode)
         return bsp_bootfs_read_blocks(block, buf, count);
+#ifdef SDFSD_HAS_NVME
+    if (_nvme_mode)
+        return nvme_ext_read_blocks(block, buf, count);
+#endif
     return _usb_mode ? usb_ext_read_blocks(block, buf, count) : sd_read_blocks(block, buf, count);
 }
 
 static int32_t rootfs_write_block(int32_t block, const void* buf) {
     if (_boot_mode)
         return bsp_bootfs_write_block(block, buf);
+#ifdef SDFSD_HAS_NVME
+    if (_nvme_mode)
+        return nvme_ext_write_block(block, buf);
+#endif
     return _usb_mode ? usb_ext_write_block(block, buf) : sd_write(block, buf);
 }
 
 static int32_t rootfs_write_blocks(int32_t block, const void* buf, uint32_t count) {
     if (_boot_mode)
         return bsp_bootfs_write_blocks(block, buf, count);
+#ifdef SDFSD_HAS_NVME
+    if (_nvme_mode)
+        return nvme_ext_write_blocks(block, buf, count);
+#endif
     return _usb_mode ? usb_ext_write_blocks(block, buf, count) : sd_write_blocks(block, buf, count);
 }
 
 static int32_t rootfs_flush(void) {
     if (_boot_mode)
         return 0;
+#ifdef SDFSD_HAS_NVME
+    /* Make every journal commit durable: the polled queue completes
+     * writes into the device's volatile cache, so a reset can still lose
+     * or reorder them without this barrier. */
+    if (_nvme_mode)
+        return bsp_nvme_flush() == 0 ? 0 : -1;
+#endif
     if (!_usb_mode)
         return sd_flush();
     proto_t in, out;
@@ -878,7 +1089,30 @@ int main(int argc, char** argv) {
         _usb_mode = 1;
         _usb_partition_start = get_rootfs_entry(usb_read_sector);
         klog("sdfsd: usb rootfs partition lba=%u\n", _usb_partition_start);
-    } else if(bsp_sd_init() != 0) {
+    }
+#ifdef SDFSD_HAS_NVME
+    else if(argc >= 2 && strcmp(argv[1], "-n") == 0) {
+        sd_mode = 0;
+        mount_point = argc >= 3 ? argv[2] : "/";
+        /* Controller bring-up consumes the /dev/pcie0 snapshot, so the
+         * PCIe owner must already be running (init starts it before the
+         * rootfs selection). */
+        if(bsp_nvme_init() != 0) {
+            klog("sdfsd: nvme controller init failed!\n");
+            return -1;
+        }
+        _nvme_mode = 1;
+        if(nvme_find_first_ext3(&_nvme_partition_start) != 0) {
+            klog("sdfsd: no ext3 partition on the nvme disk!\n");
+            return -1;
+        }
+        klog("sdfsd: nvme rootfs partition lba=%llu blocks=%llu lba_size=%u\n",
+                (unsigned long long)_nvme_partition_start,
+                (unsigned long long)bsp_nvme_get_block_count(),
+                nvme_lba_size());
+    }
+#endif
+    else if(bsp_sd_init() != 0) {
         return -1;
     }
 
@@ -891,7 +1125,8 @@ int main(int argc, char** argv) {
     int32_t probed = _boot_mode ? EXT3_PROBE_EXT3 : ext3_probe(rootfs_read_block);
     if(probed == EXT3_PROBE_NONE) {
         klog("sdfsd: no ext2/ext3 filesystem found on %s!\n",
-                _boot_mode ? "boot initramfs" : (sd_mode ? "sd card" : "usb disk"));
+                _boot_mode ? "boot initramfs" :
+                (_nvme_mode ? "nvme disk" : (sd_mode ? "sd card" : "usb disk")));
         if(_boot_mode)
             bsp_bootfs_unmap();
         else if(sd_mode)
