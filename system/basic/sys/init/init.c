@@ -96,6 +96,7 @@ static int32_t exec_from_storage(const char* prog, const char* cmdline,
 #define ROOTFS_USB  1
 #define ROOTFS_AUTO 2
 #define ROOTFS_SELF 3
+#define ROOTFS_NVME 4
 
 static int _bootnet;
 
@@ -248,6 +249,7 @@ static int rootfs_policy(void) {
             if(end - (v - conf) >= 2 && strncmp(v, "sd", 2) == 0) policy = ROOTFS_SD;
             else if(end - (v - conf) >= 3 && strncmp(v, "usb", 3) == 0) policy = ROOTFS_USB;
             else if(end - (v - conf) >= 4 && strncmp(v, "self", 4) == 0) policy = ROOTFS_SELF;
+            else if(end - (v - conf) >= 4 && strncmp(v, "nvme", 4) == 0) policy = ROOTFS_NVME;
             else if(end - (v - conf) >= 4 && strncmp(v, "auto", 4) == 0) policy = 2;
             /* Continue scanning for optional bootnet=1 recovery setting. */
         }
@@ -312,17 +314,29 @@ static const char* boot_source_name(uint32_t source) {
     }
 }
 
-/* NVMe and network rootfs daemons are not part of the Q8B boot image yet.
- * Keep them explicit in the selector so adding those backends later cannot
- * silently change the established SD/USB order. */
+/* NVMe rootfs: sdfsd -n mounts the first ext3 partition of the NVMe disk
+ * straight from the boot RAMFS (the block backend is linked into sdfsd via
+ * the machine's libbsp, and the controller enumeration comes from the
+ * /dev/pcie0 snapshot pcied published above).  The network rootfs backend
+ * is still missing; it stays explicit in the selector so adding it later
+ * cannot silently change the established order. */
 static int try_nvme_rootfs(void) {
-    klog("init: NVMe rootfs backend unavailable, continuing\n");
-    return -1;
+    return run_before_vfs("/sbin/sdfsd -n /");
 }
 
 static int try_net_rootfs(void) {
     klog("init: network rootfs backend unavailable, continuing\n");
     return -1;
+}
+
+static const char* rootfs_name(int selected) {
+    switch (selected) {
+    case ROOTFS_SD: return "sd";
+    case ROOTFS_USB: return "usb";
+    case ROOTFS_SELF: return "self";
+    case ROOTFS_NVME: return "nvme";
+    default: return "none";
+    }
 }
 
 static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
@@ -344,6 +358,9 @@ static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
                 selected = ROOTFS_USB;
             }
         }
+    } else if (policy == ROOTFS_NVME) {
+        if (try_nvme_rootfs() == 0)
+            selected = ROOTFS_NVME;
     } else {
         /* Self first, followed by the fixed cross-device order.  Duplicate
          * backends are skipped because the daemon represents the whole class
@@ -372,8 +389,8 @@ static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
                     selected = ROOTFS_USB;
                 }
             } else if (source == Q8B_BOOT_SOURCE_NVME) {
-                if (!tried_nvme++)
-                    (void)try_nvme_rootfs();
+                if (!tried_nvme++ && try_nvme_rootfs() == 0)
+                    selected = ROOTFS_NVME;
             } else if (source == Q8B_BOOT_SOURCE_NET) {
                 if (!tried_net++)
                     (void)try_net_rootfs();
@@ -496,21 +513,47 @@ int main(int argc, char** argv) {
     int usb_host = 0;
     int usb_root = 0;
     if(policy == ROOTFS_SELF) {
-        /* Maintenance mode: keep the boot RAMFS mounted after the early
-         * profile so a newly built pcied can be validated without a second
-         * daemon from the persistent SD rootfs resetting the controller. */
-        klog("init: rootfs=self; keeping boot RAMFS, switchroot skipped\n");
-        rescue_shell();
+        /* Two self-root shapes:
+         * - a full UI image packs the complete graphical system into the
+         *   boot RAMFS: run its xwin profile straight from the RAMFS --
+         *   nothing on any rootfs device is touched;
+         * - the bare bootstrap image packs no profile: keep the boot RAMFS
+         *   and drop to the serial rescue console (maintenance mode for
+         *   validating freshly built drivers). */
+        if(access("/etc/init.rd", R_OK) == 0) {
+            klog("init: rootfs=self; boot RAMFS carries the full UI\n");
+            /* SELF images ship /etc/init.rd WITHOUT the pcied line (pcied
+             * already owns /dev/pcie0 from init.ramfs.rd) plus the matching
+             * /etc/.init.rd.no-pcied copy that run_init's filter looks for.
+             * Do NOT call prepare_persistent_profiles() here: the bootfs
+             * write truncates the copy on failure and a half-written profile
+             * silently kills the UI. */
+            if(access(CAP_CONF_FILE, R_OK) == 0) {
+                cap_policy_load(CAP_CONF_FILE);
+                cap_policy_install(); /* kernel grants caps at matching exec */
+                switch_sys(1, 1); //run with sys user
+            }
+            else {
+                switch_sys(0, 0); //run with root user
+            }
+            klog("init: self-root UI profile exited\n");
+            rescue_shell();
+        }
+        else {
+            klog("init: rootfs=self; keeping boot RAMFS, switchroot skipped\n");
+            rescue_shell();
+        }
         while(true)
             usleep(100000);
     } else {
-        if(select_rootfs(policy, &usb_host, &usb_root) < 0) {
+        int selected = select_rootfs(policy, &usb_host, &usb_root);
+        if(selected < 0) {
             klog("init: no rootfs backend succeeded\n");
             rescue_shell();
             return -1;
         }
         klog("init: rootfs selected=%s bootnet=%d\n",
-                usb_root ? "usb" : "sd", _bootnet);
+                rootfs_name(selected), _bootnet);
     }
     if(policy != ROOTFS_SELF && _bootnet) {
         /* Recovery profile: start the network from the boot image after the
