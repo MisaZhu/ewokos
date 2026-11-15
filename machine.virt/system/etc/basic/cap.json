@@ -86,7 +86,7 @@
             {"type":"root", "rights":"rwxg"}
         ]},
 
-        { "cmd": "/bin/sudo", "desc": "setuid boundary: switches uid/gid after auth to run a command as another user (root by default)", "caps": [
+        { "cmd": "/sbin/sudod", "desc": "privileged sudo daemon: authorizes /etc/sudoers and spawns commands as the target user", "caps": [
             {"type":"root", "rights":"rwxg"}
         ]},
 

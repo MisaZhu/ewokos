@@ -79,6 +79,7 @@ const char* vfs_full_file_name(const char* fname, const char* ref_fname, char* r
 int       vfs_dup(int fd);
 int       vfs_dup2(int fd, int to);
 int       vfs_open_pipe(int fd[2]);
+int       vfs_pipe_attach(int shm_id, int* wfd);
 int       vfs_flush(int fd, bool wait);
 int32_t   vfs_shm(int fd, uint8_t* contig, int* size); 
 
