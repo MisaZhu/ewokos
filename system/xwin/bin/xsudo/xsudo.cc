@@ -9,6 +9,7 @@
 #include <string>
 
 #include <ewoksys/sudod.h>
+#include <ewoksys/keydef.h>
 #include <ewoksys/session.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/ipc_serv.h>
@@ -337,11 +338,10 @@ protected:
     }
 };
 
-static void okFunc(Widget* wd, xevent_t* evt, void* arg) {
-    (void)arg;
-    if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
-        return;
-    PasswordDialog* dialog = (PasswordDialog*)wd->getWin();
+/* Run the password collected in the dialog through sudod and either accept,
+   report a wrong password, or reset on error. Shared by the OK button and the
+   Enter key in the password field. */
+static void submitOk(PasswordDialog* dialog) {
     std::string pw = dialog->edit->getContent();
 
     int status = SUDOD_ERR_INTERNAL;
@@ -372,6 +372,24 @@ static void okFunc(Widget* wd, xevent_t* evt, void* arg) {
     }
 }
 
+static void okFunc(Widget* wd, xevent_t* evt, void* arg) {
+    (void)arg;
+    if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
+        return;
+    PasswordDialog* dialog = (PasswordDialog*)wd->getWin();
+    submitOk(dialog);
+}
+
+/* EditLine input callback: pressing Enter in the password box is equivalent
+   to clicking OK. */
+static void enterFunc(Widget* wd, uint32_t input, void* arg) {
+    (void)arg;
+    if(input != KEY_ENTER)
+        return;
+    PasswordDialog* dialog = (PasswordDialog*)wd->getWin();
+    submitOk(dialog);
+}
+
 static void cancelFunc(Widget* wd, xevent_t* evt, void* arg) {
     (void)arg;
     if(evt->type != XEVT_MOUSE || evt->state != MOUSE_STATE_CLICK)
@@ -397,6 +415,7 @@ void PasswordDialog::onBuild() {
     root->add(pwdLabel);
 
     edit = new PasswordEdit();
+    edit->setOnInputFunc(enterFunc, NULL);
     edit->fix(0, X::hidpiSize(EDIT_H));
     root->add(edit);
 
