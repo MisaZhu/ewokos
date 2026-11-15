@@ -806,6 +806,63 @@ int vfs_open_pipe(int fd[2]) {
     return 0;
 }
 
+int vfs_pipe_attach(int shm_id, int* wfd) {
+    /*
+     * Attach a write end to an existing pipe created by the reader via
+     * open(PIPE_DEV_PATH, O_RDONLY). This is the cross-process counterpart of
+     * vfs_open_pipe(): the reader hands the pipe's shm ring id to another
+     * process, which binds a fresh write end to it with PIPE_ATTACH. The
+     * sudo/sudod client-server split uses this so sudod's spawned command can
+     * write stdout/stderr (and its exit status) into pipes the unprivileged
+     * client owns.
+     */
+    if(wfd == NULL || shm_id <= 0)
+        return -1;
+    *wfd = -1;
+
+    fsinfo_t winfo;
+    if(vfs_get_by_name(PIPE_DEV_PATH, &winfo) != 0)
+        return -1;
+
+    int fd = vfs_open(&winfo, O_WRONLY);
+    if(fd < 0)
+        return -1;
+    if(dev_open(winfo.mount_pid, fd, &winfo, O_WRONLY) != 0 ||
+            vfs_set_by_fd(fd, &winfo) != 0) {
+        vfs_close(fd);
+        return -1;
+    }
+
+    proto_t in, out;
+    PF->init(&in)->addi(&in, shm_id);
+    PF->init(&out);
+    int res = dev_fcntl(winfo.mount_pid, fd, &winfo, PIPE_ATTACH, &in, &out);
+    PF->clear(&in);
+    PF->clear(&out);
+    if(res != 0) {
+        vfs_close(fd);
+        return -1;
+    }
+    /* piped answered with fsinfo.data = shm id; persist on the fd side so the
+     * fast path (and post-fork lazy shmat) works from this write end too. */
+    winfo.data = shm_id;
+    vfs_set_by_fd(fd, &winfo);
+
+    fsfile_t* file = vfs_get_file(fd);
+    if(file != NULL) {
+        file->flags = O_WRONLY;
+        file->fd_flags = FD_CLOEXEC;
+        file->info.data = shm_id;
+    }
+
+    shm_pipe_t* ring = (shm_pipe_t*)shmat(shm_id, NULL, 0);
+    if(ring != (void*)-1 && fd >= 0 && fd < MAX_OPEN_FILE_PER_PROC)
+        _pipe_shm[fd] = ring;
+
+    *wfd = fd;
+    return 0;
+}
+
 int vfs_get_mount_by_id(int id, mount_t* mount) {
     proto_t in, out;
     PF->init(&in)->addi(&in, id);

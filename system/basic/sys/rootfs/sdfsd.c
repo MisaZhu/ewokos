@@ -1126,7 +1126,11 @@ int main(int argc, char** argv) {
     if(probed == EXT3_PROBE_NONE) {
         klog("sdfsd: no ext2/ext3 filesystem found on %s!\n",
                 _boot_mode ? "boot initramfs" :
+#ifdef SDFSD_HAS_NVME
                 (_nvme_mode ? "nvme disk" : (sd_mode ? "sd card" : "usb disk")));
+#else
+                (sd_mode ? "sd card" : "usb disk"));
+#endif
         if(_boot_mode)
             bsp_bootfs_unmap();
         else if(sd_mode)

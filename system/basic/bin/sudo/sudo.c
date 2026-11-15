@@ -4,44 +4,37 @@
 #include <stdbool.h>
 #include <fcntl.h>
 #include <string.h>
+#include <poll.h>
 #include <sys/errno.h>
 #include <ewoksys/session.h>
+#include <ewoksys/sudod.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/ipc.h>
+#include <ewoksys/ipc_serv.h>
+#include <ewoksys/proto.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/vfs.h>
-#include <ewoksys/cap.h>
 #include <utils/telnet_console.h>
 
 /*
- * sudo - run a command (or the target user's login shell) with another
- * user's identity, root by default.
+ * sudo - the unprivileged client half.
  *
  * EwokOS has no setuid-root ELF bit; authority is carried by capabilities.
- * /bin/sudo is granted CAP_ROOT through the exec-time policy in
- * /etc/cap.json (see machine.virt/system/etc/basic/cap.json), exactly like
- * /bin/login. That CAP_ROOT is what lets this process call setgid()/setuid()
- * to switch identity even when it was started by an ordinary user. Once the
- * uid is switched, proc_exec() replaces this image with the target command;
- * the kernel re-derives capabilities from the new uid at exec time, so a
- * switch to uid 0 yields a fully privileged command and a switch to a normal
- * user yields an unprivileged one.
+ * Instead of granting /bin/sudo CAP_ROOT (the old monolithic design), the
+ * privileged work now lives in the sudod daemon. This client only:
  *
- * When no /etc/cap.json is present, init runs the whole boot/session tree as
- * root (uid 0); the kernel grants CAP_ROOT to any image exec'd while uid<=0,
- * so a root-invoked sudo still works with no policy at all. A non-root caller
- * on such a system has no way to obtain CAP_ROOT, and sudo reports that
- * clearly instead of failing inside setuid().
+ *   1. resolves the command path using the caller's PATH,
+ *   2. sends an exec request to sudod over IPC,
+ *   3. prompts for the caller's password when sudod asks for it,
+ *   4. relays terminal I/O between the caller and the spawned command over
+ *      shm pipes, and reports the command's exit status.
  *
- * Authorization is driven by /etc/sudoers (see system/basic/etc/sudoers):
- * a non-root caller must be listed there for the requested target user and
- * command. root is always allowed and never consults the file.
- *
- * Authentication mirrors login: the invoking user's OWN password is verified
- * through sessiond (session_check) - sudo proves who you are, not that you
- * know the target's password. It is skipped for root, when already the target
- * identity, or when the matching rule carries NOPASSWD.
+ * Authorization (/etc/sudoers) and authentication (sessiond) happen inside
+ * sudod; this process is never trusted and holds no special capability.
  */
+
+#define PIPE_DEV_PATH "/dev/pipe0"
 
 static telnet_console_t _telnet_console;
 
@@ -85,9 +78,8 @@ static void input(str_t* s, bool show) {
         }
 
         c = telnet ? telnet_console_parse(&_telnet_console, (uint8_t)c) : (uint8_t)c;
-        if(c == 0) {
+        if(c == 0)
             continue;
-        }
 
         if(!telnet && c == '\r')
             c = '\n';
@@ -176,202 +168,147 @@ static int resolve_exec(const char* cmd, char* out, int outsz) {
     return -1;
 }
 
-/* True when this process holds CAP_ROOT, the authority setuid()/setgid() are
-   gated on. A process exec'd while uid<=0 is granted CAP_ROOT by the kernel,
-   so a root caller always passes here - with or without /etc/cap.json. A
-   non-root caller only holds it when the exec-time policy (cap.json) granted
-   the /bin/sudo rule. Mirrors the scan captest does. */
-static bool have_root_cap(void) {
-    cap_info_t info;
-    for(int32_t i = 0; i < CNODE_SLOTS; i++) {
-        if(cap_get(i, &info) == 0 && info.cap.type == CAP_ROOT)
-            return true;
-    }
-    return false;
-}
-
-/* Prompt for and verify the invoking user's password via sessiond. */
-static int authenticate(const char* user) {
-    printf("[sudo] password for %s: ", user);
-    fflush(stdout);
-
-    str_t* pw = str_new("");
-    input(pw, false);
-    printf("\n");
-
-    session_info_t info;
-    int ok = (session_check(user, pw->cstr, &info) == 0);
-    str_free(pw);
-    return ok;
-}
-
-/* ----------------------------------------------------------------------
- * /etc/sudoers authorization.
- *
- * A simplified, recognizable subset of the classic sudoers grammar:
- *
- *   # comment
- *   <spec> <host>=(<runas>) [NOPASSWD:] <command>[,<command>...]
- *
- *   <spec>   : user name, "%group" (name or gid), or ALL
- *   <host>   : ignored (single-host system), conventionally ALL
- *   <runas>  : target user, "user:group" (group ignored), or ALL
- *   <command>: ALL, or absolute paths (comma separated)
- *
- * The last matching rule decides, mirroring real sudo. Root (uid 0) never
- * consults this file - it is allowed unconditionally. When the file is
- * absent a non-root caller is denied (secure default).
- * -------------------------------------------------------------------- */
-#define SUDOERS_FILE "/etc/sudoers"
-
-#define SUDO_DENY     (-1)
-#define SUDO_PASSWD    0
-#define SUDO_NOPASSWD  1
-
-/* Read a small text file fully into buf. Returns the length, or -1. */
-static int read_file_buf(const char* path, char* buf, int bufsz) {
-    int fd = open(path, O_RDONLY);
-    if(fd < 0)
+/* Send one SUDOD_EXEC request and read the status (plus shm_in on success).
+   Returns 0 on a transport success, -1 if sudod could not be reached. */
+static int sudod_request(const char* target_user, const char* prog,
+                         const char* args, const char* password,
+                         int shm_out, int shm_err, int shm_ctl,
+                         int* status, int* shm_in) {
+    int pid = ipc_serv_get(IPC_SERV_SUDOD);
+    if(pid < 0)
         return -1;
-    int total = 0;
-    while(total < bufsz - 1) {
-        int r = read(fd, buf + total, bufsz - 1 - total);
-        if(r <= 0)
-            break;
-        total += r;
+
+    proto_t in, out;
+    PF->init(&in)
+        ->adds(&in, target_user)
+        ->adds(&in, prog)
+        ->adds(&in, args)
+        ->adds(&in, password)
+        ->addi(&in, shm_out)
+        ->addi(&in, shm_err)
+        ->addi(&in, shm_ctl);
+    PF->init(&out);
+
+    int res = ipc_call(pid, SUDOD_EXEC, &in, &out);
+    PF->clear(&in);
+    if(res != 0) {
+        PF->clear(&out);
+        return -1;
     }
-    close(fd);
-    buf[total] = 0;
-    return total;
+
+    *status = proto_read_int(&out);
+    if(*status == SUDOD_OK)
+        *shm_in = proto_read_int(&out);
+    PF->clear(&out);
+    return 0;
 }
 
-/* Match a "%group" spec (the part after '%') against the caller's gid. */
-static bool group_matches(const char* spec, int gid) {
-    if(spec[0] >= '0' && spec[0] <= '9')
-        return atoi(spec) == gid;
-    session_group_t g;
-    if(session_get_group_by_gid(gid, &g) == 0 && strcmp(g.group, spec) == 0)
-        return true;
-    return false;
-}
-
-static bool spec_matches(const char* spec, const char* user, int gid) {
-    if(strcmp(spec, "ALL") == 0)
-        return true;
-    if(spec[0] == '%')
-        return group_matches(spec + 1, gid);
-    return strcmp(spec, user) == 0;
-}
-
-/* Parse "HOST=(RUNAS)" and report whether RUNAS permits target_user. A rule
-   with no "(...)" clause is treated as unrestricted. */
-static bool runas_matches(const char* hostspec, const char* target_user) {
-    const char* lp = strchr(hostspec, '(');
-    const char* rp = strchr(hostspec, ')');
-    char runas[SESSION_USER_MAX];
-
-    if(lp != NULL && rp != NULL && rp > lp) {
-        const char* p = lp + 1;
-        int i = 0;
-        while(p < rp && i < (int)sizeof(runas) - 1) {
-            if(*p == ':')   /* "user:group" - only the user part matters */
-                break;
-            runas[i++] = *p++;
+/* Flush everything currently buffered on fd to the given output fd, without
+   ever blocking (poll timeout 0). Used just before reading the exit status so
+   no trailing output is dropped. */
+static void drain(int fd, int to_fd) {
+    char b[4096];
+    for(;;) {
+        struct pollfd p = { fd, POLLIN, 0 };
+        if(poll(&p, 1, 0) <= 0)
+            return;
+        ssize_t n = read(fd, b, sizeof(b));
+        if(n > 0) {
+            (void)write_all_retry(to_fd, b, (size_t)n);
+            continue;
         }
-        runas[i] = 0;
+        return;   /* EOF or error */
     }
-    else {
-        strcpy(runas, "ALL");
-    }
-
-    if(runas[0] == 0 || strcmp(runas, "ALL") == 0)
-        return true;
-    return strcmp(runas, target_user) == 0;
 }
 
-/* Match a comma-separated command list against cmd. "ALL" matches anything. */
-static bool cmd_matches(const char* list, const char* cmd) {
-    if(strcmp(list, "ALL") == 0)
-        return true;
-    if(cmd == NULL)
-        return false;
-    const char* p = list;
-    while(*p != 0) {
-        const char* comma = strchr(p, ',');
-        int len = (comma != NULL) ? (int)(comma - p) : (int)strlen(p);
-        if(len > 0 && strncmp(p, cmd, len) == 0 && cmd[len] == 0)
-            return true;
-        if(comma == NULL)
-            break;
-        p = comma + 1;
-    }
-    return false;
-}
+/* Relay terminal I/O to/from the spawned command until sudod's worker reports
+   the exit status on the control pipe. */
+static int relay_and_wait(int in_w, int out_r, int err_r, int ctl_r) {
+    char buf[4096];
+    bool stdin_open = true;
+    bool out_open = true;
+    bool err_open = true;
+    int32_t code = -1;
 
-/* Evaluate one sudoers line. Returns SUDO_PASSWD / SUDO_NOPASSWD when the
-   rule grants the request, or SUDO_DENY when it does not apply. */
-static int parse_rule(char* line, const char* user, int gid,
-                      const char* target_user, const char* cmd) {
-    char* hash = strchr(line, '#');
-    if(hash != NULL)
-        *hash = 0;
+    for(;;) {
+        struct pollfd pfds[4];
+        int n = 0;
+        if(stdin_open) {
+            pfds[n].fd = 0; pfds[n].events = POLLIN; pfds[n].revents = 0; n++;
+        }
+        if(out_open) {
+            pfds[n].fd = out_r; pfds[n].events = POLLIN; pfds[n].revents = 0; n++;
+        }
+        if(err_open) {
+            pfds[n].fd = err_r; pfds[n].events = POLLIN; pfds[n].revents = 0; n++;
+        }
+        pfds[n].fd = ctl_r; pfds[n].events = POLLIN; pfds[n].revents = 0; n++;
 
-    char* toks[16];
-    int n = 0;
-    char* save = NULL;
-    for(char* t = strtok_r(line, " \t\r\n", &save); t != NULL && n < 16;
-        t = strtok_r(NULL, " \t\r\n", &save))
-        toks[n++] = t;
-
-    if(n < 2 || strcmp(toks[0], "Defaults") == 0)
-        return SUDO_DENY;
-    if(!spec_matches(toks[0], user, gid))
-        return SUDO_DENY;
-    if(!runas_matches(toks[1], target_user))
-        return SUDO_DENY;
-
-    int nopasswd = 0;
-    bool cmd_ok = (n == 2);   /* "spec host=(runas)" with no command => ALL */
-    for(int i = 2; i < n; i++) {
-        char* t = toks[i];
-        if(strncmp(t, "NOPASSWD:", 9) == 0) {
-            nopasswd = 1;
-            t += 9;
-            if(*t == 0)
+        int rc = poll(pfds, n, -1);
+        if(rc < 0) {
+            if(errno == EINTR)
                 continue;
+            break;
         }
-        else if(strncmp(t, "PASSWD:", 7) == 0) {
-            nopasswd = 0;
-            t += 7;
-            if(*t == 0)
-                continue;
+        if(rc == 0)
+            continue;
+
+        int idx = 0;
+        if(stdin_open) {
+            if(pfds[idx].revents & (POLLIN | POLLHUP | POLLERR)) {
+                ssize_t r = read(0, buf, sizeof(buf));
+                if(r > 0) {
+                    if(write_all_retry(in_w, buf, (size_t)r) != 0) {
+                        /* command closed its stdin */
+                        close(in_w);
+                        stdin_open = false;
+                    }
+                }
+                else {
+                    /* terminal EOF: stop feeding the command */
+                    close(in_w);
+                    stdin_open = false;
+                }
+            }
+            idx++;
         }
-        if(cmd_matches(t, cmd))
-            cmd_ok = true;
+        if(out_open) {
+            if(pfds[idx].revents & (POLLIN | POLLHUP | POLLERR)) {
+                ssize_t r = read(out_r, buf, sizeof(buf));
+                if(r > 0)
+                    (void)write_all_retry(1, buf, (size_t)r);
+                else {
+                    close(out_r);
+                    out_open = false;
+                }
+            }
+            idx++;
+        }
+        if(err_open) {
+            if(pfds[idx].revents & (POLLIN | POLLHUP | POLLERR)) {
+                ssize_t r = read(err_r, buf, sizeof(buf));
+                if(r > 0)
+                    (void)write_all_retry(2, buf, (size_t)r);
+                else {
+                    close(err_r);
+                    err_open = false;
+                }
+            }
+            idx++;
+        }
+
+        /* Control pipe is readable => the command has exited and the worker
+           has written the exit status. Flush any trailing output first. */
+        if(pfds[idx].revents & (POLLIN | POLLHUP | POLLERR)) {
+            drain(out_r, 1);
+            drain(err_r, 2);
+            (void)read(ctl_r, &code, sizeof(code));
+            break;
+        }
     }
 
-    if(!cmd_ok)
-        return SUDO_DENY;
-    return nopasswd ? SUDO_NOPASSWD : SUDO_PASSWD;
-}
-
-/* Decide whether `user` (primary gid `gid`) may run `cmd` as `target_user`.
-   Returns SUDO_PASSWD, SUDO_NOPASSWD, or SUDO_DENY. */
-static int sudoers_authorize(const char* user, int gid,
-                             const char* target_user, const char* cmd) {
-    static char buf[4096];
-    if(read_file_buf(SUDOERS_FILE, buf, sizeof(buf)) < 0)
-        return SUDO_DENY;   /* no policy file: deny non-root callers */
-
-    int result = SUDO_DENY;
-    char* save = NULL;
-    for(char* line = strtok_r(buf, "\n", &save); line != NULL;
-        line = strtok_r(NULL, "\n", &save)) {
-        int r = parse_rule(line, user, gid, target_user, cmd);
-        if(r != SUDO_DENY)
-            result = r;   /* last matching rule wins */
-    }
-    return result;
+    close(ctl_r);
+    return (int)code;
 }
 
 int main(int argc, char* argv[]) {
@@ -396,101 +333,100 @@ int main(int argc, char* argv[]) {
     }
     int cmdind = optind;
 
-    session_info_t target;
-    if(session_get_by_name(target_user, &target) != 0) {
-        fprintf(stderr, "sudo: unknown user: %s\n", target_user);
-        return 1;
-    }
-
-    int uid = getuid();
-    int gid = getgid();
-
-    /*
-     * Resolve what we are going to run BEFORE switching identity: the caller's
-     * PATH context is used for the lookup, and the resolved program path also
-     * feeds the /etc/sudoers command match. With no command given we run the
-     * target user's login shell.
-     */
+    /* Resolve what will run: sudod picks the target shell when no command is
+       given; otherwise the caller's PATH context resolves the program path. */
     char prog[FS_FULL_NAME_MAX];
-    char cmdline[1024];
+    char args[1024];
+    prog[0] = 0;
+    args[0] = 0;
     if(cmdind >= argc) {
-        const char* sh = target.cmd;
-        if(sh[0] == 0)
-            sh = "/bin/shell";
-        snprintf(prog, sizeof(prog), "%s", sh);
-        snprintf(cmdline, sizeof(cmdline), "%s", sh);
+        /* no command => sudod runs the target user's login shell */
     }
     else {
         if(resolve_exec(argv[cmdind], prog, sizeof(prog)) != 0) {
             fprintf(stderr, "sudo: %s: command not found\n", argv[cmdind]);
             return 1;
         }
-        int n = snprintf(cmdline, sizeof(cmdline), "%s", prog);
-        for(int i = cmdind+1; i < argc && n > 0 && n < (int)sizeof(cmdline)-1; i++)
-            n += snprintf(cmdline+n, sizeof(cmdline)-n, " %s", argv[i]);
+        int n = 0;
+        for(int i = cmdind + 1; i < argc && n < (int)sizeof(args) - 1; i++)
+            n += snprintf(args + n, sizeof(args) - n, "%s%s", (n > 0 ? " " : ""), argv[i]);
     }
 
-    /*
-     * Switching identity needs CAP_ROOT: setuid()/setgid() are gated on it.
-     * When the caller already runs as the target identity there is nothing to
-     * switch and no authority is required. Otherwise:
-     *  - a root caller (uid<=0) is granted CAP_ROOT by the kernel at exec, so
-     *    this works even on a system with no /etc/cap.json (there init runs the
-     *    whole tree as root);
-     *  - a non-root caller only holds CAP_ROOT when the cap.json exec policy
-     *    granted the /bin/sudo rule. Without either, escalation is impossible
-     *    by design, so fail early with an actionable message instead of a
-     *    cryptic setuid error.
-     */
-    if(uid != target.uid || gid != target.gid) {
-        if(!have_root_cap()) {
-            fprintf(stderr,
-                "sudo: cannot escalate to '%s': this /bin/sudo holds no CAP_ROOT.\n"
-                "      Run it as root, or on a system using a capability policy\n"
-                "      grant /bin/sudo the root capability in /etc/cap.json:\n"
-                "        { \"cmd\": \"/bin/sudo\", \"caps\": [ {\"type\":\"root\",\"rights\":\"rwxg\"} ] }\n",
-                target.user);
-            return 1;
-        }
-
-        /* Root is trusted outright; anyone else must be authorized by
-           /etc/sudoers for this target user and command, then (unless the rule
-           is NOPASSWD) prove their own identity with their password. */
-        if(uid != 0) {
-            session_info_t self;
-            if(session_get_by_uid(uid, &self) != 0) {
-                fprintf(stderr, "sudo: cannot resolve current user (uid %d)\n", uid);
-                return 1;
-            }
-            int auth = sudoers_authorize(self.user, gid, target.user, prog);
-            if(auth == SUDO_DENY) {
-                fprintf(stderr,
-                    "sudo: %s is not allowed to run '%s' as %s (see /etc/sudoers)\n",
-                    self.user, prog, target.user);
-                return 1;
-            }
-            if(auth == SUDO_PASSWD && !authenticate(self.user)) {
-                fprintf(stderr, "Sorry, incorrect password.\n");
-                return 1;
-            }
-        }
-
-        /* gid before uid: setuid to a real user (uid>0) drops our caps. */
-        if(gid != target.gid && setgid(target.gid) != 0) {
-            fprintf(stderr, "sudo: setgid(%d) failed\n", target.gid);
-            return 1;
-        }
-        if(uid != target.uid && setuid(target.uid) != 0) {
-            fprintf(stderr, "sudo: setuid(%d) failed\n", target.uid);
-            return 1;
-        }
-        setenv("USER", target.user);
-        setenv("HOME", target.home);
+    /* Create the stdout / stderr / control pipes; sudod's worker attaches the
+       write ends. We own the read ends. */
+    int out_r = open(PIPE_DEV_PATH, O_RDONLY);
+    int err_r = open(PIPE_DEV_PATH, O_RDONLY);
+    int ctl_r = open(PIPE_DEV_PATH, O_RDONLY);
+    if(out_r < 0 || err_r < 0 || ctl_r < 0) {
+        fprintf(stderr, "sudo: cannot create pipes\n");
+        return 1;
     }
 
-    /* On success this replaces our image and never returns. */
-    if(proc_exec(cmdline) < 0)
-        fprintf(stderr, "sudo: cannot exec %s\n", cmdline);
-    return 1;
+    fsinfo_t oi, ei, ci;
+    if(vfs_get_by_fd(out_r, &oi) != 0 || vfs_get_by_fd(err_r, &ei) != 0 ||
+            vfs_get_by_fd(ctl_r, &ci) != 0) {
+        fprintf(stderr, "sudo: cannot resolve pipes\n");
+        return 1;
+    }
+    int shm_out = (int32_t)oi.data;
+    int shm_err = (int32_t)ei.data;
+    int shm_ctl = (int32_t)ci.data;
+
+    int status = SUDOD_ERR_INTERNAL;
+    int shm_in = 0;
+    if(sudod_request(target_user, prog, args, "", shm_out, shm_err, shm_ctl,
+                     &status, &shm_in) != 0) {
+        fprintf(stderr, "sudo: cannot contact sudod (is it running?)\n");
+        return 1;
+    }
+
+    if(status == SUDOD_NEED_PASSWORD) {
+        int uid = getuid();
+        session_info_t self;
+        const char* who = "user";
+        if(session_get_by_uid(uid, &self) == 0)
+            who = self.user;
+
+        printf("[sudo] password for %s: ", who);
+        fflush(stdout);
+
+        str_t* pw = str_new("");
+        input(pw, false);
+        printf("\n");
+
+        int rc = sudod_request(target_user, prog, args, pw->cstr, shm_out, shm_err,
+                               shm_ctl, &status, &shm_in);
+        str_free(pw);
+        if(rc != 0) {
+            fprintf(stderr, "sudo: cannot contact sudod (is it running?)\n");
+            return 1;
+        }
+    }
+
+    switch(status) {
+    case SUDOD_ERR_DENY:
+        fprintf(stderr, "sudo: %s is not allowed to run '%s' as %s (see /etc/sudoers)\n",
+                getenv("USER") ? getenv("USER") : "you", prog, target_user);
+        return 1;
+    case SUDOD_ERR_PASSWORD:
+        fprintf(stderr, "Sorry, incorrect password.\n");
+        return 1;
+    case SUDOD_ERR_USER:
+        fprintf(stderr, "sudo: unknown user: %s\n", target_user);
+        return 1;
+    case SUDOD_OK:
+        break;
+    default:
+        fprintf(stderr, "sudo: sudod error (%d)\n", status);
+        return 1;
+    }
+
+    /* Attach the write end of sudod's stdin pipe and start relaying. */
+    int in_w = -1;
+    if(vfs_pipe_attach(shm_in, &in_w) != 0) {
+        fprintf(stderr, "sudo: cannot attach stdin\n");
+        return 1;
+    }
+
+    return relay_and_wait(in_w, out_r, err_r, ctl_r);
 }
-
