@@ -1,4 +1,4 @@
-DIRS = xlauncher statusbar xsession xfont anim wlayout
+DIRS = xlauncher statusbar xsession xfont anim wlayout xsudo
 all: $(DIRS)
 
 $(DIRS):
