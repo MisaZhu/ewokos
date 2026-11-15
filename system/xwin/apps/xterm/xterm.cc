@@ -265,12 +265,6 @@ protected:
 	}
 
 	bool onIM(xevent_t* ev) {
-		if(!showXIM) {
-			showXIM = true;
-			if(getWin()->callXIM(true))
-				return true;
-		}
-
 		if(ev->state == XIM_STATE_PRESS) {
 			int c = ev->value.im.value;
 			if(c > 0 && c < 128) {
