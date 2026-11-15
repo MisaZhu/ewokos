@@ -305,14 +305,21 @@ static uintptr_t virtio_find_device(int dev_id, const char *input_name, int *int
         if (input_name != NULL)
         {
             char id_name[128] = {0};
-            struct virtio_input_config *cfg = (struct virtio_input_config *)(base + VIRTIO_MMIO_CONFIG);
-            put32(base + VIRTIO_MMIO_CONFIG, VIRTIO_INPUT_CFG_ID_NAME);
-            put32(base + VIRTIO_MMIO_CONFIG + 4, 0);
-            put32(base + VIRTIO_MMIO_CONFIG + 8, sizeof(id_name));
+            /*
+             * The virtio-input config space is Device MMIO. Read it one byte
+             * at a time via get8(): dereferencing the struct directly lets the
+             * compiler vectorize the copy into a 128-bit LDR (ldr q31), which
+             * raises an alignment fault on device memory since the u union at
+             * VIRTIO_MMIO_CONFIG+8 is only 8-byte aligned.
+             */
+            put8(base + VIRTIO_MMIO_CONFIG + 0, VIRTIO_INPUT_CFG_ID_NAME); /* select */
+            put8(base + VIRTIO_MMIO_CONFIG + 1, 0);                        /* subsel */
             sched_yield();
-            for (int j = 0; j < MIN(cfg->size, (uint8_t)sizeof(id_name)); j++)
+            uint8_t size = get8(base + VIRTIO_MMIO_CONFIG + 2);            /* size */
+            uint8_t n = MIN(size, (uint8_t)(sizeof(id_name) - 1));
+            for (uint8_t j = 0; j < n; j++)
             {
-                id_name[j] = cfg->u.string[j];
+                id_name[j] = (char)get8(base + VIRTIO_MMIO_CONFIG + 8 + j); /* u.string[j] */
             }
             if (strcmp(id_name, input_name) != 0)
             {

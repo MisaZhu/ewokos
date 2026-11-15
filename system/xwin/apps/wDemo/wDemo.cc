@@ -8,6 +8,7 @@
 #include <Widget/Grid.h>
 #include <Widget/Scroller.h>
 #include <Widget/Splitter.h>
+#include <Widget/Tree.h>
 #include <WidgetEx/FileDialog.h>
 #include <WidgetEx/ConfirmDialog.h>
 
@@ -40,6 +41,60 @@ public:
 	MyList() {
 	}
 };
+
+class StringItem: public TreeNode {
+	string text;
+public:
+	StringItem(const string& t) {
+		text = t;
+	}
+
+	const string& getText() { return text; }
+
+	void draw(graph_t* g, XTheme* theme, const grect_t& r, bool selected) {
+		uint32_t fg = selected ? theme->basic.selectColor : theme->basic.fgColor;
+		graph_draw_text_font(g, r.x, r.y + 2, text.c_str(),
+				theme->getFont(), theme->basic.fontSize, fg);
+	}
+};
+
+class MyTree: public Tree {
+protected:
+	void onSelect(TreeNode* node) {
+		if(node != NULL)
+			klog("tree select: %s\n", ((StringItem*)node)->getText().c_str());
+	}
+
+	void onEnter(TreeNode* node) {
+		if(node != NULL)
+			klog("tree enter: %s\n", ((StringItem*)node)->getText().c_str());
+	}
+};
+
+static void buildTree(Tree* tree) {
+	StringItem* fruit = new StringItem("Fruit");
+	tree->addNode(NULL, fruit);
+	tree->addNode(fruit, new StringItem("Apple"));
+	tree->addNode(fruit, new StringItem("Banana"));
+	StringItem* citrus = new StringItem("Citrus");
+	tree->addNode(fruit, citrus);
+	tree->addNode(citrus, new StringItem("Orange"));
+	tree->addNode(citrus, new StringItem("Lemon"));
+
+	StringItem* veg = new StringItem("Vegetables");
+	tree->addNode(NULL, veg);
+	tree->addNode(veg, new StringItem("Carrot"));
+	tree->addNode(veg, new StringItem("Broccoli"));
+
+	StringItem* nuts = new StringItem("Nuts");
+	tree->addNode(NULL, nuts);
+	tree->addNode(nuts, new StringItem("Almond"));
+	tree->addNode(nuts, new StringItem("Walnut"));
+
+	tree->expand(fruit);
+	tree->expand(citrus);
+	tree->expand(nuts);
+}
 
 class Anim: public Widget {
 	graph_t* img;
@@ -125,28 +180,47 @@ int main(int argc, char** argv) {
 	root->setType(Container::VERTICAL);
 	root->setAlpha(false);
 
+	/* horizontal split: tree on the far left, the rest on the right */
+	Container* main = new Container();
+	main->setType(Container::HORIZONTAL);
+	root->add(main);
+
+	MyTree* tree = new MyTree();
+	tree->fix(X::hidpiSize(150), 0);
+	tree->setRowH(X::hidpiSize(22));
+	buildTree(tree);
+	main->add(tree);
+
+	Splitter* split = new Splitter();
+	split->attach(tree);
+	main->add(split);
+
+	Container* right = new Container();
+	right->setType(Container::VERTICAL);
+	main->add(right);
+
 	EditLine* editLine = new EditLine();
 	editLine->fix(0, X::hidpiSize(30));
 	editLine->setContent("hello!");
 	root->focus(editLine);
-	root->add(editLine);
+	right->add(editLine);
 
 	Widget* wd = new Anim(editLine);
 	wd->fix(0, X::hidpiSize(72));
-	root->add(wd);
+	right->add(wd);
 
 	Container* c = new Container();
 	c->setType(Container::HORIZONTAL);
-	root->add(c);
+	right->add(c);
 
 	LabelButton* button = new LabelButton("Dialog Test");
 	button->setName("button");
 	button->setEventFunc(MyWidgetWin::onClickFunc, &win);
 	c->add(button);
 
-	Splitter* split = new Splitter();
-	split->attach(button);
-	c->add(split);
+	Splitter* split2 = new Splitter();
+	split2->attach(button);
+	c->add(split2);
 
 	button = new LabelButton("disable");
 	button->disable();
@@ -162,12 +236,12 @@ int main(int argc, char** argv) {
 	list->setScrollerV(sr);
 	c->add(sr);
 
-	split = new Splitter();
-	split->attach(c);
-	root->add(split);
+	split2 = new Splitter();
+	split2->attach(c);
+	right->add(split2);
 
 	list = new MyList();
-	root->add(list);
+	right->add(list);
 	list->setItemNum(100);
 	list->setItemSize(X::hidpiSize(20));
 	list->setDefaultScrollType(Scrollable::SCROLL_TYPE_H);
@@ -175,7 +249,7 @@ int main(int argc, char** argv) {
 	sr = new Scroller(true);
 	sr->fix(0, X::hidpiSize(8));
 	list->setScrollerH(sr);
-	root->add(sr);
+	right->add(sr);
 
 	win.open(&x, 0, -1, -1, X::hidpiSize(400), X::hidpiSize(300), "widgetTest", XWIN_STYLE_NORMAL);
 	win.setTimer(16);
