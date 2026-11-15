@@ -282,6 +282,8 @@ protected:
 					needUpdate = false;
 				}
 				unlock();
+				if(flushOutput())
+					needUpdate = true;
 				if(needUpdate)
 					update();
 			}

@@ -44,6 +44,7 @@ int      x_fetch_screen_graph(uint32_t index, graph_t* g);
 int      x_get_display_num(void);
 void     x_init(x_t* x, void* data);
 int      x_run(x_t* x, void* loop_data);
+void     x_wait_event_timeout(x_t* x, uint32_t timeout_usec);
 void     x_terminate(x_t* x);
 int      x_hidpi_size(int size);
 /*xserverd keeps the theme cache of its own copy of libx in sync with its

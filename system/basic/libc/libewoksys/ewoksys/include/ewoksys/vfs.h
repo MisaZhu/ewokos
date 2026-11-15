@@ -90,6 +90,7 @@ int       vfs_fcntl(int fd, int cmd, proto_t* in, proto_t* out);
 int       vfs_fcntl_wait(int fd, int cmd, proto_t* in);
 
 int       vfs_block(ewokos_addr_t node, int event);
+int       vfs_block_by_node_timeout(ewokos_addr_t node, int event, uint32_t timeout_usec);
 int       vfs_unblock(ewokos_addr_t node);
 int       vfs_wakeup(ewokos_addr_t node, int event);
 int       vfs_poll(vfs_pollfd_t* fds, int num, int timeout);
