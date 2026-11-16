@@ -14,14 +14,14 @@ int x_load_theme(x_t* x, const char* name, x_theme_t* theme) {
 
     strncpy(theme->name, name, THEME_NAME_MAX-1);
     theme->hidpi = x->config.hidpi;
+    theme->hidpi_scale = x->config.hidpi_scale;
 
     char fname[FS_FULL_NAME_MAX];
     snprintf(fname, FS_FULL_NAME_MAX-1, "%s/%s/x/theme.json", X_THEME_ROOT, name);
     json_var_t *conf_var = json_parse_file(fname);	
 
     theme->fontSize = json_get_int_def(conf_var, "font_size", DEFAULT_SYSTEM_FONT_SIZE);
-    if(theme->hidpi != 0)
-        theme->fontSize *= 2;
+    theme->fontSize = x_hidpi_size(theme->fontSize);
 
     const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
     memset(theme->fontName, 0, FONT_NAME_MAX);
@@ -65,11 +65,9 @@ int x_load_xwm_theme(x_t* x, const char* name, xwm_theme_t* theme) {
     theme->titleH = json_get_int_def(conf_var, "title_h", 24);
     theme->fontSize = json_get_int_def(conf_var, "font_size", 14);
 
-    if(x->config.hidpi != 0) {
-        theme->fontSize *= 2;
-        theme->titleH *= 2;
-        theme->round *= 2;
-    }
+    theme->fontSize = x_hidpi_size(theme->fontSize);
+    theme->titleH = x_hidpi_size(theme->titleH);
+    theme->round = x_hidpi_size(theme->round);
 
     const char* v = json_get_str_def(conf_var, "font", DEFAULT_SYSTEM_FONT);
     memset(theme->fontName, 0, FONT_NAME_MAX);

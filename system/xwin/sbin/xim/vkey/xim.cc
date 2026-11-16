@@ -857,7 +857,7 @@ protected:
         if(hide) {
             int kw = 32;
             resizeTo(kw, kw);
-            moveTo(scrSize.w - kw, scrSize.h - kw);
+            moveTo((scrSize.w - kw) / 2, scrSize.h - kw);
             return;
         }
 
@@ -874,7 +874,7 @@ protected:
             h = scrSize.h / 2;
 
         resizeTo(w, h);
-        moveTo(scrSize.w - w, scrSize.h - h);
+        moveTo((scrSize.w - w) / 2, scrSize.h - h);
     }
 
     void onShow(void) {
@@ -959,15 +959,15 @@ int main(int argc, char* argv[]) {
 
     if(_panelW == 0)
         _panelW = scr.size.w;
-    if(_panelW > X::hidpiSize(640))
-        _panelW = X::hidpiSize(640);
+    if(_panelW > X::hidpiSize(800))
+        _panelW = X::hidpiSize(800);
 
     /* Height 0 means auto: onShow() sizes the panel from the key
        geometry; open() only needs a placeholder. */
     int openH = (_panelH > 0) ? _panelH : scr.size.h / 2;
 
     XIMIOS xwin(scr.size.w, scr.size.h, _panelW, _panelH);
-    xwin.open(&x, -1, scr.size.w - _panelW, scr.size.h - openH, _panelW, openH, "xim_ios",
+    xwin.open(&x, -1, (scr.size.w - _panelW) / 2, scr.size.h - openH, _panelW, openH, "xim_ios",
             XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_NO_TITLE, false);
     x.run(NULL, &xwin);
     return 0;

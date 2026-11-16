@@ -172,6 +172,7 @@ typedef struct {
 	bool fps_async;   /*0: client repaint blocks until the server snapshots it (client fps capped to server fps).
 	                    1: double-buffered, client repaint never blocks and keeps its own fps.*/
 	bool hidpi;
+	float hidpi_scale;
 } x_conf_t;
 
 typedef struct {

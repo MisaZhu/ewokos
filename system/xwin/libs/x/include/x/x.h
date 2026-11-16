@@ -46,11 +46,12 @@ void     x_init(x_t* x, void* data);
 int      x_run(x_t* x, void* loop_data);
 void     x_wait_event_timeout(x_t* x, uint32_t timeout_usec);
 void     x_terminate(x_t* x);
+float    x_hidpi_scale(void);
 int      x_hidpi_size(int size);
 /*xserverd keeps the theme cache of its own copy of libx in sync with its
   config, so x_hidpi_size scales inside the server too; clients refresh the
   cache through x_get_theme*/
-void     x_set_hidpi(bool hidpi);
+void     x_set_hidpi(bool hidpi, float scale);
 
 /*
  * The two halves of x_run()'s loop body, published for event loops that are not
