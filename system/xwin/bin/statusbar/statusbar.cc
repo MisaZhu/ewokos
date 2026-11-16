@@ -78,8 +78,7 @@ protected:
 			if(buf[0] == 0)
 				return;
 
-			if(buf[1])
-				charging = 1;
+			charging = buf[1] ? 1 : 0;
 			batt = buf[2];
 		}
 		update();
