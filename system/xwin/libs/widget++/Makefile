@@ -18,6 +18,7 @@ LIB_WIDGET_OBJS =  $(ARCH)/src/Widget/Widget.o \
 		$(ARCH)/src/Widget/Label.o \
 		$(ARCH)/src/Widget/ListBase.o \
 		$(ARCH)/src/Widget/List.o \
+			$(ARCH)/src/Widget/Tree.o \
 		$(ARCH)/src/Widget/Grid.o \
 		$(ARCH)/src/Widget/Scrollable.o \
 		$(ARCH)/src/Widget/Scroller.o \

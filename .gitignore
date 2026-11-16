@@ -32,3 +32,4 @@ system/network/libs/openssl/demos/**/*.pem
 .understand-anything
 .qoder
 .ccache*
+system/basic/libs/dl/aarch64/gen/dl_export.c

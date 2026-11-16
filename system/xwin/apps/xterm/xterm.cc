@@ -265,12 +265,6 @@ protected:
 	}
 
 	bool onIM(xevent_t* ev) {
-		if(!showXIM) {
-			showXIM = true;
-			if(getWin()->callXIM(true))
-				return true;
-		}
-
 		if(ev->state == XIM_STATE_PRESS) {
 			int c = ev->value.im.value;
 			if(c > 0 && c < 128) {
@@ -288,6 +282,8 @@ protected:
 					needUpdate = false;
 				}
 				unlock();
+				if(flushOutput())
+					needUpdate = true;
 				if(needUpdate)
 					update();
 			}
@@ -401,9 +397,9 @@ static bool readConfig(const char* fname) {
 
 	x_theme_t theme;
 	if(x_get_theme(&theme) == 0 && theme.hidpi != 0) {
-		font_size *= 2;
-		char_space *= 2;
-		line_space *= 2;
+		font_size = X::hidpiSize(font_size);
+		char_space = X::hidpiSize(char_space);
+		line_space = X::hidpiSize(line_space);
 	}
 
 	uint32_t fg_color = json_get_int_def(conf_var, "fg_color", 0xffdddddd);

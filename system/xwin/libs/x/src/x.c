@@ -113,6 +113,38 @@ static int x_xserv_pid(void) {
     return _xserv_pid;
 }
 
+/*Timed, event-driven idle wait for event loops that also drive timers (the
+  widget++ on_loop path).  Instead of a blind usleep() between polls, park on
+  the event node for up to timeout_usec: an incoming event from xserverd's
+  vfs_wakeup() releases us early, so input latency no longer waits out the
+  whole timer cadence.*/
+void x_wait_event_timeout(x_t* x, uint32_t timeout_usec) {
+    if(x == NULL || timeout_usec == 0)
+        return;
+
+    int xserv_pid = x_xserv_pid();
+    if(xserv_pid < 0) {
+        usleep(timeout_usec);
+        return;
+    }
+
+    if(x->evt_node == 0) {
+        proto_t out;
+        PF->init(&out);
+        if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_EVT_NODE, NULL, &out) == 0)
+            x->evt_node = (uint32_t)proto_read_int(&out);
+        PF->clear(&out);
+    }
+
+    if(x->evt_node != 0) {
+        vfs_clear_poll_events(x->evt_node, VFS_EVT_RD);
+        vfs_block_by_node_timeout(x->evt_node, VFS_EVT_RD, timeout_usec);
+    }
+    else {
+        usleep(timeout_usec);
+    }
+}
+
 int x_poll_event(x_t* x, xevent_t* ev) {
     if(x == NULL || ev == NULL)
         return -1;

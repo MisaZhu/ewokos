@@ -179,6 +179,13 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
                     x->current.pos_delta.y != 0 ) {
                     ev->value.window.event = XEVT_WIN_RESIZE;
                 }
+                else {
+                    /*a press+release on the resize corner with no movement must
+                      not reach the client. window.event still aliases the mouse
+                      event's "relative" flag here, which reads 1 == XEVT_WIN_CLOSE
+                      for a touchpad and would otherwise close the window.*/
+                    ev->value.window.event = XEVT_WIN_NONE;
+                }
             }
             else if(x->current.drag_state == X_win_DRAG_MOVE) {
                 ev->value.window.event = XEVT_WIN_MOVE;

@@ -1574,6 +1574,38 @@ int  vfs_block(ewokos_addr_t node, int event) {
     return 0;
 }
 
+int  vfs_block_by_node_timeout(ewokos_addr_t node, int event, uint32_t timeout_usec) {
+    uint32_t wait_events = (uint32_t)event | VFS_EVT_CLOSE | VFS_EVT_ERR | VFS_EVT_NVAL;
+    if(node == 0)
+        return -1;
+
+    uint64_t start_ms = kernel_tic_ms(0);
+    bool registered = false;
+    while(1) {
+        if((vfs_get_poll_events_by_node(node) & wait_events) != 0) {
+            if(registered)
+                vfs_unblock(node);
+            return 0;
+        }
+        uint64_t elapsed_ms = kernel_tic_ms(0) - start_ms;
+        if(elapsed_ms * 1000ULL >= (uint64_t)timeout_usec)
+            break;
+        uint64_t remain_us = (uint64_t)timeout_usec - elapsed_ms * 1000ULL;
+        if(!registered && vfs_block_raw(node, event) != 0)
+            return -1;
+        registered = true;
+        if((vfs_get_poll_events_by_node(node) & wait_events) != 0) {
+            vfs_unblock(node);
+            return 0;
+        }
+        uint32_t slice = (remain_us > 0xffffffffULL) ? 0xffffffffU : (uint32_t)remain_us;
+        proc_block_timeout(node, slice);
+    }
+    if(registered)
+        vfs_unblock(node);
+    return -1;
+}
+
 int  vfs_unblock(ewokos_addr_t node) {
     proto_t in;
     PF->init(&in)->

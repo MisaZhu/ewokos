@@ -1,25 +1,12 @@
 [submodule "sw.extra"]
 	path = sw.extra
 	url = https://github.com/misazhu/ewokos.extra
-[submodule "machine.3rd"]
-	path = machine.3rd
-	url = https://github.com/MisaZhu/ewokos.machines.git
-[submodule "extra.apps"]
-	path = extra.apps
-	url = https://github.com/MisaZhu/ewokos.apps.git
-[submodule "mariox"]
-	path = mariox
-	url = https://github.com/misazhu/ewokos.mariox
-
 [submodule "machines"]
 	path = machines
 	url = https://github.com/MisaZhu/ewokos.machines
 [submodule "projects"]
 	path = projects
 	url = https://github.com/MisaZhu/ewokos.projects.git
-[submodule "browser"]
-	path = browser
-	url = https://github.com/MisaZhu/ewok.browser.git
 [submodule "qt"]
 	path = qt
 	url = https://github.com/MisaZhu/ewokos.qt.git

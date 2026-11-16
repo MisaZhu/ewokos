@@ -60,7 +60,14 @@ static void loop(void* p) {
 	uint32_t gap = (uint32_t)(kernel_tic_ms(0) - tik);
 	if(gap < tm) {
 		gap = tm - gap;
-		usleep(gap*1000);
+		X* x = NULL;
+		WidgetWin* win = (WidgetWin*)p;
+		if(win != NULL)
+			x = win->getX();
+		if(x != NULL)
+			x_wait_event_timeout(x->c_x(), gap*1000);
+		else
+			usleep(gap*1000);
 	}
 }
 
