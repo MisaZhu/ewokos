@@ -44,14 +44,14 @@ int virt_pci_init(void) {
 
     if (syscall3(SYS_MEM_MAP, _ecam_base, VIRT_PCI_ECAM_PHY,
             VIRT_PCI_ECAM_SIZE) != _ecam_base) {
-        klog("virt_pci: ecam map failed\n");
+        slog("virt_pci: ecam map failed\n");
         _ecam_base = 0;
         _win_base = 0;
         return -1;
     }
     if (syscall3(SYS_MEM_MAP, _win_base, VIRT_PCI_WIN_PHY,
             VIRT_PCI_WIN_SIZE) != _win_base) {
-        klog("virt_pci: mmio window map failed\n");
+        slog("virt_pci: mmio window map failed\n");
         _ecam_base = 0;
         _win_base = 0;
         return -1;
@@ -125,13 +125,13 @@ uint32_t virt_pci_find_xhci(void) {
             bar0 &= ~0xFu;
             if (bar0 < VIRT_PCI_WIN_PHY ||
                     bar0 >= VIRT_PCI_WIN_PHY + VIRT_PCI_WIN_SIZE) {
-                klog("virt_pci: xhci bar0=%08x outside mapped window\n", bar0);
+                slog("virt_pci: xhci bar0=%08x outside mapped window\n", bar0);
                 continue;
             }
             cmd = virt_pci_cfg_read16(0, dev, func, 0x04);
             cmd |= PCI_CMD_MEM_ENABLE | PCI_CMD_BUS_MASTER;
             virt_pci_cfg_write16(0, dev, func, 0x04, cmd);
-            klog("virt_pci: xhci at %02x:%02x.%x bar0=%08x\n",
+            slog("virt_pci: xhci at %02x:%02x.%x bar0=%08x\n",
                     0, dev, func, bar0);
             return bar0;
         }

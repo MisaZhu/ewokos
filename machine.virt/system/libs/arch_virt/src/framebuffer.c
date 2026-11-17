@@ -41,7 +41,7 @@ int32_t virt_fb_init(uint32_t w, uint32_t h, uint32_t dep) {
     _fb_info.pointer = dma_user_alloc(_fb_info.size_max);
     ewokos_addr_t fb_phy = (ewokos_addr_t)dma_user_phy((void*)_fb_info.pointer);
     _fb_info.phy_base = fb_phy;
-    //klog("DMA alloc v:%08x p:%08x size:%d\n",  _fb_info.pointer, fb_phy, _fb_info.size_max);
+    //slog("DMA alloc v:%08x p:%08x size:%d\n",  _fb_info.pointer, fb_phy, _fb_info.size_max);
 
     struct fb_cfg cfg;
     cfg.address = BE64(fb_phy);

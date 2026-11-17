@@ -83,7 +83,7 @@ extern void bsp_usb_set_msc_auto_mount(bool enabled) __attribute__((weak));
 /* enumeration / bring-up logging; per-report traffic stays silent */
 #define USB_LOG_ENABLE 1
 #if USB_LOG_ENABLE
-//#define slog(...) klog(__VA_ARGS__)
+//#define slog(...) slog(__VA_ARGS__)
 #else
 static inline void usb_log_none(const char* fmt, ...) { (void)fmt; }
 //#define slog(...) usb_log_none(__VA_ARGS__)
@@ -361,7 +361,7 @@ static int usb_input_setup(int dev_idx, const hid_candidate_t* cand,
         return -1;
     }
     int open_ret = bsp_usb_int_in_open(hdev, cand->ep_addr, mps, cand->interval);
-    klog("usbhostd: hid endpoint type=%s dev=%d iface=%u ep=%02x mps=%u interval=%u open=%d\n",
+    slog("usbhostd: hid endpoint type=%s dev=%d iface=%u ep=%02x mps=%u interval=%u open=%d\n",
             hid_input_type_name(type), dev_idx, cand->iface_num,
             cand->ep_addr, mps, cand->interval, open_ret);
     if (open_ret != 0) {
@@ -652,7 +652,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
     }
     usb_dev_t* dev = &_devs[dev_idx];
     memset(dev, 0, sizeof(*dev));
-    klog("usbhostd: enumerate begin root=%d speed=%d parent=%d hub_port=%u\n",
+    slog("usbhostd: enumerate begin root=%d speed=%d parent=%d hub_port=%u\n",
             root_port, speed, parent, hub_port);
 
     dev->hdev = bsp_usb_device_attach(root_port, speed,
@@ -664,7 +664,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
            again, and "keyboard does nothing" arrives with no log at all */
         slog("usbhostd: enumerate attach_failed root=%d speed=%d parent=%d hub_port=%u\n",
                 root_port, speed, parent, hub_port);
-        klog("usbhostd: enumerate attach_failed root=%d speed=%d parent=%d hub_port=%u\n",
+        slog("usbhostd: enumerate attach_failed root=%d speed=%d parent=%d hub_port=%u\n",
                 root_port, speed, parent, hub_port);
         return -1;
     }
@@ -679,7 +679,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
     if (usb_get_descriptor(dev->hdev, USB_REQTYPE_STD_IN,
             USB_DESC_DEVICE, 0, 0, &dev_desc, 8) < 8) {
         slog("usbhostd: enumerate get_desc8_failed\n");
-        klog("usbhostd: enumerate get_desc8_failed root=%d\n", root_port);
+        slog("usbhostd: enumerate get_desc8_failed root=%d\n", root_port);
         usb_dev_remove(dev_idx);
         return -1;
     }
@@ -692,14 +692,14 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
     if (usb_get_descriptor(dev->hdev, USB_REQTYPE_STD_IN,
             USB_DESC_DEVICE, 0, 0, &dev_desc, sizeof(dev_desc)) < (int)sizeof(dev_desc)) {
         slog("usbhostd: enumerate get_device_desc_failed\n");
-        klog("usbhostd: enumerate get_device_desc_failed root=%d\n", root_port);
+        slog("usbhostd: enumerate get_device_desc_failed root=%d\n", root_port);
         usb_dev_remove(dev_idx);
         return -1;
     }
     slog("usbhostd: dev=%d vid=%04x pid=%04x class=%02x mps0=%u speed=%d depth=%u\n",
             dev_idx, dev_desc.idVendor, dev_desc.idProduct,
             dev_desc.bDeviceClass, dev_desc.bMaxPacketSize0, speed, depth);
-    klog("usbhostd: dev=%d root=%d vid=%04x pid=%04x class=%02x speed=%d depth=%u\n",
+    slog("usbhostd: dev=%d root=%d vid=%04x pid=%04x class=%02x speed=%d depth=%u\n",
             dev_idx, root_port, dev_desc.idVendor, dev_desc.idProduct,
             dev_desc.bDeviceClass, speed, depth);
 
@@ -776,7 +776,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
 
     memset(candidates, 0, sizeof(candidates));
     cand_count = usb_parse_candidates(cfg_buf, total_len, candidates, USB_MAX_CANDIDATES);
-    klog("usbhostd: hid candidates dev=%d count=%d\n", dev_idx, cand_count);
+    slog("usbhostd: hid candidates dev=%d count=%d\n", dev_idx, cand_count);
     free(cfg_buf);
 
     for (int i = 0; i < cand_count; ++i) {
@@ -798,7 +798,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         if (!candidates[i].valid) {
             continue;
         }
-        klog("usbhostd: hid candidate dev=%d iface=%u subclass=%u protocol=%u ep=%02x mps=%u interval=%u report_len=%u\n",
+        slog("usbhostd: hid candidate dev=%d iface=%u subclass=%u protocol=%u ep=%02x mps=%u interval=%u report_len=%u\n",
                 dev_idx, candidates[i].iface_num, candidates[i].subclass,
                 candidates[i].protocol, candidates[i].ep_addr,
                 candidates[i].max_packet, candidates[i].interval,
@@ -859,7 +859,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
                     candidates[i].report_desc_len, &probe_kbd_id,
                     &probe_mouse_id) == 0;
         }
-        klog("usbhostd: hid probe dev=%d iface=%u desc=%d type=%d mouse=%d touch=%d touchpad=%d joy=%d kbd_rid=%u mouse_rid=%u\n",
+        slog("usbhostd: hid probe dev=%d iface=%u desc=%d type=%d mouse=%d touch=%d touchpad=%d joy=%d kbd_rid=%u mouse_rid=%u\n",
                 dev_idx, candidates[i].iface_num, desc_ok ? 1 : 0,
                 dev_type, mouse_desc_ok ? 1 : 0, touch_desc_ok ? 1 : 0,
                 touchpad_desc_ok ? 1 : 0, joy_desc_ok ? 1 : 0,
@@ -939,7 +939,7 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
          * the port reports a disconnect.
          */
         dev->unsupported = true;
-        klog("usbhostd: dev=%d no claimed HID/MSC interface\n", dev_idx);
+        slog("usbhostd: dev=%d no claimed HID/MSC interface\n", dev_idx);
         return 0;
     }
     return registered;
@@ -1185,10 +1185,10 @@ static void usb_scan_root_ports(void) {
     uint32_t changes = bsp_usb_root_port_changes();
 
     if (!startup_logged) {
-        klog("usbhostd: startup root_ports=%d changes=%08x\n",
+        slog("usbhostd: startup root_ports=%d changes=%08x\n",
                 port_count, changes);
         for (int p = 1; p <= port_count; ++p) {
-            klog("usbhostd: startup root_port=%d connected=%d\n", p,
+            slog("usbhostd: startup root_port=%d connected=%d\n", p,
                     bsp_usb_root_port_connected(p) ? 1 : 0);
         }
         startup_logged = true;
@@ -1208,7 +1208,7 @@ static void usb_scan_root_ports(void) {
 
         if ((changes & (1u << (p - 1))) != 0 && have_dev && !connected) {
             slog("usbhostd: root port=%d disconnected\n", p);
-            klog("usbhostd: root port=%d disconnected\n", p);
+            slog("usbhostd: root port=%d disconnected\n", p);
             usb_root_remove(p);
             have_dev = false;
         }
@@ -1216,19 +1216,19 @@ static void usb_scan_root_ports(void) {
             int speed = bsp_usb_root_port_reset(p);
             if (speed < 0) {
                 slog("usbhostd: root port=%d reset_failed\n", p);
-                klog("usbhostd: root port=%d reset_failed\n", p);
+                slog("usbhostd: root port=%d reset_failed\n", p);
                 usb_enum_failed();
                 continue;
             }
             slog("usbhostd: root port=%d connected speed=%d\n", p, speed);
-            klog("usbhostd: root port=%d connected speed=%d enumerate\n", p,
+            slog("usbhostd: root port=%d connected speed=%d enumerate\n", p,
                     speed);
             if (usb_enumerate_device(p, speed, -1, 0) < 0) {
-                klog("usbhostd: root port=%d enumerate_failed\n", p);
+                slog("usbhostd: root port=%d enumerate_failed\n", p);
                 usb_enum_failed();
             }
             else {
-                klog("usbhostd: root port=%d enumerate_ok\n", p);
+                slog("usbhostd: root port=%d enumerate_ok\n", p);
                 _enum_fail_streak = 0;
             }
         }
@@ -1280,7 +1280,7 @@ static void usb_enum_failed(void) {
     if (_enum_fail_streak >= USB_ENUM_FAIL_REINIT_AFTER && !have_inputs) {
         _enum_fail_streak = 0;
         if (bsp_usb_reinit() == 0) {
-            klog("usbhostd: controller re-init after repeated enumeration failures\n");
+            slog("usbhostd: controller re-init after repeated enumeration failures\n");
             /* the controller forgot every device (all addresses and
                endpoints are gone): drop the policy tables too, stale bsp
                handles must never be polled -- the next scan re-enumerates
@@ -1291,7 +1291,7 @@ static void usb_enum_failed(void) {
         }
     }
     else if (_enum_fail_streak == USB_ENUM_FAIL_REINIT_AFTER && have_inputs) {
-        klog("usbhostd: enum keeps failing but inputs are live, reinit skipped\n");
+        slog("usbhostd: enum keeps failing but inputs are live, reinit skipped\n");
     }
     if (now + retry_ms < _next_scan_ms) {
         _next_scan_ms = now + retry_ms;
@@ -1379,7 +1379,7 @@ static bool usb_poll_inputs(vdevice_t* dev) {
             if (ret < 0) {
                 static uint32_t input_error_logs;
                 if (input_error_logs < 16) {
-                    klog("usbhostd: input poll error slot=%d type=%s dev=%d ep=%02x ret=%d\n",
+                    slog("usbhostd: input poll error slot=%d type=%s dev=%d ep=%02x ret=%d\n",
                             i, hid_input_type_name(in->type), in->dev_idx,
                             in->ep_addr, ret);
                     input_error_logs++;
@@ -1414,7 +1414,7 @@ static bool usb_poll_inputs(vdevice_t* dev) {
         {
             static uint32_t input_report_logs;
             if (input_report_logs < 16) {
-                klog("usbhostd: input report slot=%d type=%s dev=%d ep=%02x len=%d subs(k=%d t=%d m=%d)\n",
+                slog("usbhostd: input report slot=%d type=%s dev=%d ep=%02x len=%d subs(k=%d t=%d m=%d)\n",
                         i, hid_input_type_name(in->type), in->dev_idx,
                         in->ep_addr, ret,
                         hid_srv_count(HID_REPORT_ID_KEYBOARD),
@@ -1767,10 +1767,10 @@ int main(int argc, char** argv) {
      * With no controller every bsp call is a safe no-op and /dev/usb0
      * stays readable (empty).
      */
-    klog("usbhostd: init begin node=%s rootfs_probe=%d\n", mnt_point,
+    slog("usbhostd: init begin node=%s rootfs_probe=%d\n", mnt_point,
             rootfs_probe ? 1 : 0);
     bsp_usb_init();
-    klog("usbhostd: bsp init returned root_ports=%d\n",
+    slog("usbhostd: bsp init returned root_ports=%d\n",
             bsp_usb_root_port_count());
     if (rootfs_probe && bsp_usb_set_msc_auto_mount != NULL)
         bsp_usb_set_msc_auto_mount(false);

@@ -48,7 +48,7 @@ int network_open(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int oflag
     if(task == NULL) {
         if(errno == 0)
             errno = EAGAIN;
-        klog("netd: network_open failed fd=%d from_pid=%d node=%u err=%d\n",
+        slog("netd: network_open failed fd=%d from_pid=%d node=%u err=%d\n",
                 fd, from_pid, info->node, errno);
         return -1;
     }

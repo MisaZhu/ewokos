@@ -234,9 +234,9 @@ void _start(void) {
     }
 
     // int val = setenv("PATH", "/bin", 1);
-    // klog("setenv: %d\n", val);
+    // slog("setenv: %d\n", val);
     // // const char* paths = getenv("PATH");
-    // // klog("PATH: %s\n", paths);
+    // // slog("PATH: %s\n", paths);
 
     loadenv();
     set_stderr();

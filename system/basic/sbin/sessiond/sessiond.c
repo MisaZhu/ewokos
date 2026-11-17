@@ -37,7 +37,7 @@ static void install_recovery_account(void) {
     strcpy(_groups[0].group, "root");
     _groups[0].gid = 0;
     _group_num = 1;
-    klog("sessiond: using built-in recovery root account\n");
+    slog("sessiond: using built-in recovery root account\n");
 }
 
 /* sdfsd publishes the new root node asynchronously through vfsd.  sessiond
@@ -162,7 +162,7 @@ static int read_group_item(int fd, session_group_t* info) {
 static int read_user_info(void) {
     int fd = open_session_file("/etc/passwd");
     if(fd < 0) {
-        klog("sessiond: open /etc/passwd failed\n");
+        slog("sessiond: open /etc/passwd failed\n");
         return -1;
     }
     _user_num = 0;
@@ -181,7 +181,7 @@ static int read_user_info(void) {
 static int read_group_info(void) {
     int fd = open_session_file("/etc/group");
     if(fd < 0) {
-        klog("sessiond: open /etc/group failed\n");
+        slog("sessiond: open /etc/group failed\n");
         _group_num = 0;
         memset(_groups, 0, sizeof(_groups));
         return 0;
@@ -400,14 +400,14 @@ int main(int argc, char** argv) {
 
     if(load_session_db() != 0) {
         if(!recovery) {
-            klog("sessiond: load session database failed\n");
+            slog("sessiond: load session database failed\n");
             return -1;
         }
         install_recovery_account();
     }
 
     if(ipc_serv_reg(IPC_SERV_SESSIOND) != 0) {
-        klog("sessiond: register IPC service failed\n");
+        slog("sessiond: register IPC service failed\n");
         return -1;
     }
 

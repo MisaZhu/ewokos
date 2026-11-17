@@ -21,7 +21,7 @@ void g2d_quiesce_on_fault(int result) {
     /* A terminal job may still own GPU-visible buffers.  Never park the client:
        display callers retry on the CPU, and OpenCL retains the failed job's
        staging buffers before its CPU replay. */
-    klog("g2d: terminal GPU result %d; using CPU fallback\n", result);
+    slog("g2d: terminal GPU result %d; using CPU fallback\n", result);
 }
 
 static int g2d_dev_pid(void) {

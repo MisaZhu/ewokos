@@ -460,7 +460,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
               scan-out/back buffers can overrun it. Without this log the
               failure only shows up in the client ("xwin open failed") and
               looks like an app that started but has no window.*/
-            klog("xserverd: window '%s' workspace shm %dx%d failed: "
+            slog("xserverd: window '%s' workspace shm %dx%d failed: "
                     "shm window exhausted\n", win->xinfo->title,
                     win->xinfo->wsr.w, win->xinfo->wsr.h);
             return -1;
@@ -487,7 +487,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
                   left the client with ws_g_shm_id == -1 for good - xwin_open
                   does not retry - so the window ran but never drew anything.
                   ws_g stays valid and front_index 0 keeps win_comp_src on it.*/
-                klog("xserverd: window '%s' fps_async handoff shm %dx%d "
+                slog("xserverd: window '%s' fps_async handoff shm %dx%d "
                         "failed, using single buffer\n", win->xinfo->title,
                         win->xinfo->wsr.w, win->xinfo->wsr.h);
                 win->xinfo->fps_async = false;
@@ -530,7 +530,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 		} else {
 		win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
 		if(win->frame_g == NULL) {
-            klog("xserverd: window '%s' frame shm %dx%d failed: "
+            slog("xserverd: window '%s' frame shm %dx%d failed: "
                     "shm window exhausted\n", win->xinfo->title,
                     win->xinfo->winr.w, win->xinfo->winr.h);
             x_free_canvas(x, win->ws_g);

@@ -223,7 +223,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
     int32_t xinfo_shm_id = xwin_alloc_shm(uuid, sizeof(xinfo_t), 0666 |IPC_CREAT|IPC_EXCL, &key);
     if(xinfo_shm_id == -1) {
         /* #region debug-point B:shmget-xinfo */
-        klog("[DEBUG][B] xwin_open shmget failed pid=%d uuid=%u key=%x title=%s ptr=%llx size=%d\n",
+        slog("[DEBUG][B] xwin_open shmget failed pid=%d uuid=%u key=%x title=%s ptr=%llx size=%d\n",
                         getpid(), uuid, (uint32_t)key,
                         title == NULL ? "<null>" : title, (unsigned long long)(ewokos_addr_t)ret, (int)sizeof(xinfo_t));
         /* #endregion */
@@ -235,7 +235,7 @@ xwin_t* xwin_open(x_t* xp, int32_t disp_index, int x, int y, int w, int h, const
     xinfo_t* xinfo = (xinfo_t*)shmat(xinfo_shm_id, 0, 0);
     if(xinfo == (void*)-1) {
         /* #region debug-point C:shmat-xinfo */
-        klog("[DEBUG][C] xwin_open shmat failed pid=%d uuid=%u key=%x shm_id=%d title=%s ptr=%llx\n",
+        slog("[DEBUG][C] xwin_open shmat failed pid=%d uuid=%u key=%x shm_id=%d title=%s ptr=%llx\n",
                         getpid(), uuid, (uint32_t)key, xinfo_shm_id,
                         title == NULL ? "<null>" : title, (unsigned long long)(ewokos_addr_t)ret);
         /* #endregion */

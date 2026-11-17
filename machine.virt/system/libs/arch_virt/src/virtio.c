@@ -383,7 +383,7 @@ static int virtio_setup_queue(virtio_dev_t dev, uint16_t queue_idx, struct virtq
     uint32_t max_queue_size = get32(dev->base + VIRTIO_MMIO_QUEUE_NUM_MAX);
     if (max_queue_size < VIRTIO_QUEUE_SIZE)
     {
-        klog("virtio: queue %u too small: %u\n", queue_idx, max_queue_size);
+        slog("virtio: queue %u too small: %u\n", queue_idx, max_queue_size);
         return -1;
     }
 
@@ -956,7 +956,7 @@ int virtio_net_init(virtio_dev_t dev)
     if (net->txq == NULL || (intptr_t)net->txq == -1)
     {
         free(net);
-        klog("virtio-net: alloc tx queue failed\n");
+        slog("virtio-net: alloc tx queue failed\n");
         return -1;
     }
     net->txq_phy = (uintptr_t)dma_user_phy(net->txq);
@@ -965,7 +965,7 @@ int virtio_net_init(virtio_dev_t dev)
     if (net->rxbuf == NULL || (intptr_t)net->rxbuf == -1)
     {
         free(net);
-        klog("virtio-net: alloc rx buffers failed\n");
+        slog("virtio-net: alloc rx buffers failed\n");
         return -1;
     }
     net->rxbuf_phy = (uintptr_t)dma_user_phy(net->rxbuf);
@@ -994,7 +994,7 @@ int virtio_net_init(virtio_dev_t dev)
     {
         put32(dev->base + VIRTIO_MMIO_STATUS, status | VIRTIO_STATUS_FAILED);
         free(net);
-        klog("virtio-net: feature negotiation failed\n");
+        slog("virtio-net: feature negotiation failed\n");
         return -1;
     }
 
@@ -1081,7 +1081,7 @@ int virtio_net_read(virtio_dev_t dev, void *buf, uint32_t size)
     uint16_t desc_id = used->id % VIRTIO_QUEUE_SIZE;
     if (desc_id >= VIRTIO_NET_RX_DESC_COUNT)
     {
-        klog("virtio-net: invalid rx desc id=%u used_idx=%u\n", desc_id, net->rx_used_idx);
+        slog("virtio-net: invalid rx desc id=%u used_idx=%u\n", desc_id, net->rx_used_idx);
         net->rx_used_idx++;
         return 0;
     }

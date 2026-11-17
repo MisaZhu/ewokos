@@ -879,7 +879,7 @@ static void do_kids(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, voi
     proto_read_to(in, &info, sizeof(fsinfo_t));
 
     if(vfs_check_access(from_pid, &info, R_OK) != 0) {
-        klog("error dev_kids: %d\n", info.node);
+        slog("error dev_kids: %d\n", info.node);
         PF->addi(out, -1)->addi(out, EPERM);
         return;
     }
@@ -1238,19 +1238,19 @@ static int do_remount(vdevice_t* dev, const char* mnt_point, int type, int mode)
     memset(&target, 0, sizeof(target));
     if(vfs_get_by_name(mnt_point, &target) != 0) {
         if(vfs_create(mnt_point, &target, FS_BASE_TYPE(type), mode, true, true) != 0) {
-            klog("vdevice: remount create failed path=%s\n", mnt_point);
+            slog("vdevice: remount create failed path=%s\n", mnt_point);
             return -1;
         }
     }
 
     dev->mnt_info = target;
     if(do_mount(dev, type, mode) != 0) {
-        klog("vdevice: remount mount failed path=%s\n", mnt_point);
+        slog("vdevice: remount mount failed path=%s\n", mnt_point);
         dev->mnt_info = old_info;
         return -1;
     }
 
-    klog("vdevice: remount mounted path=%s node=%u old=%u\n", mnt_point,
+    slog("vdevice: remount mounted path=%s node=%u old=%u\n", mnt_point,
             (unsigned)dev->mnt_info.node, (unsigned)old_info.node);
 
     /* The old mount belongs to the boot RAMFS, which is already covered by

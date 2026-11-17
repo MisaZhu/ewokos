@@ -12,7 +12,7 @@ static ext3_t fs;
 static EXT3_INODE other;
 static int nest_read, indirect_reads, writes;
 
-void klog(const char *format, ...) { (void)format; }
+void slog(const char *format, ...) { (void)format; }
 str_t* str_new(const char *s) { (void)s; abort(); }
 void str_free(str_t *s) { (void)s; abort(); }
 int32_t sd_set_block_size(uint32_t n) { (void)n; return 0; }

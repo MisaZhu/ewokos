@@ -51,7 +51,7 @@ void sout(const char *str, uint32_t len) {
     log_unlock();
 }
 
-void klog(const char *format, ...) {
+void slog(const char *format, ...) {
     char buf[BUF_SIZE+1];
     log_lock();
     va_list ap;

@@ -225,7 +225,7 @@ int main(int argc, char **argv)
     }
     if (!vio || virtio_init(vio, 0) != 0)
     {
-        klog("Virtio-input init failed\n");
+        slog("Virtio-input init failed\n");
         return -1;
     }
     virtio_interrupt_enable(vio, mouse_interrupt_handle);

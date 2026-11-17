@@ -34,7 +34,7 @@ static void park(void) {
 
 static void require_gpu(int rc, const char *op) {
     if (rc == ADRENO_OK) return;
-    klog("gpu-bench FAIL op=%s rc=%d fence=%u wedged=%d; retaining all buffers\n",
+    slog("gpu-bench FAIL op=%s rc=%d fence=%u wedged=%d; retaining all buffers\n",
          op, rc, adreno_dev()->fence, adreno_wedged());
     park();
 }
@@ -59,7 +59,7 @@ static void guards(unsigned n) {
 
 static void check_guards(unsigned n, const char *op) {
     for (unsigned i=0;i<GUARD_WORDS;i++) if (dest[n+i]!=GUARD) {
-        klog("gpu-bench FAIL guard op=%s word=%u got=%08x\n",op,i,dest[n+i]);
+        slog("gpu-bench FAIL guard op=%s word=%u got=%08x\n",op,i,dest[n+i]);
         park();
     }
 }
@@ -130,14 +130,14 @@ static void correctness(unsigned op, unsigned w, unsigned h) {
         default: expected=blend(pattern(x,y),pattern(x,y),((pattern(x,y)>>24)*173u)>>8); break;
         }
         if(dest[i]!=expected) {
-            if (!bad) klog("gpu-bench mismatch op=%s %ux%u at=%u got=%08x want=%08x\n",
+            if (!bad) slog("gpu-bench mismatch op=%s %ux%u at=%u got=%08x want=%08x\n",
                            names[op],w,h,i,dest[i],expected);
             bad++;
         }
     }
     check_guards(n,names[op]);
     if (bad) failures++;
-    klog("gpu-bench pixels op=%s %ux%u checked=%u bad=%u\n",names[op],w,h,n,bad);
+    slog("gpu-bench pixels op=%s %ux%u checked=%u bad=%u\n",names[op],w,h,n,bad);
 }
 
 static int compare(const void *a, const void *b) {
@@ -157,7 +157,7 @@ static void benchmark(unsigned op,unsigned w,unsigned h) {
     } while (elapsed<750000u && count<4096);
     qsort(samples,count,sizeof(*samples),compare);
     check_guards(w*h,names[op]);
-    klog("gpu-bench perf op=%s %ux%u n=%u mean=%llu min=%u p50=%u p95=%u max=%u us fence=%u\n",
+    slog("gpu-bench perf op=%s %ux%u n=%u mean=%llu min=%u p50=%u p95=%u max=%u us fence=%u\n",
          names[op],w,h,count,(unsigned long long)(elapsed/count),samples[0],samples[count/2],
          samples[(count-1)*95/100],samples[count-1],adreno_dev()->fence);
 }
@@ -169,23 +169,23 @@ static void allocate(uint32_t **va,uint64_t *pa) {
     int id=shmget(key,(MAX_PIXELS+GUARD_WORDS)*4u,IPC_CREAT|IPC_EXCL|IPC_CONTIG|0600);
     if (id<0 || (*va=shmat(id,NULL,0))==(void*)-1 ||
         !(*pa=shm_contig_phy_addr(id,(ewokos_addr_t)*va))) {
-        klog("gpu-bench FAIL contiguous buffer allocation\n"); park();
+        slog("gpu-bench FAIL contiguous buffer allocation\n"); park();
     }
     shmctl(id,IPC_RMID,NULL); /* attached until this process is deliberately rebooted */
 }
 
 static int load_program(const char *path, uint32_t *local) {
     FILE *f=fopen(path,"rb");
-    if (!f) { klog("gpu-bench FAIL open %s\n",path); park(); }
+    if (!f) { slog("gpu-bench FAIL open %s\n",path); park(); }
     fseek(f,0,SEEK_END); long n=ftell(f); rewind(f);
     void *data=n>0 && n<1024*1024?malloc(n):NULL;
-    if (!data || fread(data,1,n,f)!=(size_t)n) { klog("gpu-bench FAIL shader read\n"); park(); }
+    if (!data || fread(data,1,n,f)!=(size_t)n) { slog("gpu-bench FAIL shader read\n"); park(); }
     fclose(f);
     if (local && (size_t)n>=sizeof(adreno_prog_blob_t))
         memcpy(local,((adreno_prog_blob_t *)data)->kern[0].local_size,3*sizeof(uint32_t));
     int handle=adreno_3d_program_load(data,n);
     free(data);
-    if (handle<0) { klog("gpu-bench FAIL program load=%d\n",handle); park(); }
+    if (handle<0) { slog("gpu-bench FAIL program load=%d\n",handle); park(); }
     return handle;
 }
 
@@ -218,7 +218,7 @@ static void execution_sweep(const char *dir) {
             uint64_t elapsed=now_us()-begin;
             check_guards(w*h,names[op]);
             require_gpu(adreno_ring_cmd(1,query,status,sizeof(status)),"gpu-query");
-            klog("gpu-exec pass=%u local=%ux%u op=%s %ux%u n=128 wall_ns=%llu %s\n",
+            slog("gpu-exec pass=%u local=%ux%u op=%s %ux%u n=128 wall_ns=%llu %s\n",
                  pass,shapes[v][0],shapes[v][1],names[op],w,h,
                  (unsigned long long)(elapsed*1000u/128u),status);
         }
@@ -226,7 +226,7 @@ static void execution_sweep(const char *dir) {
         require_gpu(adreno_3d_program_free(exec_raster),"exec-free-raster");
         exec_blit=exec_raster=-1;
     }
-    klog("gpu-exec COMPLETE failures=%u fence=%u wedged=%d\n",failures,adreno_dev()->fence,adreno_wedged());
+    slog("gpu-exec COMPLETE failures=%u fence=%u wedged=%d\n",failures,adreno_dev()->fence,adreno_wedged());
     park();
 }
 
@@ -245,7 +245,7 @@ static void descriptor_reuse(const char *path) {
             require_gpu(adreno_3d_draw(dest_pa,64,64,256,texture_program,
                                       NULL,&tex,1,u,count),"uniform-reuse");
             for (unsigned i=0;i<64*64;i++) if (dest[i]!=expected) {
-                klog("gpu-bench FAIL uniform-reuse cycle=%u short=%u at=%u got=%08x want=%08x\n",
+                slog("gpu-bench FAIL uniform-reuse cycle=%u short=%u at=%u got=%08x want=%08x\n",
                      cycle,count==2,i,dest[i],expected);
                 park();
             }
@@ -254,12 +254,12 @@ static void descriptor_reuse(const char *path) {
         require_gpu(adreno_3d_program_free(texture_program),"program-free");
         load_texture_program(path);
     }
-    klog("gpu-bench descriptor-reuse cycles=32 draws=256 short-uniforms=128 bad=0\n");
+    slog("gpu-bench descriptor-reuse cycles=32 draws=256 short-uniforms=128 bad=0\n");
 }
 
 static void edge_pixel(unsigned i, uint32_t expected, const char *op) {
     if (dest[i] != expected) {
-        klog("gpu-bench FAIL edge op=%s at=%u got=%08x want=%08x\n",
+        slog("gpu-bench FAIL edge op=%s at=%u got=%08x want=%08x\n",
              op,i,dest[i],expected);
         park();
     }
@@ -352,15 +352,15 @@ static void compute_edges(void) {
         }
         check_guards(w*h,"rotate-tail");
     }
-    klog("gpu-bench compute-edges alpha-pairs=393216 fills=256 rects=18 rotations=5 bad=0\n");
+    slog("gpu-bench compute-edges alpha-pairs=393216 fills=256 rects=18 rotations=5 bad=0\n");
 }
 
 int main(int argc,char **argv) {
     unsigned stress_seconds=argc>1?(unsigned)atoi(argv[1]):120;
     if (stress_seconds>3600) return 1;
     setenv("ADRENO_ENABLE","1");
-    klog("gpu-bench begin t=%llu stress=%u pid=%d\n",(unsigned long long)now_us(),stress_seconds,getpid());
-    if (!adreno_2d_ready() || !adreno_3d_ready()) { klog("gpu-bench FAIL GPU init\n"); park(); }
+    slog("gpu-bench begin t=%llu stress=%u pid=%d\n",(unsigned long long)now_us(),stress_seconds,getpid());
+    if (!adreno_2d_ready() || !adreno_3d_ready()) { slog("gpu-bench FAIL GPU init\n"); park(); }
     allocate(&source,&source_pa); allocate(&dest,&dest_pa);
     if (argc>3 && !strcmp(argv[3],"exec")) execution_sweep(argv[2]);
     const char *texture_path=argc>2?argv[2]:"/gpu-bench/texture.bin";
@@ -370,19 +370,19 @@ int main(int argc,char **argv) {
     uint64_t start=now_us();
     for (unsigned i=0;i<512;i++) {
         adreno_bo_t b={0};
-        if (adreno_bo_alloc(&b,256)) { klog("gpu-bench FAIL alloc benchmark\n"); park(); }
+        if (adreno_bo_alloc(&b,256)) { slog("gpu-bench FAIL alloc benchmark\n"); park(); }
         adreno_bo_free(&b);
     }
-    klog("gpu-bench dma-cycle n=512 mean=%llu us\n",(unsigned long long)((now_us()-start)/512));
+    slog("gpu-bench dma-cycle n=512 mean=%llu us\n",(unsigned long long)((now_us()-start)/512));
     const unsigned sizes[][2]={{64,64},{640,480},{801,603},{1920,1080},{3840,2160}};
     unsigned passes=argc>3 && strcmp(argv[3],"ab")==0 ? 2u : 1u;
     for (unsigned pass=0;pass<passes;pass++) {
         char *cmd[]={"submit","wait",passes==2 && pass==0?"0":"1"};
         char status[256];
         if (adreno_ring_cmd(3,cmd,status,sizeof(status)) != 0) {
-            klog("gpu-bench FAIL wait policy\n"); park();
+            slog("gpu-bench FAIL wait policy\n"); park();
         }
-        klog("gpu-bench mode adaptive=%s\n",cmd[2]);
+        slog("gpu-bench mode adaptive=%s\n",cmd[2]);
         for (unsigned s=0;s<sizeof(sizes)/sizeof(sizes[0]);s++) {
             unsigned w=sizes[s][0],h=sizes[s][1];
             for (unsigned op=0;op<8;op++) {
@@ -402,12 +402,12 @@ int main(int argc,char **argv) {
         check_guards(w*h,"stress");
         frames++;
         if (frames%500u==0) {
-            klog("gpu-bench stress seconds=%llu frames=%u fence=%u\n",
+            slog("gpu-bench stress seconds=%llu frames=%u fence=%u\n",
                  (unsigned long long)((now_us()-start)/1000000u),frames,adreno_dev()->fence);
             usleep(20000);
         }
     }
-    klog("gpu-bench DONE failures=%u stress_frames=%u fence=%u wedged=%d t=%llu\n",
+    slog("gpu-bench DONE failures=%u stress_frames=%u fence=%u wedged=%d t=%llu\n",
          failures,frames,adreno_dev()->fence,adreno_wedged(),(unsigned long long)now_us());
     park();
 }

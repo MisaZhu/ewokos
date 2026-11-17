@@ -33,7 +33,7 @@
 
 #define HAL_DEBUG 0
 #if HAL_DEBUG
-#define DBG(fmt, ...) klog(fmt, ##__VA_ARGS__)
+#define DBG(fmt, ...) slog(fmt, ##__VA_ARGS__)
 #else
 #define DBG(fmt, ...) \
     do                   \

@@ -758,7 +758,7 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
             continue;
         }
         //else
-            //klog("put %d, %d, (%c)\n", size, i, c);
+            //slog("put %d, %d, (%c)\n", size, i, c);
 
         if(terminal->in_esc) {
             /* Drop overlong escape sequences instead of corrupting memory. */

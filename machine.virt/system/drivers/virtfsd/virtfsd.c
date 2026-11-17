@@ -17,7 +17,7 @@
 
 #define VIRTFS_DEBUG 0
 #if VIRTFS_DEBUG
-#define FS_DBG(fmt, ...) klog(fmt, ##__VA_ARGS__)
+#define FS_DBG(fmt, ...) slog(fmt, ##__VA_ARGS__)
 #else
 #define FS_DBG(fmt, ...) \
     do                   \

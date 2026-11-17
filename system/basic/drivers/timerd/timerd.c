@@ -127,7 +127,7 @@ static int timer_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto
     from_pid = proc_getpid(from_pid);
 
     if(cmd == TIMER_SET) { 
-        //klog("timer set\n");
+        //slog("timer set\n");
         if(_intr_list == NULL) {
             static interrupt_handler_t handler;
             handler.data = 0;
@@ -142,7 +142,7 @@ static int timer_dcntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto
         update_timer_intr();
     }	
     else if(cmd == TIMER_REMOVE) { 
-        //klog("timer remove\n");
+        //slog("timer remove\n");
         uint32_t id = (uint32_t)proto_read_int(in);
         interrupt_remove(from_pid, id);
         update_timer_intr();

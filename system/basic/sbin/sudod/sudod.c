@@ -430,7 +430,7 @@ int main(int argc, char** argv) {
     (void)argv;
 
     if(ipc_serv_reg(IPC_SERV_SUDOD) != 0) {
-        klog("sudod: register IPC service failed\n");
+        slog("sudod: register IPC service failed\n");
         return -1;
     }
 
