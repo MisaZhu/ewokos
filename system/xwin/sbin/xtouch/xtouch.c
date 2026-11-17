@@ -135,12 +135,17 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
         _drag_time = 0;
         break;
     case 4: //scroll up notch (two fingers moved up)
-        ev.value.mouse.button = MOUSE_BUTTON_SCROLL_UP;
-        ev.state = MOUSE_STATE_MOVE;
-        _drag_time = 0;
-        break;
     case 5: //scroll down notch (two fingers moved down)
-        ev.value.mouse.button = MOUSE_BUTTON_SCROLL_DOWN;
+        /* A wheel notch belongs where the cursor already is: encode it as
+           a zero-delta relative move (the machine.virt moused -> xmouse
+           wheel shape) so xserverd keeps cpos untouched and routes the
+           scroll to the window under the pointer. An absolute midpoint
+           position would teleport the cursor on every notch. */
+        ev.value.mouse.relative = 1;
+        ev.value.mouse.rx = 0;
+        ev.value.mouse.ry = 0;
+        ev.value.mouse.button = state == 4 ?
+                MOUSE_BUTTON_SCROLL_UP : MOUSE_BUTTON_SCROLL_DOWN;
         ev.state = MOUSE_STATE_MOVE;
         _drag_time = 0;
         break;
