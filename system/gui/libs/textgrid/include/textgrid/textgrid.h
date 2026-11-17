@@ -47,6 +47,7 @@ typedef void (*textgrid_draw_char_t)(graph_t* g,
 	textchar_t* tch,
 	int chx, int chy,
 	uint32_t chw, uint32_t chh,
+	int32_t row, int32_t col,
 	void*p);
 
 extern int textgrid_paint(graph_t* g,

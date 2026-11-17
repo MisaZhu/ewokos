@@ -324,7 +324,7 @@ int textgrid_paint(graph_t* g,
             uint32_t at = i*textgrid->cols + j;
             textchar_t* ch = &textgrid->grid[at];
             int cx = x + (j*chw);
-            draw_char_func(g, ch, cx, cy, chw, chh, draw_arg);
+            draw_char_func(g, ch, cx, cy, chw, chh, (int32_t)i, (int32_t)j, draw_arg);
         }
     }
     return 0;

@@ -17,6 +17,7 @@ extern "C" {
 
 #include <gterminal/gterminal.h>
 #include <tinyjson/tinyjson.h>
+#include <clipboard/clipboard.h>
 #include <ewoksys/vfs.h>
 #include <ewoksys/keydef.h>
 #include <ewoksys/ipc.h>
@@ -24,6 +25,7 @@ extern "C" {
 #include <ewoksys/proc.h>
 #include <ewoksys/syscall.h>
 #include <ewoksys/basic_math.h>
+#include <ewoksys/kernel_tic.h>
 #include <ewoksys/timer.h>
 #include <ewoksys/wait.h>
 #include <ewoksys/tty.h>
@@ -107,13 +109,43 @@ static void xterm_emit_echo(void* arg, const char* buf, int size) {
 	output_queue_push(buf, size);
 }
 
+#define MENU_ITEM_COPY  1
+#define MENU_ITEM_PASTE 2
+
+#define LONG_PRESS_MS   500   /* hold time before the copy/paste menu pops */
+#define LONG_PRESS_SLOP 10    /* max pixel movement to still count as a hold */
+
+#define SCROLL_ZONE_W   48    /* right-edge strip where press+drag scrolls,
+                               * much wider than the 8px scrollbar thumb */
+
+static void termMenuCallback(MenuItem* it, void* p);
+
 class TermWidget : public ConsoleWidget {
 	pthread_mutex_t term_lock;
 	bool showXIM;
+	Menu* ctxMenu;
+
+	/* long-press tracking (touch): pops the copy/paste menu */
+	bool longPressPending;
+	bool longPressTriggered;
+	bool pressInSel;        /* the press landed inside the old selection */
+	bool dragSelActive;     /* the drag has replaced the old selection */
+	bool scrollDragging;    /* press landed on the scrollbar strip: drag scrolls */
+	bool pressInScrollbar;  /* last press was on the scrollbar strip */
+	uint64_t longPressTime;
+	int32_t longPressX, longPressY;   /* screen coords of the press */
+	gpos_t anchorPos;                 /* widget-local coords of the press */
 public:
 	TermWidget() {
 		pthread_mutex_init(&term_lock, NULL);
 		showXIM = false;
+		ctxMenu = NULL;
+		longPressPending = false;
+		longPressTriggered = false;
+		pressInSel = false;
+		dragSelActive = false;
+		scrollDragging = false;
+		pressInScrollbar = false;
 		terminal.output_callback = [](void* p, const char* buf, int size) {
 			(void)p;
 			for(int i = 0; i < size; i++) {
@@ -125,6 +157,8 @@ public:
 	}
 
 	~TermWidget() {
+		if(ctxMenu != NULL)
+			delete ctxMenu;
 		pthread_mutex_destroy(&term_lock);
 	}
 
@@ -199,6 +233,73 @@ public:
 		unlock();
 		return true;
 	}
+
+	/* Copy the current selection into the global clipboard. */
+	void copySelection() {
+		lock();
+		char* text = gterminal_select_copy(&terminal);
+		unlock();
+		if(text != NULL) {
+			if(text[0] != 0)
+				clipboard_set_text(text);
+			free(text);
+		}
+	}
+
+	/* Feed the clipboard content to the shell through the line discipline. */
+	void pasteClipboard() {
+		char* text = clipboard_get_text();
+		if(text == NULL || text[0] == 0) {
+			if(text != NULL)
+				free(text);
+			return;
+		}
+		lock();
+		for(uint32_t i = 0; text[i] != 0; i++)
+			input((int32_t)(unsigned char)text[i]);
+		gterminal_scroll(&terminal, 0);
+		unlock();
+		free(text);
+		flushOutput();
+		update();
+	}
+
+	/* Popup the copy/paste menu at screen coordinates. */
+	void showContextMenu(int32_t screenX, int32_t screenY) {
+		if(ctxMenu != NULL) {
+			delete ctxMenu;
+			ctxMenu = NULL;
+		}
+		ctxMenu = new Menu();
+		ctxMenu->setItemSize(X::hidpiSize(24));
+
+		bool hasSel = false;
+		lock();
+		hasSel = gterminal_has_selection(&terminal);
+		unlock();
+		bool hasClip = false;
+		char* clip = clipboard_get_text();
+		if(clip != NULL) {
+			hasClip = (clip[0] != 0);
+			free(clip);
+		}
+
+		if(hasSel)
+			ctxMenu->add(MENU_ITEM_COPY, "Copy", NULL, NULL, termMenuCallback, this);
+		if(hasClip)
+			ctxMenu->add(MENU_ITEM_PASTE, "Paste", NULL, NULL, termMenuCallback, this);
+
+		uint32_t n = ctxMenu->getItemNum();
+		if(n == 0) {
+			delete ctxMenu;
+			ctxMenu = NULL;
+			return;
+		}
+		uint32_t h = n * ctxMenu->getItemSize();
+		uint32_t w = X::hidpiSize(120);
+		ctxMenu->popup(getWin(), screenX, screenY, w, h, "menu", XWIN_STYLE_NO_TITLE);
+		ctxMenu->pop();
+	}
 protected:
 	void input(int32_t c) {
 		char ch = (char)c;
@@ -207,60 +308,146 @@ protected:
 	}
 
 	bool onMouse(xevent_t* ev) {
+		/* right button: context menu, never selection */
+		if(ev->value.mouse.button == MOUSE_BUTTON_RIGHT) {
+			if(ev->state == MOUSE_STATE_DOWN) {
+				longPressPending = false;
+				showContextMenu(ev->value.mouse.x, ev->value.mouse.y);
+				return true;
+			}
+			return true; /* swallow UP/CLICK of the right button */
+		}
+
+		if(ev->state == MOUSE_STATE_DOWN && ev->value.mouse.button == MOUSE_BUTTON_LEFT) {
+			gpos_t p = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+			/* press on the right-edge touch zone: vertical drag scrolls the
+			 * history, it never selects and never pops the long-press menu */
+			int32_t zoneW = X::hidpiSize(SCROLL_ZONE_W);
+			if(zoneW > (int32_t)area.w / 4)
+				zoneW = (int32_t)area.w / 4;   /* keep 3/4 of the width selectable */
+			if(zoneW < (int32_t)scrollW)
+				zoneW = (int32_t)scrollW;
+			if(p.x >= (int32_t)area.w - zoneW) {
+				scrollDragging = true;
+				pressInScrollbar = true;
+				mouse_last_y = ev->value.mouse.y;
+				longPressPending = false;
+				longPressTriggered = false;
+				return true;
+			}
+			pressInScrollbar = false;
+			lock();
+			pressInSel = gterminal_cell_selected_at(&terminal, p.x, p.y);
+			/* pressing outside the old selection starts a fresh one; pressing
+			 * inside keeps it until a real drag replaces it */
+			if(!pressInSel)
+				gterminal_select_begin_at(&terminal, p.x, p.y);
+			unlock();
+			anchorPos = p;
+			dragSelActive = false;
+			longPressPending = true;
+			longPressTriggered = false;
+			longPressTime = kernel_tic_ms(0);
+			longPressX = ev->value.mouse.x;
+			longPressY = ev->value.mouse.y;
+			update();
+			return true;
+		}
+
+		if(ev->state == MOUSE_STATE_DRAG) {
+			/* scrollbar drag: vertical movement pages through the history
+			 * (finger down reveals older rows, finger up reveals newer),
+			 * same gesture as the old plain drag-scroll */
+			if(scrollDragging) {
+				lock();
+				bool needUpdate = false;
+				if(ev->value.mouse.y > mouse_last_y)
+					needUpdate = gterminal_scroll(&terminal, -1);
+				else if(ev->value.mouse.y < mouse_last_y)
+					needUpdate = gterminal_scroll(&terminal, 1);
+				mouse_last_y = ev->value.mouse.y;
+				unlock();
+				if(needUpdate)
+					update();
+				return true;
+			}
+			if(longPressPending) {
+				int32_t dx = ev->value.mouse.x - longPressX;
+				int32_t dy = ev->value.mouse.y - longPressY;
+				if(dx*dx + dy*dy > LONG_PRESS_SLOP*LONG_PRESS_SLOP)
+					longPressPending = false;
+			}
+			lock();
+			if(!dragSelActive) {
+				/* first real movement: replace the old selection */
+				gterminal_select_begin_at(&terminal, anchorPos.x, anchorPos.y);
+				dragSelActive = true;
+			}
+			gpos_t p = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+			/* Dragging past the edges pages through the history while the
+			 * selection keeps growing: above the top reveals newer rows,
+			 * below the bottom reveals older rows (finger-drag semantics,
+			 * same direction as the old drag-scroll gesture). */
+			if(p.y < 0)
+				gterminal_scroll(&terminal, 1);
+			else if(p.y >= (int32_t)area.h)
+				gterminal_scroll(&terminal, -1);
+			gterminal_select_extend_at(&terminal, p.x, p.y);
+			unlock();
+			update();
+			return true;
+		}
+
+		if(ev->state == MOUSE_STATE_UP) {
+			scrollDragging = false;
+			longPressPending = false;
+			lock();
+			gterminal_select_end(&terminal);
+			unlock();
+			update();
+			return true;
+		}
+
 		if(ev->state == MOUSE_STATE_CLICK) {
+			if(pressInScrollbar) {
+				/* tap on the scrollbar strip: no selection, no keyboard toggle */
+				pressInScrollbar = false;
+				return true;
+			}
+			if(longPressTriggered) {
+				/* release of the long-press finger: keep the selection for
+				 * Copy, don't toggle the soft keyboard */
+				longPressTriggered = false;
+				return true;
+			}
+			/* plain tap: clear the selection, toggle the soft keyboard */
+			lock();
+			gterminal_select_clear(&terminal);
+			unlock();
+			update();
 			showXIM = !showXIM;
 			getWin()->callXIM(showXIM);
 			return true;
 		}
 
-		static bool draging = false;
-		bool needUpdate = false;
-		if(ev->state == MOUSE_STATE_UP) {
-			draging = false;
-			return true;
-		}
-
-		if(ev->state == MOUSE_STATE_DOWN) {
-			if(!draging) {
-				mouse_last_y = ev->value.mouse.y;
-				draging = true;
-				return true;
-			}
-		}
-
-		lock();
-		if(ev->state == MOUSE_STATE_DRAG || draging) {
-			if(abs(ev->value.mouse.rx) < abs(ev->value.mouse.ry)) {
-				if(ev->value.mouse.y > mouse_last_y) {
-					needUpdate = gterminal_scroll(&terminal, -1);
-				}
-				else if(ev->value.mouse.y < mouse_last_y) {
-					needUpdate = gterminal_scroll(&terminal, 1);
-				}
-				mouse_last_y = ev->value.mouse.y;
-				unlock();
-				if(needUpdate)
-					update();
-				return true;
-			}
-		}
-		else if(ev->state == MOUSE_STATE_MOVE) {
+		if(ev->state == MOUSE_STATE_MOVE) {
+			bool handled = false;
+			bool needUpdate = false;
+			lock();
 			if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_UP) {
 				needUpdate = gterminal_scroll(&terminal, 1);
-				unlock();
-				if(needUpdate)
-					update();
-				return true;
+				handled = true;
 			}
 			else if(ev->value.mouse.button == MOUSE_BUTTON_SCROLL_DOWN) {
 				needUpdate = gterminal_scroll(&terminal, -1);
-				unlock();
-				if(needUpdate)
-					update();
-				return true;
+				handled = true;
 			}
+			unlock();
+			if(needUpdate)
+				update();
+			if(handled)
+				return true;
 		}
-		unlock();
 		return false;
 	}
 
@@ -292,12 +479,6 @@ protected:
 		return false;	
 	}
 
-	/*void onFocus() {
-		getWin()->callXIM(true);
-		ConsoleWidget::onFocus();
-	}
-		*/
-
 	void onResize() {
 		lock();
 		ConsoleWidget::onResize();
@@ -311,6 +492,19 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		/* touch long-press: pop the copy/paste menu */
+		if(longPressPending && !longPressTriggered &&
+				(kernel_tic_ms(0) - longPressTime) >= LONG_PRESS_MS) {
+			longPressTriggered = true;
+			longPressPending = false;
+			if(!pressInSel) {
+				lock();
+				gterminal_select_clear(&terminal);
+				unlock();
+			}
+			showContextMenu(longPressX, longPressY);
+		}
+
 		bool needUpdate = flushOutput();
 		uint32_t period = timerFPS > 1 ? (timerFPS/2) : 1;
 		if((timerSteps % period) == 0) {
@@ -323,6 +517,18 @@ protected:
 			update();
 	}
 };
+
+static void termMenuCallback(MenuItem* it, void* p) {
+	TermWidget* self = (TermWidget*)p;
+	switch(it->id) {
+	case MENU_ITEM_COPY:
+		self->copySelection();
+		break;
+	case MENU_ITEM_PASTE:
+		self->pasteClipboard();
+		break;
+	}
+}
 
 
 class TermWin: public WidgetWin{

@@ -94,7 +94,14 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
     else
         ev.value.mouse.y = _scr_h - (ty*_scr_h / _xtouch.y_max);
 
-    if(state == 1) { //down
+    /* Record states beyond the single-finger 0/1 come from drivers with
+       gesture detection (q8b goodixd):
+         2/3 ... right button down/up (two-finger tap)
+         4/5 ... one wheel notch, scroll up/down (two-finger swipe)
+       Wheel notches are direction-only MOUSE_STATE_MOVE events, the same
+       shape hid_moused/xmouse deliver. */
+    switch(state) {
+    case 1: { //down
         ev.value.mouse.button = MOUSE_BUTTON_LEFT;
         if(_drag_time == 0) {
             ev.state = MOUSE_STATE_DOWN;
@@ -110,10 +117,35 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
             prev_y = ev.value.mouse.y;
             ev.state = MOUSE_STATE_DRAG;
         }
-    } else if(state == 0) { //up
+        break;
+    }
+    case 0: //up
         ev.value.mouse.button = MOUSE_BUTTON_LEFT;
         ev.state = MOUSE_STATE_UP;
         _drag_time = 0;
+        break;
+    case 2: //right down (two-finger press)
+        ev.value.mouse.button = MOUSE_BUTTON_RIGHT;
+        ev.state = MOUSE_STATE_DOWN;
+        _drag_time = 0;
+        break;
+    case 3: //right up
+        ev.value.mouse.button = MOUSE_BUTTON_RIGHT;
+        ev.state = MOUSE_STATE_UP;
+        _drag_time = 0;
+        break;
+    case 4: //scroll up notch (two fingers moved up)
+        ev.value.mouse.button = MOUSE_BUTTON_SCROLL_UP;
+        ev.state = MOUSE_STATE_MOVE;
+        _drag_time = 0;
+        break;
+    case 5: //scroll down notch (two fingers moved down)
+        ev.value.mouse.button = MOUSE_BUTTON_SCROLL_DOWN;
+        ev.state = MOUSE_STATE_MOVE;
+        _drag_time = 0;
+        break;
+    default:
+        return;
     }
 
     proto_t in;
