@@ -268,7 +268,7 @@ int xserver_step(vdevice_t* dev, void* p) {
       XIM window registered. The dev_cmd round-trips run OUTSIDE the server
       lock so a slow keyb daemon can never stall compositing or input; the
       lock is taken only to publish the cached flag and apply the change.*/
-    if(x->im_state.win_xim != NULL) {
+    if(!x->sleeping && x->im_state.win_xim != NULL) {
         uint64_t now_kbd = kernel_tic_ms(0);
         if(now_kbd - x->im_state.last_kbd_probe_ms >= XIM_KBD_POLL_MS) {
             x->im_state.last_kbd_probe_ms = now_kbd;
@@ -306,41 +306,59 @@ int xserver_step(vdevice_t* dev, void* p) {
     else
         ipc_disable();
 
-    if(x->xwm_changed) {
+    if(x->sleeping) {
+        /*sleep entry: blank the scan-out once. The flush itself runs
+          below with the lock released, like every normal frame flush;
+          afterwards the panel stays black until wake.*/
+        if(x->sleep_blank) {
+            x->sleep_blank = false;
+            for(uint32_t i=0; i<DISP_MAX; i++) {
+                x_display_t* display = &x->displays[i];
+                if(!display->active || display->g == NULL)
+                    continue;
+                graph_clear(display->g, 0x0);
+                display->pending_flush = true;
+            }
+        }
+    }
+    else {
+        if(x->xwm_changed) {
+            if(check_xwm(x)) {
+                x->xwm_changed = false;
+                x_dirty(x, -1);
+            }
+        }
+
+        /*revalidate every window's outer geometry and frame hit-test areas. A new
+          xwm leaves windows sized while the previous one was down holding a winr
+          equal to their wsr (the get_xwm_win_space fallback), which no decorated
+          window can have - but so does a single refused ipc_call during a resize
+          drag, and a refused GET_FRAME_AREAS leaves the cached rects describing
+          the pre-resize frame. Running this every step heals both on the next
+          frame; healthy windows bail out on the winr == wsr tell after a few
+          compares, so the scan costs nothing.*/
         if(check_xwm(x)) {
-            x->xwm_changed = false;
-            x_dirty(x, -1);
+            xwin_t* win = x->win_head;
+            while(win != NULL) {
+                xwin_revalidate_geometry(x, win);
+                win = win->next;
+            }
         }
-    }
 
-    /*revalidate every window's outer geometry and frame hit-test areas. A new
-      xwm leaves windows sized while the previous one was down holding a winr
-      equal to their wsr (the get_xwm_win_space fallback), which no decorated
-      window can have - but so does a single refused ipc_call during a resize
-      drag, and a refused GET_FRAME_AREAS leaves the cached rects describing
-      the pre-resize frame. Running this every step heals both on the next
-      frame; healthy windows bail out on the winr == wsr tell after a few
-      compares, so the scan costs nothing.*/
-    if(check_xwm(x)) {
-        xwin_t* win = x->win_head;
-        while(win != NULL) {
-            xwin_revalidate_geometry(x, win);
-            win = win->next;
+        check_wins(x);
+        /*poll the shm UPDATE handshake flags: clients that painted since the
+          last step are parked in proc_block_by(xinfo->win), so their ws_g is
+          stable while we snapshot it. This replaces the old per-UPDATE IPC
+          entirely - the server now runs strictly at its own fps regardless
+          of how fast clients repaint (see x_poll_updates). While asleep this
+          is skipped too, so blocked painters stay parked until wake.*/
+        x_poll_updates(x);
+        for(uint32_t i=0; i<DISP_MAX; i++) {
+            x_display_t* display = &x->displays[i];
+            if(!display->active)
+                continue;
+            x_repaint(x, i);
         }
-    }
-
-    check_wins(x);
-    /*poll the shm UPDATE handshake flags: clients that painted since the
-      last step are parked in proc_block_by(xinfo->win), so their ws_g is
-      stable while we snapshot it. This replaces the old per-UPDATE IPC
-      entirely - the server now runs strictly at its own fps regardless
-      of how fast clients repaint (see x_poll_updates).*/
-    x_poll_updates(x);
-    for(uint32_t i=0; i<DISP_MAX; i++) {
-        x_display_t* display = &x->displays[i];
-        if(!display->active)
-            continue;
-        x_repaint(x, i);
     }
 
     if(x->config.multi_task)
@@ -369,6 +387,15 @@ int xserver_step(vdevice_t* dev, void* p) {
             display->flush_inflight = false;
             display->pending_flush = false;
         }
+    }
+
+    /*asleep: the black frame (if any) was just flushed above; nothing
+      composites or flushes until wake, so idle at a coarse cadence that
+      still answers the wake command promptly. The power key is polled by
+      powerd independently of this loop, so wake never depends on it.*/
+    if(x->sleeping) {
+        usleep(X_SLEEP_STEP_MS*1000);
+        return 0;
     }
 
     /*a window drag tracks the pointer: pace tighter than the frame fps

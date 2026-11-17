@@ -399,6 +399,14 @@ static void cursor_type_switch(x_t* x, uint32_t type) {
 }
 
 void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
+    /*display asleep: drop all input. The panel is black and the
+      compositor is paused; wake comes from powerd's power-key polling,
+      which runs outside this process, so nothing needs to be queued for
+      a burst on resume (a touch storm must not repaint the dark panel
+      through the cursor fast path either).*/
+    if(x->sleeping)
+        return;
+
     if(ev->type == XEVT_MOUSE || ev->type == XEVT_MOUSE_TPAD)
         cursor_type_switch(x, CURSOR_MOUSE);
     else if(ev->type == XEVT_TOUCH)

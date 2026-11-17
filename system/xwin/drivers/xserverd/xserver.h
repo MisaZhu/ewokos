@@ -31,6 +31,11 @@
    frame rate and only runs once an XIM window has registered. */
 #define XIM_KBD_POLL_MS 1000
 
+/* step cadence while the display is asleep: compositing and input are
+   paused, so the loop only needs to stay responsive to the wake command
+   (the power key itself is polled by powerd, outside this process). */
+#define X_SLEEP_STEP_MS 100
+
 enum {
 	X_win_DRAG_MOVE = 1,
 	X_win_DRAG_RESIZE
@@ -244,6 +249,15 @@ typedef struct {
 
 	bool show_cursor;
 	cursor_t cursor;
+
+	/*display sleep, driven by powerd's power-key short press ("sleep"/
+	  "wake" dev commands): the scan-out is blanked once, compositing and
+	  input delivery are paused and the step loop idles at X_SLEEP_STEP_MS.
+	  sleep_blank requests the one-shot black flush on sleep entry; it is
+	  consumed by xserver_step under the server lock. Wake marks every
+	  display dirty so the first frame back is a full rebuild.*/
+	bool sleeping;
+	bool sleep_blank;
 
 	xwin_t* win_head;
 	xwin_t* win_tail;
