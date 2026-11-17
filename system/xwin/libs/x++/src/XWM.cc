@@ -4,7 +4,7 @@
 #include <font/font.h>
 #include <tinyjson/tinyjson.h>
 #include <graph/graph_image.h>
-#include <x/x.h>
+#include <x++/X.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <ewoksys/vdevice.h>
@@ -143,12 +143,13 @@ static void get_frame(xinfo_t* info, grect_t* rect, void* p) {
 }
 
 void XWM::getResize(xinfo_t* info, grect_t* rect) {
+	int rszW = X::hidpiSize(20);
 	int frameW = effectiveFrameWFor(xwm.theme, info->style, info->state);
 	int shadow = effectiveShadowFor(xwm.theme, info->style, info->state);
-	rect->x = info->winr.w - 20 - frameW - shadow;
-	rect->y = info->winr.h - 20 - frameW - shadow;
-	rect->w = 20 + frameW;
-	rect->h = 20 + frameW;
+	rect->x = info->winr.w - rszW - frameW - shadow;
+	rect->y = info->winr.h - rszW - frameW - shadow;
+	rect->w = rszW + frameW;
+	rect->h = rszW + frameW;
 }
 
 static void get_resize(xinfo_t* info, grect_t* rect, void* p) {

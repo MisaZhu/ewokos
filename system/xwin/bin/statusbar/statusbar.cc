@@ -16,14 +16,30 @@ class PowerInfo : public Widget {
 	int batt;
 	int charging;
 
+	/*lightning bolt, drawn as two overlapping triangles since libgraph
+	  has no filled polygon, zigzag reads well even at small sizes*/
+	void drawBolt(graph_t* g, int x, int y, int w, int h, uint32_t color) {
+		graph_fill_triangle(g,
+				x + w*6/10, y,
+				x + w/10,   y + h*55/100,
+				x + w*55/100, y + h*55/100, color);
+		graph_fill_triangle(g,
+				x + w*45/100, y + h*45/100,
+				x + w*9/10,   y + h*45/100,
+				x + w*35/100, y + h, color);
+	}
+
 	void drawCharging(graph_t* g, XTheme* theme, const grect_t& r, int bat) {
 		static int b = 0;
 		int w = r.w*bat*b/300;
 		graph_gradation(g, r.x+r.w-w, r.y, w, r.h, 0xffffffff, 0xff22dd22, true);
 
+		int boltW = r.h;
+		drawBolt(g, r.x + r.w - boltW, r.y, boltW, r.h, 0xff000000);
+
 		char txt[8];
 		snprintf(txt, 7, "%d%%", bat);
-		graph_draw_text_font_align(g, r.x, r.y, r.w, r.h,
+		graph_draw_text_font_align(g, r.x, r.y, r.w-boltW, r.h,
 					txt, theme->getFont(), theme->basic.fontSize, 0xff000000, FONT_ALIGN_CENTER);
 		b++;
 		b%=4;
@@ -78,8 +94,7 @@ protected:
 			if(buf[0] == 0)
 				return;
 
-			if(buf[1])
-				charging = 1;
+			charging = buf[1] ? 1 : 0;
 			batt = buf[2];
 		}
 		update();

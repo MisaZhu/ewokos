@@ -38,6 +38,7 @@ typedef struct {
 
 	bool noWindowBG;
 	bool hidpi;
+	float hidpi_scale;
 } x_theme_t;
 
 enum {

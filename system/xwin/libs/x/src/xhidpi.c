@@ -5,11 +5,23 @@
   own TU so xserverd, which links libx for x_hidpi_size, does not pull in
   x.o whose symbols collide with its own xwin/xwin_cmd implementations*/
 static bool _x_hidpi = false;
+static float _x_hidpi_scale = 2.0;
 
-int x_hidpi_size(int size) {
-    return _x_hidpi ? size*2 : size;
+float x_hidpi_scale(void) {
+    return _x_hidpi_scale;
 }
 
-void x_set_hidpi(bool hidpi) {
+int x_hidpi_size(int size) {
+    slog("x_hidpi_size %d %f\n", size, _x_hidpi_scale);
+    return _x_hidpi ? size*_x_hidpi_scale : size;
+}
+
+void x_set_hidpi(bool hidpi, float scale) {
     _x_hidpi = hidpi;
+
+    _x_hidpi_scale = scale;
+    if(_x_hidpi_scale < 1)
+        _x_hidpi_scale = 1.0;
+    if(_x_hidpi_scale > 4)
+        _x_hidpi_scale = 4.0;
 }

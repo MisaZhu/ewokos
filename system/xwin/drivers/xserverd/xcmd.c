@@ -28,7 +28,37 @@ char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void*
             "  list    list all windows\n"
             "  bufs    show every compositor canvas, whether it rides /dev/g2d,\n"
             "          and the per-window publish/paint handshake state\n"
+            "  sleep   blank the panel and pause compositing/input (power key)\n"
+            "  wake    restore the display from sleep\n"
             "  help    show this help\n"));
+    }
+
+    /*Display sleep, driven by powerd's power-key short press. The blank
+      itself is deferred to xserver_step (sleep_blank): the fb flush is a
+      blocking outbound IPC and deliberately runs outside the server lock,
+      exactly like the normal frame flush. Both commands are idempotent.*/
+    if(strcmp(argv[0], "sleep") == 0) {
+        x_server_lock_enter();
+        if(!x->sleeping) {
+            x->sleeping = true;
+            x->sleep_blank = true;
+        }
+        x_server_lock_leave();
+        return str_detach(str_new("sleeping\n"));
+    }
+
+    if(strcmp(argv[0], "wake") == 0) {
+        x_server_lock_enter();
+        if(x->sleeping) {
+            x->sleeping = false;
+            x->sleep_blank = false;
+            /*the scan-out holds the black sleep frame: everything must be
+              composited again, and windows that changed while asleep have
+              no valid backdrop/shadow state either*/
+            x_dirty(x, -1);
+        }
+        x_server_lock_leave();
+        return str_detach(str_new("awake\n"));
     }
 
     /*graph_blt falls back to a full cpu pass in THIS process whenever a

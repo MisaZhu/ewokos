@@ -302,7 +302,7 @@ static int x_update_theme(void) {
 
     proto_read_to(&out, &_x_theme, sizeof(x_theme_t));
     PF->clear(&out);
-    x_set_hidpi(_x_theme.hidpi);
+    x_set_hidpi(_x_theme.hidpi, _x_theme.hidpi_scale);
     return 0;
 }
 
@@ -317,7 +317,7 @@ int x_get_theme(x_theme_t* theme) {
 
 void  x_init(x_t* x, void* data) {
     memset(&_x_theme, 0, sizeof(x_theme_t));
-    x_set_hidpi(false);
+    x_set_hidpi(false, 1.0);
     x_get_theme(&_x_theme);
 
     memset(_x_screens, 0, sizeof(xscreen_info_t)*SCREEN_MAX);

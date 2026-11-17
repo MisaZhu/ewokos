@@ -56,8 +56,12 @@ int x_cursor_set_busy(x_t* x, bool busy) {
     if(x->mouse_state.busy == busy)
         return 0;
 
-    hide_cursor(x);
+    /*only erase when a cursor image is actually on screen (saved != NULL):
+      with the pointer hidden (touch input) hide_cursor would instead capture
+      a background band at the stale old_pos, faking an on-screen cursor whose
+      later "restore" would smear an outdated scene patch onto the display*/
     if(x->cursor.saved != NULL) {
+        hide_cursor(x);
         graph_free(x->cursor.saved);
         x->cursor.saved = NULL;
     }
@@ -364,7 +368,50 @@ static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
   and would otherwise click through into the focused window*/
 #define X_IM_TPAD_SUPPRESS_MS 300
 
+/*mouse <-> touch switch: the cursor assets (png, size, offsets) are loaded
+  per type by cursor_init (cursors/mouse.json vs cursors/touch.json), so
+  flipping cursor.type alone keeps drawing the old asset set - a touch
+  press would still show the mouse arrow. Erase the on-screen cursor with
+  the OLD geometry first (same rule as x_cursor_set_busy), then reload.*/
+static void cursor_type_switch(x_t* x, uint32_t type) {
+    if(x->cursor.type == type)
+        return;
+
+    if(x->cursor.saved != NULL) {
+        hide_cursor(x);
+        graph_free(x->cursor.saved);
+        x->cursor.saved = NULL;
+    }
+
+    x->cursor.type = type;
+    cursor_init(x->cursor.theme, &x->cursor);
+    if(x->mouse_state.busy && x->cursor.img_busy != NULL) {
+        x->cursor.size.w = x->cursor.img_busy->w;
+        x->cursor.size.h = x->cursor.img_busy->h;
+        x->cursor.offset.x = x->cursor.offset_busy.x;
+        x->cursor.offset.y = x->cursor.offset_busy.y;
+    }
+
+    /*the asset swap may change the cursor rect: a full repaint guarantees
+      the erase above reaches the panel even where the new (smaller) cursor
+      rect would not cover the old image*/
+    x_dirty(x, x->current_display);
+}
+
 void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
+    /*display asleep: drop all input. The panel is black and the
+      compositor is paused; wake comes from powerd's power-key polling,
+      which runs outside this process, so nothing needs to be queued for
+      a burst on resume (a touch storm must not repaint the dark panel
+      through the cursor fast path either).*/
+    if(x->sleeping)
+        return;
+
+    if(ev->type == XEVT_MOUSE || ev->type == XEVT_MOUSE_TPAD)
+        cursor_type_switch(x, CURSOR_MOUSE);
+    else if(ev->type == XEVT_TOUCH)
+        cursor_type_switch(x, CURSOR_TOUCH);
+
     if(ev->type == XEVT_IM || ev->type == XEVT_IM_VKEYB) {
         if(ev->type == XEVT_IM) //virtual keyboard events don't arm the suppression
             x->im_state.last_im_ms = kernel_tic_ms(0);
@@ -380,7 +427,8 @@ void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
         mouse_handle(x, ev);
         x_repaint_req(x, x->current_display);
     }
-    else if(ev->type == XEVT_MOUSE) {
+    else if(ev->type == XEVT_MOUSE || ev->type == XEVT_TOUCH) {
+        ev->type = XEVT_MOUSE;
         mouse_handle(x, ev);
         x_repaint_req(x, x->current_display);
     }

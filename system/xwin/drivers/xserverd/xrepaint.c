@@ -233,9 +233,15 @@ bool x_cursor_redraw_now(x_t* x, uint32_t display_index) {
             display->flush_inflight ||
             display_busy(&display->display))
         return false;
-    if((!x->show_cursor && !x->mouse_state.busy) ||
-            x->current_display != display_index ||
-            x_is_hide_cursor_on_win(x))
+    if(x->current_display != display_index)
+        return false;
+
+    bool visible = (x->show_cursor || x->mouse_state.busy) &&
+            !x_is_hide_cursor_on_win(x);
+    /*saved == NULL means no cursor image is on screen: with the pointer
+      turned off there is nothing to erase (and hide_cursor must not run -
+      it would capture a background band for a cursor that was never drawn)*/
+    if(!visible && x->cursor.saved == NULL)
         return false;
 
     /*2 current cursor rects + up to 4 pending from earlier skipped flushes;
@@ -247,9 +253,21 @@ bool x_cursor_redraw_now(x_t* x, uint32_t display_index) {
     x_get_cursor_rect(x, &r, true);
     dirty[dirty_num++] = r;
     hide_cursor(x);
-    x_get_cursor_rect(x, &r, false);
-    dirty[dirty_num++] = r;
-    refresh_cursor(x);
+
+    if(!visible) {
+        /*the pointer was just turned off (touch input) or moved onto a
+          hide-cursor window: the hide above restored the scene under the
+          last-drawn cursor - drop the saved band so it is not drawn again,
+          and flush the restore rect, or the old cursor image stays on the
+          panel as a ghost*/
+        graph_free(x->cursor.saved);
+        x->cursor.saved = NULL;
+    }
+    else {
+        x_get_cursor_rect(x, &r, false);
+        dirty[dirty_num++] = r;
+        refresh_cursor(x);
+    }
 
     /*rects of an earlier skipped flush: their composite only exists in the
       back buffer, so this flush re-declares them too*/
@@ -359,11 +377,24 @@ void x_repaint(x_t* x, uint32_t display_index) {
         do_flush = true;
     }	
 
-    if((x->show_cursor || x->mouse_state.busy) && x->current_display == display_index) {
-        if(!x_is_hide_cursor_on_win(x)) {
+    if(x->current_display == display_index) {
+        if((x->show_cursor || x->mouse_state.busy) && !x_is_hide_cursor_on_win(x)) {
             x_get_cursor_rect(x, &cursor_old_rect, true);
             hide_cursor(x);
             cursor_hidden = true;
+        }
+        else if(x->cursor.saved != NULL) {
+            /*the pointer was just turned off (touch input) or moved onto a
+              hide-cursor window and the fast path could not erase it: the
+              last-drawn cursor still sits in the scan-out buffer and the
+              refresh below will not run, so restore the scene under it once
+              here or it stays on the panel as a ghost*/
+            x_get_cursor_rect(x, &cursor_old_rect, true);
+            hide_cursor(x);
+            graph_free(x->cursor.saved);
+            x->cursor.saved = NULL;
+            cursor_hidden = true;
+            do_flush = true;
         }
     }
 

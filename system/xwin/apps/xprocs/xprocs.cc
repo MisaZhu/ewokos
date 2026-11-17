@@ -598,7 +598,7 @@ protected:
 		snprintf(txt, 31, "%s/%s", used_mem_str, t_mem_str);
 
 		graph_draw_text_font(g, r.x , r.y + r.h - 16,
-				txt, theme->getFont(), 12, 0xFF000000);
+				txt, theme->getFont(), X::hidpiSize(12), 0xFF000000);
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
