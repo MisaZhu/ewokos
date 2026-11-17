@@ -12,7 +12,6 @@ float x_hidpi_scale(void) {
 }
 
 int x_hidpi_size(int size) {
-    slog("x_hidpi_size %d %f\n", size, _x_hidpi_scale);
     return _x_hidpi ? size*_x_hidpi_scale : size;
 }
 
