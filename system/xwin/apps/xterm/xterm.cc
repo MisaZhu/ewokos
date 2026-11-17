@@ -115,8 +115,8 @@ static void xterm_emit_echo(void* arg, const char* buf, int size) {
 #define LONG_PRESS_MS   500   /* hold time before the copy/paste menu pops */
 #define LONG_PRESS_SLOP 10    /* max pixel movement to still count as a hold */
 
-#define SCROLL_ZONE_W   48    /* right-edge strip where press+drag scrolls,
-                               * much wider than the 8px scrollbar thumb */
+#define DOUBLE_CLICK_MS   350 /* max gap between the two taps of a double-click */
+#define DOUBLE_CLICK_SLOP 24  /* max drift between the two tap positions */
 
 static void termMenuCallback(MenuItem* it, void* p);
 
@@ -130,10 +130,12 @@ class TermWidget : public ConsoleWidget {
 	bool longPressTriggered;
 	bool pressInSel;        /* the press landed inside the old selection */
 	bool dragSelActive;     /* the drag has replaced the old selection */
-	bool scrollDragging;    /* press landed on the scrollbar strip: drag scrolls */
-	bool pressInScrollbar;  /* last press was on the scrollbar strip */
+	bool selMode;           /* double-click armed: next drag is a selection */
+	bool doublePress;       /* this press is the 2nd click: swallow its CLICK */
 	uint64_t longPressTime;
+	uint64_t lastClickTime;
 	int32_t longPressX, longPressY;   /* screen coords of the press */
+	int32_t lastClickX, lastClickY;   /* position of the previous tap */
 	gpos_t anchorPos;                 /* widget-local coords of the press */
 public:
 	TermWidget() {
@@ -144,8 +146,11 @@ public:
 		longPressTriggered = false;
 		pressInSel = false;
 		dragSelActive = false;
-		scrollDragging = false;
-		pressInScrollbar = false;
+		selMode = false;
+		doublePress = false;
+		lastClickTime = 0;
+		lastClickX = 0;
+		lastClickY = 0;
 		terminal.output_callback = [](void* p, const char* buf, int size) {
 			(void)p;
 			for(int i = 0; i < size; i++) {
@@ -320,107 +325,105 @@ protected:
 
 		if(ev->state == MOUSE_STATE_DOWN && ev->value.mouse.button == MOUSE_BUTTON_LEFT) {
 			gpos_t p = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-			/* press on the right-edge touch zone: vertical drag scrolls the
-			 * history, it never selects and never pops the long-press menu */
-			int32_t zoneW = X::hidpiSize(SCROLL_ZONE_W);
-			if(zoneW > (int32_t)area.w / 4)
-				zoneW = (int32_t)area.w / 4;   /* keep 3/4 of the width selectable */
-			if(zoneW < (int32_t)scrollW)
-				zoneW = (int32_t)scrollW;
-			if(p.x >= (int32_t)area.w - zoneW) {
-				scrollDragging = true;
-				pressInScrollbar = true;
-				mouse_last_y = ev->value.mouse.y;
-				longPressPending = false;
-				longPressTriggered = false;
-				return true;
-			}
-			pressInScrollbar = false;
 			lock();
 			pressInSel = gterminal_cell_selected_at(&terminal, p.x, p.y);
-			/* pressing outside the old selection starts a fresh one; pressing
-			 * inside keeps it until a real drag replaces it */
-			if(!pressInSel)
-				gterminal_select_begin_at(&terminal, p.x, p.y);
 			unlock();
 			anchorPos = p;
 			dragSelActive = false;
+			mouse_last_y = ev->value.mouse.y;
 			longPressPending = true;
 			longPressTriggered = false;
 			longPressTime = kernel_tic_ms(0);
 			longPressX = ev->value.mouse.x;
 			longPressY = ev->value.mouse.y;
+			/* second press of a double-click: this drag selects right away,
+			 * no third press needed */
+			uint64_t now = kernel_tic_ms(0);
+			int32_t dcx = ev->value.mouse.x - lastClickX;
+			int32_t dcy = ev->value.mouse.y - lastClickY;
+			if((now - lastClickTime) <= DOUBLE_CLICK_MS &&
+					dcx*dcx + dcy*dcy <= DOUBLE_CLICK_SLOP*DOUBLE_CLICK_SLOP) {
+				selMode = true;
+				doublePress = true;  /* swallow the release CLICK of this press */
+				lastClickTime = 0;
+			}
 			update();
 			return true;
 		}
 
 		if(ev->state == MOUSE_STATE_DRAG) {
-			/* scrollbar drag: vertical movement pages through the history
-			 * (finger down reveals older rows, finger up reveals newer),
-			 * same gesture as the old plain drag-scroll */
-			if(scrollDragging) {
-				lock();
-				bool needUpdate = false;
-				if(ev->value.mouse.y > mouse_last_y)
-					needUpdate = gterminal_scroll(&terminal, -1);
-				else if(ev->value.mouse.y < mouse_last_y)
-					needUpdate = gterminal_scroll(&terminal, 1);
-				mouse_last_y = ev->value.mouse.y;
-				unlock();
-				if(needUpdate)
-					update();
-				return true;
-			}
 			if(longPressPending) {
 				int32_t dx = ev->value.mouse.x - longPressX;
 				int32_t dy = ev->value.mouse.y - longPressY;
 				if(dx*dx + dy*dy > LONG_PRESS_SLOP*LONG_PRESS_SLOP)
 					longPressPending = false;
 			}
-			lock();
-			if(!dragSelActive) {
-				/* first real movement: replace the old selection */
-				gterminal_select_begin_at(&terminal, anchorPos.x, anchorPos.y);
-				dragSelActive = true;
+			if(selMode) {
+				/* double-click armed selection mode: this drag selects */
+				lock();
+				if(!dragSelActive) {
+					/* first real movement: replace the old selection */
+					gterminal_select_begin_at(&terminal, anchorPos.x, anchorPos.y);
+					dragSelActive = true;
+				}
+				gpos_t p = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
+				/* Dragging past the edges pages through the history while the
+				 * selection keeps growing: above the top reveals newer rows,
+				 * below the bottom reveals older rows (finger-drag semantics,
+				 * same direction as the plain drag-scroll gesture). */
+				if(p.y < 0)
+					gterminal_scroll(&terminal, 1);
+				else if(p.y >= (int32_t)area.h)
+					gterminal_scroll(&terminal, -1);
+				gterminal_select_extend_at(&terminal, p.x, p.y);
+				unlock();
+				update();
+				return true;
 			}
-			gpos_t p = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-			/* Dragging past the edges pages through the history while the
-			 * selection keeps growing: above the top reveals newer rows,
-			 * below the bottom reveals older rows (finger-drag semantics,
-			 * same direction as the old drag-scroll gesture). */
-			if(p.y < 0)
-				gterminal_scroll(&terminal, 1);
-			else if(p.y >= (int32_t)area.h)
-				gterminal_scroll(&terminal, -1);
-			gterminal_select_extend_at(&terminal, p.x, p.y);
+			/* plain drag anywhere: page through the history (finger down
+			 * reveals older rows, finger up reveals newer) */
+			lock();
+			bool needUpdate = false;
+			if(ev->value.mouse.y > mouse_last_y)
+				needUpdate = gterminal_scroll(&terminal, -1);
+			else if(ev->value.mouse.y < mouse_last_y)
+				needUpdate = gterminal_scroll(&terminal, 1);
+			mouse_last_y = ev->value.mouse.y;
 			unlock();
-			update();
+			if(needUpdate)
+				update();
 			return true;
 		}
 
 		if(ev->state == MOUSE_STATE_UP) {
-			scrollDragging = false;
 			longPressPending = false;
 			lock();
 			gterminal_select_end(&terminal);
 			unlock();
+			if(dragSelActive)
+				selMode = false;   /* the selection drag consumed the armed mode */
 			update();
 			return true;
 		}
 
 		if(ev->state == MOUSE_STATE_CLICK) {
-			if(pressInScrollbar) {
-				/* tap on the scrollbar strip: no selection, no keyboard toggle */
-				pressInScrollbar = false;
-				return true;
-			}
 			if(longPressTriggered) {
 				/* release of the long-press finger: keep the selection for
 				 * Copy, don't toggle the soft keyboard */
 				longPressTriggered = false;
 				return true;
 			}
+			if(doublePress) {
+				/* release of the second click of a double-click: selection
+				 * mode was already armed at its press, no keyboard toggle */
+				doublePress = false;
+				return true;
+			}
 			/* plain tap: clear the selection, toggle the soft keyboard */
+			lastClickTime = kernel_tic_ms(0);
+			lastClickX = ev->value.mouse.x;
+			lastClickY = ev->value.mouse.y;
+			selMode = false;
 			lock();
 			gterminal_select_clear(&terminal);
 			unlock();
@@ -497,6 +500,8 @@ protected:
 				(kernel_tic_ms(0) - longPressTime) >= LONG_PRESS_MS) {
 			longPressTriggered = true;
 			longPressPending = false;
+			selMode = false;     /* long-press gesture disarms selection mode */
+			doublePress = false; /* its release CLICK is swallowed here */
 			if(!pressInSel) {
 				lock();
 				gterminal_select_clear(&terminal);

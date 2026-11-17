@@ -144,14 +144,18 @@ char* gterminal_select_copy(gterminal_t* terminal) {
     /* pass 1: exact UTF-8 byte count, trailing blanks trimmed */
     uint32_t total = 0;
     for(int32_t row = r1; row <= r2; row++) {
-        int32_t end = c2;
-        while(end >= c1) {
+        /* per-row range: only the first row is clipped on the left (c1) and
+         * only the last row on the right (c2); middle rows copy whole lines,
+         * matching the full-row highlight */
+        int32_t start = (row == r1) ? c1 : 0;
+        int32_t end = (row == r2) ? c2 : (int32_t)tg->cols - 1;
+        while(end >= start) {
             UNICODE16 ch = tg->grid[row * tg->cols + end].c;
             if(ch != 0 && ch != ' ')
                 break;
             end--;
         }
-        for(int32_t col = c1; col <= end; col++) {
+        for(int32_t col = start; col <= end; col++) {
             UNICODE16 ch = tg->grid[row * tg->cols + col].c;
             if(ch == 0)
                 ch = ' ';
@@ -166,14 +170,15 @@ char* gterminal_select_copy(gterminal_t* terminal) {
 
     uint32_t oi = 0;
     for(int32_t row = r1; row <= r2; row++) {
-        int32_t end = c2;
-        while(end >= c1) {
+        int32_t start = (row == r1) ? c1 : 0;
+        int32_t end = (row == r2) ? c2 : (int32_t)tg->cols - 1;
+        while(end >= start) {
             UNICODE16 ch = tg->grid[row * tg->cols + end].c;
             if(ch != 0 && ch != ' ')
                 break;
             end--;
         }
-        for(int32_t col = c1; col <= end; col++) {
+        for(int32_t col = start; col <= end; col++) {
             UNICODE16 ch = tg->grid[row * tg->cols + col].c;
             if(ch == 0)
                 ch = ' ';
