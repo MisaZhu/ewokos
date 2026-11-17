@@ -2,6 +2,7 @@
 #define CURSOR_H
 
 #include <graph/graph.h>
+#include <x/xtheme.h>
 
 enum {
 	CURSOR_MOUSE=0,
@@ -24,6 +25,9 @@ typedef struct {
 
 	uint32_t type;
 	bool down;
+	/*theme the current assets were loaded from: a mouse/touch type switch
+	  reloads the cursor set of the same theme (mouse.json vs touch.json)*/
+	char theme[THEME_NAME_MAX];
 	/*hidpi: cursor_init prefers the 2x cursor_hidpi assets and scales
 	  the json offsets up by 2*/
 	bool hidpi;

@@ -71,6 +71,11 @@ void cursor_init(const char* theme, cursor_t* cursor) {
     if(theme == NULL || theme[0] == 0 || cursor == NULL)
         return;
 
+    /*remember the theme so a later mouse/touch type switch can reload the
+      matching cursor set without the caller knowing the theme name*/
+    strncpy(cursor->theme, theme, THEME_NAME_MAX-1);
+    cursor->theme[THEME_NAME_MAX-1] = 0;
+
     if(cursor->img != NULL)
         graph_free(cursor->img);
     cursor->img = NULL;

@@ -79,7 +79,9 @@ static const char* _default_touch0 = "/dev/touch0";
 static void input(uint16_t state, int16_t tx, int16_t ty) {
     xevent_t ev;
     memset(&ev, 0, sizeof(xevent_t));
-    ev.type = XEVT_MOUSE;
+    /*touchscreen samples are XEVT_TOUCH, not XEVT_MOUSE: the server hides
+      the pointer for touch input (a mouse event would keep showing it)*/
+    ev.type = XEVT_TOUCH;
     ev.state = MOUSE_STATE_MOVE;
     ev.value.mouse.relative = 0;
     if(_xtouch.x_rev)
@@ -250,7 +252,7 @@ static void tp_mouse(int state, int button, int rx, int ry) {
     if(_mouse_mode)
         ev.type = XEVT_MOUSE_TPAD;
     else
-        ev.type = XEVT_MOUSE;
+        ev.type = XEVT_TOUCH;
 
     ev.state = state;
     ev.value.mouse.relative = 1;
