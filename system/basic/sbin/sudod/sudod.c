@@ -244,6 +244,13 @@ static int sudod_job_alloc(void) {
     return -1;
 }
 
+/* Report a spawn failure on the client's stderr pipe so sudo never fails
+   silently; the worker still sends the exit status on the control pipe. */
+static void worker_error(int err_w, const char* msg) {
+    if(err_w >= 0)
+        (void)write(err_w, msg, strlen(msg));
+}
+
 static void spawn_worker(int in_r, session_info_t* target, const char* cmdline,
                          int shm_out, int shm_err, int shm_ctl) {
     /* Reparent to init so sudod never accumulates our zombie. */
@@ -254,6 +261,7 @@ static void spawn_worker(int in_r, session_info_t* target, const char* cmdline,
     if(vfs_pipe_attach(shm_out, &out_w) != 0 ||
             vfs_pipe_attach(shm_err, &err_w) != 0 ||
             vfs_pipe_attach(shm_ctl, &ctl_w) != 0) {
+        worker_error(err_w, "sudo: cannot attach output pipes\n");
         if(ctl_w >= 0)
             (void)write(ctl_w, &fail, sizeof(fail));
         close(in_r);
@@ -265,6 +273,7 @@ static void spawn_worker(int in_r, session_info_t* target, const char* cmdline,
 
     int cpid = fork();
     if(cpid < 0) {
+        worker_error(err_w, "sudo: fork failed\n");
         (void)write(ctl_w, &fail, sizeof(fail));
         close(in_r); close(out_w); close(err_w); close(ctl_w);
         exit(-1);
@@ -272,20 +281,31 @@ static void spawn_worker(int in_r, session_info_t* target, const char* cmdline,
 
     if(cpid == 0) {
         /* Command: wire stdio to the client's pipes, switch identity, exec. */
-        if(dup2(in_r, 0) < 0 || dup2(out_w, 1) < 0 || dup2(err_w, 2) < 0)
+        if(dup2(in_r, 0) < 0 || dup2(out_w, 1) < 0 || dup2(err_w, 2) < 0) {
+            worker_error(err_w, "sudo: cannot wire command stdio\n");
             exit(126);
+        }
         close(in_r);
         close(out_w);
         close(err_w);
         close(ctl_w);
 
         /* gid before uid: setuid to a real user (uid>0) drops our caps. */
-        if(setgid(target->gid) != 0 || setuid(target->uid) != 0)
+        if(setgid(target->gid) != 0 || setuid(target->uid) != 0) {
+            char msg[128];
+            snprintf(msg, sizeof(msg), "sudo: cannot switch to user %s: %s\n",
+                     target->user, strerror(errno));
+            worker_error(2, msg);
             exit(126);
+        }
 
         setenv("USER", target->user);
         setenv("HOME", target->home);
         proc_exec(cmdline);   /* replaces this image; returns only on failure */
+        char msg[FS_FULL_NAME_MAX + 128];
+        snprintf(msg, sizeof(msg), "sudo: unable to execute %s: %s\n",
+                 cmdline, errno != 0 ? strerror(errno) : "exec failed");
+        worker_error(2, msg);
         exit(127);
     }
 
