@@ -4,7 +4,7 @@
 #include <font/font.h>
 #include <tinyjson/tinyjson.h>
 #include <graph/graph_image.h>
-#include <x/x.h>
+#include <x++/X.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <ewoksys/vdevice.h>
