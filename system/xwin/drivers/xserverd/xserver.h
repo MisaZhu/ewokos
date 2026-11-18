@@ -247,6 +247,12 @@ typedef struct {
 	bool    phys_kbd_connected;
 	/*tic (ms) of the last /dev/keyb* connection probe, for XIM_KBD_POLL_MS*/
 	uint64_t last_kbd_probe_ms;
+	/*the focused window opened an input session (callXIM(true)) that was
+	  never revoked. Unlike win_xim_actived this survives the physical-
+	  keyboard hide, so the unplug edge knows whether an input session is
+	  still open and the XIM may come back; cleared on callXIM(false),
+	  unfocus and window close.*/
+	bool    xim_wanted;
 	/*tic (ms) of the last IME input event: touchpad events landing within
 	  X_IM_TPAD_SUPPRESS_MS of it are dropped (palm rejection)*/
 	uint64_t last_im_ms;

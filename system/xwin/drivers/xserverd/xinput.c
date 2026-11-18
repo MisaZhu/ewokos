@@ -478,6 +478,15 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
     if(active >= 2) {
         if(!x->current.mt_session) {
             if(x->current.mt_synth_down) {
+                /*a second finger turns the gesture multi: cancel the lone
+                  press without letting it click. Push the press origin out
+                  of click range so mouse_xwin_handle delivers a plain UP
+                  (clearing any pressed key/button state in the client) but
+                  can never promote the release to CLICK - otherwise landing
+                  two fingers on the on-screen keyboard would type the key
+                  under the first finger.*/
+                x->mouse_state.down_pos.x = x->mouse_state.last_pos.x + 10000;
+                x->mouse_state.down_pos.y = x->mouse_state.last_pos.y + 10000;
                 mt_synth_mouse(x, MOUSE_STATE_UP,
                         x->mouse_state.last_pos.x, x->mouse_state.last_pos.y);
                 x->current.mt_synth_down = false;

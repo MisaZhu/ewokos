@@ -744,16 +744,24 @@ int xwin_call_xim(x_t* x, proto_t* in, proto_t* out) {
         return -1;
     }
 
-    if(proto_read_int(in) == 0)
+    if(proto_read_int(in) == 0) {
+        /*the input session is over: the unplug edge must not revive the XIM*/
+        x->im_state.xim_wanted = false;
         hide_win(x, x->im_state.win_xim);
-    else if(x->im_state.phys_kbd_connected)
-        /*a physical keyboard (USB/BT) is attached: refuse to pop the
-          on-screen XIM and make sure it is down. phys_kbd_connected is a
-          cached flag refreshed by the paced probe in xserver_step, so this
-          runs without any IPC under the server lock.*/
-        hide_win(x, x->im_state.win_xim);
-    else
-        show_win(x, x->im_state.win_xim);
+    }
+    else {
+        /*remember the open input session even when a physical keyboard
+          forces the XIM down: the unplug edge restores it only while wanted*/
+        x->im_state.xim_wanted = true;
+        if(x->im_state.phys_kbd_connected)
+            /*a physical keyboard (USB/BT) is attached: refuse to pop the
+              on-screen XIM and make sure it is down. phys_kbd_connected is a
+              cached flag refreshed by the paced probe in xserver_step, so this
+              runs without any IPC under the server lock.*/
+            hide_win(x, x->im_state.win_xim);
+        else
+            show_win(x, x->im_state.win_xim);
+    }
     PF->clear(out)->addi(out, 0);
     return 0;
 }

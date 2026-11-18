@@ -305,6 +305,20 @@ class XIMIOS : public XWin {
     /* Double-tap shift detection */
     uint32_t lastShiftTap;
 
+    /* Two-finger drag: raw multi-touch contact frames (XEVT_TOUCH_MT) */
+    struct MTContact {
+        bool active;
+        int32_t x, y;
+    };
+    MTContact mtContacts[X_TOUCH_MAX];
+    bool mtDragging;
+    int32_t mtAnchorX, mtAnchorY;  /* contact midpoint at drag start */
+    int32_t mtStartX, mtStartY;    /* window origin at drag start */
+
+    /* Expanded panel placement, remembered across hide/show */
+    bool hasPlace;
+    int placeX, placeY;
+
 protected:
     /* --- Layout computation --- */
     void computeResponsiveParams(int w, int h) {
@@ -764,7 +778,7 @@ protected:
     /* --- Mouse/Touch events --- */
     void doMouseEvent(xevent_t* ev) {
         if(hideMode) {
-            if(ev->state == MOUSE_STATE_CLICK || ev->state == MOUSE_STATE_UP) {
+            if(ev->state == MOUSE_STATE_CLICK) {
                 changeMode(false);
             }
             return;
@@ -791,14 +805,142 @@ protected:
             }
         }
         else if(ev->state == MOUSE_STATE_UP || ev->state == MOUSE_STATE_CLICK) {
+            /*only a CLICK types: a plain UP can be the server cancelling the
+              synthetic press when a second finger lands for a drag*/
             int idx = hitTest(x, y);
-            if(idx >= 0 && idx == pressedKey) {
+            if(ev->state == MOUSE_STATE_CLICK && idx >= 0 && idx == pressedKey) {
                 doKeyAction(idx);
             }
             pressedKey = -1;
             popupKey = -1;
             repaint();
         }
+    }
+
+    /* --- Two-finger drag --- */
+    void clampToScreen(int& x, int& y, int w, int h) {
+        if(x < 0) x = 0;
+        if(y < 0) y = 0;
+        if(x > scrSize.w - w) x = scrSize.w - w;
+        if(y > scrSize.h - h) y = scrSize.h - h;
+    }
+
+    /* Released near a screen edge: snap flush to the closest of the four
+       edges; otherwise keep the free position. Either way remember the
+       placement so hide/show restores it. */
+    void snapToEdge() {
+        xinfo_t xi;
+        if(!getInfo(xi))
+            return;
+        int w = xi.wsr.w, h = xi.wsr.h;
+        int x = xi.wsr.x, y = xi.wsr.y;
+
+        int dl = x;
+        int dr = scrSize.w - (x + w);
+        int dt = y;
+        int db = scrSize.h - (y + h);
+        int best = dl, edge = 0; /*0 left, 1 right, 2 top, 3 bottom*/
+        if(dr < best) { best = dr; edge = 1; }
+        if(dt < best) { best = dt; edge = 2; }
+        if(db < best) { best = db; edge = 3; }
+
+        if(best <= X::hidpiSize(48)) {
+            if(edge == 0) x = 0;
+            else if(edge == 1) x = scrSize.w - w;
+            else if(edge == 2) y = 0;
+            else y = scrSize.h - h;
+        }
+        clampToScreen(x, y, w, h);
+        if(x != xi.wsr.x || y != xi.wsr.y)
+            moveTo(x, y);
+        placeX = x;
+        placeY = y;
+        hasPlace = true;
+    }
+
+    /* Frames carry contact EDGES (press/move/release of what changed), not
+       the full active set: a stationary finger is absent and keeps its
+       state; a RELEASE edge clears exactly that id */
+    void mtApply(xevent_t* ev) {
+        int n = ev->state;
+        if(n < 0) n = 0;
+        if(n > X_TOUCH_MAX) n = X_TOUCH_MAX;
+        for(int i = 0; i < n; i++) {
+            touch_evt_t* t = &ev->value.touch.touchs[i];
+            if(t->id >= X_TOUCH_MAX)
+                continue;
+            if(t->state == TOUCH_STATE_RELEASE) {
+                mtContacts[t->id].active = false;
+            }
+            else {
+                mtContacts[t->id].active = true;
+                mtContacts[t->id].x = t->x;
+                mtContacts[t->id].y = t->y;
+            }
+        }
+    }
+
+    void mtAct() {
+        int active = 0, cx = 0, cy = 0;
+        for(int i = 0; i < X_TOUCH_MAX; i++) {
+            if(!mtContacts[i].active)
+                continue;
+            active++;
+            cx += mtContacts[i].x;
+            cy += mtContacts[i].y;
+        }
+
+        if(active >= 2) {
+            /*the second finger cancels any key press (the server releases
+              the synthetic mouse press without a click)*/
+            if(pressedKey >= 0 || popupKey >= 0) {
+                pressedKey = -1;
+                popupKey = -1;
+                repaint();
+            }
+            /*drag by the midpoint travel of all active contacts*/
+            cx /= active;
+            cy /= active;
+            xinfo_t xi;
+            if(!getInfo(xi))
+                return;
+            if(!mtDragging) {
+                mtDragging = true;
+                mtAnchorX = cx;
+                mtAnchorY = cy;
+                mtStartX = xi.wsr.x;
+                mtStartY = xi.wsr.y;
+            }
+            int nx = mtStartX + (cx - mtAnchorX);
+            int ny = mtStartY + (cy - mtAnchorY);
+            clampToScreen(nx, ny, xi.wsr.w, xi.wsr.h);
+            if(nx != xi.wsr.x || ny != xi.wsr.y)
+                moveTo(nx, ny);
+        }
+        else if(active == 0) {
+            if(mtDragging) {
+                mtDragging = false;
+                snapToEdge();
+            }
+            memset(mtContacts, 0, sizeof(mtContacts));
+        }
+        /*one finger left mid-gesture: hold position until every finger lifts*/
+    }
+
+    void doTouchEvent(xevent_t* ev) {
+        mtApply(ev);
+        /*coalesce the backlog: touch frames arrive faster than the move
+          round-trips drain, so apply every queued contact frame first and
+          move once per batch; anything else routes as x_run() would*/
+        xevent_t more;
+        int guard = 0;
+        while(guard++ < 64 && x_poll_event(getCWin()->x, &more) == 0) {
+            if(more.type == XEVT_TOUCH_MT)
+                mtApply(&more);
+            else
+                xwin_dispatch_event(getCWin()->x, &more);
+        }
+        mtAct();
     }
 
     /* --- Physical keyboard / IM events --- */
@@ -849,6 +991,9 @@ protected:
         else if(ev->type == XEVT_IM) {
             doIMEvent(ev);
         }
+        else if(ev->type == XEVT_TOUCH_MT) {
+            doTouchEvent(ev);
+        }
     }
 
     /* --- Mode management --- */
@@ -874,11 +1019,25 @@ protected:
             h = scrSize.h / 2;
 
         resizeTo(w, h);
-        moveTo((scrSize.w - w) / 2, scrSize.h - h);
+        int x = (scrSize.w - w) / 2;
+        int y = scrSize.h - h;
+        if(hasPlace) { /*restore the dragged/snapped placement*/
+            x = placeX;
+            y = placeY;
+        }
+        clampToScreen(x, y, w, h);
+        moveTo(x, y);
     }
 
     void onShow(void) {
         changeMode(false);
+    }
+
+    void onHide(void) {
+        /*the server put the XIM down (e.g. a physical keyboard attached):
+          drop any in-flight drag so stale contacts cannot move it later*/
+        mtDragging = false;
+        memset(mtContacts, 0, sizeof(mtContacts));
     }
 
 public:
@@ -898,6 +1057,12 @@ public:
         inputS[0] = 0;
         lastShiftTap = 0;
         keyCount = 0;
+        memset(mtContacts, 0, sizeof(mtContacts));
+        mtDragging = false;
+        mtAnchorX = mtAnchorY = 0;
+        mtStartX = mtStartY = 0;
+        hasPlace = false;
+        placeX = placeY = 0;
         fontSize = X::hidpiSize(14);
         keyGap = 4;
         rowGap = 6;

@@ -6,6 +6,8 @@ extern "C" {
 #endif
 
 #define MAX_ROWS 1024
+#define EXPAND_ROWS  16
+
 textgrid_t* textgrid_new(void) {
     textgrid_t* textgrid = (textgrid_t*)malloc(sizeof(textgrid_t));
     if(!textgrid)
@@ -20,6 +22,8 @@ void textgrid_free(textgrid_t* textgrid) {
         return;
     if(textgrid->grid)
         free(textgrid->grid);
+    if(textgrid->wrapped)
+        free(textgrid->wrapped);
     free(textgrid);
 }
 
@@ -28,6 +32,8 @@ void textgrid_clear(textgrid_t* textgrid) {
         return;
     if(textgrid->grid)
         free(textgrid->grid);
+    if(textgrid->wrapped)
+        free(textgrid->wrapped);
     uint32_t cols = textgrid->cols;
     uint32_t max_rows = textgrid->max_rows;
     memset(textgrid, 0, sizeof(textgrid_t));
@@ -43,6 +49,23 @@ int textgrid_set_max_rows(textgrid_t* textgrid, uint32_t max_rows) {
     return 0;
 }
 
+/* Produced length of a row for the reflow: a row that soft-wraps into the
+ * next contributes its full width; the last row of a logical line only
+ * contributes up to its last non-empty cell (trailing blanks are padding,
+ * not content). */
+static uint32_t row_content_len(const textgrid_t* tg, uint32_t r, bool continues) {
+    if(continues)
+        return tg->cols;
+    uint32_t len = 0;
+    for(uint32_t c = tg->cols; c > 0; c--) {
+        if(tg->grid[(size_t)r * tg->cols + (c - 1)].c != 0) {
+            len = c;
+            break;
+        }
+    }
+    return len;
+}
+
 int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
     if(!textgrid || cols == 0)
         return -1;
@@ -52,38 +75,138 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
 
     textchar_t* p = textgrid->grid;
     uint32_t rows = textgrid->rows;
-    uint32_t total_rows = textgrid->total_rows;
-    if(p == NULL || old_cols == 0 || total_rows == 0) {
+    if(p == NULL || old_cols == 0 || rows == 0) {
         textgrid->cols = cols;
         return 0;
     }
 
-    /* A push-based reflow is impossible here: the grid stores neither blank
-     * cells (textgrid_push drops c==0) nor row separators (CR/LF are cursor
-     * moves, never cells), so re-pushing glues every row into one dense
-     * character stream and turns the screen into garbage. Keep each produced
-     * row as its own row instead: copy the shared column span, truncate or
-     * pad the rest, and leave the unproduced capacity blank. */
-    uint32_t copy_cols = old_cols < cols ? old_cols : cols;
-    textchar_t* ng = (textchar_t*)malloc((size_t)cols * total_rows * sizeof(textchar_t));
-    if(ng == NULL)
-        return -1;
-    memset(ng, 0, (size_t)cols * total_rows * sizeof(textchar_t));
-    for(uint32_t r = 0; r < rows; r++)
-        memcpy(&ng[(size_t)r * cols], &p[(size_t)r * old_cols],
-                (size_t)copy_cols * sizeof(textchar_t));
-    free(p);
+    /* Reflow: regroup the produced rows into logical lines using the
+     * soft-wrap flags, then re-wrap every logical line at the new width.
+     * A narrower grid (bigger font) spills the overflow onto continuation
+     * rows instead of truncating it; a wider grid joins continuation rows
+     * back together. Hard breaks (explicit newlines / cursor addressing)
+     * stay breaks, so no content is lost and no rows get glued together. */
+    const uint8_t* wrapped = textgrid->wrapped;
 
+    /* pass 1: total reflowed row count, plus the cursor's absolute cell
+     * offset so it can follow its text through the reflow. */
+    uint32_t new_rows = 0;
+    uint32_t curs_off = 0;
+    uint32_t curs_y = (uint32_t)textgrid->curs_y;
+    if(curs_y >= rows)
+        curs_y = rows - 1;
+    uint32_t r = 0;
+    while(r < rows) {
+        uint32_t line_len = 0;
+        do {
+            bool continues = (r + 1 < rows) && wrapped != NULL && wrapped[r + 1] != 0;
+            uint32_t len = row_content_len(textgrid, r, continues);
+            if(r < curs_y) {
+                curs_off += len;
+            }
+            else if(r == curs_y) {
+                uint32_t cx = (uint32_t)textgrid->curs_x;
+                if(cx > len)
+                    cx = len;
+                curs_off += cx;
+            }
+            line_len += len;
+            r++;
+        } while(r < rows && wrapped != NULL && wrapped[r] != 0);
+        new_rows += (line_len == 0) ? 1 : (line_len + cols - 1) / cols;
+    }
+
+    /* Reflow can grow the row count past the scrollback cap: drop the
+     * oldest rows like a normal scrollback overflow, never the newest. */
+    uint32_t max_rows = textgrid->max_rows;
+    uint32_t drop = (new_rows > max_rows) ? (new_rows - max_rows) : 0;
+    uint32_t keep_rows = new_rows - drop;
+    uint32_t new_total = keep_rows + EXPAND_ROWS;
+    if(new_total > max_rows)
+        new_total = max_rows;
+
+    if(cols == 0 || new_total > (UINT32_MAX / sizeof(textchar_t)) / cols)
+        return -1;
+    textchar_t* ng = (textchar_t*)malloc((size_t)cols * new_total * sizeof(textchar_t));
+    uint8_t* nw = (uint8_t*)malloc(new_total);
+    if(ng == NULL || nw == NULL) {
+        free(ng);
+        free(nw);
+        return -1;
+    }
+    memset(ng, 0, (size_t)cols * new_total * sizeof(textchar_t));
+    memset(nw, 0, new_total);
+
+    /* pass 2: copy the cells, re-wrapping at the new width; rows below the
+     * drop cutoff are skipped (their storage was never allocated). */
+    uint32_t out_row = 0;
+    uint32_t out_col = 0;
+    r = 0;
+    while(r < rows) {
+        uint32_t group_end = r;
+        while(group_end + 1 < rows && wrapped != NULL && wrapped[group_end + 1] != 0)
+            group_end++;
+        bool any = false;
+        for(uint32_t rr = r; rr <= group_end; rr++) {
+            uint32_t len = row_content_len(textgrid, rr, rr < group_end);
+            for(uint32_t c = 0; c < len; c++) {
+                if(out_row >= drop) {
+                    uint32_t dr = out_row - drop;
+                    /* first cell of a continuation row marks the soft wrap */
+                    if(out_col == 0 && (rr > r || c > 0))
+                        nw[dr] = 1;
+                    ng[(size_t)dr * cols + out_col] = p[(size_t)rr * old_cols + c];
+                }
+                any = true;
+                out_col++;
+                if(out_col == cols) {
+                    out_col = 0;
+                    out_row++;
+                }
+            }
+        }
+        if(!any) {
+            out_row++;      /* an empty logical line keeps its own blank row */
+        }
+        else if(out_col != 0) {
+            out_row++;
+            out_col = 0;
+        }
+        r = group_end + 1;
+    }
+    if(drop > 0)
+        nw[0] = 0;  /* the oldest kept row starts a logical line */
+
+    /* map the cursor through the same cell offset */
+    int32_t ny = (int32_t)(curs_off / cols) - (int32_t)drop;
+    int32_t nx = (int32_t)(curs_off % cols);
+    if(ny < 0) {
+        ny = 0;
+        nx = 0;
+    }
+    else if(ny >= (int32_t)keep_rows) {
+        /* the offset landed exactly at the end of the text: keep the
+         * pending-wrap state on the last row (curs_x == cols, like push
+         * leaves it) so the next char appends instead of overwriting */
+        ny = (int32_t)keep_rows - 1;
+        nx = (int32_t)cols;
+    }
+
+    free(p);
+    free(textgrid->wrapped);
     textgrid->grid = ng;
+    textgrid->wrapped = nw;
     textgrid->cols = cols;
-    if(textgrid->curs_x >= (int32_t)cols)
-        textgrid->curs_x = (int32_t)cols - 1;
+    textgrid->rows = keep_rows;
+    textgrid->total_rows = new_total;
+    textgrid->curs_x = nx;
+    textgrid->curs_y = ny;
 
     /* tail_col describes the last produced row, recompute it for the new stride. */
     int32_t tail = 0;
-    if(rows > 0) {
+    if(keep_rows > 0) {
         for(uint32_t c = cols; c > 0; c--) {
-            if(ng[(size_t)(rows - 1) * cols + (c - 1)].c != 0) {
+            if(ng[(size_t)(keep_rows - 1) * cols + (c - 1)].c != 0) {
                 tail = (int32_t)(c - 1);
                 break;
             }
@@ -92,8 +215,6 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
     textgrid->tail_col = tail;
     return 0;
 }
-
-#define EXPAND_ROWS  16
 
 static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
     if(grid == NULL || grid->cols == 0)
@@ -112,6 +233,11 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
         if(grid->cols == 0 ||
                 rows_new > (UINT32_MAX / sizeof(textchar_t)) / grid->cols)
             return -1;
+        /* grow the wrap flags first: if this fails the grid stays untouched */
+        uint8_t* new_wrapped = (uint8_t*)realloc(grid->wrapped, rows_new);
+        if(new_wrapped == NULL)
+            return -1;
+        grid->wrapped = new_wrapped;
         textchar_t* new_grid = (textchar_t*)realloc(grid->grid,
             (grid->cols*(rows_new))* sizeof(textchar_t));
         if(new_grid == NULL)
@@ -134,6 +260,7 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
                 uint32_t at1 = (r * grid->cols) + c;
                 memcpy(&grid->grid[at0], &grid->grid[at1], sizeof(textchar_t));
             }
+            grid->wrapped[r-rows] = grid->wrapped[r];
         }
         grid->rows -= rows;
         if(grid->rows == 0)
@@ -141,6 +268,9 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
         else
             grid->curs_y = grid->rows-1;
         grid->curs_x = 0;
+        /* the oldest kept row lost its predecessor: it starts a logical line */
+        if(grid->rows > 0)
+            grid->wrapped[0] = 0;
         
         // Shrink memory to match new total_rows
         if(grid->total_rows > 0) {
@@ -151,6 +281,9 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
             textchar_t* new_grid = (textchar_t*)realloc(grid->grid, new_size * sizeof(textchar_t));
             if(new_grid != NULL)
                 grid->grid = new_grid;
+            uint8_t* new_wrapped = (uint8_t*)realloc(grid->wrapped, grid->total_rows);
+            if(new_wrapped != NULL)
+                grid->wrapped = new_wrapped;
         }
     }
 
@@ -159,6 +292,7 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
             uint32_t at = (r * grid->cols) + c;
             memset(&grid->grid[at], 0, sizeof(textchar_t));
         }
+        grid->wrapped[r] = 0;
     }
     return 0;
 }
@@ -177,6 +311,9 @@ int textgrid_put(textgrid_t* textgrid, int x, int y, textchar_t* tc) {
     }
 
     if((uint32_t)(y + 1) >= textgrid->rows) {
+        /* cursor-addressed rows are hard breaks, never soft-wrap continuations */
+        for(uint32_t r = textgrid->rows; r <= (uint32_t)y; r++)
+            textgrid->wrapped[r] = 0;
         textgrid->tail_col = x;
         textgrid->rows = y+1;
     }
@@ -232,12 +369,14 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
     }
 
     bool new_line = false;
+    bool soft_wrap = false;
     /* curs_x is the column about to be written, so it may address the last
      * column (cols-1); wrapping here one column early would spill the final
      * char of every full-width line onto the next row and grow rows by a
      * phantom line, which scrolls the visible window up one row. */
     if((uint32_t)grid->curs_x >= grid->cols || grid->rows == 0) { //new line needed
         new_line = true;
+        soft_wrap = (grid->rows != 0);  /* overflow wrap, not the first row */
         grid->curs_x = 0;
     }
 
@@ -250,6 +389,8 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
             grid->curs_y++;
         if((uint32_t)grid->curs_y >= grid->rows)
             grid->rows = grid->curs_y+1;
+        /* remember soft wraps so a later width change can reflow the text */
+        grid->wrapped[grid->curs_y] = soft_wrap ? 1 : 0;
     }
 
     uint32_t at = (grid->curs_y)*grid->cols + grid->curs_x;
@@ -268,6 +409,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
             grid->curs_y++;
         if((uint32_t)grid->curs_y >= grid->rows)
             grid->rows = grid->curs_y+1;
+        grid->wrapped[grid->curs_y] = 0;  /* explicit break, never a soft wrap */
         grid->curs_x = 0;
         return 0;
     }
@@ -294,6 +436,9 @@ int textgrid_move_to(textgrid_t* textgrid, int32_t x, int32_t y) {
     }
 
     if((uint32_t)(y + 1) >= textgrid->rows) {
+        /* cursor-addressed rows are hard breaks, never soft-wrap continuations */
+        for(uint32_t r = textgrid->rows; r <= (uint32_t)y; r++)
+            textgrid->wrapped[r] = 0;
         textgrid->tail_col = x;
         textgrid->rows = y+1;
     }

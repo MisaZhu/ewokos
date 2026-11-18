@@ -19,6 +19,7 @@ typedef struct {
 
 typedef struct {
 	textchar_t* grid;        // The grid buffer storing all text characters
+	uint8_t*  wrapped;       // Per-row flag: row is a soft-wrap continuation of the previous row
 	uint32_t max_rows;       // Maximum number of rows the grid can hold
 	uint32_t total_rows;     // Total allocated rows in the grid
 

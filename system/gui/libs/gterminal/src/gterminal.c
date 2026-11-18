@@ -1077,7 +1077,12 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     if(terminal->rows != old_rows || terminal->cols != old_cols)
         terminal->selection.visible = false;
 
-    textgrid_reset(terminal->textgrid, terminal->cols);
+    if(textgrid_reset(terminal->textgrid, terminal->cols) != 0) {
+        /* reflow allocation failed: keep the geometry matching the stored
+         * grid so the view never points past the cells */
+        terminal->rows = old_rows;
+        terminal->cols = old_cols;
+    }
     terminal->scroll_top = 0;
     terminal->scroll_bottom = UINT32_MAX;
     int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;
