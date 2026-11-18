@@ -587,6 +587,14 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
                   promoting the synthetic release to CLICK - otherwise a
                   drag would type the key under the first finger. The plain
                   UP still clears any pressed key/button state in the client.*/
+                /*the pending classification consumed the press frame, so the
+                  multi-press grab acquisition below (press>=0 with mt_session
+                  already true) never fires for a drag grown out of a lone
+                  press: adopt that press's window NOW, before the cancel UP
+                  drops mouse_grab, or the release-only lift finds no owner
+                  and is dropped - the client never sees the drag end*/
+                if(x->current.mt_grab == NULL)
+                    x->current.mt_grab = x->current.mouse_grab;
                 x->current.mt_no_click = true;
                 mt_synth_mouse(x, MOUSE_STATE_UP,
                         x->current.mt_last_x[x->current.mt_synth_id],

@@ -118,9 +118,9 @@ static void xterm_emit_echo(void* arg, const char* buf, int size) {
 #define DOUBLE_CLICK_MS   350 /* max gap between the two taps of a double-click */
 #define DOUBLE_CLICK_SLOP 24  /* max drift between the two tap positions */
 
-#define PINCH_FONT_MIN  6     /* font size range of the two-finger pinch zoom */
-#define PINCH_FONT_MAX  128
-#define PINCH_DIST_MIN  32    /* shortest finger distance a pinch is measured from */
+#define PINCH_FONT_MIN  X::hidpiSize(6)     /* font size range of the two-finger pinch zoom */
+#define PINCH_FONT_MAX  X::hidpiSize(128)
+#define PINCH_DIST_MIN  X::hidpiSize(32)    /* shortest finger distance a pinch is measured from */
 
 /* integer square root, for the finger distance of a pinch */
 static uint32_t isqrt(uint32_t v) {

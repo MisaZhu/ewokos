@@ -947,20 +947,14 @@ protected:
         if(y > scrSize.h - h) y = scrSize.h - h;
     }
 
-    /* Released: snap to the nearest of the eight docks - the four screen
-       corners plus the four edge midpoints. Remember the placement so
-       hide/show restores it. */
-    void snapToEdge() {
-        xinfo_t xi;
-        if(!getInfo(xi))
-            return;
-        int w = xi.wsr.w, h = xi.wsr.h;
-        int x = xi.wsr.x, y = xi.wsr.y;
-
+    /* The only placements the panel may occupy: the four screen corners
+       plus the four edge midpoints. Pick the dock nearest to (x, y). */
+    void nearestDock(int x, int y, int w, int h, int& outX, int& outY) {
         int xs[3] = {0, (scrSize.w - w) / 2, scrSize.w - w};
         int ys[3] = {0, (scrSize.h - h) / 2, scrSize.h - h};
         int64_t bestD = -1;
-        int bestX = x, bestY = y;
+        outX = x;
+        outY = y;
         for(int i = 0; i < 3; i++) {
             for(int j = 0; j < 3; j++) {
                 if(i == 1 && j == 1)
@@ -970,14 +964,25 @@ protected:
                 int64_t d = dx * dx + dy * dy;
                 if(bestD < 0 || d < bestD) {
                     bestD = d;
-                    bestX = xs[i];
-                    bestY = ys[j];
+                    outX = xs[i];
+                    outY = ys[j];
                 }
             }
         }
-        x = bestX;
-        y = bestY;
-        clampToScreen(x, y, w, h);
+        clampToScreen(outX, outY, w, h);
+    }
+
+    /* Drag end: the panel already sits on a dock (the drag snaps live);
+       settle it once more and remember the placement so hide/show
+       restores it. */
+    void snapToEdge() {
+        xinfo_t xi;
+        if(!getInfo(xi)) {
+            return;
+        }
+        int w = xi.wsr.w, h = xi.wsr.h;
+        int x, y;
+        nearestDock(xi.wsr.x, xi.wsr.y, w, h, x, y);
         if(x != xi.wsr.x || y != xi.wsr.y)
             moveTo(x, y);
         placeX = x;
@@ -1053,8 +1058,11 @@ protected:
             int nx = mtStartX + (cx - mtAnchorX);
             int ny = mtStartY + (cy - mtAnchorY);
             clampToScreen(nx, ny, xi.wsr.w, xi.wsr.h);
-            if(nx != xi.wsr.x || ny != xi.wsr.y)
+            /*the drag itself stays continuous - the panel follows the
+              fingers freely; only the release snaps it onto a dock*/
+            if(nx != xi.wsr.x || ny != xi.wsr.y) {
                 moveTo(nx, ny);
+            }
         }
         else if(active == 0) {
             if(mtDragging) {
@@ -1089,8 +1097,9 @@ protected:
         while(guard++ < 64 && x_poll_event(getCWin()->x, &more) == 0) {
             if(more.type == XEVT_TOUCH_MT)
                 mtApply(&more);
-            else
+            else {
                 xwin_dispatch_event(getCWin()->x, &more);
+            }
         }
         mtAct();
     }
