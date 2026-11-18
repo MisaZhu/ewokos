@@ -572,6 +572,8 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
           window once the last popup is gone.*/
         if(x->current.popup_grab == win)
             x->current.popup_grab = NULL;
+        if(x->current.mt_grab == win)
+            x->current.mt_grab = NULL;
         if(x->win_focus == win) {
             xwin_t* nf = get_top_focus_win(x, false);
             if(nf != NULL && nf != win)

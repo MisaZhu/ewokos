@@ -153,6 +153,17 @@ typedef struct {
 	  press outside it. Outranks win_drag and mouse_grab; the owner releases it
 	  explicitly, and it is dropped when the owner is deleted or hidden.*/
 	xwin_t* popup_grab;
+	/*multi-touch contact grab: armed when a frame with two or more active
+	  contacts presses into a window, held until every finger lifts so the
+	  whole gesture (moves, staggered releases) stays with the window the
+	  first press landed on. Raw XEVT_TOUCH_MT frames go to it untouched;
+	  the cursor is never moved by them. Dropped when the owner is deleted
+	  or hidden, like popup_grab.*/
+	xwin_t* mt_grab;
+	bool mt_session;    /*a multi-contact gesture is in progress (2+ fingers
+	                      landed); single-finger mouse synthesis stays off
+	                      until every finger lifts again*/
+	bool mt_synth_down; /*single-finger compat LEFT press is currently down*/
 	gpos_t old_pos;
 	gpos_t pos_delta;
 	uint32_t drag_state;

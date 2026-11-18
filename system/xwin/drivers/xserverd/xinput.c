@@ -1,32 +1,35 @@
 /*mouse/touch and IME input handling: pointer tracking, window hit
   testing, drag move/resize gestures and event routing to windows*/
 #include <stdlib.h>
+#include <string.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
 #include "xinput.h"
 #include "xwin.h"
 #include "xrepaint.h" //hide_cursor
 
-static int get_win_frame_pos(x_t* x, xwin_t* win) {
+static int win_frame_pos_at(x_t* x, xwin_t* win, int32_t px, int32_t py) {
     /*a decoration-less window (NO_FRAME|NO_TITLE) has empty hit areas, so the
       rect tests below simply match nothing and return -1. A NO_FRAME window
       that keeps its title still exposes its title/close/min/max areas (its
       resize area is empty), so it hit-tests like a normal window here.*/
     int res = -1;
-    if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_close))
+    if(check_in_rect(px, py, &win->r_close))
         res = FRAME_R_CLOSE;
-    else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_min))
+    else if(check_in_rect(px, py, &win->r_min))
         res = FRAME_R_MIN;
-    else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_max))
+    else if(check_in_rect(px, py, &win->r_max))
         res = FRAME_R_MAX;
-    else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_title))
+    else if(check_in_rect(px, py, &win->r_title))
         res = FRAME_R_TITLE;
-    else if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->r_resize))
+    else if(check_in_rect(px, py, &win->r_resize))
         res = FRAME_R_RESIZE;
     return res;
 }
 
-xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
+/*topmost visible window under an arbitrary point; win_frame_pos gets the
+  frame area hit (or -1 for the workspace part)*/
+static xwin_t* get_owner_at(x_t* x, int32_t px, int32_t py, int* win_frame_pos) {
     xwin_t* win = x->win_tail;
     if(win_frame_pos != NULL)
         *win_frame_pos = -1;
@@ -39,17 +42,21 @@ xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
             win = win->prev;
             continue;
         }
-        int pos = get_win_frame_pos(x, win);
+        int pos = win_frame_pos_at(x, win, px, py);
         if(pos >= 0) {
             if(win_frame_pos != NULL)
                 *win_frame_pos = pos;
             return win;
         }
-        if(check_in_rect(x->cursor.cpos.x, x->cursor.cpos.y, &win->xinfo->wsr))
+        if(check_in_rect(px, py, &win->xinfo->wsr))
             return win;
         win = win->prev;
     }
     return NULL;
+}
+
+xwin_t* get_mouse_owner(x_t* x, int* win_frame_pos) {
+    return get_owner_at(x, x->cursor.cpos.x, x->cursor.cpos.y, win_frame_pos);
 }
 
 int x_cursor_set_busy(x_t* x, bool busy) {
@@ -350,6 +357,129 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
     return 0;
 }
 
+/*one synthetic left-button mouse event for the single-finger touch
+  compatibility path: absolute position, routed exactly like the legacy
+  XEVT_TOUCH stream (mouse_handle promotes repeated DOWNs to DRAG and
+  derives the click from the down/up distance)*/
+static void mt_synth_mouse(x_t* x, int32_t state, int32_t px, int32_t py) {
+    xevent_t mev;
+    memset(&mev, 0, sizeof(mev));
+    mev.type = XEVT_MOUSE;
+    mev.state = state;
+    mev.value.mouse.relative = 0;
+    mev.value.mouse.x = px;
+    mev.value.mouse.y = py;
+    mev.value.mouse.button = MOUSE_BUTTON_LEFT;
+    mouse_handle(x, &mev);
+}
+
+/*multi-touch contact frames (XEVT_TOUCH_MT): the raw frame is delivered to
+  the window the gesture belongs to, and a lone finger additionally drives
+  the classic mouse semantics so existing clients keep working untouched.
+
+  - one active contact, no multi session: synthesize LEFT DOWN (every frame,
+    mouse_handle turns travel into DRAG) / UP on release, and deliver the
+    raw frame to the same window the mouse path grabbed;
+  - second finger lands: release any synthetic press, start a multi session
+    and grab the window under the first press (top/focus like a mouse DOWN);
+    from then on only raw frames flow, no mouse synthesis, so staggered
+    lifts back down to one finger cannot fire a phantom click;
+  - every finger lifted: end the session and drop the grab.*/
+static void touch_mt_handle(x_t* x, xevent_t* ev) {
+    int count = ev->state;
+    int active = 0;
+    int first = -1;    /* first non-release entry (hit-test anchor) */
+    int press = -1;    /* first press entry */
+    int release = -1;  /* first release entry (UP position fallback) */
+
+    if(count < 0)
+        count = 0;
+    if(count > X_TOUCH_MAX)
+        count = X_TOUCH_MAX;
+    for(int i = 0; i < count; i++) {
+        touch_evt_t* t = &ev->value.touch.touchs[i];
+        if(t->state != TOUCH_STATE_RELEASE) {
+            active++;
+            if(first < 0)
+                first = i;
+            if(t->state == TOUCH_STATE_PRESS && press < 0)
+                press = i;
+        }
+        else if(release < 0) {
+            release = i;
+        }
+    }
+
+    /*session transitions and single-finger mouse compatibility first, so
+      the raw delivery below can follow the mouse grab of a lone finger*/
+    if(active >= 2) {
+        if(!x->current.mt_session) {
+            if(x->current.mt_synth_down) {
+                mt_synth_mouse(x, MOUSE_STATE_UP,
+                        x->mouse_state.last_pos.x, x->mouse_state.last_pos.y);
+                x->current.mt_synth_down = false;
+            }
+            x->current.mt_session = true;
+        }
+    }
+    else if(x->current.mt_session) {
+        if(active == 0) {
+            x->current.mt_session = false;
+            x->current.mt_grab = NULL;
+        }
+    }
+    else if(active == 1) {
+        touch_evt_t* t = &ev->value.touch.touchs[first];
+        mt_synth_mouse(x, MOUSE_STATE_DOWN, t->x, t->y);
+        x->current.mt_synth_down = true;
+    }
+    else if(active == 0 && x->current.mt_synth_down) {
+        int32_t px = x->mouse_state.last_pos.x;
+        int32_t py = x->mouse_state.last_pos.y;
+        if(release >= 0) {
+            px = ev->value.touch.touchs[release].x;
+            py = ev->value.touch.touchs[release].y;
+        }
+        mt_synth_mouse(x, MOUSE_STATE_UP, px, py);
+        x->current.mt_synth_down = false;
+    }
+
+    /*raw frame delivery: mt_grab outranks, then a persistent popup grab,
+      then the mouse grab of a lone finger, then a fresh hit-test*/
+    xwin_t* win = x->current.mt_grab;
+    if(win != NULL && (win->xinfo == NULL || !win->xinfo->visible)) {
+        win = NULL;
+        x->current.mt_grab = NULL;
+    }
+    if(win == NULL && x->current.popup_grab != NULL) {
+        xwin_t* gwin = x->current.popup_grab;
+        if(gwin->xinfo == NULL || !gwin->xinfo->visible)
+            x->current.popup_grab = NULL;
+        else
+            win = gwin;
+    }
+    if(win == NULL && !x->current.mt_session && x->current.mouse_grab != NULL)
+        win = x->current.mouse_grab;
+    if(win == NULL && first >= 0) {
+        touch_evt_t* t = &ev->value.touch.touchs[first];
+        win = get_owner_at(x, t->x, t->y, NULL);
+        if(win != NULL && x->current.mt_session && press >= 0 &&
+                x->current.mt_grab == NULL) {
+            /*multi-finger press: bring the window up like a mouse DOWN and
+              hold the contact grab until every finger lifts*/
+            if(win != x->win_tail)
+                xwin_top(x, win);
+            else
+                try_focus(x, win);
+            x->current.mt_grab = win;
+        }
+    }
+    if(win != NULL)
+        x_push_event(x, win, ev);
+
+    x_repaint_req(x, x->current_display);
+}
+
 static int im_handle(x_t* x, int32_t from_pid, xevent_t* ev) {
     if(ev->state == XIM_STATE_PRESS && x->win_focus)
         x->im_state.down_win_fd = x->win_focus->fd;
@@ -409,7 +539,7 @@ void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
 
     if(ev->type == XEVT_MOUSE || ev->type == XEVT_MOUSE_TPAD)
         cursor_type_switch(x, CURSOR_MOUSE);
-    else if(ev->type == XEVT_TOUCH)
+    else if(ev->type == XEVT_TOUCH || ev->type == XEVT_TOUCH_MT)
         cursor_type_switch(x, CURSOR_TOUCH);
 
     if(ev->type == XEVT_IM || ev->type == XEVT_IM_VKEYB) {
@@ -431,5 +561,8 @@ void handle_input(x_t* x, int32_t from_pid, xevent_t* ev) {
         ev->type = XEVT_MOUSE;
         mouse_handle(x, ev);
         x_repaint_req(x, x->current_display);
+    }
+    else if(ev->type == XEVT_TOUCH_MT) {
+        touch_mt_handle(x, ev);
     }
 }
