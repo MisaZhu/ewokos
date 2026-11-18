@@ -119,7 +119,7 @@ static void xterm_emit_echo(void* arg, const char* buf, int size) {
 #define DOUBLE_CLICK_SLOP 24  /* max drift between the two tap positions */
 
 #define PINCH_FONT_MIN  6     /* font size range of the two-finger pinch zoom */
-#define PINCH_FONT_MAX  96
+#define PINCH_FONT_MAX  128
 #define PINCH_DIST_MIN  32    /* shortest finger distance a pinch is measured from */
 
 /* integer square root, for the finger distance of a pinch */

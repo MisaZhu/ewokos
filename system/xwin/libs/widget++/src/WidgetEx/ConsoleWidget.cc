@@ -167,18 +167,6 @@ bool ConsoleWidget::onIM(xevent_t* ev) {
 				gterminal_scroll(&terminal, 1);
 				update();
 			}
-			else if(c == KEY_LEFT) {
-				if(terminal.font_size > 5)
-					terminal.font_size--;
-				gterminal_resize(&terminal, area.w-scrollW, area.h);
-				update();
-			}
-			else if(c == KEY_RIGHT) {
-				if(terminal.font_size < 99)
-					terminal.font_size++;
-				gterminal_resize(&terminal, area.w-scrollW, area.h);
-				update();
-			}
 			else {
 				if(c != KEY_LSHIFT && c != KEY_RSHIFT && c != KEY_CTRL) {
 					input(c);

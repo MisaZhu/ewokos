@@ -74,8 +74,7 @@ enum KeyAction {
     KA_TO_ALPHA,
     KA_SPACE,
     KA_RETURN,
-    KA_GLOBE,
-    KA_DISMISS
+    KA_GLOBE
 };
 
 #define MAX_KEYS_PER_ROW 12
@@ -310,9 +309,6 @@ class XIMIOS : public XWin {
     /* Computed key positions */
     KeyRect keyRects[MAX_KEYS];
     int keyCount;
-
-    /* Hide mode */
-    bool hideMode;
 
     /* Input buffer for display */
     static const int INPUT_MAX = 128;
@@ -675,18 +671,6 @@ protected:
         /* Background */
         graph_fill_rect(g, 0, 0, g->w, g->h, IOS_BG_COLOR);
 
-        if(hideMode) {
-            /* Draw a small restore button */
-            int bw = g->w;
-            int bh = g->h;
-            graph_fill_round(g, 2, 2, bw-4, bh-4, 4, IOS_KEY_FUNC_COLOR);
-            const char* t = "...";
-            uint32_t tw;
-            font_text_size(t, font, fontSize, &tw, NULL);
-            graph_draw_text_font(g, (bw-tw)/2, (bh-fontSize)/2, t, font, fontSize, 0xFF000000);
-            return;
-        }
-
         /* Recompute layout if needed */
         computeKeyPositions(g->w, g->h);
 
@@ -779,7 +763,7 @@ protected:
 
     void keyTick() {
         uint32_t now = (uint32_t)kernel_tic_ms(0);
-        if(commitArmed && pressedKey >= 0 && !hideMode &&
+        if(commitArmed && pressedKey >= 0 &&
                 (int32_t)(now - commitAtMs) >= 0) {
             commitArmed = false;
             tapCommitted = true;
@@ -879,9 +863,6 @@ protected:
             shiftActive = false;
             reqRepaint();
             break;
-        case KA_DISMISS:
-            changeMode(true);
-            break;
         default: {
             /* Normal character key */
             char c = effectiveChar(kr);
@@ -899,21 +880,6 @@ protected:
 
     /* --- Mouse/Touch events --- */
     void doMouseEvent(xevent_t* ev) {
-        if(hideMode) {
-            if(ev->state == MOUSE_STATE_CLICK) {
-                /*only a click ON the restore button re-opens the panel:
-                  a stale grab can route taps from anywhere on screen to
-                  this hidden window, and those must not pop it back up
-                  (and start typing letters under the phantom finger)*/
-                gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
-                xinfo_t xi;
-                if(getInfo(xi) && pos.x >= 0 && pos.y >= 0 &&
-                        pos.x < xi.wsr.w && pos.y < xi.wsr.h)
-                    changeMode(false);
-            }
-            return;
-        }
-
         gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
         int x = pos.x;
         int y = pos.y;
@@ -1128,29 +1094,10 @@ protected:
     void doIMEvent(xevent_t* ev) {
         uint8_t c = ev->value.im.value;
 
-        if(ev->state == XIM_STATE_PRESS) {
-            if(hideMode)
-                return;
-            /* Pass through arrow keys for navigation when in hide mode */
+        if(ev->state == XIM_STATE_PRESS)
             return;
-        }
 
-        /* RELEASE events */
-        if(hideMode) {
-            if(c == KEY_UP || c == KEY_DOWN || c == KEY_LEFT ||
-               c == KEY_RIGHT || c == KEY_ENTER) {
-                inputX(c);
-                return;
-            }
-            changeMode(false);
-            return;
-        }
-
-        /* Handle joystick shortcuts like vkey does */
-        if(c == JOYSTICK_L1) {
-            changeMode(true);
-            return;
-        }
+        /* RELEASE events: joystick shortcuts */
         if(c == JOYSTICK_START) {
             input('\r');
             return;
@@ -1180,22 +1127,8 @@ protected:
         }
     }
 
-    /* --- Mode management --- */
-    void changeMode(bool hide) {
-        hideMode = hide;
-        if(hide) {
-            /*drop any armed key: a pressedKey surviving the dismiss would
-              let a later stray CLICK match it and type a phantom letter*/
-            cancelRepeat();
-            cancelCommit();
-            pressedKey = -1;
-            popupKey = -1;
-            int kw = 32;
-            resizeTo(kw, kw);
-            moveTo((scrSize.w - kw) / 2, scrSize.h - kw);
-            return;
-        }
-
+    /* --- Panel geometry --- */
+    void showPanel() {
         int w = scrSize.w;
         if(panelSize.w > 0)
             w = panelSize.w;
@@ -1220,7 +1153,7 @@ protected:
     }
 
     void onShow(void) {
-        changeMode(false);
+        showPanel();
     }
 
     void onHide(void) {
@@ -1273,7 +1206,6 @@ public:
         capsLock = false;
         pressedKey = -1;
         popupKey = -1;
-        hideMode = false;
         inputS[0] = 0;
         lastShiftTap = 0;
         keyCount = 0;
