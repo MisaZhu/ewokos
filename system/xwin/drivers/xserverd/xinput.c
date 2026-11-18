@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ewoksys/basic_math.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/klog.h>
 #include "xinput.h"
 #include "xwin.h"
 #include "xrepaint.h" //hide_cursor

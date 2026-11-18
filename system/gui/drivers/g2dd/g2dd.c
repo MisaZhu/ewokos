@@ -1114,7 +1114,7 @@ static int32_t g2d_blit_render(const g2d_attached_t* dst,
 /* blit src crop into the dst canvas; with rotation the crop goes into
    temp buffers first, then the rotated result is scaled into the dst
    rect */
-static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha, int from_pid) {
+static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 	g2d_blit_req_t req;
 	g2d_attached_t dst;
 	g2d_attached_t src;
@@ -1131,37 +1131,6 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha, int from_pid) {
 		return G2D_ERR_FAILED;
 	if(req.sw <= 0 || req.sh <= 0)
 		return G2D_ERR_FAILED;
-
-	{
-		/* PERF probe: per-pid blit tally with pixel volume, 1/s dump. */
-		static struct { int pid; uint32_t n; uint64_t px; uint32_t lw, lh; } pb[8];
-		static uint64_t pb_tic;
-		int i, free_i = -1;
-		for (i = 0; i < 8; i++) {
-			if (pb[i].pid == from_pid) {
-				pb[i].n++; pb[i].px += (uint64_t)req.sw * req.sh;
-				pb[i].lw = req.sw; pb[i].lh = req.sh;
-				break;
-			}
-			if (pb[i].pid == 0 && free_i < 0) free_i = i;
-		}
-		if (i == 8 && free_i >= 0) {
-			pb[free_i].pid = from_pid; pb[free_i].n = 1;
-			pb[free_i].px = (uint64_t)req.sw * req.sh;
-			pb[free_i].lw = req.sw; pb[free_i].lh = req.sh;
-		}
-		uint64_t pb_now = kernel_tic_ms(0);
-		if (pb_now - pb_tic >= 1000) {
-			pb_tic = pb_now;
-			for (i = 0; i < 8; i++)
-				if (pb[i].pid != 0)
-					slog("g2dd: PERF blit pid=%d n=%u avg_px=%llu last=%ux%u alpha=%u\n",
-					     pb[i].pid, pb[i].n,
-					     (unsigned long long)(pb[i].n ? pb[i].px / pb[i].n : 0),
-					     pb[i].lw, pb[i].lh, (unsigned)use_alpha);
-			for (i = 0; i < 8; i++) { pb[i].n = 0; pb[i].px = 0; }
-		}
-	}
 
 	if(g2d_attach(&req.dst, &dst) != 0)
 		return G2D_ERR_FAILED;
@@ -1684,7 +1653,7 @@ static int32_t g2dd_handle_pgl_clear(proto_t* in) {
    answers G2D_ERR_NOT_SUPPORTED.  The back end applies its own state /
    geometry gate and declines (G2D_ERR_NOT_SUPPORTED) anything outside the
    supported subset, never drawing it incorrectly. */
-static int32_t g2dd_handle_pgl_draw(proto_t* in, uint32_t* nv_out) {
+static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 	g2d_pgl_req_t req;
 	g2d_attached_t dst;
 	g2d_attached_t pos;
@@ -1716,8 +1685,6 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in, uint32_t* nv_out) {
 		return G2D_ERR_FAILED;
 	if(req.nverts == 0 || req.nverts > G2D_PGL_MAX_VERTS)
 		return G2D_ERR_FAILED;
-	if(nv_out != NULL)
-		*nv_out = req.nverts;
 	/* col is optional on two paths: the TEX_MOD fixed-function path (uv
 	   replaces it in attribute slot 1) and the compiled-shader path
 	   (prog_handle >= 0), where a pos-only program (e.g. shadertoy's
@@ -2243,10 +2210,10 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		res = g2dd_handle_fill_rect(in, &slot);
 		break;
 	case G2D_DEV_CNTL_BLIT:
-		res = g2dd_handle_blit(in, 0, from_pid);
+		res = g2dd_handle_blit(in, 0);
 		break;
 	case G2D_DEV_CNTL_BLIT_ALPHA:
-		res = g2dd_handle_blit(in, 1, from_pid);
+		res = g2dd_handle_blit(in, 1);
 		break;
 	case G2D_DEV_CNTL_ROTATE:
 		res = g2dd_handle_rotate(in);
@@ -2288,45 +2255,7 @@ static int g2d_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, prot
 		res = g2dd_handle_pgl_clear(in);
 		break;
 	case G2D_DEV_CNTL_PGL_DRAW:
-		{
-			uint32_t pd_nv = 0;
-			res = g2dd_handle_pgl_draw(in, &pd_nv);
-			{
-				/* PERF probe: handler wall time bucketed by vertex count. */
-				static uint64_t hb_tic, big_n, big_ns, sml_n, sml_ns;
-				uint64_t ht1;
-				kernel_tic_nsec(&ht1);
-				if (pd_nv > 1000) { big_n++; big_ns += ht1 - t0; }
-				else { sml_n++; sml_ns += ht1 - t0; }
-				if (t0 - hb_tic >= 1000000000ull) {
-					hb_tic = t0;
-					slog("g2dd: PERF pgl_draw big n=%llu avg=%lluus | small n=%llu avg=%lluus\n",
-					     (unsigned long long)big_n,
-					     (unsigned long long)(big_n ? big_ns / big_n / 1000 : 0),
-					     (unsigned long long)sml_n,
-					     (unsigned long long)(sml_n ? sml_ns / sml_n / 1000 : 0));
-					big_n = big_ns = sml_n = sml_ns = 0;
-				}
-			}
-			{
-			/* PERF probe: per-pid pgl_draw tally, 1/s dump. */
-			static struct { int pid; uint32_t n; } pd[8];
-			static uint64_t pd_tic;
-			int i, free_i = -1;
-			for (i = 0; i < 8; i++) {
-				if (pd[i].pid == from_pid) { pd[i].n++; break; }
-				if (pd[i].pid == 0 && free_i < 0) free_i = i;
-			}
-			if (i == 8 && free_i >= 0) { pd[free_i].pid = from_pid; pd[free_i].n = 1; }
-			if (t0 - pd_tic >= 1000000000ull) {
-				pd_tic = t0;
-				for (i = 0; i < 8; i++)
-					if (pd[i].pid != 0)
-						slog("g2dd: PERF pgl_draw pid=%d n=%u\n", pd[i].pid, pd[i].n);
-				for (i = 0; i < 8; i++) pd[i].n = 0;
-			}
-			}
-		}
+		res = g2dd_handle_pgl_draw(in);
 		break;
 	case G2D_DEV_CNTL_PGL_PROGRAM:
 		res = g2dd_handle_pgl_program(in, from_pid, &prog_handle);

@@ -947,9 +947,9 @@ protected:
         if(y > scrSize.h - h) y = scrSize.h - h;
     }
 
-    /* Released near a screen edge: snap flush to the closest of the four
-       edges; otherwise keep the free position. Either way remember the
-       placement so hide/show restores it. */
+    /* Released: snap to the nearest of the eight docks - the four screen
+       corners plus the four edge midpoints. Remember the placement so
+       hide/show restores it. */
     void snapToEdge() {
         xinfo_t xi;
         if(!getInfo(xi))
@@ -957,21 +957,26 @@ protected:
         int w = xi.wsr.w, h = xi.wsr.h;
         int x = xi.wsr.x, y = xi.wsr.y;
 
-        int dl = x;
-        int dr = scrSize.w - (x + w);
-        int dt = y;
-        int db = scrSize.h - (y + h);
-        int best = dl, edge = 0; /*0 left, 1 right, 2 top, 3 bottom*/
-        if(dr < best) { best = dr; edge = 1; }
-        if(dt < best) { best = dt; edge = 2; }
-        if(db < best) { best = db; edge = 3; }
-
-        if(best <= X::hidpiSize(48)) {
-            if(edge == 0) x = 0;
-            else if(edge == 1) x = scrSize.w - w;
-            else if(edge == 2) y = 0;
-            else y = scrSize.h - h;
+        int xs[3] = {0, (scrSize.w - w) / 2, scrSize.w - w};
+        int ys[3] = {0, (scrSize.h - h) / 2, scrSize.h - h};
+        int64_t bestD = -1;
+        int bestX = x, bestY = y;
+        for(int i = 0; i < 3; i++) {
+            for(int j = 0; j < 3; j++) {
+                if(i == 1 && j == 1)
+                    continue; /*screen center is not a dock*/
+                int64_t dx = xs[i] - x;
+                int64_t dy = ys[j] - y;
+                int64_t d = dx * dx + dy * dy;
+                if(bestD < 0 || d < bestD) {
+                    bestD = d;
+                    bestX = xs[i];
+                    bestY = ys[j];
+                }
+            }
         }
+        x = bestX;
+        y = bestY;
         clampToScreen(x, y, w, h);
         if(x != xi.wsr.x || y != xi.wsr.y)
             moveTo(x, y);

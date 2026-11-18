@@ -7,6 +7,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/klog.h>
 #include "xwin.h"
 
 /*how long a published frame may sit unconsumed before its client is let go
