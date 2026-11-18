@@ -205,8 +205,8 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
             x->current.pos_delta.y = 0;
         }
         else if(!x->current.mt_no_click &&
-                abs_32(ev->value.mouse.from_x - ev->value.mouse.x) < 6 &&
-                abs_32(ev->value.mouse.from_y - ev->value.mouse.y) < 6) {
+                abs_32(ev->value.mouse.from_x - ev->value.mouse.x) < (uint32_t)(6 + x->current.mt_click_slack) &&
+                abs_32(ev->value.mouse.from_y - ev->value.mouse.y) < (uint32_t)(6 + x->current.mt_click_slack)) {
             x_push_event(x, win, ev);
             ev->state = MOUSE_STATE_CLICK;
         }
@@ -288,9 +288,14 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
             x->mouse_state.down_pos.x = ev->value.mouse.x;
             x->mouse_state.down_pos.y = ev->value.mouse.y;
         }
-        else if(abs(x->mouse_state.last_pos.x - ev->value.mouse.x) > 3 ||
-                abs(x->mouse_state.last_pos.y - ev->value.mouse.y) > 3 ||
+        else if(abs_32(ev->value.mouse.rx) > 3 ||
+                abs_32(ev->value.mouse.ry) > 3 ||
                     x->mouse_state.state == MOUSE_STATE_DRAG) {
+            /*repeated DOWN while the button is held: promote to DRAG once
+              the pointer travels. Compare the rx/ry deltas computed above
+              from the PREVIOUS position - last_pos already holds the new
+              position here, so comparing it against the event would always
+              be zero and a touch stream of repeated DOWNs would never drag.*/
             x->mouse_state.state = MOUSE_STATE_DRAG;
             ev->state = MOUSE_STATE_DRAG;
             ev->value.mouse.from_x = x->mouse_state.down_pos.x;
@@ -331,11 +336,24 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
     xwin_t* win = NULL;
     if(x->current.win_drag != NULL)
         win = x->current.win_drag;
-    else if(x->current.mouse_grab != NULL)
-        win = x->current.mouse_grab;
-    else {
-        win = get_mouse_owner(x, &pos);
+    else if(x->current.mouse_grab != NULL) {
+        /*the grab owner may have been hidden meanwhile (the XIM put down
+          by a keyboard attach): a stale grab would keep routing every tap
+          to the invisible window. Drop it and hit-test this event fresh,
+          the same rule the popup grab above applies.*/
+        if(x->current.mouse_grab->xinfo == NULL ||
+                !x->current.mouse_grab->xinfo->visible) {
+            x->current.mouse_grab = NULL;
+            /*the in-flight press belonged to the hidden window: its lift
+              must not promote to a CLICK on whatever is underneath*/
+            if(ev->state == MOUSE_STATE_UP)
+                x->current.mt_no_click = true;
+        }
+        else
+            win = x->current.mouse_grab;
     }
+    if(win == NULL)
+        win = get_mouse_owner(x, &pos);
 
     if(win != NULL) {
         x_cursor_set_busy(x, win->busy);
@@ -346,6 +364,10 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
         if(ev->state ==  MOUSE_STATE_DOWN)
             x_unfocus(x);
     }
+    /*the stale-grab cancel is per-event: never let it leak into the next
+      tap's UP->CLICK promotion*/
+    x->current.mt_no_click = false;
+    x->current.mt_click_slack = 0;
 
     /*redraw the cursor right away (cheap composite + non-blocking flush)
       so the pointer tracks at event rate; waiting for the next paced
@@ -391,6 +413,17 @@ void x_mt_diag_stats(uint32_t* frames, uint32_t* rel_only,
   not reach the client as drag travel*/
 #define MT_DRAG_HOLD_MS 100
 
+/*a touch tap tolerates more travel than the 6px mouse click threshold:
+  finger jitter and roll-off routinely exceed it, which used to eat the
+  keystroke. Added to the promotion distance of MT-synthesized UPs only.*/
+#define MT_CLICK_SLACK 16
+
+/*a second landing finger is a drag gesture only once the contact midpoint
+  actually travels this far; a brief stationary overlap is typing rollover
+  and must keep tapping. The vkey client engages its own two-finger drag at
+  the same midpoint travel, so both sides classify the gesture alike.*/
+#define MT_MULTI_SLOP 12
+
 /*one synthetic left-button mouse event for the single-finger touch
   compatibility path: absolute position, routed exactly like the legacy
   XEVT_TOUCH stream (DOWN once, explicit DRAGs while it travels - mouse_handle
@@ -408,6 +441,24 @@ static void mt_synth_mouse(x_t* x, int32_t state, int32_t px, int32_t py) {
     mouse_handle(x, &mev);
 }
 
+/*midpoint of all active contacts from their last edge positions; returns
+  the contact count (0 leaves cx/cy untouched)*/
+static int mt_midpoint(x_t* x, int32_t* cx, int32_t* cy) {
+    int32_t sx = 0, sy = 0, n = 0;
+    for(int i = 0; i < X_TOUCH_MAX; i++) {
+        if(x->current.mt_active_mask & (1u << i)) {
+            sx += x->current.mt_last_x[i];
+            sy += x->current.mt_last_y[i];
+            n++;
+        }
+    }
+    if(n > 0) {
+        *cx = sx / n;
+        *cy = sy / n;
+    }
+    return n;
+}
+
 /*multi-touch contact frames (XEVT_TOUCH_MT): the raw frame is delivered to
   the window the gesture belongs to, and a lone finger additionally drives
   the classic mouse semantics so existing clients keep working untouched.
@@ -415,18 +466,18 @@ static void mt_synth_mouse(x_t* x, int32_t state, int32_t px, int32_t py) {
   - one active contact, no multi session: synthesize LEFT DOWN on the press,
     DRAG while it travels and UP on release, and deliver the raw frame to
     the same window the mouse path grabbed;
-  - second finger lands: release any synthetic press (as a cancel: that UP
-    never becomes a CLICK, the finger is still down), start a multi session
-    and grab the window under the first press (top/focus like a mouse DOWN);
-    from then on only raw frames flow, no mouse synthesis, so staggered
-    lifts back down to one finger cannot fire a phantom click;
+  - second finger lands over a lone press: the gesture stays PENDING - fast
+    typing overlaps fingers (rollover), so the press is not cancelled until
+    the contact midpoint actually travels (a real two-finger drag: cancel
+    the press as a plain UP that never becomes a CLICK, then only raw frames
+    flow). If the pressing finger lifts first it taps normally and the
+    remaining finger takes over the synthetic press;
   - every finger lifted: end the session and drop the grab.*/
 static void touch_mt_handle(x_t* x, xevent_t* ev) {
     int count = ev->state;
     int active = 0;
     int first = -1;    /* first non-release entry (hit-test anchor) */
     int press = -1;    /* first press entry */
-    int release = -1;  /* first release entry (UP position fallback) */
 
     if(count < 0)
         count = 0;
@@ -456,15 +507,22 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
 
     /*frames carry contact EDGES (press/move/release of what changed), not
       the full active set: a stationary finger is absent. Track the down
-      ids across frames so a staggered lift does not end the session while
-      a silent finger is still on the panel.*/
+      ids and their positions across frames so a staggered lift does not
+      end the session while a silent finger is still on the panel.*/
     for(int i = 0; i < count; i++) {
         touch_evt_t* t = &ev->value.touch.touchs[i];
         if(t->id < X_TOUCH_MAX) {
             if(t->state == TOUCH_STATE_RELEASE)
                 x->current.mt_active_mask &= ~(1u << t->id);
-            else
+            else {
                 x->current.mt_active_mask |= (1u << t->id);
+                x->current.mt_last_x[t->id] = t->x;
+                x->current.mt_last_y[t->id] = t->y;
+                if(t->state == TOUCH_STATE_PRESS) {
+                    x->current.mt_press_x[t->id] = t->x;
+                    x->current.mt_press_y[t->id] = t->y;
+                }
+            }
         }
         if(t->state != TOUCH_STATE_RELEASE) {
             if(first < 0)
@@ -472,13 +530,33 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
             if(t->state == TOUCH_STATE_PRESS && press < 0)
                 press = i;
         }
-        else if(release < 0) {
-            release = i;
-        }
     }
     for(int i = 0; i < X_TOUCH_MAX; i++) {
         if(x->current.mt_active_mask & (1u << i))
             active++;
+    }
+
+    /*the finger owning the synthetic press lifted: deliver its UP first (a
+      tap still promotes to CLICK, with the touch jitter slack). The lift
+      and the next finger's press can share one frame - synthesizing nothing
+      for either used to lose both keystrokes of such a rollover.*/
+    if(x->current.mt_synth_down &&
+            !(x->current.mt_active_mask & (1u << x->current.mt_synth_id))) {
+        int32_t px = x->current.mt_last_x[x->current.mt_synth_id];
+        int32_t py = x->current.mt_last_y[x->current.mt_synth_id];
+        for(int i = 0; i < count; i++) {
+            touch_evt_t* t = &ev->value.touch.touchs[i];
+            if(t->state == TOUCH_STATE_RELEASE &&
+                    t->id == (uint32_t)x->current.mt_synth_id) {
+                px = t->x;
+                py = t->y;
+                break;
+            }
+        }
+        x->current.mt_click_slack = MT_CLICK_SLACK;
+        mt_synth_mouse(x, MOUSE_STATE_UP, px, py);
+        x->current.mt_synth_down = false;
+        x->current.mt_pending = false;
     }
 
     /*session transitions and single-finger mouse compatibility first, so
@@ -486,25 +564,37 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
     if(active >= 2) {
         if(!x->current.mt_session) {
             if(x->current.mt_synth_down) {
-<<<<<<< HEAD
-                /*a second finger turns the gesture multi: cancel the lone
-                  press without letting it click. Push the press origin out
-                  of click range so mouse_xwin_handle delivers a plain UP
-                  (clearing any pressed key/button state in the client) but
-                  can never promote the release to CLICK - otherwise landing
-                  two fingers on the on-screen keyboard would type the key
-                  under the first finger.*/
-                x->mouse_state.down_pos.x = x->mouse_state.last_pos.x + 10000;
-                x->mouse_state.down_pos.y = x->mouse_state.last_pos.y + 10000;
-=======
+                /*a second finger landed over the lone press: defer the
+                  classification, a brief overlap is typing rollover*/
+                if(!x->current.mt_pending) {
+                    x->current.mt_pending = true;
+                    mt_midpoint(x, &x->current.mt_pending_cx,
+                            &x->current.mt_pending_cy);
+                }
+            }
+            else {
+                x->current.mt_session = true;
+            }
+        }
+        if(x->current.mt_pending) {
+            int32_t cx = 0, cy = 0;
+            mt_midpoint(x, &cx, &cy);
+            if(abs_32(cx - x->current.mt_pending_cx) > MT_MULTI_SLOP ||
+                    abs_32(cy - x->current.mt_pending_cy) > MT_MULTI_SLOP) {
+                /*real two-finger gesture: cancel the lone press without
+                  letting it click. mt_no_click keeps mouse_xwin_handle from
+                  promoting the synthetic release to CLICK - otherwise a
+                  drag would type the key under the first finger. The plain
+                  UP still clears any pressed key/button state in the client.*/
                 x->current.mt_no_click = true;
->>>>>>> 32eb0b74b0d6cfae3ebe31ebd4ee4f9ae03a846b
                 mt_synth_mouse(x, MOUSE_STATE_UP,
-                        x->mouse_state.last_pos.x, x->mouse_state.last_pos.y);
+                        x->current.mt_last_x[x->current.mt_synth_id],
+                        x->current.mt_last_y[x->current.mt_synth_id]);
                 x->current.mt_no_click = false;
                 x->current.mt_synth_down = false;
+                x->current.mt_pending = false;
+                x->current.mt_session = true;
             }
-            x->current.mt_session = true;
         }
     }
     else if(x->current.mt_session) {
@@ -513,30 +603,39 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
             x->current.mt_grab = NULL;
         }
     }
-    else if(active == 1) {
-        if(first >= 0) {
-            touch_evt_t* t = &ev->value.touch.touchs[first];
+    else {
+        /*lone finger: a fresh press, the survivor of a rollover, or the
+          second finger of a pending pair lifted first*/
+        x->current.mt_pending = false;
+        if(active == 1) {
+            int id = -1;
+            for(int i = 0; i < X_TOUCH_MAX; i++) {
+                if(x->current.mt_active_mask & (1u << i)) {
+                    id = i;
+                    break;
+                }
+            }
             if(!x->current.mt_synth_down) {
-                mt_synth_mouse(x, MOUSE_STATE_DOWN, t->x, t->y);
+                int32_t px = x->current.mt_last_x[id];
+                int32_t py = x->current.mt_last_y[id];
+                if(first >= 0) {
+                    px = ev->value.touch.touchs[first].x;
+                    py = ev->value.touch.touchs[first].y;
+                }
+                mt_synth_mouse(x, MOUSE_STATE_DOWN, px, py);
                 x->current.mt_synth_down = true;
+                x->current.mt_synth_id = id;
                 x->current.mt_synth_ms = kernel_tic_ms(0);
             }
-            else if((kernel_tic_ms(0) - x->current.mt_synth_ms) >= MT_DRAG_HOLD_MS &&
-                    (t->x != x->mouse_state.last_pos.x ||
-                     t->y != x->mouse_state.last_pos.y)) {
-                mt_synth_mouse(x, MOUSE_STATE_DRAG, t->x, t->y);
+            else if(first >= 0 &&
+                    (kernel_tic_ms(0) - x->current.mt_synth_ms) >= MT_DRAG_HOLD_MS) {
+                touch_evt_t* t = &ev->value.touch.touchs[first];
+                if(t->x != x->mouse_state.last_pos.x ||
+                        t->y != x->mouse_state.last_pos.y) {
+                    mt_synth_mouse(x, MOUSE_STATE_DRAG, t->x, t->y);
+                }
             }
         }
-    }
-    else if(active == 0 && x->current.mt_synth_down) {
-        int32_t px = x->mouse_state.last_pos.x;
-        int32_t py = x->mouse_state.last_pos.y;
-        if(release >= 0) {
-            px = ev->value.touch.touchs[release].x;
-            py = ev->value.touch.touchs[release].y;
-        }
-        mt_synth_mouse(x, MOUSE_STATE_UP, px, py);
-        x->current.mt_synth_down = false;
     }
 
     /*raw frame delivery: mt_grab outranks, then a persistent popup grab,
@@ -553,8 +652,13 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
         else
             win = gwin;
     }
-    if(win == NULL && !x->current.mt_session && x->current.mouse_grab != NULL)
-        win = x->current.mouse_grab;
+    if(win == NULL && !x->current.mt_session && x->current.mouse_grab != NULL) {
+        if(x->current.mouse_grab->xinfo == NULL ||
+                !x->current.mouse_grab->xinfo->visible)
+            x->current.mouse_grab = NULL; /*hidden meanwhile: stale grab*/
+        else
+            win = x->current.mouse_grab;
+    }
     if(win == NULL && first >= 0) {
         touch_evt_t* t = &ev->value.touch.touchs[first];
         win = get_owner_at(x, t->x, t->y, NULL);

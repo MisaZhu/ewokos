@@ -118,16 +118,23 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
        shape hid_moused/xmouse deliver. */
     switch(state) {
     case 1: { //down
+        static int prev_x = 0;
+        static int prev_y = 0;
         ev.value.mouse.button = MOUSE_BUTTON_LEFT;
         if(_drag_time == 0) {
             ev.state = MOUSE_STATE_DOWN;
             _drag_time = kernel_tic_ms(0);
+            prev_x = ev.value.mouse.x;
+            prev_y = ev.value.mouse.y;
         }
         else {
-            static int prev_x = 0;
-            static int prev_y = 0;
+            /*drop jitter only when BOTH axes are unchanged: an || here
+              would swallow every sample of an axis-aligned drag (the
+              constant coordinate always matches prev) and the client would
+              never see the travel. prev resets on each new press so a stale
+              last-drag position cannot eat the first DRAG of this one.*/
             if((kernel_tic_ms(0) - _drag_time) < 100 ||
-                    (ev.value.mouse.x == prev_x || ev.value.mouse.y == prev_y))
+                    (ev.value.mouse.x == prev_x && ev.value.mouse.y == prev_y))
                 return;
             prev_x = ev.value.mouse.x;
             prev_y = ev.value.mouse.y;

@@ -173,6 +173,18 @@ typedef struct {
 	  down set must be tracked across frames: "every finger lifted" means
 	  this mask is empty, not that the current frame has no live entry.*/
 	uint32_t mt_active_mask;
+	bool mt_pending;    /*a second finger landed over a lone synthetic
+	                      press, but the gesture is not classified yet:
+	                      midpoint travel commits to a multi session,
+	                      a quick lift of the pressing finger is typing
+	                      rollover and must still tap*/
+	int32_t mt_pending_cx, mt_pending_cy; /*contact midpoint when pending began*/
+	int32_t mt_synth_id;  /*contact id owning the synthetic lone press*/
+	int32_t mt_last_x[X_TOUCH_MAX], mt_last_y[X_TOUCH_MAX];   /*last edge position per contact*/
+	int32_t mt_press_x[X_TOUCH_MAX], mt_press_y[X_TOUCH_MAX]; /*position at its PRESS edge*/
+	int mt_click_slack; /*extra UP->CLICK promotion distance for the
+	                      synthetic touch UP in flight (finger jitter);
+	                      reset per-event like mt_no_click*/
 	gpos_t old_pos;
 	gpos_t pos_delta;
 	uint32_t drag_state;
