@@ -174,7 +174,8 @@ char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void*
         str_add(str, item);
         snprintf(item, sizeof(item), "wins: %d\n", win_num);
         str_add(str, item);
-        snprintf(item, sizeof(item), "evt pools: %d, queued events: %d\n", pool_num, evt_num);
+        snprintf(item, sizeof(item), "evt pools: %d, queued events: %d, move-evicted: %u\n",
+                pool_num, evt_num, xevent_pool_evicted());
         str_add(str, item);
         snprintf(item, sizeof(item),
                 "mt: mask=%x session=%d synth=%d mt_grab=%s mouse_grab=%s\n",

@@ -204,7 +204,8 @@ static void mouse_xwin_handle(x_t* x, xwin_t* win, int pos, xevent_t* ev) {
             x->current.pos_delta.x = 0;
             x->current.pos_delta.y = 0;
         }
-        else if(abs_32(ev->value.mouse.from_x - ev->value.mouse.x) < 6 &&
+        else if(!x->current.mt_no_click &&
+                abs_32(ev->value.mouse.from_x - ev->value.mouse.x) < 6 &&
                 abs_32(ev->value.mouse.from_y - ev->value.mouse.y) < 6) {
             x_push_event(x, win, ev);
             ev->state = MOUSE_STATE_CLICK;
@@ -385,10 +386,16 @@ void x_mt_diag_stats(uint32_t* frames, uint32_t* rel_only,
     }
 }
 
+/*a lone finger starts dragging only after this hold, the same gate the
+  legacy XEVT_TOUCH stream applies in xtouch: the jitter of a quick tap must
+  not reach the client as drag travel*/
+#define MT_DRAG_HOLD_MS 100
+
 /*one synthetic left-button mouse event for the single-finger touch
   compatibility path: absolute position, routed exactly like the legacy
-  XEVT_TOUCH stream (mouse_handle promotes repeated DOWNs to DRAG and
-  derives the click from the down/up distance)*/
+  XEVT_TOUCH stream (DOWN once, explicit DRAGs while it travels - mouse_handle
+  does not promote repeated DOWNs - and the click derived from the down/up
+  distance)*/
 static void mt_synth_mouse(x_t* x, int32_t state, int32_t px, int32_t py) {
     xevent_t mev;
     memset(&mev, 0, sizeof(mev));
@@ -405,10 +412,11 @@ static void mt_synth_mouse(x_t* x, int32_t state, int32_t px, int32_t py) {
   the window the gesture belongs to, and a lone finger additionally drives
   the classic mouse semantics so existing clients keep working untouched.
 
-  - one active contact, no multi session: synthesize LEFT DOWN (every frame,
-    mouse_handle turns travel into DRAG) / UP on release, and deliver the
-    raw frame to the same window the mouse path grabbed;
-  - second finger lands: release any synthetic press, start a multi session
+  - one active contact, no multi session: synthesize LEFT DOWN on the press,
+    DRAG while it travels and UP on release, and deliver the raw frame to
+    the same window the mouse path grabbed;
+  - second finger lands: release any synthetic press (as a cancel: that UP
+    never becomes a CLICK, the finger is still down), start a multi session
     and grab the window under the first press (top/focus like a mouse DOWN);
     from then on only raw frames flow, no mouse synthesis, so staggered
     lifts back down to one finger cannot fire a phantom click;
@@ -478,6 +486,7 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
     if(active >= 2) {
         if(!x->current.mt_session) {
             if(x->current.mt_synth_down) {
+<<<<<<< HEAD
                 /*a second finger turns the gesture multi: cancel the lone
                   press without letting it click. Push the press origin out
                   of click range so mouse_xwin_handle delivers a plain UP
@@ -487,8 +496,12 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
                   under the first finger.*/
                 x->mouse_state.down_pos.x = x->mouse_state.last_pos.x + 10000;
                 x->mouse_state.down_pos.y = x->mouse_state.last_pos.y + 10000;
+=======
+                x->current.mt_no_click = true;
+>>>>>>> 32eb0b74b0d6cfae3ebe31ebd4ee4f9ae03a846b
                 mt_synth_mouse(x, MOUSE_STATE_UP,
                         x->mouse_state.last_pos.x, x->mouse_state.last_pos.y);
+                x->current.mt_no_click = false;
                 x->current.mt_synth_down = false;
             }
             x->current.mt_session = true;
@@ -501,9 +514,19 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
         }
     }
     else if(active == 1) {
-        touch_evt_t* t = &ev->value.touch.touchs[first];
-        mt_synth_mouse(x, MOUSE_STATE_DOWN, t->x, t->y);
-        x->current.mt_synth_down = true;
+        if(first >= 0) {
+            touch_evt_t* t = &ev->value.touch.touchs[first];
+            if(!x->current.mt_synth_down) {
+                mt_synth_mouse(x, MOUSE_STATE_DOWN, t->x, t->y);
+                x->current.mt_synth_down = true;
+                x->current.mt_synth_ms = kernel_tic_ms(0);
+            }
+            else if((kernel_tic_ms(0) - x->current.mt_synth_ms) >= MT_DRAG_HOLD_MS &&
+                    (t->x != x->mouse_state.last_pos.x ||
+                     t->y != x->mouse_state.last_pos.y)) {
+                mt_synth_mouse(x, MOUSE_STATE_DRAG, t->x, t->y);
+            }
+        }
     }
     else if(active == 0 && x->current.mt_synth_down) {
         int32_t px = x->mouse_state.last_pos.x;

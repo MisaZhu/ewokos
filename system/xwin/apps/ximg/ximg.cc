@@ -17,8 +17,14 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/keydef.h>
 #include <graph/graph_image.h>
+#include <math.h>
 
 using namespace Ewok;
+
+#define ZOOM_MIN        0.1f
+#define ZOOM_MAX        8.0f
+#define PINCH_DIST_MIN  32.0f /* shortest finger distance a pinch is measured from */
+#define PINCH_ZOOM_STEP 0.04f /* the image is only rescaled past this share of the zoom */
 
 class StatusLabel: public Label {
 protected:
@@ -43,6 +49,12 @@ class ImageView: public Scrollable {
 	gpos_t  last_mouse_down;
 	StatusLabel* statusLabel;
 	uint32_t bgColor;
+
+	/* two-finger pinch (touch): zooms the image */
+	bool pinching;
+	uint32_t pinchIdA, pinchIdB; /* the two contacts being measured */
+	float pinchDist;             /* their distance when the pinch began */
+	float pinchZoom;             /* zoom when the pinch began */
 
 	void background(graph_t* g, uint32_t sz, const grect_t& r) {
 		graph_set(g, r.x, r.y, r.w, r.h, bgColor);
@@ -166,6 +178,59 @@ protected:
 		return true;
 	}
 
+	bool onTouch(xevent_t* ev) {
+		(void)ev;
+		/* the two lowest contacts that are down drive the pinch; a single
+		   finger is already served by the mouse events it comes with */
+		RootWidget* root = getRoot();
+		const touch_evt_t* a = NULL;
+		const touch_evt_t* b = NULL;
+		for(uint32_t i = 0; i < X_TOUCH_MAX && b == NULL; i++) {
+			const touch_evt_t* t = root->getTouch(i);
+			if(t == NULL)
+				continue;
+			if(a == NULL)
+				a = t;
+			else
+				b = t;
+		}
+		if(b == NULL || imgOrig == NULL) {
+			pinching = false;
+			return true;
+		}
+
+		float dx = (float)(a->x - b->x);
+		float dy = (float)(a->y - b->y);
+		float dist = sqrtf(dx*dx + dy*dy);
+		if(dist < PINCH_DIST_MIN)
+			dist = PINCH_DIST_MIN;
+
+		if(!pinching || a->id != pinchIdA || b->id != pinchIdB) {
+			/* a new pair of fingers: the zoom is measured from here */
+			pinching = true;
+			pinchIdA = a->id;
+			pinchIdB = b->id;
+			pinchDist = dist;
+			pinchZoom = zoom;
+			return true;
+		}
+
+		/* the zoom follows the finger distance; every step rescales the whole
+		   image, so one is only taken once the fingers moved far enough */
+		float target = pinchZoom * dist / pinchDist;
+		if(target < ZOOM_MIN)
+			target = ZOOM_MIN;
+		else if(target > ZOOM_MAX)
+			target = ZOOM_MAX;
+		float diff = target > zoom ? target - zoom : zoom - target;
+		if(diff < zoom * PINCH_ZOOM_STEP)
+			return true;
+
+		gpos_t c = getInsidePos((a->x + b->x) / 2, (a->y + b->y) / 2);
+		zoomImgAt(target, c.x, c.y);
+		return true;
+	}
+
 public: 
 	ImageView() {
 		img = NULL;
@@ -177,6 +242,11 @@ public:
 		last_mouse_down.x = 0;
 		last_mouse_down.y = 0;
 		statusLabel = NULL;
+		pinching = false;
+		pinchIdA = 0;
+		pinchIdB = 0;
+		pinchDist = 0;
+		pinchZoom = 1.0;
 	}
 
 	~ImageView() {
@@ -212,10 +282,10 @@ public:
 	}
 
 	void zoomImgTo(float zoom) {
-		if(zoom < 0.1)
-			zoom = 0.1;
-		else if(zoom > 8.0)
-			zoom = 8.0;
+		if(zoom < ZOOM_MIN)
+			zoom = ZOOM_MIN;
+		else if(zoom > ZOOM_MAX)
+			zoom = ZOOM_MAX;
 
 		if(img != NULL)
 			graph_free(img);
@@ -239,6 +309,29 @@ public:
 			off_y = 0;
 		
 		this->zoom = zoom;	
+		updateScroller();
+		update();
+	}
+
+	/* zoom keeping the image point under (vx, vy) of the view in place */
+	void zoomImgAt(float zoom, int vx, int vy) {
+		float ix = (float)(off_x + vx) / this->zoom;
+		float iy = (float)(off_y + vy) / this->zoom;
+		zoomImgTo(zoom);
+		if(img == NULL)
+			return;
+
+		off_x = (int)(ix * this->zoom) - vx;
+		if(off_x < 0 || (img->w-area.w) < 0)
+			off_x = 0;
+		else if(off_x > (img->w-area.w))
+			off_x = img->w-area.w;
+
+		off_y = (int)(iy * this->zoom) - vy;
+		if(off_y < 0 || (img->h-area.h) < 0)
+			off_y = 0;
+		else if(off_y > (img->h-area.h))
+			off_y = img->h-area.h;
 		updateScroller();
 		update();
 	}
