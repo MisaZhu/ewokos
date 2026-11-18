@@ -126,7 +126,7 @@ static IOSKey layout_qwerty[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"l","L",'l','L',KT_NORMAL,1.0f,KA_NONE},
         {"","",0,0,KT_NONE,0,KA_NONE},
     },
-    // Row 2: shift z x c v b n m backspace
+    // Row 2: shift z x c v b n m - backspace
     {
         {"","",0,0,KT_FUNC,-1.0f,KA_SHIFT},
         {"z","Z",'z','Z',KT_NORMAL,1.0f,KA_NONE},
@@ -136,6 +136,7 @@ static IOSKey layout_qwerty[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"b","B",'b','B',KT_NORMAL,1.0f,KA_NONE},
         {"n","N",'n','N',KT_NORMAL,1.0f,KA_NONE},
         {"m","M",'m','M',KT_NORMAL,1.0f,KA_NONE},
+        {"-","_",'-','_',KT_NORMAL,1.0f,KA_NONE},
         {"","",0,0,KT_FUNC,-1.0f,KA_BACKSPACE},
         {"","",0,0,KT_NONE,0,KA_NONE},
     },
