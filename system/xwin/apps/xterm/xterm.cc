@@ -160,6 +160,7 @@ class TermWidget : public ConsoleWidget {
 	int32_t longPressX, longPressY;   /* screen coords of the press */
 	int32_t lastClickX, lastClickY;   /* position of the previous tap */
 	gpos_t anchorPos;                 /* widget-local coords of the press */
+	int32_t dragScrollAccum;          /* unspent drag travel for history scrolling */
 
 	/* two-finger pinch (touch): scales the font */
 	bool pinching;
@@ -180,6 +181,7 @@ public:
 		lastClickTime = 0;
 		lastClickX = 0;
 		lastClickY = 0;
+		dragScrollAccum = 0;
 		pinching = false;
 		pinchIdA = 0;
 		pinchIdB = 0;
@@ -365,6 +367,7 @@ protected:
 			anchorPos = p;
 			dragSelActive = false;
 			mouse_last_y = ev->value.mouse.y;
+			dragScrollAccum = 0;
 			longPressPending = true;
 			longPressTriggered = false;
 			longPressTime = kernel_tic_ms(0);
@@ -415,14 +418,30 @@ protected:
 				return true;
 			}
 			/* plain drag anywhere: page through the history (finger down
-			 * reveals older rows, finger up reveals newer) */
+			 * reveals older rows, finger up reveals newer). The travel is
+			 * accumulated and only spent in row-height units: the touch
+			 * panel reports a few px of reverse roll-off jitter as the
+			 * finger lifts, and a per-event sign test turned that into a
+			 * whole rows/4 bounce back the other way at the top/bottom
+			 * clamp (the gesture direction was clamped invisible there,
+			 * so the jitter step was the only visible one). */
 			lock();
 			bool needUpdate = false;
-			if(ev->value.mouse.y > mouse_last_y)
-				needUpdate = gterminal_scroll(&terminal, -1);
-			else if(ev->value.mouse.y < mouse_last_y)
-				needUpdate = gterminal_scroll(&terminal, 1);
+			dragScrollAccum += ev->value.mouse.y - mouse_last_y;
 			mouse_last_y = ev->value.mouse.y;
+			int32_t trig = (int32_t)terminal.char_h;
+			if(trig < 1)
+				trig = 1;
+			while(dragScrollAccum >= trig) {
+				if(gterminal_scroll(&terminal, -1))
+					needUpdate = true;
+				dragScrollAccum -= trig;
+			}
+			while(dragScrollAccum <= -trig) {
+				if(gterminal_scroll(&terminal, 1))
+					needUpdate = true;
+				dragScrollAccum += trig;
+			}
 			unlock();
 			if(needUpdate)
 				update();

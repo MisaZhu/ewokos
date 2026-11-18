@@ -89,7 +89,11 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
     const uint8_t* wrapped = textgrid->wrapped;
 
     /* pass 1: total reflowed row count, plus the cursor's absolute cell
-     * offset so it can follow its text through the reflow. */
+     * offset so it can follow its text through the reflow. The offset must
+     * be measured in the reflowed (padded) stream: pass 2 starts every
+     * logical line at column 0 of a fresh row, so short lines contribute
+     * their full row width and empty lines a whole blank row - counting
+     * only the raw content cells would land the cursor before its text. */
     uint32_t new_rows = 0;
     uint32_t curs_off = 0;
     uint32_t curs_y = (uint32_t)textgrid->curs_y;
@@ -98,17 +102,15 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
     uint32_t r = 0;
     while(r < rows) {
         uint32_t line_len = 0;
+        uint32_t line_start = new_rows * cols;
         do {
             bool continues = (r + 1 < rows) && wrapped != NULL && wrapped[r + 1] != 0;
             uint32_t len = row_content_len(textgrid, r, continues);
-            if(r < curs_y) {
-                curs_off += len;
-            }
-            else if(r == curs_y) {
+            if(r == curs_y) {
                 uint32_t cx = (uint32_t)textgrid->curs_x;
                 if(cx > len)
                     cx = len;
-                curs_off += cx;
+                curs_off = line_start + line_len + cx;
             }
             line_len += len;
             r++;

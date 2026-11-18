@@ -374,13 +374,6 @@ protected:
         if(keyHeight < 20) keyHeight = 20;
     }
 
-    /* Panel height that exactly fits four iOS-proportioned rows. */
-    int idealPanelHeight(int w) {
-        computeResponsiveParams(w, 0x7fffffff);
-        return topMargin + bottomMargin +
-            rowGap * (MAX_ROWS - 1) + keyHeight * MAX_ROWS;
-    }
-
     IOSKey* getLayout(int row) {
         switch(currentLayout) {
         case KBL_QWERTY:  return layout_qwerty[row];
@@ -1156,11 +1149,11 @@ protected:
             h = scrSize.h / 2;
 
         resizeTo(w, h);
+        /*default dock: bottom edge, centered - one of the eight placements*/
         int x = (scrSize.w - w) / 2;
         int y = scrSize.h - h;
-        if(hasPlace) { /*restore the dragged/snapped placement*/
-            x = placeX;
-            y = placeY;
+        if(hasPlace) { /*restore the dragged/snapped placement, on a dock*/
+            nearestDock(placeX, placeY, w, h, x, y);
         }
         clampToScreen(x, y, w, h);
         moveTo(x, y);
@@ -1183,6 +1176,13 @@ protected:
     }
 
 public:
+    /* Panel height that exactly fits four iOS-proportioned rows. */
+    int idealPanelHeight(int w) {
+        computeResponsiveParams(w, 0x7fffffff);
+        return topMargin + bottomMargin +
+            rowGap * (MAX_ROWS - 1) + keyHeight * MAX_ROWS;
+    }
+
     /* idle-loop tick: fire due commits/repeats, then park until the next
        deadline (or an event, whichever comes first - x_wait_event_timeout
        wakes on the server's vfs_wakeup). A skipped fps_async present is
@@ -1306,11 +1306,13 @@ int main(int argc, char* argv[]) {
     if(_panelW > X::hidpiSize(800))
         _panelW = X::hidpiSize(800);
 
-    /* Height 0 means auto: onShow() sizes the panel from the key
-       geometry; open() only needs a placeholder. */
-    int openH = (_panelH > 0) ? _panelH : scr.size.h / 2;
-
+    /* Open straight onto the default dock (bottom edge, centered) with the
+       final key-geometry height, so the startup placement is the dock even
+       before the first show event. */
     XIMIOS xwin(scr.size.w, scr.size.h, _panelW, _panelH);
+    int openH = (_panelH > 0) ? _panelH : xwin.idealPanelHeight(_panelW);
+    if(openH > scr.size.h / 2)
+        openH = scr.size.h / 2;
     xwin.open(&x, -1, (scr.size.w - _panelW) / 2, scr.size.h - openH, _panelW, openH, "xim_ios",
             XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_NO_TITLE, false);
     x.run(imLoop, &xwin);
