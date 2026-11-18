@@ -357,6 +357,34 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
     return 0;
 }
 
+/*on-demand MT pipeline counters for the "stat" devcmd: no logging, just
+  running totals read back when asked. They separate the three failure
+  domains - frames never arriving (goodixd/xtouch), arriving but dropped
+  here (no gesture owner), or delivered but not cleared by the client.*/
+typedef struct {
+    uint32_t frames;      /*XEVT_TOUCH_MT frames received*/
+    uint32_t rel_only;    /*frames carrying only RELEASE edges*/
+    uint32_t delivered;   /*frames pushed to a window*/
+    uint32_t dropped;     /*frames with no owner at all*/
+    int last_n;           /*entry count of the most recent frame*/
+    char last_edges[64];  /*its entries as id+state, e.g. "0P 1R"*/
+} mt_diag_t;
+static mt_diag_t _mt_diag;
+
+void x_mt_diag_stats(uint32_t* frames, uint32_t* rel_only,
+        uint32_t* delivered, uint32_t* dropped,
+        int* last_n, char* last_edges, size_t edges_size) {
+    if(frames != NULL) *frames = _mt_diag.frames;
+    if(rel_only != NULL) *rel_only = _mt_diag.rel_only;
+    if(delivered != NULL) *delivered = _mt_diag.delivered;
+    if(dropped != NULL) *dropped = _mt_diag.dropped;
+    if(last_n != NULL) *last_n = _mt_diag.last_n;
+    if(last_edges != NULL && edges_size > 0) {
+        strncpy(last_edges, _mt_diag.last_edges, edges_size - 1);
+        last_edges[edges_size - 1] = '\0';
+    }
+}
+
 /*one synthetic left-button mouse event for the single-finger touch
   compatibility path: absolute position, routed exactly like the legacy
   XEVT_TOUCH stream (mouse_handle promotes repeated DOWNs to DRAG and
@@ -396,10 +424,41 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
         count = 0;
     if(count > X_TOUCH_MAX)
         count = X_TOUCH_MAX;
+
+    _mt_diag.frames++;
+    _mt_diag.last_n = count;
+    _mt_diag.last_edges[0] = '\0';
     for(int i = 0; i < count; i++) {
         touch_evt_t* t = &ev->value.touch.touchs[i];
+        char edge[8];
+        snprintf(edge, sizeof(edge), "%u%c ", (unsigned)t->id,
+                t->state == TOUCH_STATE_PRESS ? 'P' :
+                t->state == TOUCH_STATE_RELEASE ? 'R' : 'M');
+        if(strlen(_mt_diag.last_edges) + strlen(edge) < sizeof(_mt_diag.last_edges))
+            strcat(_mt_diag.last_edges, edge);
+    }
+
+    /*the gesture owner so far: a release-only frame drops mt_grab below
+      (and the synthetic mouse UP clears mouse_grab) BEFORE the raw
+      delivery, and it has no live contact to hit-test - remember the
+      owner now so the lift still reaches the client*/
+    xwin_t* prev_owner = x->current.mt_grab;
+    if(prev_owner == NULL)
+        prev_owner = x->current.mouse_grab;
+
+    /*frames carry contact EDGES (press/move/release of what changed), not
+      the full active set: a stationary finger is absent. Track the down
+      ids across frames so a staggered lift does not end the session while
+      a silent finger is still on the panel.*/
+    for(int i = 0; i < count; i++) {
+        touch_evt_t* t = &ev->value.touch.touchs[i];
+        if(t->id < X_TOUCH_MAX) {
+            if(t->state == TOUCH_STATE_RELEASE)
+                x->current.mt_active_mask &= ~(1u << t->id);
+            else
+                x->current.mt_active_mask |= (1u << t->id);
+        }
         if(t->state != TOUCH_STATE_RELEASE) {
-            active++;
             if(first < 0)
                 first = i;
             if(t->state == TOUCH_STATE_PRESS && press < 0)
@@ -408,6 +467,10 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
         else if(release < 0) {
             release = i;
         }
+    }
+    for(int i = 0; i < X_TOUCH_MAX; i++) {
+        if(x->current.mt_active_mask & (1u << i))
+            active++;
     }
 
     /*session transitions and single-finger mouse compatibility first, so
@@ -474,8 +537,22 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
             x->current.mt_grab = win;
         }
     }
-    if(win != NULL)
+    if(win == NULL && first < 0 && prev_owner != NULL &&
+            prev_owner->xinfo != NULL && prev_owner->xinfo->visible) {
+        /*release-only frame: the grabs were just dropped and there is no
+          live contact to hit-test - deliver the lift to the window that
+          owned the gesture, or its contact state never clears*/
+        win = prev_owner;
+    }
+    if(win != NULL) {
         x_push_event(x, win, ev);
+        _mt_diag.delivered++;
+    }
+    else {
+        _mt_diag.dropped++;
+    }
+    if(first < 0)
+        _mt_diag.rel_only++;
 
     x_repaint_req(x, x->current_display);
 }

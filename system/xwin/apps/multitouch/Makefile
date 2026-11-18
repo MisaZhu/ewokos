@@ -22,6 +22,7 @@ $(MULTITOUCH): $(MULTITOUCH_OBJS) \
 		$(BUILD_DIR)/lib/libgraph.a \
 		$(BUILD_DIR)/lib/libewoksys.a
 	$(LD) -Ttext=100 $(MULTITOUCH_OBJS) -o $(MULTITOUCH) $(LDFLAGS) -lx -ltinyjson $(EWOK_LIB_GRAPH) $(EWOK_LIBC)
+	cp -r res $(MULTITOUCH_DIR)
 
 $(ARCH)/multitouch.o: multitouch.c
 	@mkdir -p $(ARCH)

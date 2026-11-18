@@ -1,5 +1,6 @@
 #include "xserver.h"
 #include "xevtpool.h"
+#include "xinput.h"
 #include <graph/graph_g2d.h>
 #include <ewoksys/mstr.h>
 #include <ewoksys/kernel_tic.h>
@@ -144,15 +145,46 @@ char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void*
         uint32_t pool_num = 0;
         uint32_t evt_num = 0;
         xevent_pool_stats(&pool_num, &evt_num);
+
+        /*MT gesture state + pipeline counters: after a lift that failed to
+          erase its circle, mask!=0 means the RELEASE never arrived here,
+          dropped>0 means it arrived but found no owner, delivered with
+          mask==0 means the client got it and must clear its own state.*/
+        uint32_t mt_mask = x->current.mt_active_mask;
+        int mt_session = x->current.mt_session ? 1 : 0;
+        int mt_synth = x->current.mt_synth_down ? 1 : 0;
+        char mt_grab_name[48], mouse_grab_name[48];
+        snprintf(mt_grab_name, sizeof(mt_grab_name), "%s",
+                (x->current.mt_grab != NULL && x->current.mt_grab->xinfo != NULL) ?
+                x->current.mt_grab->xinfo->name : "-");
+        snprintf(mouse_grab_name, sizeof(mouse_grab_name), "%s",
+                (x->current.mouse_grab != NULL && x->current.mouse_grab->xinfo != NULL) ?
+                x->current.mouse_grab->xinfo->name : "-");
         x_server_lock_leave();
 
+        uint32_t mt_frames = 0, mt_rel = 0, mt_deliv = 0, mt_drop = 0;
+        int mt_last_n = 0;
+        char mt_edges[64];
+        x_mt_diag_stats(&mt_frames, &mt_rel, &mt_deliv, &mt_drop,
+                &mt_last_n, mt_edges, sizeof(mt_edges));
+
         str_t* str = str_new("");
-        char item[128];
-        snprintf(item, 128, "uptime: %d sec\n", (int)(kernel_tic_ms(0)/1000));
+        char item[192];
+        snprintf(item, sizeof(item), "uptime: %d sec\n", (int)(kernel_tic_ms(0)/1000));
         str_add(str, item);
-        snprintf(item, 128, "wins: %d\n", win_num);
+        snprintf(item, sizeof(item), "wins: %d\n", win_num);
         str_add(str, item);
-        snprintf(item, 128, "evt pools: %d, queued events: %d\n", pool_num, evt_num);
+        snprintf(item, sizeof(item), "evt pools: %d, queued events: %d\n", pool_num, evt_num);
+        str_add(str, item);
+        snprintf(item, sizeof(item),
+                "mt: mask=%x session=%d synth=%d mt_grab=%s mouse_grab=%s\n",
+                mt_mask, mt_session, mt_synth, mt_grab_name, mouse_grab_name);
+        str_add(str, item);
+        snprintf(item, sizeof(item),
+                "mt frames: %u (rel-only %u), delivered %u, dropped %u\n",
+                mt_frames, mt_rel, mt_deliv, mt_drop);
+        str_add(str, item);
+        snprintf(item, sizeof(item), "mt last: n=%d [%s]\n", mt_last_n, mt_edges);
         str_add(str, item);
         return str_detach(str);
     }

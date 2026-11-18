@@ -164,6 +164,11 @@ typedef struct {
 	                      landed); single-finger mouse synthesis stays off
 	                      until every finger lifts again*/
 	bool mt_synth_down; /*single-finger compat LEFT press is currently down*/
+	/*contact ids currently down, one bit per id. MT frames carry only the
+	  contact EDGES of the moment (a stationary finger is absent), so the
+	  down set must be tracked across frames: "every finger lifted" means
+	  this mask is empty, not that the current frame has no live entry.*/
+	uint32_t mt_active_mask;
 	gpos_t old_pos;
 	gpos_t pos_delta;
 	uint32_t drag_state;
