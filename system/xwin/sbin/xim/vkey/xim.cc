@@ -83,6 +83,11 @@ enum KeyAction {
 #define MAX_KEYS (MAX_ROWS * MAX_KEYS_PER_ROW)
 
 /* --- Typing feel (physical-keyboard parity) --- */
+/*commit a tap this long after the press, like a physical keyboard: waiting
+  for the release CLICK costs the whole hold time plus the touch driver's
+  40ms release grace. The window is long enough that a second finger
+  landing for a drag cancels the pending commit before it types.*/
+#define KEY_COMMIT_MS   35
 #define REPEAT_DELAY_MS 400   /* hold this long before auto-repeat starts */
 #define REPEAT_RATE_MS  35    /* repeat cadence once started (~28 chars/s) */
 /*the server promotes a touch UP to CLICK within 6px + MT_CLICK_SLACK(16):
@@ -328,12 +333,19 @@ class XIMIOS : public XWin {
     int32_t mtStartX, mtStartY;    /* window origin at drag start */
 
     /* Key auto-repeat: holding a key types it repeatedly, like a physical
-       keyboard. The first character still commits on CLICK for a quick tap;
-       once repeat fires, the release CLICK must not type it a second time. */
+       keyboard. The first character commits on the press (KEY_COMMIT_MS);
+       once it or the repeat fired, the release CLICK must not type again. */
     int repeatKey;                 /* armed key index, -1 = off */
     char repeatChar;               /* effective char captured at press */
     uint32_t repeatNextMs;         /* next fire deadline (ms tic) */
     bool repeatFired;
+
+    /* Press-commit: type the key shortly after DOWN instead of waiting for
+       the lift CLICK. A second contact (possible drag) or the lift itself
+       cancels a pending commit; the CLICK then types as the fallback. */
+    uint32_t commitAtMs;           /* commit deadline (ms tic) */
+    bool commitArmed;
+    bool tapCommitted;             /* press-commit already typed this press */
 
     /* Coalesced repaint: at most one queued REPAINT between renders, so a
        burst of key events costs a single full-panel draw */
@@ -751,6 +763,36 @@ protected:
         repeatNextMs = now + REPEAT_RATE_MS;
     }
 
+    /* --- Press-commit --- */
+    void armCommit(int idx) {
+        commitArmed = false;
+        tapCommitted = false;
+        if(idx < 0 || idx >= keyCount)
+            return;
+        commitArmed = true;
+        commitAtMs = (uint32_t)kernel_tic_ms(0) + KEY_COMMIT_MS;
+    }
+
+    void cancelCommit() {
+        commitArmed = false;
+    }
+
+    void keyTick() {
+        uint32_t now = (uint32_t)kernel_tic_ms(0);
+        if(commitArmed && pressedKey >= 0 && !hideMode &&
+                (int32_t)(now - commitAtMs) >= 0) {
+            commitArmed = false;
+            tapCommitted = true;
+            doKeyAction(pressedKey);
+            /*doKeyAction may have auto-released shift: keep the armed
+              repeat in sync with what the next fire should emit*/
+            if(repeatKey >= 0 && repeatKey < keyCount &&
+                    repeatChar != KEY_BACKSPACE)
+                repeatChar = effectiveChar(&keyRects[repeatKey]);
+        }
+        repeatTick();
+    }
+
     void inputX(char c) {
         xevent_t ev;
         ev.type = XEVT_IM_VKEYB;
@@ -881,6 +923,7 @@ protected:
             pressedKey = idx;
             popupKey = idx;
             armRepeat(idx);
+            armCommit(idx);
             reqRepaint();
         }
         else if(ev->state == MOUSE_STATE_DRAG) {
@@ -891,6 +934,7 @@ protected:
                 pressedKey = idx;
                 popupKey = idx;
                 armRepeat(idx);
+                armCommit(idx);
                 reqRepaint();
             }
         }
@@ -903,6 +947,7 @@ protected:
               two-finger drag also keeps the press, but no CLICK follows it
               and mtAct clears pressedKey once the drag engages.*/
             cancelRepeat();
+            cancelCommit();
             if(abs(ev->value.mouse.from_x - ev->value.mouse.x) >= TOUCH_CLICK_MAX_DIST ||
                     abs(ev->value.mouse.from_y - ev->value.mouse.y) >= TOUCH_CLICK_MAX_DIST) {
                 pressedKey = -1;
@@ -911,14 +956,17 @@ protected:
             }
         }
         else if(ev->state == MOUSE_STATE_CLICK) {
-            /*only a CLICK types: a plain UP can be the server cancelling the
-              synthetic press when a two-finger drag commits*/
+            /*the CLICK is the fallback commit: it types only when neither
+              the press-commit nor the auto-repeat already typed this press
+              (a plain UP can also be the server cancelling the synthetic
+              press when a two-finger drag commits - no CLICK follows it)*/
             int idx = hitTest(x, y);
             if(idx < 0)
                 idx = pressedKey; /*lifted in a gap: commit the held key*/
-            if(idx >= 0 && idx == pressedKey && !repeatFired)
+            if(idx >= 0 && idx == pressedKey && !repeatFired && !tapCommitted)
                 doKeyAction(idx);
             cancelRepeat();
+            cancelCommit();
             pressedKey = -1;
             popupKey = -1;
             reqRepaint();
@@ -1002,7 +1050,10 @@ protected:
             /*drag by the midpoint travel of all active contacts, but engage
               only on real travel: a brief second-finger overlap while typing
               (rollover) must not cancel the armed key - the server tells a
-              drag from rollover by the same midpoint slop*/
+              drag from rollover by the same midpoint slop. The pending
+              press-commit IS cancelled: if this turns into a drag it must
+              not type; rollover still types via the lift CLICK fallback.*/
+            cancelCommit();
             cx /= active;
             cy /= active;
             xinfo_t xi;
@@ -1021,6 +1072,7 @@ protected:
                 mtStartX = xi.wsr.x;
                 mtStartY = xi.wsr.y;
                 cancelRepeat();
+                cancelCommit();
                 if(pressedKey >= 0 || popupKey >= 0) {
                     pressedKey = -1;
                     popupKey = -1;
@@ -1041,6 +1093,7 @@ protected:
             mtArmed = false;
             /*every finger lifted: drop any press the UP left armed (a
               release beyond the click distance never gets a CLICK)*/
+            cancelCommit();
             if(pressedKey >= 0 || popupKey >= 0) {
                 pressedKey = -1;
                 popupKey = -1;
@@ -1113,9 +1166,9 @@ protected:
     }
 
     void onEvent(xevent_t* ev) {
-        /*a steady event stream starves the idle loop: keep the repeat
-          cadence alive while events flow too*/
-        repeatTick();
+        /*a steady event stream starves the idle loop: keep the commit and
+          repeat deadlines alive while events flow too*/
+        keyTick();
         if(ev->type == XEVT_MOUSE) {
             doMouseEvent(ev);
         }
@@ -1134,6 +1187,7 @@ protected:
             /*drop any armed key: a pressedKey surviving the dismiss would
               let a later stray CLICK match it and type a phantom letter*/
             cancelRepeat();
+            cancelCommit();
             pressedKey = -1;
             popupKey = -1;
             int kw = 32;
@@ -1176,22 +1230,32 @@ protected:
         mtDragging = false;
         memset(mtContacts, 0, sizeof(mtContacts));
         cancelRepeat();
+        cancelCommit();
         pressedKey = -1;
         popupKey = -1;
     }
 
 public:
-    /* idle-loop tick: fire due repeats, then park until the next deadline
-       (or an event, whichever comes first - x_wait_event_timeout wakes on
-       the server's vfs_wakeup). A skipped fps_async present is retried by
-       x_run at the top of each pass, so keep the wait short while one is
-       owed or the final frame of a keystroke sits unpublished. */
+    /* idle-loop tick: fire due commits/repeats, then park until the next
+       deadline (or an event, whichever comes first - x_wait_event_timeout
+       wakes on the server's vfs_wakeup). A skipped fps_async present is
+       retried by x_run at the top of each pass, so keep the wait short
+       while one is owed or the final frame of a keystroke sits unpublished. */
     void loopTick() {
-        repeatTick();
+        keyTick();
+        uint32_t now = (uint32_t)kernel_tic_ms(0);
         uint32_t waitMs = 50;
+        if(commitArmed) {
+            int32_t left = (int32_t)(commitAtMs - now);
+            uint32_t w = (left <= 0) ? 1 : (uint32_t)left;
+            if(w < waitMs)
+                waitMs = w;
+        }
         if(repeatKey >= 0) {
-            int32_t left = (int32_t)(repeatNextMs - (uint32_t)kernel_tic_ms(0));
-            waitMs = (left <= 0) ? 1 : (uint32_t)left;
+            int32_t left = (int32_t)(repeatNextMs - now);
+            uint32_t w = (left <= 0) ? 1 : (uint32_t)left;
+            if(w < waitMs)
+                waitMs = w;
         }
         if(xwin_present_pending() && waitMs > 2)
             waitMs = 2;
@@ -1222,6 +1286,9 @@ public:
         repeatChar = 0;
         repeatNextMs = 0;
         repeatFired = false;
+        commitAtMs = 0;
+        commitArmed = false;
+        tapCommitted = false;
         repaintPending = false;
         hasPlace = false;
         placeX = placeY = 0;
