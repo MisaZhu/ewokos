@@ -164,6 +164,10 @@ typedef struct {
 	                      landed); single-finger mouse synthesis stays off
 	                      until every finger lifts again*/
 	bool mt_synth_down; /*single-finger compat LEFT press is currently down*/
+	uint64_t mt_synth_ms; /*tic (ms) of that press, for the drag hold gate*/
+	bool mt_no_click;   /*the synthetic UP in flight cancels the press (a
+	                      second finger landed): it must not turn into
+	                      a CLICK*/
 	/*contact ids currently down, one bit per id. MT frames carry only the
 	  contact EDGES of the moment (a stationary finger is absent), so the
 	  down set must be tracked across frames: "every finger lifted" means

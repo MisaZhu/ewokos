@@ -483,6 +483,10 @@ static bool xwin_flip_locked(xwin_t* xwin) {
   picked up on the following tick*/
 #define XWIN_FLIP_RETRY_MAX 16
 
+bool xwin_present_pending(void) {
+    return _xwin_present_pending_num != 0;
+}
+
 void xwin_retry_pending_presents(void) {
     if(_xwin_present_pending_num == 0)
         return;

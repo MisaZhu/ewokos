@@ -102,6 +102,10 @@ void     xwin_hide_cursor(xwin_t* xwin, bool hide);
   reading the handoff buffer. Cheap no-op when nothing is pending; meant to be
   called once per iteration of the event loop (x_run does it).*/
 void     xwin_retry_pending_presents(void);
+/*whether any window of this process still owes the server a skipped present.
+  An event loop must not park without a timeout while this is true: nothing
+  but the next xwin_retry_pending_presents() call will ever publish that frame.*/
+bool     xwin_present_pending(void);
 
 #ifdef __cplusplus
 }

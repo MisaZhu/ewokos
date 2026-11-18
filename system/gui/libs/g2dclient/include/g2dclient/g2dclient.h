@@ -86,7 +86,7 @@ enum {
    L2 clean+invalidate + IRQ wait + IPC round-trip independent of triangle
    count, so batching a mesh into a single dispatch is what makes the GPU path
    beat the CPU rasterizer.  Must stay >= the client's PGL_G3D_MAX_VERTS. */
-#define G2D_PGL_MAX_VERTS 20480u
+#define G2D_PGL_MAX_VERTS 32768u
 
 /* Maximum texture units a compiled FS may bind (iChannel0..iChannelN).
    Sized to cover the shadertoy set (max 3 channels in the_cave) with one

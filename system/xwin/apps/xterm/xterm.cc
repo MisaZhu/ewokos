@@ -118,6 +118,29 @@ static void xterm_emit_echo(void* arg, const char* buf, int size) {
 #define DOUBLE_CLICK_MS   350 /* max gap between the two taps of a double-click */
 #define DOUBLE_CLICK_SLOP 24  /* max drift between the two tap positions */
 
+#define PINCH_FONT_MIN  6     /* font size range of the two-finger pinch zoom */
+#define PINCH_FONT_MAX  96
+#define PINCH_DIST_MIN  32    /* shortest finger distance a pinch is measured from */
+
+/* integer square root, for the finger distance of a pinch */
+static uint32_t isqrt(uint32_t v) {
+	uint32_t r = 0;
+	uint32_t bit = 1u << 30;
+	while(bit > v)
+		bit >>= 2;
+	while(bit != 0) {
+		if(v >= r + bit) {
+			v -= r + bit;
+			r = (r >> 1) + bit;
+		}
+		else {
+			r >>= 1;
+		}
+		bit >>= 2;
+	}
+	return r;
+}
+
 static void termMenuCallback(MenuItem* it, void* p);
 
 class TermWidget : public ConsoleWidget {
@@ -137,6 +160,12 @@ class TermWidget : public ConsoleWidget {
 	int32_t longPressX, longPressY;   /* screen coords of the press */
 	int32_t lastClickX, lastClickY;   /* position of the previous tap */
 	gpos_t anchorPos;                 /* widget-local coords of the press */
+
+	/* two-finger pinch (touch): scales the font */
+	bool pinching;
+	uint32_t pinchIdA, pinchIdB;      /* the two contacts being measured */
+	uint32_t pinchDist;               /* their distance when the pinch began */
+	uint32_t pinchFontSize;           /* font size when the pinch began */
 public:
 	TermWidget() {
 		pthread_mutex_init(&term_lock, NULL);
@@ -151,6 +180,11 @@ public:
 		lastClickTime = 0;
 		lastClickX = 0;
 		lastClickY = 0;
+		pinching = false;
+		pinchIdA = 0;
+		pinchIdB = 0;
+		pinchDist = 0;
+		pinchFontSize = 0;
 		terminal.output_callback = [](void* p, const char* buf, int size) {
 			(void)p;
 			for(int i = 0; i < size; i++) {
@@ -452,6 +486,72 @@ protected:
 				return true;
 		}
 		return false;
+	}
+
+	bool onTouch(xevent_t* ev) {
+		(void)ev;
+		/* the two lowest contacts that are down drive the pinch; a single
+		   finger is already served by the mouse events it comes with */
+		RootWidget* root = getRoot();
+		const touch_evt_t* a = NULL;
+		const touch_evt_t* b = NULL;
+		for(uint32_t i = 0; i < X_TOUCH_MAX && b == NULL; i++) {
+			const touch_evt_t* t = root->getTouch(i);
+			if(t == NULL)
+				continue;
+			if(a == NULL)
+				a = t;
+			else
+				b = t;
+		}
+		if(b == NULL) {
+			pinching = false;
+			return true;
+		}
+
+		int32_t dx = a->x - b->x;
+		int32_t dy = a->y - b->y;
+		uint32_t dist = isqrt((uint32_t)(dx*dx + dy*dy));
+		if(dist < PINCH_DIST_MIN)
+			dist = PINCH_DIST_MIN;
+
+		if(!pinching || a->id != pinchIdA || b->id != pinchIdB) {
+			/* a new pair of fingers: the zoom is measured from here */
+			pinching = true;
+			pinchIdA = a->id;
+			pinchIdB = b->id;
+			pinchDist = dist;
+			lock();
+			pinchFontSize = terminal.font_size;
+			unlock();
+			longPressPending = false;
+			return true;
+		}
+
+		/* the font follows the finger distance (in 1/16 sizes). A step is only
+		   taken once the fingers are 3/4 of the way to it, so a distance that
+		   sits on a boundary does not flip the size back and forth. */
+		uint32_t target = pinchFontSize * 16 * dist / pinchDist;
+		bool changed = false;
+		lock();
+		uint32_t cur = terminal.font_size * 16;
+		uint32_t diff = target > cur ? target - cur : cur - target;
+		if(diff >= 12) {
+			uint32_t size = (target + 8) / 16;
+			if(size < PINCH_FONT_MIN)
+				size = PINCH_FONT_MIN;
+			else if(size > PINCH_FONT_MAX)
+				size = PINCH_FONT_MAX;
+			if(size != terminal.font_size) {
+				terminal.font_size = size;
+				gterminal_resize(&terminal, area.w-scrollW, area.h);
+				changed = true;
+			}
+		}
+		unlock();
+		if(changed)
+			update();
+		return true;
 	}
 
 	bool onIM(xevent_t* ev) {

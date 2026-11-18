@@ -95,6 +95,10 @@ bool Widget::onIM(xevent_t* ev) {
 	return false;
 }
 
+bool Widget::onTouch(xevent_t* ev) {
+	return false;
+}
+
 void Widget::doTimer(uint32_t fps, uint32_t timerSteps) {
 	onTimer(fps, timerSteps);
 }
@@ -138,6 +142,27 @@ bool Widget::onEvent(xevent_t* ev) {
 		if(onEventFunc != NULL)
 			onEventFunc(this, ev, onEventFuncArg);
 		return onIM(ev);
+	}
+	else if(!disabled && ev->type == XEVT_TOUCH_MT) {
+		/* a frame nobody owns yet is offered by position: the widget under
+		   its first live contact takes it (frames of an owned gesture never
+		   get here, see RootWidget::sendEvent). onEventFunc stays out of it:
+		   those callbacks read ev->state as a mouse/IM state. */
+		int32_t num = ev->state;
+		if(num > X_TOUCH_MAX)
+			num = X_TOUCH_MAX;
+		for(int32_t i = 0; i < num; i++) {
+			const touch_evt_t* t = &ev->value.touch.touchs[i];
+			if(t->state == TOUCH_STATE_RELEASE)
+				continue;
+			grect_t r = getScreenArea();
+			if(t->x > r.x && t->x < (r.x+r.w) &&
+					t->y > r.y && t->y < (r.y+r.h) && onTouch(ev)) {
+				getRoot()->touch(this);
+				return true;
+			}
+			break;
+		}
 	}
 	return ret; 
 }

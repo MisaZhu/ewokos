@@ -23,6 +23,55 @@ typedef struct evt_pool {
 
 static xevt_pool_t* _xevt_pool_head = NULL;
 
+/*overflow eviction must never eat a contact edge: a multi-finger drag
+  floods the pool with MOVE frames, and blindly popping the oldest used
+  to evict the RELEASE that followed - the client then kept the contact
+  (its circle) forever, because after the last lift no further frame
+  re-derives it. Only MOVE-only touch frames are superseded by newer
+  positions and safe to drop; if none is queued the pool grows past the
+  soft cap rather than lose a press/release edge.*/
+static uint32_t _evicted;
+
+static bool evt_droppable(const xevent_t* e) {
+    if(e->type != XEVT_TOUCH_MT)
+        return false;
+    int n = e->state;
+    if(n < 0)
+        n = 0;
+    if(n > X_TOUCH_MAX)
+        n = X_TOUCH_MAX;
+    if(n == 0)
+        return false;
+    for(int i = 0; i < n; i++) {
+        if(e->value.touch.touchs[i].state != TOUCH_STATE_MOVE)
+            return false;
+    }
+    return true;
+}
+
+/*unlink and free the oldest droppable item; false if none exists */
+static bool pool_evict_move(xevt_pool_t* pool) {
+    xevt_item_t* prev = NULL;
+    xevt_item_t* item = pool->head;
+    while(item != NULL) {
+        if(evt_droppable(&item->evt)) {
+            if(prev == NULL)
+                pool->head = item->next;
+            else
+                prev->next = item->next;
+            if(pool->tail == item)
+                pool->tail = prev;
+            free(item);
+            pool->num--;
+            _evicted++;
+            return true;
+        }
+        prev = item;
+        item = item->next;
+    }
+    return false;
+}
+
 static uint32_t create_evt_node(void) {
     fsinfo_t info;
     memset(&info, 0, sizeof(fsinfo_t));
@@ -101,7 +150,7 @@ void xevent_push(int pid, xevent_t* evt) {
     if(pool == NULL)
         return;
     if(pool->num >= XEVT_MAX)
-        xevent_pool_pop(pool, NULL);
+        (void)pool_evict_move(pool);
     xevent_pool_push(pool, evt);
 }
 
@@ -162,4 +211,8 @@ void xevent_pool_stats(uint32_t* pools, uint32_t* events) {
         *pools = p;
     if(events != NULL)
         *events = e;
+}
+
+uint32_t xevent_pool_evicted(void) {
+    return _evicted;
 }
