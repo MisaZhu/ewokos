@@ -12,18 +12,53 @@ extern "C" {
 
 #define FACE_PIXEL_DENT   64
 
-static int free_cache(map_t map, const char* key, any_t data, any_t arg) {
-    FT_GlyphSlot slot = (FT_GlyphSlot)data;
-    if(slot == NULL)
-        return MAP_OK;
+/* Integer-keyed open-addressing glyph cache. Replaces the snprintf-keyed
+ * hashmap: a hit costs a few integer ops and returns the cached slot
+ * pointer directly (no per-glyph-per-frame FT_GlyphSlotRec copy, no key
+ * formatting). Stored in font_t.cache (map_t is void*), so the font_t
+ * layout is unchanged. */
+#define GLYPH_CACHE_SLOTS 4096u   /* power of two */
+#define GLYPH_CACHE_MAX   3072u   /* clear-all threshold, keeps probes short */
 
-    hashmap_remove(map, key);
-    if(slot->bitmap.buffer != NULL)
-        free(slot->bitmap.buffer);
-    if(slot->other != NULL)
-        free(slot->other);
-    free(slot);
-    return MAP_OK;
+typedef struct {
+    uint64_t key;                 /* (size << 32) | c, 0 = empty slot */
+    FT_GlyphSlot slot;
+} glyph_entry_t;
+
+typedef struct {
+    uint32_t count;
+    glyph_entry_t entries[GLYPH_CACHE_SLOTS];
+} glyph_cache_t;
+
+static inline uint64_t glyph_key(uint32_t size, uint32_t c) {
+    uint64_t key = ((uint64_t)size << 32) | c;
+    return key == 0 ? (1ULL << 63) : key;
+}
+
+static inline uint32_t glyph_hash(uint64_t key) {
+    /* splitmix64 finalizer: avalanches the sparse size:codepoint keys */
+    key ^= key >> 30;
+    key *= 0xbf58476d1ce4e5b9ULL;
+    key ^= key >> 27;
+    key *= 0x94d049bb133111ebULL;
+    key ^= key >> 31;
+    return (uint32_t)key & (GLYPH_CACHE_SLOTS - 1);
+}
+
+static void glyph_cache_clear(glyph_cache_t* cache) {
+    for(uint32_t i = 0; i < GLYPH_CACHE_SLOTS; i++) {
+        glyph_entry_t* e = &cache->entries[i];
+        if(e->slot != NULL) {
+            if(e->slot->bitmap.buffer != NULL)
+                free(e->slot->bitmap.buffer);
+            if(e->slot->other != NULL)
+                free(e->slot->other);
+            free(e->slot);
+        }
+        e->key = 0;
+        e->slot = NULL;
+    }
+    cache->count = 0;
 }
 
 font_t* font_new(const char* name, bool safe) {
@@ -34,7 +69,7 @@ font_t* font_new(const char* name, bool safe) {
     strncpy(font->name, name, FONT_NAME_MAX-1);
     int id = font_load(name, "");
     if(id >= 0) {
-        font->cache = hashmap_new(0);
+        font->cache = calloc(1, sizeof(glyph_cache_t));
         font->id = id;
         return font;
     }
@@ -43,7 +78,7 @@ font_t* font_new(const char* name, bool safe) {
         if(id >= 0) {
             strncpy(font->name, DEFAULT_SYSTEM_FONT, FONT_NAME_MAX-1);
             font->id = id;
-            font->cache = hashmap_new(0);
+            font->cache = calloc(1, sizeof(glyph_cache_t));
             return font;
         }
     }
@@ -61,7 +96,7 @@ int font_free(font_t* font) {
 
 static void font_clear_cache(font_t* font) {
     if(font->cache != NULL) {
-        hashmap_iterate(font->cache, free_cache, NULL);	
+        glyph_cache_clear((glyph_cache_t*)font->cache);
     }
 }
 
@@ -70,15 +105,9 @@ int font_close(font_t* font) {
         return -1;
 
     font_clear_cache(font);
-    hashmap_free(font->cache);
+    free(font->cache);
     font->cache = NULL;
     return 0;
-}
-
-static inline const char* hash_key(uint32_t c, uint32_t size) {
-    static char key[32] = {0};
-    snprintf(key, sizeof(key), "%u:%x", size, c);
-    return key;
 }
 
 static uint32_t bitmap_row_bytes(const FT_Bitmap* bmp) {
@@ -108,60 +137,104 @@ static void sanitize_slot_for_cache(FT_GlyphSlot slot) {
     slot->internal = NULL;
 }
 
-static int font_fetch_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
-    if(font == NULL || font->cache == NULL) {
-        return -1;
-    }
+/* Deep-copy a freshly rendered slot into a standalone cache entry: the
+ * backend (font_cs IPC / FreeType face) reuses its slot storage on the
+ * next render, and outline/internal pointers must not be kept. */
+static FT_GlyphSlot cache_slot_copy(FT_GlyphSlot slot) {
+    FT_GlyphSlot p = (FT_GlyphSlot)malloc(sizeof(FT_GlyphSlotRec));
+    if(p == NULL)
+        return NULL;
 
-    FT_GlyphSlot p;
-    if(hashmap_get(font->cache, hash_key(c, size), (void**)&p) == 0) {
-        if(p != NULL)
-            memcpy(slot, p, sizeof(FT_GlyphSlotRec));
-        return 0;
-    }	
-    return -1;
+    memcpy(p, slot, sizeof(FT_GlyphSlotRec));
+    sanitize_slot_for_cache(p);
+    uint32_t bmp_size = bitmap_row_bytes(&slot->bitmap) * slot->bitmap.rows;
+    if(bmp_size > 0 && slot->bitmap.buffer != NULL) {
+        p->bitmap.buffer = malloc(bmp_size);
+        if(p->bitmap.buffer == NULL) {
+            free(p);
+            return NULL;
+        }
+        memcpy(p->bitmap.buffer, slot->bitmap.buffer, bmp_size);
+    }
+    if(slot->other != NULL) {
+        p->other = malloc(sizeof(face_info_t));
+        if(p->other == NULL) {
+            if(p->bitmap.buffer != NULL)
+                free(p->bitmap.buffer);
+            free(p);
+            return NULL;
+        }
+        memcpy(p->other, slot->other, sizeof(face_info_t));
+    }
+    return p;
 }
 
-#define MAX_FONT_CACHE 4096
-
-static void font_cache(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
-    if(font == NULL || font->cache == NULL) {
+/* Blit an 8-bit alpha glyph bitmap in one clipped span per row instead of
+ * a bounds-checked call per pixel. Blend arithmetic is bit-identical to
+ * graph_pixel_argb_raw (truncating /255, alpha-0 dest takes source RGB). */
+static void glyph_blit(graph_t* g, int32_t x, int32_t y,
+        const FT_Bitmap* bmp, uint32_t color) {
+    if(g == NULL || bmp == NULL || bmp->buffer == NULL ||
+            bmp->width == 0 || bmp->rows == 0)
         return;
+
+    /* clip once for the whole glyph (same rule as graph_pixel_argb),
+     * intersected with the canvas like graph_fill_cpu so a clip reaching
+     * past the canvas edge can never index outside the buffer */
+    int32_t cx0 = 0, cy0 = 0, cx1 = g->w, cy1 = g->h;
+    if(g->clip.w != 0 && g->clip.h != 0) {
+        cx0 = g->clip.x;
+        cy0 = g->clip.y;
+        cx1 = cx0 + g->clip.w;
+        cy1 = cy0 + g->clip.h;
+        if(cx0 < 0) cx0 = 0;
+        if(cy0 < 0) cy0 = 0;
+        if(cx1 > g->w) cx1 = g->w;
+        if(cy1 > g->h) cy1 = g->h;
     }
+    int32_t bw = (int32_t)bmp->width;
+    int32_t bh = (int32_t)bmp->rows;
+    int32_t sx0 = (x < cx0) ? cx0 - x : 0;
+    int32_t sy0 = (y < cy0) ? cy0 - y : 0;
+    int32_t sx1 = (x + bw > cx1) ? cx1 - x : bw;
+    int32_t sy1 = (y + bh > cy1) ? cy1 - y : bh;
+    if(sx0 >= sx1 || sy0 >= sy1)
+        return;
 
-    FT_GlyphSlot p = NULL;
-    if(slot != NULL) {
-        p = (FT_GlyphSlot)malloc(sizeof(FT_GlyphSlotRec));
-        if(p == NULL)
-            return;
+    uint32_t row_bytes = bitmap_row_bytes(bmp);
+    uint32_t ca = (color >> 24) & 0xff;
+    uint32_t cr = (color >> 16) & 0xff;
+    uint32_t cg = (color >> 8) & 0xff;
+    uint32_t cb = color & 0xff;
+    uint32_t solid = 0xff000000 | (cr << 16) | (cg << 8) | cb;
+    uint32_t rgb = (cr << 16) | (cg << 8) | cb;
+    int32_t n = sx1 - sx0;
 
-        if(hashmap_length(font->cache) >= MAX_FONT_CACHE) {
-            font_clear_cache(font);
-        }
-        memcpy(p, slot, sizeof(FT_GlyphSlotRec));
-        sanitize_slot_for_cache(p);
-        uint32_t bmp_size = bitmap_row_bytes(&slot->bitmap) * slot->bitmap.rows;
-        if(bmp_size > 0 && slot->bitmap.buffer != NULL) {
-            p->bitmap.buffer = malloc(bmp_size);
-            if(p->bitmap.buffer == NULL) {
-                free(p);
-                return;
+    for(int32_t j = sy0; j < sy1; j++) {
+        const uint8_t* src = bmp->buffer + (uint32_t)j * row_bytes + sx0;
+        uint32_t* dst = g->buffer + (y + j) * g->w + (x + sx0);
+        for(int32_t i = 0; i < n; i++) {
+            uint32_t a = ca & src[i];
+            if(a == 0)
+                continue;
+            if(a == 0xff) {
+                dst[i] = solid;
+                continue;
             }
-            memcpy(p->bitmap.buffer, slot->bitmap.buffer, bmp_size);
-        }
-        if(slot->other != NULL) {
-            p->other = malloc(sizeof(face_info_t));
-            if(p->other == NULL) {
-                if(p->bitmap.buffer != NULL)
-                    free(p->bitmap.buffer);
-                free(p);
-                return;
+            uint32_t oc = dst[i];
+            uint32_t oa = oc >> 24;
+            if(oa == 0) {
+                dst[i] = (a << 24) | rgb;
+                continue;
             }
-            memcpy(p->other, slot->other, sizeof(face_info_t));
+            uint32_t inv_a = 255 - a;
+            uint32_t na = oa + (255 - oa) * a / 255;
+            uint32_t nr = (cr * a + ((oc >> 16) & 0xff) * inv_a) / 255;
+            uint32_t ng = (cg * a + ((oc >> 8) & 0xff) * inv_a) / 255;
+            uint32_t nb = (cb * a + (oc & 0xff) * inv_a) / 255;
+            dst[i] = (na << 24) | (nr << 16) | (ng << 8) | nb;
         }
     }
-
-    hashmap_put(font->cache, hash_key(c, size), p);
 }
 
 FT_GlyphSlot font_init_glyph(FT_GlyphSlot glyph) {
@@ -183,28 +256,47 @@ int  font_get_width(font_t* font, uint32_t size) {
     return face.width/FACE_PIXEL_DENT;
 }
 
-static int font_get_glyph(font_t* font, uint32_t size, uint32_t c, FT_GlyphSlot slot) {
+/* Cache hit returns the cached slot pointer (no copy). Miss renders into
+ * scratch, caches a sanitized deep copy and returns that (scratch itself
+ * if the copy could not be allocated). NULL on failure. */
+static FT_GlyphSlot font_get_glyph(font_t* font, uint32_t size, uint32_t c,
+        FT_GlyphSlotRec* scratch) {
     if(font == NULL)
-        return -1;
-    memset(slot, 0, sizeof(FT_GlyphSlotRec));
+        return NULL;
 
-    int ret = -1;
-    int do_cache = 0;
-    if(font_fetch_cache(font, size, c, slot) != 0) {
-        if(font_get_glyph_info(font, size, c, slot) == 0) {
-            ret = 0;
-            do_cache = 1;
+    glyph_cache_t* cache = (glyph_cache_t*)font->cache;
+    uint64_t key = glyph_key(size, c);
+    if(cache != NULL) {
+        uint32_t i = glyph_hash(key);
+        for(uint32_t n = 0; n < GLYPH_CACHE_SLOTS; n++) {
+            glyph_entry_t* e = &cache->entries[i];
+            if(e->key == key)
+                return e->slot;
+            if(e->key == 0)
+                break;
+            i = (i + 1) & (GLYPH_CACHE_SLOTS - 1);
         }
     }
-    else {
-        ret = 0;
-    }
 
-    if(do_cache) {
-        font_cache(font, size, c, slot);
-    }
+    memset(scratch, 0, sizeof(FT_GlyphSlotRec));
+    if(font_get_glyph_info(font, size, c, scratch) != 0)
+        return NULL;
 
-    return ret;
+    if(cache != NULL) {
+        FT_GlyphSlot p = cache_slot_copy(scratch);
+        if(p != NULL) {
+            if(cache->count >= GLYPH_CACHE_MAX)
+                glyph_cache_clear(cache);
+            uint32_t i = glyph_hash(key);
+            while(cache->entries[i].key != 0)
+                i = (i + 1) & (GLYPH_CACHE_SLOTS - 1);
+            cache->entries[i].key = key;
+            cache->entries[i].slot = p;
+            cache->count++;
+            return p;
+        }
+    }
+    return scratch;
 }
 
 void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32_t* h) {
@@ -212,17 +304,18 @@ void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32
     uint32_t default_w = size/2;
     uint32_t default_h = size;
 
-    FT_GlyphSlotRec slot;
-    if(font_get_glyph(font, size, c, &slot) != 0) {
+    FT_GlyphSlotRec scratch;
+    FT_GlyphSlot slot = font_get_glyph(font, size, c, &scratch);
+    if(slot == NULL) {
         if(w != NULL) *w = default_w;
         if(h != NULL) *h = default_h;
         return;
     }
     
-    face_info_t* faceinfo = (face_info_t*)slot.other;
+    face_info_t* faceinfo = (face_info_t*)slot->other;
     
     // Calculate width based on metrics
-    default_w = slot.metrics.horiAdvance / FACE_PIXEL_DENT;
+    default_w = slot->metrics.horiAdvance / FACE_PIXEL_DENT;
     if(default_w == 0) default_w = size/2;
     
     if(h != NULL && faceinfo != NULL) {
@@ -274,28 +367,29 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
     uint32_t default_w = size/2;
     uint32_t default_h = size;
 
-    FT_GlyphSlotRec slot;
-    if(font_get_glyph(font, size, c, &slot) != 0) {
+    FT_GlyphSlotRec scratch;
+    FT_GlyphSlot slot = font_get_glyph(font, size, c, &scratch);
+    if(slot == NULL) {
         if(w != NULL) *w = default_w;
         if(h != NULL) *h = default_h;
         return;
     }
     
-    face_info_t* faceinfo = (face_info_t*)slot.other;
+    face_info_t* faceinfo = (face_info_t*)slot->other;
     
     // Calculate width based on metrics
-    default_w = slot.metrics.horiAdvance / FACE_PIXEL_DENT;
+    default_w = slot->metrics.horiAdvance / FACE_PIXEL_DENT;
     if(default_w == 0) default_w = size/2;
     
     default_h = (faceinfo->height/FACE_PIXEL_DENT);
     if(default_h == 0) default_h = size;
 
-    x += slot.bitmap_left;
-    y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
+    x += slot->bitmap_left;
+    y = y - slot->bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
     
     if(c == '\t') {
         if(w != NULL) {
-            *w = slot.bitmap.width*2;
+            *w = slot->bitmap.width*2;
             if((*w) == 0)
                 *w = size;
         }
@@ -305,19 +399,7 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
         return;
     }
 
-    if(slot.bitmap.buffer != NULL) {
-        uint32_t row_bytes = bitmap_row_bytes(&slot.bitmap);
-        for (int32_t j = 0; j < slot.bitmap.rows; j++) {
-            for (int32_t i = 0; i < slot.bitmap.width; i++) {
-                uint8_t pv = slot.bitmap.buffer[j*row_bytes+i];
-                graph_pixel_argb(g, x+i, y+j,
-                        (color >> 24) & pv & 0xff,
-                        (color >> 16) & 0xff,
-                        (color >> 8) & 0xff,
-                        color & 0xff);
-            }
-        }
-    }
+    glyph_blit(g, x, y, &slot->bitmap, color);
 
     if(h != NULL) {
         *h = default_h;
@@ -331,29 +413,16 @@ void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
 void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, uint32_t c,
         font_t* font, uint32_t size, uint32_t color, uint32_t w, uint32_t h) {
 
-    FT_GlyphSlotRec slot;
-    if(font_get_glyph(font, size, c, &slot) != 0)
+    FT_GlyphSlotRec scratch;
+    FT_GlyphSlot slot = font_get_glyph(font, size, c, &scratch);
+    if(slot == NULL)
         return;
-    face_info_t* faceinfo = (face_info_t*)slot.other;
+    face_info_t* faceinfo = (face_info_t*)slot->other;
 
-    x += ((int)w - ((int)slot.bitmap.width - slot.bitmap_left))/2;
-    y = y - slot.bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
+    x += ((int)w - ((int)slot->bitmap.width - slot->bitmap_left))/2;
+    y = y - slot->bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
 
-    if(slot.bitmap.buffer != NULL) {
-        uint32_t row_bytes = bitmap_row_bytes(&slot.bitmap);
-        for (int32_t j = 0; j < slot.bitmap.rows; j++) {
-            for (int32_t i = 0; i < slot.bitmap.width; i++) {
-                uint8_t pv = slot.bitmap.buffer[j*row_bytes+i];
-                graph_pixel_argb(g, 
-                        x+i,
-                        y+j,
-                        (color >> 24) & pv & 0xff,
-                        (color >> 16) & 0xff,
-                        (color >> 8) & 0xff,
-                        color & 0xff);
-            }
-        }
-    }
+    glyph_blit(g, x, y, &slot->bitmap, color);
 }
 
 void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,

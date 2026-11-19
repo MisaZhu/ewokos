@@ -26,6 +26,25 @@ typedef struct {
 	int32_t cur_row, cur_col;        /* absolute grid cell under the pointer */
 } gterm_selection_t;
 
+/* Snapshot of everything (besides grid content) that affects the painted
+ * output. A change against the live terminal forces a full repaint; the
+ * cursor-blink phase (flash_show) is compared separately since it usually
+ * only affects the cursor row. */
+typedef struct {
+	uint32_t fg_color;
+	uint32_t bg_color;
+	uint8_t  transparent;
+	font_t*  font;
+	uint32_t font_size;
+	uint32_t rows, cols;
+	uint32_t char_w, char_h;
+	int32_t  textgrid_start_row;
+	int32_t  scroll_offset;
+	bool     show_curs;
+	bool     flash_show;
+	gterm_selection_t selection;
+} gterm_view_t;
+
 typedef struct {
 	uint32_t fg_color;
 	uint32_t bg_color;
@@ -60,6 +79,16 @@ typedef struct {
 	void* output_callback_arg;
 
 	gterm_selection_t selection;
+
+	/* Incremental-repaint state. full_dirty forces the next paint to cover
+	 * the whole viewport (the caller must have laid the background first,
+	 * see gterminal_full_repaint_pending). curs_drawn_row is the absolute
+	 * grid row holding the last painted cursor bar, -1 when none. */
+	gterm_view_t last_view;
+	bool last_view_valid;
+	bool full_dirty;
+	bool ever_flash;        /* some cell used SGR flash: blink needs full repaints */
+	int32_t curs_drawn_row;
 } gterminal_t;
 
 void gterminal_init(gterminal_t* terminal);
@@ -70,6 +99,15 @@ void gterminal_flash(gterminal_t* terminal);
 void gterminal_set_max_rows(gterminal_t* terminal, uint32_t max_rows);
 void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h);
 void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh);
+
+/* Force the next gterminal_paint to repaint the whole viewport. Callers
+ * that wipe the canvas themselves before painting (e.g. consoled) must
+ * call this so no stale rows survive. */
+void gterminal_invalidate(gterminal_t* terminal);
+/* True when the next gterminal_paint will repaint every visible row:
+ * callers should lay the terminal background over the whole paint rect
+ * before painting only in that case (partial paints fill their own band). */
+bool gterminal_full_repaint_pending(gterminal_t* terminal);
 
 /* Text selection. Pixel coordinates are relative to the paint origin
  * (0,0 = top-left of the visible grid). Grid coordinates are absolute

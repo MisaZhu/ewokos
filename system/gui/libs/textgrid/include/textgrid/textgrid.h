@@ -30,6 +30,12 @@ typedef struct {
 	int32_t curs_y;          // Current cursor row position
 
 	int32_t  tail_col;       // Last column with content in the last row
+
+	/* Dirty row range [dirty_start, dirty_end), absolute grid rows.
+	 * dirty_end == INT32_MAX means "everything is dirty" (reset, clear,
+	 * scrollback shift). dirty_start >= dirty_end means clean. */
+	int32_t dirty_start;
+	int32_t dirty_end;
 } textgrid_t;
 
 extern textgrid_t* textgrid_new(void);
@@ -43,6 +49,11 @@ extern int textgrid_put(textgrid_t* textgrid, int x, int y, textchar_t* tc);
 extern int textgrid_push(textgrid_t* textgrid, textchar_t* tc);
 
 extern int textgrid_move_to(textgrid_t* textgrid, int32_t x, int32_t y);
+
+/* Union [start, end) into the dirty row range (start clamped at 0,
+ * empty ranges are no-ops); reset the range to clean. */
+extern void textgrid_mark_dirty(textgrid_t* textgrid, int32_t start, int32_t end);
+extern void textgrid_clean_dirty(textgrid_t* textgrid);
 
 typedef void (*textgrid_draw_char_t)(graph_t* g,
 	textchar_t* tch,
