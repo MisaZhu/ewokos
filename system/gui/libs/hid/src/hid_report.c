@@ -1270,6 +1270,14 @@ int hid_parse_touch_mt_report(const uint8_t* desc, int len, touch_mt_parser_t* o
     if (declared_max > 0) {
         out->max_contacts = declared_max;
     }
+    else if (finger_count >= 2) {
+        /* Repeated Finger collections: the collection count is the slot
+           count. Each field inside one collection has Report Count 1, so
+           run_count is 1 here and must NOT cap the slots (a panel with ten
+           repeated fingers and no Input-report Contact Count Maximum would
+           otherwise be mistaken for a single-contact device). */
+        out->max_contacts = finger_count;
+    }
     else if (run_count > 0) {
         out->max_contacts = (int)run_count;
     }

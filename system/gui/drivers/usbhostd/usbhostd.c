@@ -1776,29 +1776,6 @@ static char* usb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, vo
 
     if (argc <= 0)
         return NULL;
-    if (strcmp(argv[0], "inputs") == 0) { /* MTDBG */
-        char* ret = (char*)malloc(768);
-        if (ret == NULL)
-            return NULL;
-        int off = 0;
-        for (int i = 0; i < USB_MAX_INPUTS; ++i) {
-            if (!_inputs[i].present)
-                continue;
-            usb_input_dev_t* in = &_inputs[i];
-            off += snprintf(ret + off, 768 - off,
-                    "slot=%d type=%d dev=%d if=%u ep=%02x mps=%u rlen=%u mt=%d/%d t=%d m=%d/%d kbd=%u mid=%u\n",
-                    i, in->type, in->dev_idx, in->iface_num, in->ep_addr,
-                    in->max_packet, in->report_len,
-                    in->touch_mt.valid, in->touch_mt.max_contacts,
-                    in->touch.valid, in->mouse.valid, in->mouse.axis_relative,
-                    in->kbd_report_id, in->mouse_report_id);
-            if (off >= 700)
-                break;
-        }
-        if (off == 0)
-            snprintf(ret, 768, "no inputs\n");
-        return ret;
-    }
     if (strcmp(argv[0], "kbd_state") != 0)
         return NULL;
 

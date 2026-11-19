@@ -60,40 +60,6 @@ static hid_mt_contact_t _last[HID_MT_MAX_CONTACTS];
 static hid_mt_contact_t _pend[HID_MT_MAX_CONTACTS];
 static bool _pend_valid = false;
 static uint64_t last_flush_ms = 0;
-/* MTDBG: drain telemetry exposed via `devcmd /dev/touch0 stat` */
-static int _dbg_connected = 0;
-static int _dbg_last_ret = -999;
-static int _dbg_last_err = 0;
-static uint8_t _dbg_b0 = 0;
-static int _dbg_reads_total = 0;
-static int _dbg_frames_total = 0;
-static int _dbg_cc = -1;
-/* MTDBG: last frame's first contact + edge/tip telemetry */
-static int _dbg_edges_total = 0;
-static int _dbg_tip_frames = 0;
-static int _dbg_active_frames = 0;
-static uint8_t _dbg_cid = 0;
-static uint8_t _dbg_tip = 0;
-static uint16_t _dbg_x = 0;
-static uint16_t _dbg_y = 0;
-static uint16_t _dbg_xmax = 0;
-static uint16_t _dbg_ymax = 0;
-
-static char* touch_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
-    (void)dev; (void)from_pid; (void)p;
-    if (argc <= 0 || strcmp(argv[0], "stat") != 0)
-        return NULL;
-    char* ret = (char*)malloc(256);
-    if (ret == NULL)
-        return NULL;
-    snprintf(ret, 256,
-            "conn=%d ret=%d err=%d reads=%d frames=%d cc=%d mt=%u edges=%d tipf=%d actf=%d cid=%u tip=%u x=%u y=%u xmax=%u ymax=%u\n",
-            _dbg_connected, _dbg_last_ret, _dbg_last_err,
-            _dbg_reads_total, _dbg_frames_total, _dbg_cc, _mt.count,
-            _dbg_edges_total, _dbg_tip_frames, _dbg_active_frames,
-            _dbg_cid, _dbg_tip, _dbg_x, _dbg_y, _dbg_xmax, _dbg_ymax);
-    return ret;
-}
 
 static bool touch_has_data(void) {
     return _mt.count != 0;
@@ -124,21 +90,11 @@ static void touch_handle_frame(const touch_mt_evt_t* frame) {
     bool edge = false;
 
     hid_touch_map_frame(&_map, frame, cur);
-    /* MTDBG: capture first contact + frame-level telemetry */
-    _dbg_cid = frame->contacts[0].id;
-    _dbg_tip = frame->contacts[0].tip;
-    _dbg_x = frame->contacts[0].x;
-    _dbg_y = frame->contacts[0].y;
-    _dbg_xmax = frame->x_max;
-    _dbg_ymax = frame->y_max;
-    if (frame->contacts[0].tip) _dbg_tip_frames++;
-    if (cur[0].active) _dbg_active_frames++;
     for (unsigned s = 0; s < HID_MT_MAX_CONTACTS; s++) {
         if (cur[s].active != _last[s].active ||
                 (cur[s].active && cur[s].fresh))
             edge = true;
     }
-    if (edge) _dbg_edges_total++; /* MTDBG */
     if (edge) {
         touch_flush_pending();
         hid_mt_update(&_mt, cur, NULL);
@@ -241,7 +197,6 @@ static bool hid_connect(void) {
     ipc_call(get_vfsd_pid(), VFS_BLOCK, &in, NULL);
     PF->clear(&in);
     hid = fd;
-    _dbg_connected = 1; /* MTDBG */
     return true;
 }
 
@@ -282,8 +237,6 @@ static int touch_loop(vdevice_t* dev, void* p) {
 
     bool failed = false;
     uint8_t buf[TOUCH_DRAIN_SIZE];
-    int dbg_reads = 0, dbg_first = 0, dbg_err = 0, dbg_frames = 0, dbg_cc = -1; /* MTDBG */
-    uint8_t dbg_b0 = 0; /* MTDBG */
     /*
      * Drain every queued report in one pass: reads are O_NONBLOCK, so the
      * loop stops at the first EAGAIN. Each read fetches a whole batch (up
@@ -296,13 +249,10 @@ static int touch_loop(vdevice_t* dev, void* p) {
     ipc_disable();
     while (true) {
         int ret = read(hid, buf, sizeof(buf));
-        if (dbg_reads == 0) { dbg_first = ret; dbg_err = errno; dbg_b0 = (ret > 0) ? buf[0] : 0; } /* MTDBG */
-        dbg_reads++; /* MTDBG */
         if (ret >= HID_EVT_SIZE) {
             for (int off = 0; off + HID_EVT_SIZE <= ret; off += HID_EVT_SIZE) {
                 touch_mt_evt_t frame;
                 memcpy(&frame, buf + off, sizeof(frame));
-                dbg_frames++; if (dbg_cc < 0) dbg_cc = frame.contact_count; /* MTDBG */
                 touch_handle_frame(&frame);
             }
             if (ret < (int)sizeof(buf)) {
@@ -317,9 +267,6 @@ static int touch_loop(vdevice_t* dev, void* p) {
         break;
     }
     ipc_enable();
-    _dbg_last_ret = dbg_first; _dbg_last_err = dbg_err; _dbg_b0 = dbg_b0; /* MTDBG */
-    _dbg_reads_total += dbg_reads; _dbg_frames_total += dbg_frames; /* MTDBG */
-    if (dbg_cc >= 0) _dbg_cc = dbg_cc; /* MTDBG */
 
     if (failed) {
         close(hid);
@@ -383,6 +330,5 @@ int main(int argc, char** argv) {
     dev.loop_step = touch_loop;
     dev.read = touch_read;
     dev.check_poll_events = touch_check_poll_events;
-    dev.cmd = touch_dev_cmd; /* MTDBG */
     return device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 }
