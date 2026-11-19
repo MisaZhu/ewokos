@@ -27,7 +27,7 @@ static int reference_program=-1;
 
 static void park(void) { for (;;) usleep(1000000); }
 static void need(int ok,const char *why) {
-    if (!ok) { klog("geom-bench FAIL %s case=%u fence=%u wedged=%d\n",why,cases,adreno_dev()->fence,adreno_wedged()); park(); }
+    if (!ok) { slog("geom-bench FAIL %s case=%u fence=%u wedged=%d\n",why,cases,adreno_dev()->fence,adreno_wedged()); park(); }
 }
 static uint64_t ns(void) { uint64_t v; kernel_tic_nsec(&v); return v; }
 static void alloc(void **va,uint64_t *pa,unsigned bytes) {
@@ -146,7 +146,7 @@ static void perf(unsigned w,unsigned h,unsigned count,unsigned kind) {
         guards(w*h);
         need(adreno_dev()->fence-fence==repeats*(batch?1u:2u),"submission count");
         need(!adreno_ring_cmd(1,query,status,sizeof(status)),"profile query");
-        klog("geom-bench perf kind=%u %ux%u tris=%u batch=%d n=%u ns=%llu submits=%u %s\n",
+        slog("geom-bench perf kind=%u %ux%u tris=%u batch=%d n=%u ns=%llu submits=%u %s\n",
              kind,w,h,count,batch,repeats,(unsigned long long)(elapsed/repeats),adreno_dev()->fence-fence,status);
     }
     need(!adreno_ring_cmd(3,disable,status,sizeof(status)),"profile disable");
@@ -171,7 +171,7 @@ static void states(void) {
 }
 int main(int argc,char **argv) {
     const char *dir=argc>1?argv[1]:"/gpu-bench";
-    setenv("ADRENO_ENABLE","1"); klog("geom-bench begin\n");
+    setenv("ADRENO_ENABLE","1"); slog("geom-bench begin\n");
     need(adreno_2d_ready() && adreno_3d_ready(),"GPU init");
     alloc((void**)&fb,&fb_pa,(MAX_PIXELS+64)*4); alloc((void**)&depth,&z_pa,(MAX_PIXELS+64)*4);
     alloc((void**)&pos,&pos_pa,MAX_VERTS*6*4); alloc((void**)&col,&col_pa,MAX_VERTS*3*4);
@@ -188,7 +188,7 @@ int main(int argc,char **argv) {
             load(dir,kind==1?"color":"texture"); reference_program=program;
             reference_meta=meta;
         }
-        load(dir,name); klog("geom-bench variant=%s\n",name);
+        load(dir,name); slog("geom-bench variant=%s\n",name);
         if(variant>=2) need(!memcmp(&reference_meta,&meta,sizeof(meta)),"reference reflection differs");
         for(unsigned s=0;s<7;s++) for(unsigned t=0;t<3;t++)
             correctness(sizes[s][0],sizes[s][1],t==0?1:t==1?64:513,kind,s+t);
@@ -216,7 +216,7 @@ int main(int argc,char **argv) {
     need(adreno_dev()->fence==fence,"invalid raster submitted");
     for(unsigned i=0;i<4096;i++) need(fb[i]==0xff102030u && depth[i]==0xffffffffu,"decline mutated canvas");
     need(adreno_3d_program_free(program)==0,"invalid free");
-    klog("geom-bench fallback=passed preflight=passed\n");
+    slog("geom-bench fallback=passed preflight=passed\n");
     /* Releasing/reloading descriptors must remain safe after batched use. */
     for(unsigned i=0;i<32;i++) {
         load(dir,i&1?"texture":"color"); correctness(81,59,1,(i&1)?2:1,i);
@@ -230,8 +230,8 @@ int main(int argc,char **argv) {
         frames++;
     }
     need(adreno_3d_program_free(program)==0,"stress free");
-    klog("geom-bench stress seconds=60 frames=%u\n",frames);
+    slog("geom-bench stress seconds=60 frames=%u\n",frames);
     adreno_3d_geom_batch(1);
-    klog("geom-bench DONE cases=%u pixels=%llu fence=%u wedged=%d\n",cases,(unsigned long long)checked,adreno_dev()->fence,adreno_wedged());
+    slog("geom-bench DONE cases=%u pixels=%llu fence=%u wedged=%d\n",cases,(unsigned long long)checked,adreno_dev()->fence,adreno_wedged());
     park();
 }

@@ -58,12 +58,12 @@ int main(int argc, char **argv) {
     unsigned cpu_samples = 0;
     int daemon = dev_get_pid("/dev/g2d");
     if (!samples) return 1;
-    klog("g2d-ipc BEGIN canvases=%u bytes=%u n=%u rate=%u\n", count, BYTES, rounds, rate);
+    slog("g2d-ipc BEGIN canvases=%u bytes=%u n=%u rate=%u\n", count, BYTES, rounds, rate);
     for (unsigned i = 0; i < count; i++) {
         int id;
         ewokos_addr_t phy;
         if (g2d_shm_alloc_phy(BYTES, &id, &pixels[i], &phy) != 0) {
-            klog("g2d-ipc allocation failed canvas=%u\n", i);
+            slog("g2d-ipc allocation failed canvas=%u\n", i);
             errors++; goto cleanup;
         }
         created++;
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
         int rc = g2d_fill_rect(&req);
         uint64_t duration = now_ns() - begin;
         if (rc != G2D_OK) {
-            klog("g2d-ipc request n=%u rc=%d\n", n, rc);
+            slog("g2d-ipc request n=%u rc=%d\n", n, rc);
             /* Retain every buffer if a submitted job can still reference it. */
             if (rc == G2D_ERR_TIMEOUT || rc == G2D_ERR_MMU_FAULT)
                 for (;;) usleep(1000000);
@@ -116,18 +116,18 @@ int main(int argc, char **argv) {
         for (unsigned j = i; j && samples[j] < samples[j-1]; j--) {
             uint64_t tmp = samples[j]; samples[j] = samples[j-1]; samples[j-1] = tmp;
         }
-    klog("g2d-ipc RESULT canvases=%u n=%u mean_ns=%llu p50_ns=%llu p95_ns=%llu max_ns=%llu errors=%u\n",
+    slog("g2d-ipc RESULT canvases=%u n=%u mean_ns=%llu p50_ns=%llu p95_ns=%llu max_ns=%llu errors=%u\n",
          count, rounds, (unsigned long long)(total/rounds),
          (unsigned long long)samples[rounds/2],
          (unsigned long long)samples[rounds*95/100],
          (unsigned long long)samples[rounds-1], errors);
-    klog("g2d-ipc LOAD elapsed_ns=%llu cpu_samples=%u cpu_ppm=%llu est_cpu_us_per_req=%llu\n",
+    slog("g2d-ipc LOAD elapsed_ns=%llu cpu_samples=%u cpu_ppm=%llu est_cpu_us_per_req=%llu\n",
          (unsigned long long)elapsed, cpu_samples,
          (unsigned long long)(cpu_samples ? cpu_total/cpu_samples : 0),
          (unsigned long long)(cpu_samples ? (cpu_total/cpu_samples)*elapsed/rounds/1000000000u : 0));
 cleanup:
     for (unsigned i = 0; i < created; i++) g2d_shm_free(pixels[i]);
     free(samples);
-    klog("g2d-ipc DONE errors=%u\n", errors);
+    slog("g2d-ipc DONE errors=%u\n", errors);
     return errors ? 1 : 0;
 }

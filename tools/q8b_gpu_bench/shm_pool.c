@@ -14,7 +14,7 @@ int main(void) {
     sys_info_t info;
     if (sys_get_sys_info(&info) != 0 || !info.shm_contig.size)
         return 1;
-    klog("shm-pool base=%llx size=%u page=%u\n",
+    slog("shm-pool base=%llx size=%u page=%u\n",
             (unsigned long long)info.shm_contig.phy_base,
             info.shm_contig.size, info.page_size);
     for (unsigned round = 0; round < 3; round++) {
@@ -46,7 +46,7 @@ int main(void) {
                 phys_errors++;
             for (unsigned offset = 0; offset < CHUNK / 4; offset += info.page_size / 4) {
                 if (ptr[count][offset] != 0) {
-                    if (zero_errors < 3) klog("shm-pool nonzero chunk=%u offset=%u value=%x phys=%llx\n",
+                    if (zero_errors < 3) slog("shm-pool nonzero chunk=%u offset=%u value=%x phys=%llx\n",
                             count, offset*4, ptr[count][offset], (unsigned long long)phys);
                     zero_errors++;
                 }
@@ -62,10 +62,10 @@ int main(void) {
             shmctl(ids[i], IPC_RMID, 0);
         }
         errors += zero_errors + phys_errors + data_errors;
-        klog("shm-pool round=%u chunks=%u MB=%u errors=%u zero=%u phys=%u data=%u\n",
+        slog("shm-pool round=%u chunks=%u MB=%u errors=%u zero=%u phys=%u data=%u\n",
                 round, count, count * 8u, errors, zero_errors, phys_errors, data_errors);
         if (errors || !count) return 1;
     }
-    klog("shm-pool DONE rounds=3\n");
+    slog("shm-pool DONE rounds=3\n");
     return 0;
 }

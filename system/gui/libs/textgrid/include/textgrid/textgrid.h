@@ -19,6 +19,7 @@ typedef struct {
 
 typedef struct {
 	textchar_t* grid;        // The grid buffer storing all text characters
+	uint8_t*  wrapped;       // Per-row flag: row is a soft-wrap continuation of the previous row
 	uint32_t max_rows;       // Maximum number of rows the grid can hold
 	uint32_t total_rows;     // Total allocated rows in the grid
 
@@ -47,6 +48,7 @@ typedef void (*textgrid_draw_char_t)(graph_t* g,
 	textchar_t* tch,
 	int chx, int chy,
 	uint32_t chw, uint32_t chh,
+	int32_t row, int32_t col,
 	void*p);
 
 extern int textgrid_paint(graph_t* g,

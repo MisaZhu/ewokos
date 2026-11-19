@@ -15,10 +15,11 @@ extern "C" {
 #define CTRL_WRITE 1
 
 void kout(const char *str, uint32_t len);
-void klog(const char *format, ...);
-void flog(int fd, const char *format, ...);
-void slog(const char *format, ...);
+void klog(const char *format, ...); //only for few core services like init,core,vfsd 
+
 void sout(const char *str, uint32_t len);
+void slog(const char *format, ...); //normaly use this for debug
+void flog(int fd, const char *format, ...);
 
 #ifdef __cplusplus
 }

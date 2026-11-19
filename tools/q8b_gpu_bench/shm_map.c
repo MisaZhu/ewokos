@@ -34,7 +34,7 @@ static void report(const char *op, unsigned size, unsigned contig,
             samples[j-1] = tmp;
         }
     }
-    klog("shm-map op=%s bytes=%u contig=%u workers=%u worker=%u n=%u mean_ns=%llu p50_ns=%llu p95_ns=%llu max_ns=%llu\n",
+    slog("shm-map op=%s bytes=%u contig=%u workers=%u worker=%u n=%u mean_ns=%llu p50_ns=%llu p95_ns=%llu max_ns=%llu\n",
          op, size, contig, workers, worker, ROUNDS,
          (unsigned long long)(total / ROUNDS),
          (unsigned long long)samples[ROUNDS/2],
@@ -90,7 +90,7 @@ static int run(unsigned size, unsigned page, unsigned contig, unsigned workers) 
             }
             report("attach", size, contig, workers, w, attach);
             report("detach", size, contig, workers, w, detach);
-            klog("shm-map verify bytes=%u contig=%u workers=%u worker=%u errors=%u\n",
+            slog("shm-map verify bytes=%u contig=%u workers=%u worker=%u errors=%u\n",
                  size, contig, workers, w, bad);
             exit(bad ? 6 : 0);
         }
@@ -110,7 +110,7 @@ static int run(unsigned size, unsigned page, unsigned contig, unsigned workers) 
         /* Last detach normally frees the segment already. */
         shmctl(ids[w], IPC_RMID, 0);
     }
-    klog("shm-map case bytes=%u contig=%u workers=%u errors=%u\n",
+    slog("shm-map case bytes=%u contig=%u workers=%u errors=%u\n",
          size, contig, workers, errors);
     return errors ? 1 : 0;
 }
@@ -120,11 +120,11 @@ int main(void) {
     if (sys_get_sys_info(&info) != 0 || !info.page_size) return 1;
     const unsigned sizes[] = {65536u, 8388608u, 33554432u};
     unsigned errors = 0;
-    klog("shm-map BEGIN page=%u rounds=%u\n", info.page_size, ROUNDS);
+    slog("shm-map BEGIN page=%u rounds=%u\n", info.page_size, ROUNDS);
     for (unsigned c = 0; c < 2; c++)
         for (unsigned s = 0; s < sizeof(sizes)/sizeof(sizes[0]); s++)
             for (unsigned w = 1; w <= WORKERS; w *= WORKERS)
                 errors += run(sizes[s], info.page_size, c, w);
-    klog("shm-map DONE errors=%u\n", errors);
+    slog("shm-map DONE errors=%u\n", errors);
     return errors ? 1 : 0;
 }

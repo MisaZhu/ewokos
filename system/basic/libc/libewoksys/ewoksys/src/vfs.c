@@ -410,7 +410,7 @@ int vfs_open(fsinfo_t* info, int oflag) {
     PF->clear(&in);
     if(res == 0) {
         res = proto_read_int(&out);
-        //klog("vfs_open: %s, fd: %d, oflag: %d, mount_pid: %d\n", info->name, res, oflag, info->mount_pid);
+        //slog("vfs_open: %s, fd: %d, oflag: %d, mount_pid: %d\n", info->name, res, oflag, info->mount_pid);
         if(res >= 0) {
             proto_read_to(&out, info, sizeof(fsinfo_t));
             fsfile_t* file = vfs_set_file(res, info);	
@@ -917,7 +917,7 @@ int vfs_get_by_name(const char* fname, fsinfo_t* info) {
         res = dev_get_by_name(mnt.pid, dev_fname, info);
         if(res == 0) {
             info->mount_pid = mnt.pid;
-            klog("mnt: %d, fs_get_by_name: %s, mnt_point: %s, dev_fname: %s\n",
+            slog("mnt: %d, fs_get_by_name: %s, mnt_point: %s, dev_fname: %s\n",
                     info->mount_pid, fullname, mnt.org_name, dev_fname);
             return 0;
         }

@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <hid/hid_defs.h>
 #include <hid/hid_joystick.h>
+#include <hid/hid_touch.h>
 #include <hid/hid_touchpad.h>
 
 typedef enum {
@@ -129,6 +130,11 @@ uint8_t hid_find_kbd_report_id(const uint8_t* desc, int len);
 /* extract the bit layout of touch/mouse reports from a descriptor */
 int hid_parse_touch_report(const uint8_t* desc, int len, touch_parser_t* out);
 bool hid_probe_touch_report(const uint8_t* desc, int len, touch_parser_t* out);
+
+/* extract the multi-contact bit layout of a Digitizer/Touch Screen report
+   (repeated Finger collections or Report Count runs) from a descriptor */
+int hid_parse_touch_mt_report(const uint8_t* desc, int len, touch_mt_parser_t* out);
+bool hid_probe_touch_mt_report(const uint8_t* desc, int len, touch_mt_parser_t* out);
 int hid_parse_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out);
 bool hid_probe_mouse_report(const uint8_t* desc, int len, mouse_parser_t* out);
 
@@ -153,6 +159,12 @@ int mouse_normalize_report(const mouse_parser_t* m,
         const uint8_t* report, int len, uint8_t* out);
 int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
         const uint8_t* report, int len, uint8_t* out);
+
+/* normalize one raw multi-contact touch screen report into a fixed-size
+   touch_mt_evt_t frame (HID_TOUCH_EVENT_SIZE bytes). Returns 0 on success,
+   -1 when the report does not match the parser. */
+int touch_mt_normalize_report(const touch_mt_parser_t* p,
+        const uint8_t* report, int len, touch_mt_evt_t* out);
 
 /* normalize one raw touchpad digitizer report into a fixed-size
    touchpad_evt_t frame (HID_TOUCHPAD_EVENT_SIZE bytes). Returns 0 on

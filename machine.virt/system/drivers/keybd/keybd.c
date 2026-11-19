@@ -166,7 +166,7 @@ int main(int argc, char **argv)
     virtio_dev_t vio = virtio_input_get("QEMU Virtio Keyboard");
     if (!vio || virtio_init(vio, 0) != 0)
     {
-        klog("Virtio-input init failed\n");
+        slog("Virtio-input init failed\n");
         return -1;
     }
     virtio_interrupt_enable(vio, keybd_interrupt_handle);

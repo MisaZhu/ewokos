@@ -7,6 +7,7 @@
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/kernel_tic.h>
+#include <ewoksys/klog.h>
 #include "xwin.h"
 
 /*how long a published frame may sit unconsumed before its client is let go
@@ -98,6 +99,9 @@ void x_unfocus(x_t* x) {
         return;
 
     hide_win(x, x->im_state.win_xim);
+    /*no focused window means no input session: a later keyboard unplug
+      must not pop the XIM over the desktop*/
+    x->im_state.xim_wanted = false;
     xevent_t e;
     e.type = XEVT_WIN;
     e.value.window.event = XEVT_WIN_UNFOCUS;
@@ -248,8 +252,10 @@ xwin_t* get_next_focus_win(x_t* x, bool skip_launcher) {
 }
 
 void x_del_win(x_t* x, xwin_t* win) {
-    if(win == x->win_focus)
+    if(win == x->win_focus) {
         hide_win(x, x->im_state.win_xim);
+        x->im_state.xim_wanted = false; /*the input session died with its window*/
+    }
 
     /*a painter thread may be parked in proc_block_by(xinfo->win) waiting
       for the step poll to snapshot it. The window is going away and its
@@ -271,9 +277,12 @@ void x_del_win(x_t* x, xwin_t* win) {
         x->current.mouse_grab = NULL;
     if(win == x->current.popup_grab)
         x->current.popup_grab = NULL;
+    if(win == x->current.mt_grab)
+        x->current.mt_grab = NULL;
     if(win == x->im_state.win_xim) {
         x->im_state.win_xim = NULL;
         x->im_state.win_xim_actived = false;
+        x->im_state.xim_wanted = false;
     }
     if(x->im_state.down_win_fd == win->fd)
         x->im_state.down_win_fd = -1;

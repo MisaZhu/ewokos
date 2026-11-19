@@ -381,7 +381,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     PF->init(&out);
     ret = do_vfs_fcntl(fd, SOCK_ACCEPT, NULL , &out);
     if(ret != 0) {
-        klog("socket: accept fcntl failed fd=%d ret=%d node=%u\n",
+        slog("socket: accept fcntl failed fd=%d ret=%d node=%u\n",
                 fd, ret, info.node);
         PF->clear(&out);
         return -1;
@@ -391,7 +391,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
         int sock_errno = proto_read_int(&out);
         if(sock_errno != 0)
             errno = sock_errno;
-        klog("socket: accept result failed fd=%d ret=%d out_size=%u node=%u\n",
+        slog("socket: accept result failed fd=%d ret=%d out_size=%u node=%u\n",
                 fd, ret, (unsigned int)out.size, info.node);
         PF->clear(&out);
         return -1;
@@ -402,7 +402,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     PF->clear(&out);
     int accept_fd = open("/dev/net0", 0);
     if(accept_fd < 0) {
-        klog("socket: accept open link fd failed listen_fd=%d sock=%d node=%u err=%d\n",
+        slog("socket: accept open link fd failed listen_fd=%d sock=%d node=%u err=%d\n",
                 fd, ret, info.node, errno);
         return -1; 
     }
@@ -411,7 +411,7 @@ int accept (int fd, struct sockaddr* addr,uint32_t * addr_len){
     PF->init(&out);
     ret = do_vfs_fcntl(accept_fd, SOCK_LINK, &in , &out);
     if(ret != 0) {
-        klog("socket: accept link failed listen_fd=%d accept_fd=%d sock=%d ret=%d node=%u\n",
+        slog("socket: accept link failed listen_fd=%d accept_fd=%d sock=%d ret=%d node=%u\n",
                 fd, accept_fd, proto_read_int(&in), ret, info.node);
         PF->clear(&in);
         PF->clear(&out);

@@ -302,7 +302,8 @@ static int relay_and_wait(int in_w, int out_r, int err_r, int ctl_r) {
         if(pfds[idx].revents & (POLLIN | POLLHUP | POLLERR)) {
             drain(out_r, 1);
             drain(err_r, 2);
-            (void)read(ctl_r, &code, sizeof(code));
+            if(read(ctl_r, &code, sizeof(code)) != (ssize_t)sizeof(code))
+                code = -1;   /* worker died without reporting a status */
             break;
         }
     }
@@ -428,5 +429,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    return relay_and_wait(in_w, out_r, err_r, ctl_r);
+    int code = relay_and_wait(in_w, out_r, err_r, ctl_r);
+    if(code < 0) {
+        /* No exit status arrived: sudod's worker failed before or while
+           running the command. Never exit silently. */
+        fprintf(stderr, "sudo: command failed to start (sudod worker error)\n");
+        return 1;
+    }
+    return code;
 }

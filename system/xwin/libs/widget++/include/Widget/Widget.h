@@ -43,6 +43,12 @@ protected:
 	virtual void onMove() { }
 	virtual bool onMouse(xevent_t* ev);
 	virtual bool onIM(xevent_t* ev);
+	/* multi-touch contact frame (XEVT_TOUCH_MT). The frame only carries the
+	   contacts that changed; the contacts currently down are tracked by the
+	   root (RootWidget::getTouch). Returning true on a frame that lands on
+	   this widget makes it the owner of the gesture: every later frame comes
+	   here until the last finger lifts. */
+	virtual bool onTouch(xevent_t* ev);
 
 	virtual void repaint(graph_t* g, XTheme* theme);
 	virtual void onRepaint(graph_t* g, XTheme* theme, const grect_t& r) = 0;

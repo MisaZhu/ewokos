@@ -49,7 +49,7 @@ string::string(const string& str) {
         if (str.data_ != nullptr && ewok_ptr_in_heap(str.data_)) {
             head = str.data_;
         }
-        klog("[stl] bad string copy: obj=%p len=%u cap=%u data=%p caller=%p head=%.16s\n",
+        slog("[stl] bad string copy: obj=%p len=%u cap=%u data=%p caller=%p head=%.16s\n",
              &str, (unsigned)length_, (unsigned)capacity_, str.data_,
              __builtin_return_address(0),
              head);

@@ -254,7 +254,7 @@ static int snd_hw_params(const struct pcm_config *cfg)
     int stream_id = snd_select_output_stream(cfg, fmt_id, rate_id, &info);
     if (stream_id < 0)
     {
-        klog("virtio-snd: no output stream for %dch/%dbit/%dHz\n",
+        slog("virtio-snd: no output stream for %dch/%dbit/%dHz\n",
              cfg->channels, cfg->bit_depth, cfg->rate);
         return -1;
     }
@@ -310,7 +310,7 @@ static int snd_hw_params_input(const struct pcm_config *cfg)
     int stream_id = snd_select_input_stream(cfg, fmt_id, rate_id, &info);
     if (stream_id < 0)
     {
-        klog("virtio-snd: no input stream for %dch/%dbit/%dHz\n",
+        slog("virtio-snd: no input stream for %dch/%dbit/%dHz\n",
              cfg->channels, cfg->bit_depth, cfg->rate);
         return -1;
     }
@@ -358,7 +358,7 @@ static int snd_prepare_stream(void)
 {
     if (!_snd.configured)
     {
-        klog("virtio-snd: snd_prepare_stream: stream not configured\n");
+        slog("virtio-snd: snd_prepare_stream: stream not configured\n");
         return -1;
     }
     if (_snd.prepared)
@@ -376,7 +376,7 @@ static int snd_prepare_stream(void)
     virtio_snd_clear_error(_snd.dev);
     if (virtio_snd_pcm_ctl(_snd.dev, VIRTIO_SND_R_PCM_PREPARE, (uint32_t)_snd.stream_id) != 0)
     {
-        klog("virtio-snd: snd_prepare_stream: failed to prepare stream\n");
+        slog("virtio-snd: snd_prepare_stream: failed to prepare stream\n");
         return -1;
     }
 
@@ -830,7 +830,7 @@ static int snd_init_device(void)
     _snd.dev = virtio_snd_get();
     if (_snd.dev == NULL)
     {
-        klog("virtio-snd: no sound device found\n");
+        slog("virtio-snd: no sound device found\n");
         return -1;
     }
     if (virtio_snd_init(_snd.dev) != 0 ||
@@ -840,13 +840,13 @@ static int snd_init_device(void)
     }
     if (_snd.config.streams == 0)
     {
-        klog("virtio-snd: device reports zero pcm streams\n");
+        slog("virtio-snd: device reports zero pcm streams\n");
         return -1;
     }
 
     virtio_snd_enable_interrupts(_snd.dev);
 
-    //klog("virtio-snd: streams=%u jacks=%u chmaps=%u\n",
+    //slog("virtio-snd: streams=%u jacks=%u chmaps=%u\n",
         // _snd.config.streams, _snd.config.jacks, _snd.config.chmaps);
     return 0;
 }

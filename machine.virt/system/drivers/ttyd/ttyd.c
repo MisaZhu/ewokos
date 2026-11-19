@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
     /* map only the PL011 page (@0x09000000); _mmio_base stays the window
        base, so the UART0 offset arithmetic below is unchanged */
     if(mmio_map_offset(0x01000000, 0x1000) == 0) {
-        klog("ttyd: mmio_map_offset failed\n");
+        slog("ttyd: mmio_map_offset failed\n");
         return -1;
     }
     _buffer = charbuf_new(0);

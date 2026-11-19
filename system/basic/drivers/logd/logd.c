@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
         return -1;
 
     if(ipc_serv_reg(IPC_SERV_LOG) != 0) {
-        klog("reg log ipc_serv error!\n");
+        slog("reg log ipc_serv error!\n");
         return -1;
     }
 

@@ -42,7 +42,7 @@ static int32_t read_config(fb_console_t* console, const char* fname) {
         font_free(console->terminal.font);
     console->terminal.font = font_new(font_fname, true);
     if(console->terminal.font == NULL) {
-        klog("consoled: cannot load font %s\n", font_fname);
+        slog("consoled: cannot load font %s\n", font_fname);
         if(conf_var != NULL)
             json_var_unref(conf_var);
         return -1;
@@ -370,12 +370,12 @@ int main(int argc, char** argv) {
 
     fb_console_t _console;
     if(init_console(&_console, display_dev, _disp_index) != 0) {
-        klog("consoled: cannot open display %u via %s\n",
+        slog("consoled: cannot open display %u via %s\n",
                 _disp_index, display_dev);
         return -1;
     }
     if(reset_console(&_console) != 0) {
-        klog("consoled: terminal resize failed\n");
+        slog("consoled: terminal resize failed\n");
         close_console(&_console);
         return -1;
     }

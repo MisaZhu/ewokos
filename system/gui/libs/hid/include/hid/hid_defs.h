@@ -59,10 +59,11 @@
 #define HID_TOUCHPAD_EVENT_SIZE (8 + HID_TOUCHPAD_MAX_CONTACTS * 10) /* 58 */
 
 #define HID_QUEUE_DEPTH 32
-/* wide enough for the largest fixed event frame in the subscriber queues:
-   a raw gamepad report prefix (24) or a multi-contact touchpad frame (58).
-   Smaller events are zero-padded to this stride in the queue. */
-#define HID_MAX_EVENT_SIZE HID_TOUCHPAD_EVENT_SIZE
+/* Multi-contact touch screen frames (hid/hid_touch.h) are the largest
+   fixed event in the subscriber queues (66); the touchpad frame is 58 and
+   a raw gamepad report prefix 24. Smaller events are zero-padded to this
+   stride in the queue. */
+#define HID_MAX_EVENT_SIZE 66
 #define HID_POINTER_EVENT_SIZE 7
 #define HID_KEYBOARD_EVENT_SIZE 8
 #define HID_MAX_REPORT 64
@@ -100,6 +101,7 @@
 #define HID_USAGE_HEIGHT 0x49
 #define HID_USAGE_CONTACT_ID 0x51
 #define HID_USAGE_CONTACT_COUNT 0x54
+#define HID_USAGE_CONTACT_COUNT_MAX 0x55
 #define HID_USAGE_TIP_SWITCH 0x42
 #define HID_USAGE_X 0x30
 #define HID_USAGE_Y 0x31

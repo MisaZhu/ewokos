@@ -1049,7 +1049,7 @@ int fbdisplayd_run(displayd_t* fbdisplayd, const char* mnt_name,
 
     int32_t index = displayman_add_dev("/dev/displayman", mnt_name, display_index);
     if(index < 0) {
-        klog("fbdisplayd: displayman rejected %s index %u\n",
+        slog("fbdisplayd: displayman rejected %s index %u\n",
                 mnt_name, display_index);
         return -1;
     }
@@ -1058,18 +1058,18 @@ int fbdisplayd_run(displayd_t* fbdisplayd, const char* mnt_name,
     disp_shm_t shm;
     shm.shm = NULL;
     if(fbdisplayd->init(w, h, dep) != 0) {
-        klog("fbdisplayd: hardware init failed for %s\n", mnt_name);
+        slog("fbdisplayd: hardware init failed for %s\n", mnt_name);
         return -1;
     }
     disp_get_info();
     if(_fbinfo.width == 0 || _fbinfo.height == 0 || _fbinfo.depth == 0) {
-        klog("fbdisplayd: invalid display geometry %ux%u bpp=%u\n",
+        slog("fbdisplayd: invalid display geometry %ux%u bpp=%u\n",
                 _fbinfo.width, _fbinfo.height, _fbinfo.depth);
         return -1;
     }
     
     if(disp_shm_init(&shm) != 0) {
-        klog("fbdisplayd: framebuffer shm allocation failed (%ux%u)\n",
+        slog("fbdisplayd: framebuffer shm allocation failed (%ux%u)\n",
                 _zwidth, _zheight);
         return -1;
     }
@@ -1098,7 +1098,7 @@ int fbdisplayd_run(displayd_t* fbdisplayd, const char* mnt_name,
 
     int run_ret = device_run(&dev, mnt_name, FS_TYPE_CHAR, 0666, false);
     if(run_ret != 0)
-        klog("fbdisplayd: device_run failed for %s (%d)\n", mnt_name, run_ret);
+        slog("fbdisplayd: device_run failed for %s (%d)\n", mnt_name, run_ret);
     shmdt(shm.shm);
     if(shm.ctrl != NULL && shm.ctrl != (void*)-1)
         shmdt(shm.ctrl);

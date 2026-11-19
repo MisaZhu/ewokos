@@ -18,6 +18,190 @@ extern "C" {
 
 #define  ESC_CMD 033
 
+/* ---------- text selection ---------- */
+
+/* Map a paint-relative pixel onto an absolute textgrid cell, clamped to the
+ * visible window: dragging beyond an edge selects the edge row, the caller
+ * scrolls, and the next event re-clamps one row further. */
+static void px_to_cell(gterminal_t* terminal, int32_t px, int32_t py,
+        int32_t* col, int32_t* row) {
+    *col = -1;
+    *row = -1;
+    if(terminal == NULL || terminal->textgrid == NULL)
+        return;
+    textgrid_t* tg = terminal->textgrid;
+    if(tg->grid == NULL || tg->cols == 0 || tg->rows == 0 ||
+            terminal->char_w == 0 || terminal->char_h == 0)
+        return;
+
+    int32_t c = px / (int32_t)terminal->char_w;
+    if(c < 0)
+        c = 0;
+    else if(c >= (int32_t)tg->cols)
+        c = (int32_t)tg->cols - 1;
+
+    int32_t first = (int32_t)terminal->textgrid_start_row + terminal->scroll_offset;
+    int32_t r = first + py / (int32_t)terminal->char_h;
+    if(r < first)
+        r = first;
+    if(r > first + (int32_t)terminal->rows - 1)
+        r = first + (int32_t)terminal->rows - 1;
+    if(r < 0)
+        r = 0;
+    if(r >= (int32_t)tg->rows)
+        r = (int32_t)tg->rows - 1;
+
+    *col = c;
+    *row = r;
+}
+
+static bool cell_in_selection(gterminal_t* terminal, int32_t row, int32_t col) {
+    if(terminal == NULL || !terminal->selection.visible)
+        return false;
+    int32_t r1 = terminal->selection.anchor_row;
+    int32_t c1 = terminal->selection.anchor_col;
+    int32_t r2 = terminal->selection.cur_row;
+    int32_t c2 = terminal->selection.cur_col;
+    if(r1 > r2 || (r1 == r2 && c1 > c2)) {
+        int32_t t = r1; r1 = r2; r2 = t;
+        t = c1; c1 = c2; c2 = t;
+    }
+    if(row < r1 || row > r2)
+        return false;
+    if((row == r1 && col < c1) || (row == r2 && col > c2))
+        return false;
+    return true;
+}
+
+void gterminal_select_begin_at(gterminal_t* terminal, int32_t px, int32_t py) {
+    if(terminal == NULL)
+        return;
+    int32_t col, row;
+    px_to_cell(terminal, px, py, &col, &row);
+    if(row < 0)
+        return;
+    terminal->selection.anchor_row = row;
+    terminal->selection.anchor_col = col;
+    terminal->selection.cur_row = row;
+    terminal->selection.cur_col = col;
+    terminal->selection.visible = true;
+    terminal->selection.dragging = true;
+}
+
+void gterminal_select_extend_at(gterminal_t* terminal, int32_t px, int32_t py) {
+    if(terminal == NULL || !terminal->selection.visible)
+        return;
+    int32_t col, row;
+    px_to_cell(terminal, px, py, &col, &row);
+    if(row < 0)
+        return;
+    terminal->selection.cur_row = row;
+    terminal->selection.cur_col = col;
+}
+
+void gterminal_select_end(gterminal_t* terminal) {
+    if(terminal == NULL)
+        return;
+    terminal->selection.dragging = false;
+}
+
+void gterminal_select_clear(gterminal_t* terminal) {
+    if(terminal == NULL)
+        return;
+    terminal->selection.visible = false;
+    terminal->selection.dragging = false;
+}
+
+bool gterminal_cell_selected_at(gterminal_t* terminal, int32_t px, int32_t py) {
+    int32_t col, row;
+    px_to_cell(terminal, px, py, &col, &row);
+    if(row < 0)
+        return false;
+    return cell_in_selection(terminal, row, col);
+}
+
+char* gterminal_select_copy(gterminal_t* terminal) {
+    if(terminal == NULL || terminal->textgrid == NULL ||
+            !terminal->selection.visible)
+        return NULL;
+    textgrid_t* tg = terminal->textgrid;
+    if(tg->grid == NULL || tg->cols == 0 || tg->rows == 0)
+        return NULL;
+
+    int32_t r1 = terminal->selection.anchor_row;
+    int32_t c1 = terminal->selection.anchor_col;
+    int32_t r2 = terminal->selection.cur_row;
+    int32_t c2 = terminal->selection.cur_col;
+    if(r1 > r2 || (r1 == r2 && c1 > c2)) {
+        int32_t t = r1; r1 = r2; r2 = t;
+        t = c1; c1 = c2; c2 = t;
+    }
+    if(r2 >= (int32_t)tg->rows)
+        r2 = (int32_t)tg->rows - 1;
+    if(r1 > r2 || r1 < 0)
+        return NULL;
+
+    /* pass 1: exact UTF-8 byte count, trailing blanks trimmed */
+    uint32_t total = 0;
+    for(int32_t row = r1; row <= r2; row++) {
+        /* per-row range: only the first row is clipped on the left (c1) and
+         * only the last row on the right (c2); middle rows copy whole lines,
+         * matching the full-row highlight */
+        int32_t start = (row == r1) ? c1 : 0;
+        int32_t end = (row == r2) ? c2 : (int32_t)tg->cols - 1;
+        while(end >= start) {
+            UNICODE16 ch = tg->grid[row * tg->cols + end].c;
+            if(ch != 0 && ch != ' ')
+                break;
+            end--;
+        }
+        for(int32_t col = start; col <= end; col++) {
+            UNICODE16 ch = tg->grid[row * tg->cols + col].c;
+            if(ch == 0)
+                ch = ' ';
+            total += (ch < 0x80) ? 1 : ((ch < 0x800) ? 2 : 3);
+        }
+        total++; /* line separator */
+    }
+
+    char* out = (char*)malloc(total);
+    if(out == NULL)
+        return NULL;
+
+    uint32_t oi = 0;
+    for(int32_t row = r1; row <= r2; row++) {
+        int32_t start = (row == r1) ? c1 : 0;
+        int32_t end = (row == r2) ? c2 : (int32_t)tg->cols - 1;
+        while(end >= start) {
+            UNICODE16 ch = tg->grid[row * tg->cols + end].c;
+            if(ch != 0 && ch != ' ')
+                break;
+            end--;
+        }
+        for(int32_t col = start; col <= end; col++) {
+            UNICODE16 ch = tg->grid[row * tg->cols + col].c;
+            if(ch == 0)
+                ch = ' ';
+            if(ch < 0x80) {
+                out[oi++] = (char)ch;
+            }
+            else if(ch < 0x800) {
+                out[oi++] = (char)(0xC0 | (ch >> 6));
+                out[oi++] = (char)(0x80 | (ch & 0x3F));
+            }
+            else {
+                out[oi++] = (char)(0xE0 | (ch >> 12));
+                out[oi++] = (char)(0x80 | ((ch >> 6) & 0x3F));
+                out[oi++] = (char)(0x80 | (ch & 0x3F));
+            }
+        }
+        if(row < r2)
+            out[oi++] = '\n';
+    }
+    out[oi] = '\0';
+    return out;
+}
+
 static gpos_t get_pos(gterminal_t* terminal, int x, int y, int w, int h) {
     (void)x;
     (void)y;
@@ -657,6 +841,7 @@ static void gterminal_draw_char(graph_t* g,
         textchar_t* tch,
         int chx, int chy,
         uint32_t chw, uint32_t chh,
+        int32_t row, int32_t col,
         void*p) {
     gterminal_t* terminal = (gterminal_t*)p;
     uint32_t fg = tch->color, bg = tch->bg_color;
@@ -680,6 +865,14 @@ static void gterminal_draw_char(graph_t* g,
         bg = (bg & 0x00ffffff) | (terminal->transparent  << 24);
     }
     fg = (fg & 0x00ffffff) | 0xff000000;
+
+    /* Selection highlight wins over SGR colours: glyph in the terminal
+     * background colour on a solid foreground-coloured band, so it stays
+     * legible on translucent themes. */
+    if(terminal->selection.visible && cell_in_selection(terminal, row, col)) {
+        fg = (terminal->bg_color & 0x00ffffff) | 0xff000000;
+        bg = (terminal->fg_color & 0x00ffffff) | 0xff000000;
+    }
 
     if(bg != 0) {
         /* The console background already laid terminal->bg_color into the
@@ -758,7 +951,7 @@ void gterminal_put(gterminal_t* terminal, const char* buf, int size) {
             continue;
         }
         //else
-            //klog("put %d, %d, (%c)\n", size, i, c);
+            //slog("put %d, %d, (%c)\n", size, i, c);
 
         if(terminal->in_esc) {
             /* Drop overlong escape sequences instead of corrupting memory. */
@@ -871,12 +1064,25 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh) {
     if(font_w == 0 || font_h == 0)
         return;
 
+    uint32_t old_rows = terminal->rows;
+    uint32_t old_cols = terminal->cols;
+
     terminal->char_w = font_w;
     terminal->char_h = font_h;
     terminal->rows = gh / font_h;
     terminal->cols = gw / font_w;
 
-    textgrid_reset(terminal->textgrid, terminal->cols);
+    /* A selection computed against the old grid geometry would point at
+     * arbitrary cells after the reflow; drop it. */
+    if(terminal->rows != old_rows || terminal->cols != old_cols)
+        terminal->selection.visible = false;
+
+    if(textgrid_reset(terminal->textgrid, terminal->cols) != 0) {
+        /* reflow allocation failed: keep the geometry matching the stored
+         * grid so the view never points past the cells */
+        terminal->rows = old_rows;
+        terminal->cols = old_cols;
+    }
     terminal->scroll_top = 0;
     terminal->scroll_bottom = UINT32_MAX;
     int32_t start_row = (int32_t)terminal->textgrid->rows - (int32_t)terminal->rows;

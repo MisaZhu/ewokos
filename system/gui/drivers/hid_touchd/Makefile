@@ -13,9 +13,10 @@ HID_TOUCHD_OBJS = $(ARCH)/hid_touchd.o
 HID_TOUCHD = $(TARGET_DIR)/drivers/$(HW)/hid_touchd
 
 $(HID_TOUCHD): $(HID_TOUCHD_OBJS) \
+                $(BUILD_DIR)/lib/libhid.a \
                 $(BUILD_DIR)/lib/libewoksys.a
 	mkdir -p $(TARGET_DIR)/drivers/$(HW)
-	$(LD) -Ttext=100 $(HID_TOUCHD_OBJS) -o $(HID_TOUCHD) $(LDFLAGS) $(EWOK_LIBC)
+	$(LD) -Ttext=100 $(HID_TOUCHD_OBJS) -o $(HID_TOUCHD) $(LDFLAGS) -lhid $(EWOK_LIBC)
 
 clean:
 	rm -f $(HID_TOUCHD_OBJS)

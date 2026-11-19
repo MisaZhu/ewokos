@@ -6,6 +6,7 @@
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/klog.h>
 #include "xserver.h"
 #include "xwin.h"
 #include "xrepaint.h"
@@ -285,12 +286,18 @@ int xserver_step(vdevice_t* dev, void* p) {
                 bool prev = x->im_state.phys_kbd_connected;
                 x->im_state.phys_kbd_connected = now;
                 if(x->im_state.win_xim != NULL && now != prev) {
-                    if(now)
+                    if(now) {
                         /*a physical keyboard just attached: put the XIM down*/
                         hide_win(x, x->im_state.win_xim);
-                    else
-                        /*the physical keyboard just went away: bring the XIM back*/
+                    }
+                    else if(x->win_focus != NULL && x->im_state.xim_wanted) {
+                        /*the physical keyboard just went away: bring the XIM
+                          back only if a focused window still holds an open
+                          input session (asked for the XIM, never revoked it).
+                          With no input focus the keyboard stays down instead
+                          of popping over the desktop.*/
                         show_win(x, x->im_state.win_xim);
+                    }
                 }
                 x_server_lock_leave();
             }

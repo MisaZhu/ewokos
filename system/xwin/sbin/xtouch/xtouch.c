@@ -7,12 +7,17 @@
  *                  samples from /dev/touch0 (hid_touchd) and maps them onto
  *                  the whole screen (touchscreen semantics: touch == left
  *                  click at the touched point).
+ *                  Drivers with multi-contact panels (q8b goodixd) also
+ *                  emit tagged multi-touch frames on the same stream; those
+ *                  are mapped to screen coordinates and passed through to
+ *                  xserverd as XEVT_TOUCH_MT untouched - no gesture policy
+ *                  runs here, the server routes the raw contacts.
  *
  *  -m ............. Precision Touchpad (PTP) mode: reads multi-contact
  *                  touchpad_evt_t frames (58 bytes) from /dev/touchpad0
  *                  (hid_touchpadd) and converts them into mouse events.
- *                  Only the FIRST down contact is tracked; any other
- *                  fingers are ignored:
+ *                  Single-finger: only the FIRST down contact is tracked;
+ *                  any other fingers are ignored:
  *
  *                    contact stays still (< tap_move logical units):
  *                        lifted < 300 ms .......... single click
@@ -24,6 +29,10 @@
  *                    physical buttons ............. LEFT/RIGHT/MID clicks;
  *                                                   holding one while moving
  *                                                   drags
+ *                  Two fingers: the ported gesture engine converts them
+ *                  (still two-finger tap = right click, vertical swipe =
+ *                  wheel notches); the single-finger machine is suspended
+ *                  until every finger lifts again.
  *
  *  The still/hold decision is driven by a timer in the main loop, so it
  *  works even when the pad stops reporting while a finger is parked.
@@ -54,6 +63,7 @@
 #include <x/xwin.h>
 #include <mouse/mouse.h>
 #include <hid/hid_touchpad.h>
+#include "touch_gesture.h"
 
 static int _x_pid = -1;
 static int _scr_w = 800;
@@ -76,6 +86,20 @@ static uint64_t _drag_time = 0;
 static const char* _default_config = "/etc/x/xtouch.json";
 static const char* _default_touch0 = "/dev/touch0";
 
+/* panel -> screen mapping shared by the legacy single-pointer path and the
+   multi-touch passthrough (xy_switch/offsets are applied by the caller) */
+static void map_pos(int tx, int ty, int32_t* sx, int32_t* sy) {
+    if(_xtouch.x_rev)
+        *sx = _scr_w - (tx*_scr_w / _xtouch.x_max);
+    else
+        *sx = (tx*_scr_w / _xtouch.x_max);
+
+    if(_xtouch.y_rev)
+        *sy = (ty*_scr_h / _xtouch.y_max);
+    else
+        *sy = _scr_h - (ty*_scr_h / _xtouch.y_max);
+}
+
 static void input(uint16_t state, int16_t tx, int16_t ty) {
     xevent_t ev;
     memset(&ev, 0, sizeof(xevent_t));
@@ -84,42 +108,149 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
     ev.type = XEVT_TOUCH;
     ev.state = MOUSE_STATE_MOVE;
     ev.value.mouse.relative = 0;
-    if(_xtouch.x_rev)
-        ev.value.mouse.x = _scr_w - (tx*_scr_w / _xtouch.x_max);
-    else
-        ev.value.mouse.x = (tx*_scr_w / _xtouch.x_max);
+    map_pos(tx, ty, &ev.value.mouse.x, &ev.value.mouse.y);
 
-    if(_xtouch.y_rev)
-        ev.value.mouse.y = (ty*_scr_h / _xtouch.y_max);
-    else
-        ev.value.mouse.y = _scr_h - (ty*_scr_h / _xtouch.y_max);
-
-    if(state == 1) { //down
+    /* Record states beyond the single-finger 0/1 come from drivers with
+       gesture detection (q8b goodixd):
+         2/3 ... right button down/up (two-finger tap)
+         4/5 ... one wheel notch, scroll up/down (two-finger swipe)
+       Wheel notches are direction-only MOUSE_STATE_MOVE events, the same
+       shape hid_moused/xmouse deliver. */
+    switch(state) {
+    case 1: { //down
+        static int prev_x = 0;
+        static int prev_y = 0;
         ev.value.mouse.button = MOUSE_BUTTON_LEFT;
         if(_drag_time == 0) {
             ev.state = MOUSE_STATE_DOWN;
             _drag_time = kernel_tic_ms(0);
+            prev_x = ev.value.mouse.x;
+            prev_y = ev.value.mouse.y;
         }
         else {
-            static int prev_x = 0;
-            static int prev_y = 0;
+            /*drop jitter only when BOTH axes are unchanged: an || here
+              would swallow every sample of an axis-aligned drag (the
+              constant coordinate always matches prev) and the client would
+              never see the travel. prev resets on each new press so a stale
+              last-drag position cannot eat the first DRAG of this one.*/
             if((kernel_tic_ms(0) - _drag_time) < 100 ||
-                    (ev.value.mouse.x == prev_x || ev.value.mouse.y == prev_y))
+                    (ev.value.mouse.x == prev_x && ev.value.mouse.y == prev_y))
                 return;
             prev_x = ev.value.mouse.x;
             prev_y = ev.value.mouse.y;
             ev.state = MOUSE_STATE_DRAG;
         }
-    } else if(state == 0) { //up
+        break;
+    }
+    case 0: //up
         ev.value.mouse.button = MOUSE_BUTTON_LEFT;
         ev.state = MOUSE_STATE_UP;
         _drag_time = 0;
+        break;
+    case 2: //right down (two-finger press)
+        ev.value.mouse.button = MOUSE_BUTTON_RIGHT;
+        ev.state = MOUSE_STATE_DOWN;
+        _drag_time = 0;
+        break;
+    case 3: //right up
+        ev.value.mouse.button = MOUSE_BUTTON_RIGHT;
+        ev.state = MOUSE_STATE_UP;
+        _drag_time = 0;
+        break;
+    case 4: //scroll up notch (two fingers moved up)
+    case 5: //scroll down notch (two fingers moved down)
+        /* A wheel notch belongs where the cursor already is: encode it as
+           a zero-delta relative move (the machine.virt moused -> xmouse
+           wheel shape) so xserverd keeps cpos untouched and routes the
+           scroll to the window under the pointer. An absolute midpoint
+           position would teleport the cursor on every notch. */
+        ev.value.mouse.relative = 1;
+        ev.value.mouse.rx = 0;
+        ev.value.mouse.ry = 0;
+        ev.value.mouse.button = state == 4 ?
+                MOUSE_BUTTON_SCROLL_UP : MOUSE_BUTTON_SCROLL_DOWN;
+        ev.state = MOUSE_STATE_MOVE;
+        _drag_time = 0;
+        break;
+    default:
+        return;
     }
 
     proto_t in;
     PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
     dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
     PF->clear(&in);
+}
+
+/* ---------------- multi-touch passthrough (absolute mode) ----------------
+ *
+ * Record protocol shared with goodixd on the same 6-byte stream:
+ *   state TOUCH_MT_FRAME ............... frame header: x = record count
+ *   state TOUCH_MT_FRAME|(act<<8)|id ... contact edge, act 1/2/3 =
+ *                                        press/move/release, id 0..9
+ * Frames are mapped to screen coordinates and forwarded to xserverd as
+ * XEVT_TOUCH_MT without any gesture policy: the server owns routing and
+ * single-finger mouse compatibility. */
+#define TOUCH_MT_FRAME  0x8000u
+#define TOUCH_ACT_PRESS   1u
+#define TOUCH_ACT_MOVE    2u
+#define TOUCH_ACT_RELEASE 3u
+
+static unsigned _mt_expect;   /* contact records still owed by the frame */
+static unsigned _mt_count;    /* entries collected into _mt_frame */
+static touch_evt_t _mt_frame[X_TOUCH_MAX];
+
+static void mt_reset(void) {
+    _mt_expect = 0;
+    _mt_count = 0;
+}
+
+static void mt_send(void) {
+    xevent_t ev;
+    proto_t in;
+    memset(&ev, 0, sizeof(xevent_t));
+    ev.type = XEVT_TOUCH_MT;
+    ev.state = (int32_t)_mt_count;
+    memcpy(ev.value.touch.touchs, _mt_frame,
+            _mt_count * sizeof(touch_evt_t));
+    PF->init(&in)->add(&in, &ev, sizeof(xevent_t));
+    dev_cntl_by_pid(_x_pid, X_DCNTL_INPUT, &in, NULL);
+    PF->clear(&in);
+}
+
+/* one raw panel record: xy_switch/offset/clamp exactly like the legacy
+   path, then the shared screen mapping */
+static void mt_contact(uint16_t state, uint16_t rx, uint16_t ry) {
+    unsigned act = (state >> 8) & 0x3u;
+    int16_t xraw = (int16_t)rx;
+    int16_t yraw = (int16_t)ry;
+    touch_evt_t* t;
+
+    if(_mt_expect == 0)
+        return; /* stray contact record without a header */
+    _mt_expect--;
+    if(_mt_count < X_TOUCH_MAX) {
+        if(_xtouch.xy_switch) {
+            int16_t tmp = xraw;
+            xraw = yraw;
+            yraw = tmp;
+        }
+        int16_t tx = xraw - _xtouch.x_offset;
+        int16_t ty = yraw - _xtouch.y_offset;
+        tx = tx < 0 ? 0 : tx;
+        ty = ty < 0 ? 0 : ty;
+        t = &_mt_frame[_mt_count++];
+        t->id = state & 0xffu;
+        t->state = act == TOUCH_ACT_PRESS ? TOUCH_STATE_PRESS :
+                (act == TOUCH_ACT_RELEASE ? TOUCH_STATE_RELEASE :
+                TOUCH_STATE_MOVE);
+        map_pos(tx, ty, &t->x, &t->y);
+    }
+    if(_mt_expect == 0) {
+        if(_mt_count != 0)
+            mt_send();
+        _mt_count = 0;
+    }
 }
 
 static int32_t read_config(const char* fname) {
@@ -262,6 +393,74 @@ static void tp_mouse(int state, int button, int rx, int ry) {
     tp_send(&ev);
 }
 
+/* ---------------- two-finger gestures (-m mode) ----------------
+ *
+ * The ported gesture engine runs on the pad's contact frames while two or
+ * more fingers are down, plus one final frame when they lift so its
+ * right-click decision executes. Its button/scroll output becomes relative
+ * mouse events at the CURRENT pointer position (rx=ry=0): a two-finger
+ * gesture never moves the pointer, exactly like the physical buttons.
+ * Single-finger click/drag/move stays with the PTP state machine below. */
+static bool _two_active = false; /* engine is tracking a two-finger gesture */
+static bool _two_rest = false;   /* leftover finger suppressed until all lift */
+
+static void tp_end_drag(void); /* defined with the single-finger machine */
+
+static void tp_gesture_emit(gesture_evt_t evt, uint16_t x, uint16_t y) {
+    (void)x;
+    (void)y;
+    switch(evt) {
+    case GESTURE_EVT_LEFT_DOWN:
+        tp_mouse(MOUSE_STATE_DOWN, MOUSE_BUTTON_LEFT, 0, 0);
+        break;
+    case GESTURE_EVT_LEFT_UP:
+        tp_mouse(MOUSE_STATE_UP, MOUSE_BUTTON_LEFT, 0, 0);
+        break;
+    case GESTURE_EVT_RIGHT_DOWN:
+        tp_mouse(MOUSE_STATE_DOWN, MOUSE_BUTTON_RIGHT, 0, 0);
+        break;
+    case GESTURE_EVT_RIGHT_UP:
+        tp_mouse(MOUSE_STATE_UP, MOUSE_BUTTON_RIGHT, 0, 0);
+        break;
+    case GESTURE_EVT_SCROLL_UP:
+        tp_mouse(MOUSE_STATE_MOVE, MOUSE_BUTTON_SCROLL_UP, 0, 0);
+        break;
+    case GESTURE_EVT_SCROLL_DOWN:
+        tp_mouse(MOUSE_STATE_MOVE, MOUSE_BUTTON_SCROLL_DOWN, 0, 0);
+        break;
+    default:
+        break;
+    }
+}
+
+/* tip-valid (confidence-accepted) contacts of the frame, same filter the
+   first-contact tracker uses, in frame order with the pad's contact ids */
+static unsigned tp_gesture_frame(const touchpad_evt_t* evt,
+        gesture_frame_t* f) {
+    int n = evt->contact_count;
+    bool conf_used = false;
+
+    if(n > HID_TOUCHPAD_MAX_CONTACTS)
+        n = HID_TOUCHPAD_MAX_CONTACTS;
+    for(int i = 0; i < n; ++i) {
+        if(evt->contacts[i].confidence)
+            conf_used = true;
+    }
+    f->count = 0;
+    for(int i = 0; i < n && f->count < GESTURE_MAX_TOUCH; ++i) {
+        const touchpad_contact_t* c = &evt->contacts[i];
+        if(!c->tip)
+            continue;
+        if(conf_used && !c->confidence)
+            continue;
+        f->contacts[f->count].id = c->id;
+        f->contacts[f->count].x = c->x;
+        f->contacts[f->count].y = c->y;
+        f->count++;
+    }
+    return f->count;
+}
+
 /* ---------------- first-contact tracking ---------------- */
 
 /* Only the FIRST active contact is tracked; every other finger on the pad
@@ -340,12 +539,54 @@ static int _last_click_x = 0, _last_click_y = 0;
 #define TP_STUCK_MS 100u
 static uint64_t _last_frame_ms = 0; /* last touchpad frame arrival time */
 
+/* Returns true when the frame was consumed by the two-finger path and the
+   single-finger machine must not run on it. */
+static bool tp_two_finger(const touchpad_evt_t* evt) {
+    gesture_frame_t f;
+    unsigned n = tp_gesture_frame(evt, &f);
+    uint64_t now = kernel_tic_ms(0);
+
+    if(n >= 2) {
+        if(!_two_active) {
+            /* second finger landed: cancel any pending single-finger
+               gesture so it cannot fire a phantom click/drag later */
+            if(_pressed)
+                tp_end_drag();
+            _state = TP_ST_IDLE;
+            _two_active = true;
+            _two_rest = false;
+        }
+        gesture_process(&f, now, tp_gesture_emit);
+        return true;
+    }
+    if(_two_active) {
+        /* fingers lifting: feed the final frame so the engine decides
+           right-click vs scrolled, then hand back to the single path */
+        gesture_process(&f, now, tp_gesture_emit);
+        gesture_reset();
+        _two_active = false;
+        _two_rest = (n == 1);
+        return true;
+    }
+    if(_two_rest) {
+        /* the finger left over after a two-finger gesture stays suppressed
+           until every finger lifts, so staggered lifts never click */
+        if(n == 0)
+            _two_rest = false;
+        return true;
+    }
+    return false;
+}
+
 static void tp_reset_gesture(void) {
     _state = TP_ST_IDLE;
     _pressed = false;
     _acc_x = 0;
     _acc_y = 0;
     _first_down = false;
+    _two_active = false;
+    _two_rest = false;
+    gesture_reset();
 }
 
 /* relative pointer move; state is MOVE or DRAG */
@@ -431,6 +672,9 @@ static void tp_tick(void) {
         _pressed = false;
         _first_down = false;
         _state = TP_ST_IDLE;
+        _two_active = false;
+        _two_rest = false;
+        gesture_reset();
         /* re-arm: while the pad stays silent the release runs at most once
            per TP_STUCK_MS instead of on every poll tick */
         _last_frame_ms = now;
@@ -480,8 +724,15 @@ static void tp_process_frame(const touchpad_evt_t* evt) {
                     x_max, y_max, MOUSE_STATE_DRAG, held);
         }
         _state = TP_ST_IDLE;
+        _two_active = false;
+        _two_rest = false;
+        gesture_reset();
         return;
     }
+
+    /* two-finger gestures own the frame while multiple fingers are down */
+    if (tp_two_finger(evt))
+        return;
 
     switch (_state) {
     case TP_ST_IDLE:
@@ -666,6 +917,18 @@ int main(int argc, char** argv) {
          */
         if(read(fd, buf, 6) == 6) {
             uint16_t* mv = (uint16_t*)buf;
+            if(mv[0] == TOUCH_MT_FRAME) {
+                /* frame header: x carries the contact record count */
+                mt_reset();
+                _mt_expect = mv[1];
+                continue;
+            }
+            if((mv[0] & TOUCH_MT_FRAME) != 0) {
+                mt_contact(mv[0], mv[1], mv[2]);
+                continue;
+            }
+            /* legacy record interrupts a half-collected frame: drop it */
+            mt_reset();
             if(mv[0] == 0 && prev_ev == 0)
                 continue;
             prev_ev = mv[0];

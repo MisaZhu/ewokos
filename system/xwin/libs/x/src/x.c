@@ -295,7 +295,7 @@ static int x_update_theme(void) {
     proto_t out;
     PF->init(&out);
     if(dev_cntl_by_pid(xserv_pid, X_DCNTL_GET_THEME, NULL, &out) != 0) {
-        klog("update theme error\n");
+        slog("update theme error\n");
         PF->clear(&out);
         return -1;
     }	
@@ -458,6 +458,15 @@ const char* x_get_res_name(const char* name, char* ret, uint32_t len) {
     return ret;
 }
 
+/*idle poll period while a skipped fps_async present is owed: a fraction of
+  the server frame, so the retry lands right after the buffer is handed back.
+  A server that does not hand it back for a while (asleep, display busy) is
+  polled at the slow period instead, so an owed frame never turns into a
+  spinning client.*/
+#define X_PRESENT_RETRY_USEC      2000
+#define X_PRESENT_RETRY_SLOW_USEC 50000
+#define X_PRESENT_RETRY_FAST_MAX  32
+
 int  x_run(x_t* x, void* loop_data) {
     int xserv_pid = dev_get_pid("/dev/x");
     if(xserv_pid < 0) {
@@ -473,15 +482,27 @@ int  x_run(x_t* x, void* loop_data) {
     x_set_app_name(x, getenv("X_APP_NAME"));
 
     bool block = x->on_loop==NULL ? true:false;
+    uint32_t owed_polls = 0;
     xevent_t xev;
     while(!x->terminated) {
         /*fps_async: publish presents that had to be skipped because the server
           was still compositing the handoff buffer. The picture only exists in
           ws_g and the widget layer has already consumed its dirty state, so
-          this is the only thing that will ever put it on screen - an app that
-          blocks below (no on_loop) is covered by the server re-requesting the
-          frame after X_NOT_READY_TIMEOUT_MS, which wakes it up here.*/
+          this is the only thing that will ever put it on screen.*/
         xwin_retry_pending_presents();
+        /*A present that is still owed after the retry must not be left to the
+          next event: parking on the event node with no timeout would hold the
+          newest frame back until some later event arrives - and the frame
+          painted for that event then finds the handoff buffer just taken by
+          this late retry and is skipped in turn, so the window runs one frame
+          behind for good and its final frame (a released touch contact, the
+          last key of a line) never reaches the screen at all. The server's
+          X_NOT_READY_TIMEOUT_MS re-request only covers a window that never
+          became ready. So poll instead of parking while a present is owed;
+          the server hands the buffer back within one of its frames.*/
+        bool owed = xwin_present_pending();
+        if(!owed)
+            owed_polls = 0;
 
         int res = -1;
         /*x_poll_event() + xwin_dispatch_event() are the two halves of this body,
@@ -495,7 +516,16 @@ int  x_run(x_t* x, void* loop_data) {
             res = 0;
         }
         else {
-            res = x_get_event(x, xserv_pid, &xev, block);
+            res = x_get_event(x, xserv_pid, &xev, block && !owed);
+            if(res != 0 && block && owed) {
+                if(owed_polls < X_PRESENT_RETRY_FAST_MAX) {
+                    owed_polls++;
+                    usleep(X_PRESENT_RETRY_USEC);
+                }
+                else {
+                    usleep(X_PRESENT_RETRY_SLOW_USEC);
+                }
+            }
         }
         if(res == 0) {
             xwin_dispatch_event(x, &xev);

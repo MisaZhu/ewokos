@@ -308,19 +308,19 @@ int main(int argc, char** argv) {
     int32_t part_index = argc > 2 ? atoi(argv[2]) : -1;
 
     if(bsp_sd_init() != 0) {
-        klog("fat32fsd: sd init failed!\n");
+        slog("fat32fsd: sd init failed!\n");
         return -1;
     }
 
     if(find_fat32_partition(part_index) != 0) {
-        klog("fat32fsd: no fat32 partition found!\n");
+        slog("fat32fsd: no fat32 partition found!\n");
         sd_quit();
         return -1;
     }
 
     fat32_t fat;
     if(fat32_init_ex(&fat, fat_sd_read_sector, fat_sd_read_sectors, fat_sd_write_sector) != 0) {
-        klog("fat32fsd: not a valid fat32 volume!\n");
+        slog("fat32fsd: not a valid fat32 volume!\n");
         sd_quit();
         return -1;
     }

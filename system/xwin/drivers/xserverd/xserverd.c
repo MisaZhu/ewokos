@@ -248,7 +248,7 @@ int main(int argc, char** argv) {
 
     x_t x;
     if(x_init(&x, display_man) != 0) {
-        klog("xserverd: cannot initialize displays via %s\n", display_man);
+        slog("xserverd: cannot initialize displays via %s\n", display_man);
         return -1;
     }
 

@@ -947,6 +947,444 @@ int touch_normalize_report(const touch_parser_t* t, uint8_t report_len,
     return HID_POINTER_EVENT_SIZE;
 }
 
+/* ---------------- multi-contact touch screen ---------------- */
+
+/* Bounds-checked bit read: contact i's fields can fall past the end of a
+   short/truncated report, which must decode as 0 instead of reading past
+   the report buffer. */
+static uint32_t touch_extract(const uint8_t* report, int len,
+        int bit, int bits) {
+    if (bit < 0 || bits <= 0 || bit + bits > len * 8) {
+        return 0;
+    }
+    return bit_extract_le(report, bit, bits);
+}
+
+/* Record one per-contact field of contact slot 0 (first occurrence wins).
+   A field declared with Report Count > 1 is a run of N interleaved fields
+   (one Finger collection, N repetitions per usage): its stride is the
+   field width. Otherwise the stride is filled in later from the distance
+   between repeated Finger collections. X/Y are Generic Desktop usages but
+   touch descriptors declare them inside the Digitizer collection without
+   a page switch, so they are accepted under either page. */
+static void touch_mt_capture_slot_field(touch_mt_parser_t* out,
+        uint8_t report_id, uint32_t usage_page, uint32_t usage,
+        int bit, int size, uint32_t count, int32_t logical_max) {
+    int stride = count > 1 ? size : 0;
+
+    if (usage_page == HID_USAGE_PAGE_DIGITIZER) {
+        if (usage == HID_USAGE_TIP_SWITCH && out->tip_bit < 0) {
+            out->tip_bit = bit;
+            out->tip_size = size;
+            out->tip_stride = stride;
+        }
+        else if (usage == HID_USAGE_CONTACT_ID && out->id_bit < 0) {
+            out->id_bit = bit;
+            out->id_size = size;
+            out->id_stride = stride;
+        }
+    }
+    if (usage == HID_USAGE_X && out->x_bit < 0) {
+        out->x_bit = bit;
+        out->x_size = size;
+        out->x_stride = stride;
+        out->x_max = logical_max > 0 ? (uint32_t)logical_max : 0;
+    }
+    else if (usage == HID_USAGE_Y && out->y_bit < 0) {
+        out->y_bit = bit;
+        out->y_size = size;
+        out->y_stride = stride;
+        out->y_max = logical_max > 0 ? (uint32_t)logical_max : 0;
+    }
+    if (!out->has_report_id && report_id != 0) {
+        out->has_report_id = true;
+        out->report_id = report_id;
+    }
+}
+
+/* Extract the multi-contact bit layout of a Digitizer/Touch Screen report.
+   Enters the touch screen application collection, captures the report-level
+   Contact Count / Contact Count Maximum and the per-contact fields of the
+   first slot (inside a Finger collection, or at app level on legacy
+   single-contact panels), and derives the slot stride from where the first
+   slot's block ends. Returns 0 on success. */
+int hid_parse_touch_mt_report(const uint8_t* desc, int len, touch_mt_parser_t* out) {
+    uint32_t usages[HID_MAX_USAGE_LIST];
+    int usage_count = 0;
+    uint32_t usage_page = 0;
+    uint32_t usage_min = 0;
+    uint32_t usage_max = 0;
+    bool usage_range_valid = false;
+    uint32_t report_size = 0;
+    uint32_t report_count = 0;
+    uint8_t current_report_id = 0;
+    uint32_t report_bits[256];
+    int collection_depth = 0;
+    int touch_depth = -1;
+    bool touch_active = false;
+    int finger_depth = -1;
+    bool finger_active = false;
+    int finger_count = 0;
+    int first_finger_bit = -1;
+    int second_finger_bit = -1;
+    int slot_start_bit = -1;
+    int declared_max = 0;
+    uint32_t run_count = 0;
+    uint8_t count_report_id = 0;
+    int32_t logical_max = 0;
+
+    memset(report_bits, 0, sizeof(report_bits));
+    memset(out, 0, sizeof(*out));
+    out->tip_bit = -1;
+    out->id_bit = -1;
+    out->x_bit = -1;
+    out->y_bit = -1;
+    out->count_bit = -1;
+
+    for (int off = 0; off < len; ) {
+        uint8_t prefix = desc[off++];
+        uint32_t value = 0;
+        int size_code;
+        int size;
+        int type;
+        int tag;
+
+        if (prefix == 0xFE) {
+            if (off + 2 > len) {
+                break;
+            }
+            size = desc[off];
+            off += 2;
+            off += size;
+            continue;
+        }
+
+        size_code = prefix & 0x3;
+        size = (size_code == 3) ? 4 : size_code;
+        type = (prefix >> 2) & 0x3;
+        tag = (prefix >> 4) & 0xF;
+        if (off + size > len) {
+            break;
+        }
+        for (int i = 0; i < size; ++i) {
+            value |= (uint32_t)desc[off + i] << (i * 8);
+        }
+        off += size;
+
+        if (type == 1) {
+            switch (tag) {
+            case 0:
+                usage_page = value;
+                break;
+            case 2:
+                logical_max = hid_sign_extend(value, size * 8);
+                break;
+            case 7:
+                report_size = value;
+                break;
+            case 8:
+                current_report_id = (uint8_t)value;
+                if (report_bits[current_report_id] == 0) {
+                    report_bits[current_report_id] = 8;
+                }
+                break;
+            case 9:
+                report_count = value;
+                break;
+            default:
+                break;
+            }
+        }
+        else if (type == 2) {
+            switch (tag) {
+            case 0:
+                if (usage_count < HID_MAX_USAGE_LIST) {
+                    usages[usage_count++] = value;
+                }
+                break;
+            case 1:
+                usage_min = value;
+                usage_range_valid = true;
+                break;
+            case 2:
+                usage_max = value;
+                usage_range_valid = true;
+                break;
+            default:
+                break;
+            }
+        }
+        else if (type == 0) {
+            switch (tag) {
+            case 8: {
+                bool constant = (value & 0x1u) != 0;
+                bool variable = (value & 0x2u) != 0;
+
+                if (touch_active && !constant && variable && report_size > 0) {
+                    for (uint32_t idx = 0; idx < report_count; ++idx) {
+                        uint32_t usage = hid_usage_for_index(usages, usage_count,
+                                usage_range_valid, usage_min, usage_max, (int)idx);
+                        int bit = (int)report_bits[current_report_id] +
+                                (int)(idx * report_size);
+
+                        if (finger_active) {
+                            touch_mt_capture_slot_field(out, current_report_id,
+                                    usage_page, usage, bit, (int)report_size,
+                                    report_count, logical_max);
+                            if (slot_start_bit < 0) {
+                                slot_start_bit = (int)report_bits[current_report_id];
+                            }
+                            /* Report Count N inside one Finger collection:
+                               N contacts share the collection */
+                            if (report_count > run_count) {
+                                run_count = report_count;
+                            }
+                        }
+                        else if (usage_page == HID_USAGE_PAGE_DIGITIZER &&
+                                usage == HID_USAGE_CONTACT_COUNT) {
+                            if (out->count_bit < 0) {
+                                out->count_bit = bit;
+                                out->count_size = (int)report_size;
+                                count_report_id = current_report_id;
+                            }
+                        }
+                        else if (usage_page == HID_USAGE_PAGE_DIGITIZER &&
+                                usage == HID_USAGE_CONTACT_COUNT_MAX) {
+                            if (declared_max == 0 && logical_max > 0) {
+                                declared_max = logical_max;
+                            }
+                        }
+                        else if (finger_count == 0 &&
+                                (usage_page == HID_USAGE_PAGE_DIGITIZER ||
+                                 usage_page == HID_USAGE_PAGE_GENERIC_DESKTOP)) {
+                            /* legacy panel: no Finger collection, the app
+                               collection itself is the single slot */
+                            touch_mt_capture_slot_field(out, current_report_id,
+                                    usage_page, usage, bit, (int)report_size,
+                                    report_count, logical_max);
+                            if (slot_start_bit < 0) {
+                                slot_start_bit = (int)report_bits[current_report_id];
+                            }
+                        }
+                    }
+                }
+                report_bits[current_report_id] += report_size * report_count;
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+            case 10: {
+                uint32_t usage = hid_usage_for_index(usages, usage_count,
+                        usage_range_valid, usage_min, usage_max, 0);
+                uint8_t collection_type = (uint8_t)value;
+
+                if (!touch_active && collection_type == 1 &&
+                        usage_page == HID_USAGE_PAGE_DIGITIZER &&
+                        usage == HID_USAGE_TOUCH_SCREEN) {
+                    touch_depth = collection_depth + 1;
+                    touch_active = true;
+                }
+                else if (touch_active && !finger_active &&
+                        collection_type == 2 &&
+                        usage_page == HID_USAGE_PAGE_DIGITIZER &&
+                        usage == HID_USAGE_FINGER) {
+                    finger_depth = collection_depth + 1;
+                    finger_active = true;
+                    finger_count++;
+                    /* each slot's fields start where its collection begins */
+                    slot_start_bit = (int)report_bits[current_report_id];
+                    if (finger_count == 1) {
+                        first_finger_bit = (int)report_bits[current_report_id];
+                    }
+                    else if (finger_count == 2) {
+                        second_finger_bit = (int)report_bits[current_report_id];
+                    }
+                }
+                collection_depth++;
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+            case 12:
+                if (finger_active && collection_depth == finger_depth) {
+                    /* The block size of one repeated Finger collection is
+                       the slot stride - but only when the fields were not
+                       already declared as Report Count runs (their stride
+                       is the field width, not the whole block). */
+                    if (finger_count == 1 && slot_start_bit >= 0 &&
+                            out->tip_stride == 0 && out->id_stride == 0 &&
+                            out->x_stride == 0 && out->y_stride == 0) {
+                        int sb = (int)report_bits[current_report_id] - slot_start_bit;
+                        if (sb > 0 && out->slot_bits <= 0) {
+                            out->slot_bits = sb;
+                        }
+                    }
+                    finger_active = false;
+                    finger_depth = -1;
+                }
+                if (touch_active && collection_depth == touch_depth) {
+                    touch_active = false;
+                    touch_depth = -1;
+                }
+                if (collection_depth > 0) {
+                    collection_depth--;
+                }
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            default:
+                clear_local_usages(usages, &usage_count, &usage_range_valid);
+                break;
+            }
+        }
+    }
+
+    if (out->tip_bit < 0 || out->x_bit < 0 || out->y_bit < 0) {
+        return -1;
+    }
+
+    /* Repeated Finger collections: every field's stride is the slot block
+       size, and the collection count is the slot count. A second collection
+       at the same bit offset means the descriptor repeats nothing usable -
+       fall back to the single slot. */
+    if (finger_count >= 2 && second_finger_bit > first_finger_bit) {
+        out->slot_bits = second_finger_bit - first_finger_bit;
+    }
+    if (out->slot_bits > 0) {
+        if (out->tip_stride == 0) {
+            out->tip_stride = out->slot_bits;
+        }
+        if (out->id_stride == 0) {
+            out->id_stride = out->slot_bits;
+        }
+        if (out->x_stride == 0) {
+            out->x_stride = out->slot_bits;
+        }
+        if (out->y_stride == 0) {
+            out->y_stride = out->slot_bits;
+        }
+    }
+    /* a Contact Count living in another report id cannot be read from
+       this report's bytes */
+    if (out->count_bit >= 0 && count_report_id != out->report_id) {
+        out->count_bit = -1;
+    }
+
+    if (declared_max > 0) {
+        out->max_contacts = declared_max;
+    }
+    else if (finger_count >= 2) {
+        /* Repeated Finger collections: the collection count is the slot
+           count. Each field inside one collection has Report Count 1, so
+           run_count is 1 here and must NOT cap the slots (a panel with ten
+           repeated fingers and no Input-report Contact Count Maximum would
+           otherwise be mistaken for a single-contact device). */
+        out->max_contacts = finger_count;
+    }
+    else if (run_count > 0) {
+        out->max_contacts = (int)run_count;
+    }
+    else if (finger_count > 0) {
+        out->max_contacts = finger_count;
+    }
+    else {
+        out->max_contacts = 1;
+    }
+    if (out->max_contacts > HID_TOUCH_MAX_CONTACTS) {
+        out->max_contacts = HID_TOUCH_MAX_CONTACTS;
+    }
+    if (out->max_contacts < 1) {
+        out->max_contacts = 1;
+    }
+
+    out->valid = true;
+    out->report_bytes = (uint8_t)((report_bits[out->report_id] + 7u) / 8u);
+    if (out->report_bytes == 0 || out->report_bytes > HID_MAX_REPORT) {
+        return -1;
+    }
+    /* the last slot's fields must fit inside the report */
+    {
+        int total = (int)report_bits[out->report_id];
+        int last = (out->max_contacts - 1);
+        if (out->tip_bit + last * out->tip_stride + out->tip_size > total ||
+                out->x_bit + last * out->x_stride + out->x_size > total ||
+                out->y_bit + last * out->y_stride + out->y_size > total ||
+                (out->id_bit >= 0 &&
+                 out->id_bit + last * out->id_stride + out->id_size > total)) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+bool hid_probe_touch_mt_report(const uint8_t* desc, int len, touch_mt_parser_t* out) {
+    touch_mt_parser_t parser;
+
+    if (hid_parse_touch_mt_report(desc, len, &parser) != 0) {
+        return false;
+    }
+    if (out != NULL) {
+        *out = parser;
+    }
+    return true;
+}
+
+/* Normalize one raw touch screen report into a fixed-size touch_mt_evt_t
+   frame. Returns 0 on success, -1 when the report does not match the
+   parser. Slots beyond the report's Contact Count stay zeroed; a device
+   without a Contact Count field reports all its slots every time and the
+   tip bits alone say which are touching. */
+int touch_mt_normalize_report(const touch_mt_parser_t* p,
+        const uint8_t* report, int len, touch_mt_evt_t* out) {
+    int count;
+
+    if (!p->valid) {
+        return -1;
+    }
+    if (p->has_report_id) {
+        if (len <= 0 || report[0] != p->report_id) {
+            return -1;
+        }
+    }
+    if (len < p->report_bytes) {
+        return -1;
+    }
+    memset(out, 0, sizeof(*out));
+
+    count = p->max_contacts;
+    if (p->count_bit >= 0) {
+        count = (int)touch_extract(report, len, p->count_bit, p->count_size);
+        if (count > p->max_contacts) {
+            count = p->max_contacts;
+        }
+        if (count < 0) {
+            count = 0;
+        }
+    }
+    out->contact_count = (uint8_t)count;
+    out->x_max = p->x_max > 0xFFFFu ? 0xFFFFu : (uint16_t)p->x_max;
+    out->y_max = p->y_max > 0xFFFFu ? 0xFFFFu : (uint16_t)p->y_max;
+
+    for (int i = 0; i < count; ++i) {
+        touch_contact_t* c = &out->contacts[i];
+        uint32_t v;
+
+        c->tip = touch_extract(report, len,
+                p->tip_bit + i * p->tip_stride, p->tip_size) != 0;
+        if (p->id_bit >= 0) {
+            v = touch_extract(report, len,
+                    p->id_bit + i * p->id_stride, p->id_size);
+            c->id = v > 0xFFu ? 0xFFu : (uint8_t)v;
+        }
+        else {
+            /* no Contact ID usage: the slot index is the identity */
+            c->id = (uint8_t)i;
+        }
+        v = touch_extract(report, len, p->x_bit + i * p->x_stride, p->x_size);
+        c->x = v > 0xFFFFu ? 0xFFFFu : (uint16_t)v;
+        v = touch_extract(report, len, p->y_bit + i * p->y_stride, p->y_size);
+        c->y = v > 0xFFFFu ? 0xFFFFu : (uint16_t)v;
+    }
+    return 0;
+}
+
 /* ---------------- Precision Touchpad (multi-contact) ---------------- */
 
 /* Record one per-contact field of contact slot 0 (first occurrence wins).
@@ -1286,10 +1724,7 @@ bool hid_probe_touchpad_report(const uint8_t* desc, int len, touchpad_parser_t* 
    0 instead of reading past the report buffer. */
 static uint32_t touchpad_extract(const uint8_t* report, int len,
         int bit, int bits) {
-    if (bit < 0 || bits <= 0 || bit + bits > len * 8) {
-        return 0;
-    }
-    return bit_extract_le(report, bit, bits);
+    return touch_extract(report, len, bit, bits);
 }
 
 /* Normalize one raw touchpad digitizer report into a fixed-size

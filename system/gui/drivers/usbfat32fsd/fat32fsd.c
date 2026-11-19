@@ -75,7 +75,7 @@ static int32_t fat_usb_io(bool wr, int32_t sector, void* buf, uint32_t count) {
 
     if(ret != 0) {
         if(++_usb_io_fail >= USB_IO_FAIL_STOP && _dev != NULL) {
-            klog("fat32fsd: usb device not responding, stopping\n");
+            slog("fat32fsd: usb device not responding, stopping\n");
             device_stop(_dev);
         }
     }
@@ -425,7 +425,7 @@ static int32_t find_fat32_partition_usb(int32_t forced_index) {
     uint8_t mbr[SECTOR_SIZE];
 
     if(fat_usb_io(false, 0, mbr, 1) != 0) {
-        klog("fat32fsd: usb read mbr failed!\n");
+        slog("fat32fsd: usb read mbr failed!\n");
         return -1;
     }
     if(mbr[510] == 0x55 && mbr[511] == 0xAA) {
@@ -476,40 +476,40 @@ int main(int argc, char** argv) {
 
         fsinfo_t dev_info;
         if(vfs_get_by_name(dev_path, &dev_info) != 0) {
-            klog("fat32fsd: usb dev %s not found!\n", dev_path);
+            slog("fat32fsd: usb dev %s not found!\n", dev_path);
             return -1;
         }
         _usb_dev_pid = dev_info.mount_pid;
 
         if(wait_usb_device_ready() != 0) {
-            klog("fat32fsd: usb device not ready!\n");
+            slog("fat32fsd: usb device not ready!\n");
             return -1;
         }
 
         if(find_fat32_partition_usb(part_index) != 0) {
-            klog("fat32fsd: no fat32 partition found!\n");
+            slog("fat32fsd: no fat32 partition found!\n");
             return -1;
         }
 
         if(fat32_init_ex(&_fat, fat_usb_read_sector, fat_usb_read_sectors, fat_usb_write_sector) != 0) {
-            klog("fat32fsd: not a valid fat32 volume!\n");
+            slog("fat32fsd: not a valid fat32 volume!\n");
             return -1;
         }
     }
     else {
         if(bsp_sd_init() != 0) {
-            klog("fat32fsd: sd init failed!\n");
+            slog("fat32fsd: sd init failed!\n");
             return -1;
         }
 
         if(find_fat32_partition(part_index) != 0) {
-            klog("fat32fsd: no fat32 partition found!\n");
+            slog("fat32fsd: no fat32 partition found!\n");
             sd_quit();
             return -1;
         }
 
         if(fat32_init_ex(&_fat, fat_sd_read_sector, fat_sd_read_sectors, fat_sd_write_sector) != 0) {
-            klog("fat32fsd: not a valid fat32 volume!\n");
+            slog("fat32fsd: not a valid fat32 volume!\n");
             sd_quit();
             return -1;
         }

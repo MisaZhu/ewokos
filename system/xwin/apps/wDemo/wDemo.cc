@@ -34,7 +34,7 @@ protected:
 	}
 
 	void onSelect(int index) {
-		klog("index: %d\n", index);
+		slog("index: %d\n", index);
 	}
 
 public:
@@ -62,12 +62,12 @@ class MyTree: public Tree {
 protected:
 	void onSelect(TreeNode* node) {
 		if(node != NULL)
-			klog("tree select: %s\n", ((StringItem*)node)->getText().c_str());
+			slog("tree select: %s\n", ((StringItem*)node)->getText().c_str());
 	}
 
 	void onEnter(TreeNode* node) {
 		if(node != NULL)
-			klog("tree enter: %s\n", ((StringItem*)node)->getText().c_str());
+			slog("tree enter: %s\n", ((StringItem*)node)->getText().c_str());
 	}
 };
 

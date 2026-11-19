@@ -17,7 +17,8 @@ enum {
 	XEVT_WIN,
 	XEVT_TOUCH, //touch
 	XEVT_MOUSE_TPAD, //touchpad mouse
-	XEVT_IM_VKEYB //vkeyb
+	XEVT_IM_VKEYB, //vkeyb
+	XEVT_TOUCH_MT //multi-touch contact frame (value.touch)
 };
 
 enum {
@@ -38,6 +39,22 @@ enum {
 	XIM_STATE_PRESS = 0,
 	XIM_STATE_RELEASE
 };
+
+enum {
+	TOUCH_STATE_PRESS = 0,
+	TOUCH_STATE_RELEASE,
+	TOUCH_STATE_MOVE
+};
+
+/*max contacts carried by one XEVT_TOUCH_MT frame (Goodix Berlin panels
+  report up to 10); ev->state holds the valid entry count*/
+#define X_TOUCH_MAX 10
+
+typedef struct {
+	uint32_t id; //contact id, stable across press/move/release
+	int32_t x, y; //screen coordinates
+	int32_t state; //TOUCH_STATE_*
+} touch_evt_t;
 
 typedef struct {
 	uint8_t type;
@@ -64,6 +81,10 @@ typedef struct {
 			int32_t v0;
 			int32_t v1;
 		} window;
+
+		struct {
+			touch_evt_t touchs[X_TOUCH_MAX];
+		} touch;
 	} value;
 } xevent_t;
 

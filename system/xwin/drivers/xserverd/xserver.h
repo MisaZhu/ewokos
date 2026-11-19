@@ -153,6 +153,38 @@ typedef struct {
 	  press outside it. Outranks win_drag and mouse_grab; the owner releases it
 	  explicitly, and it is dropped when the owner is deleted or hidden.*/
 	xwin_t* popup_grab;
+	/*multi-touch contact grab: armed when a frame with two or more active
+	  contacts presses into a window, held until every finger lifts so the
+	  whole gesture (moves, staggered releases) stays with the window the
+	  first press landed on. Raw XEVT_TOUCH_MT frames go to it untouched;
+	  the cursor is never moved by them. Dropped when the owner is deleted
+	  or hidden, like popup_grab.*/
+	xwin_t* mt_grab;
+	bool mt_session;    /*a multi-contact gesture is in progress (2+ fingers
+	                      landed); single-finger mouse synthesis stays off
+	                      until every finger lifts again*/
+	bool mt_synth_down; /*single-finger compat LEFT press is currently down*/
+	uint64_t mt_synth_ms; /*tic (ms) of that press, for the drag hold gate*/
+	bool mt_no_click;   /*the synthetic UP in flight cancels the press (a
+	                      second finger landed): it must not turn into
+	                      a CLICK*/
+	/*contact ids currently down, one bit per id. MT frames carry only the
+	  contact EDGES of the moment (a stationary finger is absent), so the
+	  down set must be tracked across frames: "every finger lifted" means
+	  this mask is empty, not that the current frame has no live entry.*/
+	uint32_t mt_active_mask;
+	bool mt_pending;    /*a second finger landed over a lone synthetic
+	                      press, but the gesture is not classified yet:
+	                      midpoint travel commits to a multi session,
+	                      a quick lift of the pressing finger is typing
+	                      rollover and must still tap*/
+	int32_t mt_pending_cx, mt_pending_cy; /*contact midpoint when pending began*/
+	int32_t mt_synth_id;  /*contact id owning the synthetic lone press*/
+	int32_t mt_last_x[X_TOUCH_MAX], mt_last_y[X_TOUCH_MAX];   /*last edge position per contact*/
+	int32_t mt_press_x[X_TOUCH_MAX], mt_press_y[X_TOUCH_MAX]; /*position at its PRESS edge*/
+	int mt_click_slack; /*extra UP->CLICK promotion distance for the
+	                      synthetic touch UP in flight (finger jitter);
+	                      reset per-event like mt_no_click*/
 	gpos_t old_pos;
 	gpos_t pos_delta;
 	uint32_t drag_state;
@@ -231,6 +263,12 @@ typedef struct {
 	bool    phys_kbd_connected;
 	/*tic (ms) of the last /dev/keyb* connection probe, for XIM_KBD_POLL_MS*/
 	uint64_t last_kbd_probe_ms;
+	/*the focused window opened an input session (callXIM(true)) that was
+	  never revoked. Unlike win_xim_actived this survives the physical-
+	  keyboard hide, so the unplug edge knows whether an input session is
+	  still open and the XIM may come back; cleared on callXIM(false),
+	  unfocus and window close.*/
+	bool    xim_wanted;
 	/*tic (ms) of the last IME input event: touchpad events landing within
 	  X_IM_TPAD_SUPPRESS_MS of it are dropped (palm rejection)*/
 	uint64_t last_im_ms;

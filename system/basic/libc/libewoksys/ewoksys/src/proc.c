@@ -350,12 +350,12 @@ inline uint32_t proc_get_uuid(int32_t pid) {
 }
 
 inline void* proc_malloc_expand(int64_t size) {
-    //klog("proc_malloc_expand %d, pid: %d\n", size, getpid());
+    //slog("proc_malloc_expand %d, pid: %d\n", size, getpid());
     return (void*)syscall1(SYS_MALLOC_EXPAND, (ewokos_addr_t)size);
 }
 
 inline void proc_malloc_free(void) {
-    //klog("proc_free, pid: %d\n", getpid());
+    //slog("proc_free, pid: %d\n", getpid());
     syscall0(SYS_FREE);
 }
 

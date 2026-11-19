@@ -9,5 +9,6 @@ uint32_t xevent_get_node(int pid);
 void xevent_remove(int pid);
 void xevent_pool_init(void);
 void xevent_pool_stats(uint32_t* pools, uint32_t* events);
+uint32_t xevent_pool_evicted(void);
 
 #endif

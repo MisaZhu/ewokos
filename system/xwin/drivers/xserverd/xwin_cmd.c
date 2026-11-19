@@ -346,6 +346,12 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
       compositor. geom_pending is read + cleared first, bracketed by barriers, so
       a torn wsr_pending can never be observed. This runs before the wsr_w/winr_w
       snapshot below, which then compares against the freshly applied geometry.*/
+    /*Snapshot the geometry before the client's pending handoff so a transient
+      xwm refusal during a pure position move can be repaired below without
+      losing the frame margin we already had.*/
+    grect_t wsr_pre = win->xinfo->wsr;
+    grect_t winr_pre = win->xinfo->winr;
+
     if(win->xinfo->geom_pending) {
         __sync_synchronize();
         win->xinfo->wsr = win->xinfo->wsr_pending;
@@ -394,6 +400,30 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             &win->xinfo->wsr,
             &win->xinfo->winr) != 0)	
         return -1;
+
+    /*A transient xwm refusal makes get_xwm_win_space fall back to winr == wsr.
+      On a pure position move the workspace size is unchanged, so that collapse
+      must not churn the window into a REBUILD below: a REBUILD clears ready and
+      the compositor then skips the window for ~X_NOT_READY_TIMEOUT_MS until a
+      repaint is re-accepted, which is the keyboard vanishing mid-drag. Reapply
+      the frame margin we already had to the new workspace rect (position tracks
+      the move, size keeps the decoration); the per-step xwin_revalidate_geometry
+      re-queries xwm and confirms it on the next cycle.
+
+      Guarded to a valid prior framed winr (winr_pre encloses wsr_pre and is
+      non-empty) so the open case (winr still 0x0) keeps the plain wsr fallback
+      and never sizes a frame buffer to zero, and a genuine resize is left to the
+      wsr-change REBUILD above.*/
+    if(wsr_w == win->xinfo->wsr.w && wsr_h == win->xinfo->wsr.h &&
+            win->xinfo->winr.w == win->xinfo->wsr.w &&
+            win->xinfo->winr.h == win->xinfo->wsr.h &&
+            winr_pre.w > 0 && winr_pre.h > 0 &&
+            winr_pre.w >= wsr_pre.w && winr_pre.h >= wsr_pre.h) {
+        win->xinfo->winr.x = win->xinfo->wsr.x - (wsr_pre.x - winr_pre.x);
+        win->xinfo->winr.y = win->xinfo->wsr.y - (wsr_pre.y - winr_pre.y);
+        win->xinfo->winr.w = win->xinfo->wsr.w + (winr_pre.w - wsr_pre.w);
+        win->xinfo->winr.h = win->xinfo->wsr.h + (winr_pre.h - wsr_pre.h);
+    }
 
     /* frame_g is sized from winr, not wsr. Theme/style/title changes can
      * change the outer frame size even when the workspace size stays the
@@ -460,7 +490,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
               scan-out/back buffers can overrun it. Without this log the
               failure only shows up in the client ("xwin open failed") and
               looks like an app that started but has no window.*/
-            klog("xserverd: window '%s' workspace shm %dx%d failed: "
+            slog("xserverd: window '%s' workspace shm %dx%d failed: "
                     "shm window exhausted\n", win->xinfo->title,
                     win->xinfo->wsr.w, win->xinfo->wsr.h);
             return -1;
@@ -487,7 +517,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
                   left the client with ws_g_shm_id == -1 for good - xwin_open
                   does not retry - so the window ran but never drew anything.
                   ws_g stays valid and front_index 0 keeps win_comp_src on it.*/
-                klog("xserverd: window '%s' fps_async handoff shm %dx%d "
+                slog("xserverd: window '%s' fps_async handoff shm %dx%d "
                         "failed, using single buffer\n", win->xinfo->title,
                         win->xinfo->wsr.w, win->xinfo->wsr.h);
                 win->xinfo->fps_async = false;
@@ -530,7 +560,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 		} else {
 		win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
 		if(win->frame_g == NULL) {
-            klog("xserverd: window '%s' frame shm %dx%d failed: "
+            slog("xserverd: window '%s' frame shm %dx%d failed: "
                     "shm window exhausted\n", win->xinfo->title,
                     win->xinfo->winr.w, win->xinfo->winr.h);
             x_free_canvas(x, win->ws_g);
@@ -572,6 +602,8 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
           window once the last popup is gone.*/
         if(x->current.popup_grab == win)
             x->current.popup_grab = NULL;
+        if(x->current.mt_grab == win)
+            x->current.mt_grab = NULL;
         if(x->win_focus == win) {
             xwin_t* nf = get_top_focus_win(x, false);
             if(nf != NULL && nf != win)
@@ -742,16 +774,24 @@ int xwin_call_xim(x_t* x, proto_t* in, proto_t* out) {
         return -1;
     }
 
-    if(proto_read_int(in) == 0)
+    if(proto_read_int(in) == 0) {
+        /*the input session is over: the unplug edge must not revive the XIM*/
+        x->im_state.xim_wanted = false;
         hide_win(x, x->im_state.win_xim);
-    else if(x->im_state.phys_kbd_connected)
-        /*a physical keyboard (USB/BT) is attached: refuse to pop the
-          on-screen XIM and make sure it is down. phys_kbd_connected is a
-          cached flag refreshed by the paced probe in xserver_step, so this
-          runs without any IPC under the server lock.*/
-        hide_win(x, x->im_state.win_xim);
-    else
-        show_win(x, x->im_state.win_xim);
+    }
+    else {
+        /*remember the open input session even when a physical keyboard
+          forces the XIM down: the unplug edge restores it only while wanted*/
+        x->im_state.xim_wanted = true;
+        if(x->im_state.phys_kbd_connected)
+            /*a physical keyboard (USB/BT) is attached: refuse to pop the
+              on-screen XIM and make sure it is down. phys_kbd_connected is a
+              cached flag refreshed by the paced probe in xserver_step, so this
+              runs without any IPC under the server lock.*/
+            hide_win(x, x->im_state.win_xim);
+        else
+            show_win(x, x->im_state.win_xim);
+    }
     PF->clear(out)->addi(out, 0);
     return 0;
 }

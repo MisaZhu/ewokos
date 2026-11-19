@@ -2981,7 +2981,7 @@ static int spawn_child_session(sshd_session_t* s, const char* command, int is_sh
              * enlarged window. Give it one more wait before declaring the
              * spawn failed, rather than killing a child that was merely slow.
              */
-            klog("sshd: child ready timeout, retrying once\n");
+            slog("sshd: child ready timeout, retrying once\n");
             rc = wait_child_ready(s->child_control[CHILD_CTRL_READ]);
         }
         if(rc < 0) {
@@ -3727,7 +3727,7 @@ static int session_init(sshd_session_t* s, int sock) {
     s->enc_key_bits_c2s = 256;
     s->enc_key_bits_s2c = 256;
     if(pipe(s->close_notify) != 0) {
-        klog("sshd: session pipe failed\n");
+        slog("sshd: session pipe failed\n");
         return -1;
     }
     /*
@@ -3737,12 +3737,12 @@ static int session_init(sshd_session_t* s, int sock) {
      * trusting the kernel/socket stack to always wake a blocking writer.
      */
     if(set_fd_nonblock(s->socket) != 0) {
-        klog("sshd: session nonblock failed errno=%d\n", errno);
+        slog("sshd: session nonblock failed errno=%d\n", errno);
         return -1;
     }
     s->rx_packet_buf = (uint8_t*)malloc(4 + SSH_PACKET_WIRE_MAX);
     if(s->rx_packet_buf == NULL) {
-        klog("sshd: session rx allocation failed\n");
+        slog("sshd: session rx allocation failed\n");
         return -1;
     }
     pthread_mutex_init(&s->state_lock, NULL);
@@ -4010,7 +4010,7 @@ if(send_banner(session) < 0) {
 
 out:
     if(ret < 0) {
-        klog("sshd: client failed at %s: %s\n", fail_step ? fail_step : "-",
+        slog("sshd: client failed at %s: %s\n", fail_step ? fail_step : "-",
                 g_error[0] ? g_error : "session setup");
         /* DEBUG: record failure reason to a readable file so the host can
          * diagnose burst failures without serial access. */
