@@ -16,7 +16,9 @@ using namespace Ewok;
 /* iOS-style virtual keyboard for EwokOS
  *
  * Design principles:
- *  - Exact iOS keyboard layout (QWERTY / Numbers / Symbols)
+ *  - 11-column layout (QWERTY / Numbers / Symbols): backspace right of p,
+ *    return at the end of the second row, cursor keys and common
+ *    punctuation in the two bottom rows
  *  - Rounded white keys on light gray background
  *  - Shift: single tap = next char upper, double tap = caps lock
  *  - Responsive: adapts to phone (narrow) and pad (wide) screens
@@ -42,7 +44,8 @@ enum KeyType {
     KT_FUNC,         // gray function key (shift, backspace, 123, etc.)
     KT_SPACE,        // space bar
     KT_RETURN,       // return key
-    KT_NONE          // empty slot
+    KT_NONE,         // empty slot
+    KT_GAP           // invisible spacer: takes its width, draws and hits nothing
 };
 
 /* --- Keyboard layouts --- */
@@ -74,7 +77,8 @@ enum KeyAction {
     KA_TO_ALPHA,
     KA_SPACE,
     KA_RETURN,
-    KA_GLOBE
+    KA_GLOBE,
+    KA_ARROW         // cursor key: ch carries KEY_UP/DOWN/LEFT/RIGHT
 };
 
 #define MAX_KEYS_PER_ROW 12
@@ -96,11 +100,16 @@ enum KeyAction {
   the server uses to tell a drag from typing rollover (MT_MULTI_SLOP)*/
 #define MT_DRAG_SLOP 12
 
-/* --- Layout definitions --- */
+/* --- Layout definitions ---
+   Every layout is an 11-column grid: backspace closes the top row, return
+   closes the second, and the cursor keys sit as an inverted T at the right
+   end of the two bottom rows (up over down). A row may list fewer than
+   MAX_KEYS_PER_ROW keys - the zero-filled rest has a NULL label and is
+   skipped. widthRatio < 0 marks the key that absorbs the row's leftover. */
 
-// QWERTY layout (iOS style)
+// QWERTY layout
 static IOSKey layout_qwerty[MAX_ROWS][MAX_KEYS_PER_ROW] = {
-    // Row 0: q w e r t y u i o p
+    // Row 0: q w e r t y u i o p backspace
     {
         {"q","Q",'q','Q',KT_NORMAL,1.0f,KA_NONE},
         {"w","W",'w','W',KT_NORMAL,1.0f,KA_NONE},
@@ -112,9 +121,11 @@ static IOSKey layout_qwerty[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"i","I",'i','I',KT_NORMAL,1.0f,KA_NONE},
         {"o","O",'o','O',KT_NORMAL,1.0f,KA_NONE},
         {"p","P",'p','P',KT_NORMAL,1.0f,KA_NONE},
+        {"","",0,0,KT_FUNC,1.0f,KA_BACKSPACE},
     },
-    // Row 1: a s d f g h j k l
+    // Row 1: (half-key stagger) a s d f g h j k l return
     {
+        {"","",0,0,KT_GAP,0.5f,KA_NONE},
         {"a","A",'a','A',KT_NORMAL,1.0f,KA_NONE},
         {"s","S",'s','S',KT_NORMAL,1.0f,KA_NONE},
         {"d","D",'d','D',KT_NORMAL,1.0f,KA_NONE},
@@ -124,11 +135,11 @@ static IOSKey layout_qwerty[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"j","J",'j','J',KT_NORMAL,1.0f,KA_NONE},
         {"k","K",'k','K',KT_NORMAL,1.0f,KA_NONE},
         {"l","L",'l','L',KT_NORMAL,1.0f,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
+        {"","",'\r',0,KT_RETURN,-1.0f,KA_RETURN},
     },
-    // Row 2: shift z x c v b n m - backspace
+    // Row 2: shift z x c v b n m - up /
     {
-        {"","",0,0,KT_FUNC,-1.0f,KA_SHIFT},
+        {"","",0,0,KT_FUNC,1.0f,KA_SHIFT},
         {"z","Z",'z','Z',KT_NORMAL,1.0f,KA_NONE},
         {"x","X",'x','X',KT_NORMAL,1.0f,KA_NONE},
         {"c","C",'c','C',KT_NORMAL,1.0f,KA_NONE},
@@ -137,28 +148,26 @@ static IOSKey layout_qwerty[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"n","N",'n','N',KT_NORMAL,1.0f,KA_NONE},
         {"m","M",'m','M',KT_NORMAL,1.0f,KA_NONE},
         {"-","_",'-','_',KT_NORMAL,1.0f,KA_NONE},
-        {"","",0,0,KT_FUNC,-1.0f,KA_BACKSPACE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
+        {"","",KEY_UP,0,KT_FUNC,1.0f,KA_ARROW},
+        {"/","?",'/','?',KT_NORMAL,1.0f,KA_NONE},
     },
-    // Row 3: 123 | globe | space | return
+    // Row 3: 123 globe , space . left down right
     {
-        {"123","",0,0,KT_FUNC,1.4f,KA_TO_NUMBERS},
-        {"","",0,0,KT_FUNC,1.4f,KA_GLOBE},
+        {"123","",0,0,KT_FUNC,1.0f,KA_TO_NUMBERS},
+        {"","",0,0,KT_FUNC,1.0f,KA_GLOBE},
+        {",",";",',',';',KT_NORMAL,1.0f,KA_NONE},
         {"space","",' ',0,KT_SPACE,-1.0f,KA_SPACE},
-        {"return","",'\r',0,KT_RETURN,2.0f,KA_RETURN},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
+        {".",":",'.',':',KT_NORMAL,1.0f,KA_NONE},
+        {"","",KEY_LEFT,0,KT_FUNC,1.0f,KA_ARROW},
+        {"","",KEY_DOWN,0,KT_FUNC,1.0f,KA_ARROW},
+        {"","",KEY_RIGHT,0,KT_FUNC,1.0f,KA_ARROW},
     },
 };
 
 
 // Numbers layout (123)
 static IOSKey layout_numbers[MAX_ROWS][MAX_KEYS_PER_ROW] = {
-    // Row 0: 1 2 3 4 5 6 7 8 9 0
+    // Row 0: 1 2 3 4 5 6 7 8 9 0 backspace
     {
         {"1","",'1',0,KT_NORMAL,1.0f,KA_NONE},
         {"2","",'2',0,KT_NORMAL,1.0f,KA_NONE},
@@ -170,9 +179,11 @@ static IOSKey layout_numbers[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"8","",'8',0,KT_NORMAL,1.0f,KA_NONE},
         {"9","",'9',0,KT_NORMAL,1.0f,KA_NONE},
         {"0","",'0',0,KT_NORMAL,1.0f,KA_NONE},
+        {"","",0,0,KT_FUNC,1.0f,KA_BACKSPACE},
     },
-    // Row 1: - / : ; ( ) $ & @ "
+    // Row 1: (half-key stagger) - / : ; ( ) $ & @ return
     {
+        {"","",0,0,KT_GAP,0.5f,KA_NONE},
         {"-","",'-',0,KT_NORMAL,1.0f,KA_NONE},
         {"/","",  '/',0,KT_NORMAL,1.0f,KA_NONE},
         {":","",  ':',0,KT_NORMAL,1.0f,KA_NONE},
@@ -182,40 +193,39 @@ static IOSKey layout_numbers[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"$","",  '$',0,KT_NORMAL,1.0f,KA_NONE},
         {"&","",  '&',0,KT_NORMAL,1.0f,KA_NONE},
         {"@","",  '@',0,KT_NORMAL,1.0f,KA_NONE},
-        {"\"","", '"',0,KT_NORMAL,1.0f,KA_NONE},
+        {"","",'\r',0,KT_RETURN,-1.0f,KA_RETURN},
     },
-    // Row 2: #+= . , ? ! ' backspace
+    // Row 2: #+= ? ! ' " * + = _ up #
     {
-        {"#+=","",0,0,KT_FUNC,-1.0f,KA_TO_SYMBOLS},
-        {".","", '.',0,KT_NORMAL,1.0f,KA_NONE},
-        {",","", ',',0,KT_NORMAL,1.0f,KA_NONE},
+        {"#+=","",0,0,KT_FUNC,1.0f,KA_TO_SYMBOLS},
         {"?","", '?',0,KT_NORMAL,1.0f,KA_NONE},
         {"!","", '!',0,KT_NORMAL,1.0f,KA_NONE},
         {"'","", '\'',0,KT_NORMAL,1.0f,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_FUNC,-1.0f,KA_BACKSPACE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
+        {"\"","", '"',0,KT_NORMAL,1.0f,KA_NONE},
+        {"*","", '*',0,KT_NORMAL,1.0f,KA_NONE},
+        {"+","", '+',0,KT_NORMAL,1.0f,KA_NONE},
+        {"=","", '=',0,KT_NORMAL,1.0f,KA_NONE},
+        {"_","", '_',0,KT_NORMAL,1.0f,KA_NONE},
+        {"","",KEY_UP,0,KT_FUNC,1.0f,KA_ARROW},
+        {"#","", '#',0,KT_NORMAL,1.0f,KA_NONE},
     },
-    // Row 3: ABC | globe | space | return
+    // Row 3: ABC globe , space . left down right
     {
-        {"ABC","",0,0,KT_FUNC,1.4f,KA_TO_ALPHA},
-        {"","",0,0,KT_FUNC,1.4f,KA_GLOBE},
+        {"ABC","",0,0,KT_FUNC,1.0f,KA_TO_ALPHA},
+        {"","",0,0,KT_FUNC,1.0f,KA_GLOBE},
+        {",","", ',',0,KT_NORMAL,1.0f,KA_NONE},
         {"space","",' ',0,KT_SPACE,-1.0f,KA_SPACE},
-        {"return","",'\r',0,KT_RETURN,2.0f,KA_RETURN},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
+        {".","", '.',0,KT_NORMAL,1.0f,KA_NONE},
+        {"","",KEY_LEFT,0,KT_FUNC,1.0f,KA_ARROW},
+        {"","",KEY_DOWN,0,KT_FUNC,1.0f,KA_ARROW},
+        {"","",KEY_RIGHT,0,KT_FUNC,1.0f,KA_ARROW},
     },
 };
 
 
 // Symbols layout (#+=)
 static IOSKey layout_symbols[MAX_ROWS][MAX_KEYS_PER_ROW] = {
-    // Row 0: [ ] { } # % ^ * + =
+    // Row 0: [ ] { } # % ^ * + = backspace
     {
         {"[","", '[',0,KT_NORMAL,1.0f,KA_NONE},
         {"]","", ']',0,KT_NORMAL,1.0f,KA_NONE},
@@ -227,9 +237,11 @@ static IOSKey layout_symbols[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"*","", '*',0,KT_NORMAL,1.0f,KA_NONE},
         {"+","", '+',0,KT_NORMAL,1.0f,KA_NONE},
         {"=","", '=',0,KT_NORMAL,1.0f,KA_NONE},
+        {"","",0,0,KT_FUNC,1.0f,KA_BACKSPACE},
     },
-    // Row 1: _ \ | ~ < > EUR GBP YEN •
+    // Row 1: (half-key stagger) _ \ | ~ < > $ GBP YEN return
     {
+        {"","",0,0,KT_GAP,0.5f,KA_NONE},
         {"_","", '_',0,KT_NORMAL,1.0f,KA_NONE},
         {"\\","",'\\',0,KT_NORMAL,1.0f,KA_NONE},
         {"|","", '|',0,KT_NORMAL,1.0f,KA_NONE},
@@ -239,33 +251,32 @@ static IOSKey layout_symbols[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"$","", '$',0,KT_NORMAL,1.0f,KA_NONE},
         {"\xc2\xa3","", (char)0xA3,0,KT_NORMAL,1.0f,KA_NONE},
         {"\xc2\xa5","", (char)0xA5,0,KT_NORMAL,1.0f,KA_NONE},
-        {"\xe2\x80\xa2","", (char)0x95,0,KT_NORMAL,1.0f,KA_NONE},
+        {"","",'\r',0,KT_RETURN,-1.0f,KA_RETURN},
     },
-    // Row 2: 123 . , ? ! ' backspace
+    // Row 2: 123 ` • ' " ? ! : ; up &
     {
-        {"123","",0,0,KT_FUNC,-1.0f,KA_TO_NUMBERS},
-        {".","", '.',0,KT_NORMAL,1.0f,KA_NONE},
-        {",","", ',',0,KT_NORMAL,1.0f,KA_NONE},
+        {"123","",0,0,KT_FUNC,1.0f,KA_TO_NUMBERS},
+        {"`","", '`',0,KT_NORMAL,1.0f,KA_NONE},
+        {"\xe2\x80\xa2","", (char)0x95,0,KT_NORMAL,1.0f,KA_NONE},
+        {"'","", '\'',0,KT_NORMAL,1.0f,KA_NONE},
+        {"\"","", '"',0,KT_NORMAL,1.0f,KA_NONE},
         {"?","", '?',0,KT_NORMAL,1.0f,KA_NONE},
         {"!","", '!',0,KT_NORMAL,1.0f,KA_NONE},
-        {"'","", '\'',0,KT_NORMAL,1.0f,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_FUNC,-1.0f,KA_BACKSPACE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
+        {":","", ':',0,KT_NORMAL,1.0f,KA_NONE},
+        {";","", ';',0,KT_NORMAL,1.0f,KA_NONE},
+        {"","",KEY_UP,0,KT_FUNC,1.0f,KA_ARROW},
+        {"&","", '&',0,KT_NORMAL,1.0f,KA_NONE},
     },
-    // Row 3: ABC | globe | space | return
+    // Row 3: ABC globe , space . left down right
     {
-        {"ABC","",0,0,KT_FUNC,1.4f,KA_TO_ALPHA},
-        {"","",0,0,KT_FUNC,1.4f,KA_GLOBE},
+        {"ABC","",0,0,KT_FUNC,1.0f,KA_TO_ALPHA},
+        {"","",0,0,KT_FUNC,1.0f,KA_GLOBE},
+        {",","", ',',0,KT_NORMAL,1.0f,KA_NONE},
         {"space","",' ',0,KT_SPACE,-1.0f,KA_SPACE},
-        {"return","",'\r',0,KT_RETURN,2.0f,KA_RETURN},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
-        {"","",0,0,KT_NONE,0,KA_NONE},
+        {".","", '.',0,KT_NORMAL,1.0f,KA_NONE},
+        {"","",KEY_LEFT,0,KT_FUNC,1.0f,KA_ARROW},
+        {"","",KEY_DOWN,0,KT_FUNC,1.0f,KA_ARROW},
+        {"","",KEY_RIGHT,0,KT_FUNC,1.0f,KA_ARROW},
     },
 };
 
@@ -364,6 +375,8 @@ protected:
         keyRadius = 5;
         popupH = 48;
         int fullW = w - sideMargin * 2;
+        /*the height keeps the 10-column proportion: the eleventh column
+          (backspace) narrows the keys, it must not also shrink the panel*/
         int unit = (fullW - keyGap * 9) / 10;
         float aspect = 0.85f;
         keyHeight = (int)(unit * aspect);
@@ -390,8 +403,8 @@ protected:
 
         int fullW = totalW - sideMargin * 2;
 
-        /* iOS rule: all letter keys share one size on every row, so the
-           unit width is derived once from the 10-column top row. */
+        /* All unit keys share one size on every row, so the unit width is
+           derived once from the 11-column top row. */
         float unitW = 0;
         {
             IOSKey* keys0 = getLayout(0);
@@ -412,7 +425,7 @@ protected:
             IOSKey* keys = getLayout(row);
 
             /* Pass 1: measure. widthRatio < 0 marks a stretch key that
-               absorbs leftover width (shift / backspace / space). */
+               absorbs leftover width (return / space). */
             int validCount = 0, stretchCount = 0;
             float fixedW = 0;
             for(int i = 0; i < MAX_KEYS_PER_ROW; i++) {
@@ -428,31 +441,42 @@ protected:
             int gaps = keyGap * (validCount - 1);
             float stretchW = 0;
             if(stretchCount > 0)
-                stretchW = (float)(fullW - (int)fixedW - gaps) / stretchCount;
+                stretchW = ((float)(fullW - gaps) - fixedW) / stretchCount;
+            if(stretchW < 0)
+                stretchW = 0;
 
             int y = topMargin + row * (keyHeight + rowGap);
-            int x = sideMargin;
+            /*positions accumulate in float and round per key: every row
+              then ends exactly on the right margin, so the unit keys at the
+              right end (backspace, the cursor keys) line up column for
+              column across rows instead of drifting by the truncation of
+              each key before them*/
+            float fx = (float)sideMargin;
 
-            /* A row narrower than the board (the 9-key asdf row) is
-               centered, giving the iOS half-key stagger. */
+            /* A row narrower than the board is centered. */
             if(stretchCount == 0) {
-                int rowW = (int)fixedW + gaps;
+                float rowW = fixedW + gaps;
                 if(rowW < fullW)
-                    x += (fullW - rowW) / 2;
+                    fx += (fullW - rowW) / 2;
             }
 
             /* Pass 2: place */
             for(int i = 0; i < MAX_KEYS_PER_ROW; i++) {
                 if(keys[i].type == KT_NONE || keys[i].label == NULL) continue;
 
-                int kw = (keys[i].widthRatio < 0)
-                    ? (int)stretchW
-                    : (int)(keys[i].widthRatio * unitW);
+                float kwf = (keys[i].widthRatio < 0)
+                    ? stretchW
+                    : keys[i].widthRatio * unitW;
+                int x0 = (int)(fx + 0.5f);
+                int x1 = (int)(fx + kwf + 0.5f);
+                fx += kwf + keyGap;
+                if(keys[i].type == KT_GAP)
+                    continue; /*spacer: its width is consumed, no key*/
 
                 KeyRect* kr = &keyRects[keyCount];
-                kr->x = x;
+                kr->x = x0;
                 kr->y = y;
-                kr->w = kw;
+                kr->w = x1 - x0;
                 kr->h = keyHeight;
                 kr->row = row;
                 kr->col = i;
@@ -463,8 +487,6 @@ protected:
                 kr->label = keys[i].label;
                 kr->labelCaps = keys[i].labelCaps;
                 keyCount++;
-
-                x += kw + keyGap;
             }
         }
     }
@@ -482,6 +504,15 @@ protected:
 
     bool isShifted() {
         return shiftActive || capsLock;
+    }
+
+    /*caps lock capitalizes letters only, like a physical keyboard: the
+      punctuation keys take their second character from shift alone, so
+      typing in caps does not turn every comma into a semicolon*/
+    bool keyShifted(KeyRect* kr) {
+        if(kr->ch >= 'a' && kr->ch <= 'z')
+            return isShifted();
+        return shiftActive;
     }
 
     /* --- Drawing --- */
@@ -519,7 +550,7 @@ protected:
         uint32_t textColor = (pressed) ? 0xFFFFFFFF : IOS_KEY_TEXT;
 
         /* Handle shift display for letter keys */
-        if(isShifted() && kr->labelCaps != NULL && kr->labelCaps[0] != 0) {
+        if(keyShifted(kr) && kr->labelCaps != NULL && kr->labelCaps[0] != 0) {
             label = kr->labelCaps;
         }
         /* Shift icon: draw triangle arrow */
@@ -537,9 +568,15 @@ protected:
             drawGlobeIcon(g, kr, pressed);
             return;
         }
-        /* Caps lock indicator */
-        if(kr->action == KA_SHIFT && capsLock) {
-            // handled in drawShiftIcon
+        /* Return icon */
+        if(kr->action == KA_RETURN) {
+            drawReturnIcon(g, kr, pressed);
+            return;
+        }
+        /* Cursor key icon */
+        if(kr->action == KA_ARROW) {
+            drawArrowIcon(g, kr, pressed);
+            return;
         }
 
         if(label == NULL || label[0] == 0) return;
@@ -549,11 +586,63 @@ protected:
             textColor = pressed ? 0xFFFFFFFF : IOS_SPACE_TEXT;
         }
 
+        /*a multi-char label (123 / ABC / #+=) on a one-unit key: step the
+          font down until it fits rather than spilling over the neighbours*/
+        int fs = fontSize;
         uint32_t tw, th;
-        font_text_size(label, font, fontSize, &tw, &th);
-        int tx = kr->x + (kr->w - tw) / 2;
-        int ty = kr->y + (kr->h - fontSize) / 2;
-        graph_draw_text_font(g, tx, ty, label, font, fontSize, textColor);
+        font_text_size(label, font, fs, &tw, &th);
+        while((int)tw > kr->w - 4 && fs > 8) {
+            fs -= 2;
+            font_text_size(label, font, fs, &tw, &th);
+        }
+        int tx = kr->x + (kr->w - (int)tw) / 2;
+        int ty = kr->y + (kr->h - fs) / 2;
+        graph_draw_text_font(g, tx, ty, label, font, fs, textColor);
+    }
+
+    void drawReturnIcon(graph_t* g, KeyRect* kr, bool pressed) {
+        int cx = kr->x + kr->w / 2;
+        int cy = kr->y + kr->h / 2;
+        int sz = X::hidpiSize(8);
+        int t = sz / 4;
+        if(t < 2) t = 2;
+        uint32_t color = pressed ? 0xFFFFFFFF : 0xFF000000;
+
+        /* Stem down the right side, bar to the left, head pointing left */
+        int by = cy + sz / 2;
+        graph_fill_rect(g, cx + sz - t, cy - sz, t, by - (cy - sz), color);
+        graph_fill_rect(g, cx - sz / 2, by - t, sz + sz / 2, t, color);
+        int hy = by - t / 2;
+        graph_fill_triangle(g,
+            cx - sz - sz / 4, hy,
+            cx - sz / 2, hy - sz / 2,
+            cx - sz / 2, hy + sz / 2,
+            color);
+    }
+
+    void drawArrowIcon(graph_t* g, KeyRect* kr, bool pressed) {
+        int cx = kr->x + kr->w / 2;
+        int cy = kr->y + kr->h / 2;
+        int a = X::hidpiSize(7);   /* half base */
+        int b = a * 2 / 3;         /* half height */
+        uint32_t color = pressed ? 0xFFFFFFFF : 0xFF000000;
+
+        switch(kr->ch) {
+        case KEY_UP:
+            graph_fill_triangle(g, cx, cy - b, cx - a, cy + b, cx + a, cy + b, color);
+            break;
+        case KEY_DOWN:
+            graph_fill_triangle(g, cx, cy + b, cx - a, cy - b, cx + a, cy - b, color);
+            break;
+        case KEY_LEFT:
+            graph_fill_triangle(g, cx - b, cy, cx + b, cy - a, cx + b, cy + a, color);
+            break;
+        case KEY_RIGHT:
+            graph_fill_triangle(g, cx + b, cy, cx - b, cy - a, cx - b, cy + a, color);
+            break;
+        default:
+            break;
+        }
     }
 
     void drawShiftIcon(graph_t* g, KeyRect* kr, bool pressed) {
@@ -628,12 +717,12 @@ protected:
         if(idx < 0 || idx >= keyCount) return;
         KeyRect* kr = &keyRects[idx];
 
-        /* Only show popup for character keys in top rows */
-        if(kr->type != KT_NORMAL && kr->type != KT_SPACE) return;
-        if(kr->row >= 3) return;
+        /* Only character keys get the bubble: not space, not the function
+           and cursor keys */
+        if(kr->type != KT_NORMAL) return;
 
         const char* label = kr->label;
-        if(isShifted() && kr->labelCaps != NULL && kr->labelCaps[0] != 0)
+        if(keyShifted(kr) && kr->labelCaps != NULL && kr->labelCaps[0] != 0)
             label = kr->labelCaps;
 
         int pw = kr->w + 8;
@@ -690,9 +779,11 @@ protected:
 
     char effectiveChar(KeyRect* kr) {
         char c = kr->ch;
-        if(isShifted() && kr->chShift != 0)
+        if(!keyShifted(kr))
+            return c;
+        if(kr->chShift != 0)
             c = kr->chShift;
-        else if(isShifted() && c >= 'a' && c <= 'z')
+        else if(c >= 'a' && c <= 'z')
             c = c - 'a' + 'A';
         return c;
     }
@@ -731,8 +822,11 @@ protected:
         if(!repeatFired) {
             repeatFired = true;
             /*the first repeat commits the press: auto-release shift exactly
-              like a tapped character, then keep repeating the plain key*/
-            if(repeatChar != KEY_BACKSPACE && shiftActive && !capsLock) {
+              like a tapped character, then keep repeating the plain key.
+              A cursor key leaves shift alone, as its tap does.*/
+            if(repeatChar != KEY_BACKSPACE &&
+                    keyRects[repeatKey].action != KA_ARROW &&
+                    shiftActive && !capsLock) {
                 shiftActive = false;
                 repeatChar = keyRects[repeatKey].ch;
                 reqRepaint();
@@ -850,6 +944,11 @@ protected:
         case KA_RETURN:
             input('\r');
             shiftActive = false;
+            break;
+        case KA_ARROW:
+            /*a cursor key is not a character: a pending one-shot shift
+              stays armed for the letter that follows*/
+            input(kr->ch);
             break;
         case KA_GLOBE:
             /* Cycle layouts: QWERTY -> Numbers -> Symbols -> QWERTY */
