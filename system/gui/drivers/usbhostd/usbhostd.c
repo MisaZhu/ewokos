@@ -117,6 +117,7 @@ typedef struct {
     uint8_t joystick_report_id; /* composite: the gamepad collection's id */
     mouse_parser_t mouse;
     touch_parser_t touch;
+    touch_mt_parser_t touch_mt;
     touchpad_parser_t touchpad;
     joystick_parser_t joystick;
     uint8_t last_report[HID_MAX_REPORT];
@@ -517,7 +518,7 @@ static int usb_register_composite(int dev_idx, const hid_candidate_t* cand,
 }
 
 static int usb_register_touch(int dev_idx, const hid_candidate_t* cand,
-        const touch_parser_t* parser) {
+        const touch_parser_t* parser, const touch_mt_parser_t* mt) {
     bsp_usb_dev_t* hdev = _devs[dev_idx].hdev;
     int slot;
 
@@ -534,12 +535,50 @@ static int usb_register_touch(int dev_idx, const hid_candidate_t* cand,
     if (slot < 0) {
         return -1;
     }
+    if (mt != NULL && mt->valid) {
+        _inputs[slot].report_len = mt->report_bytes;
+        _inputs[slot].touch_mt = *mt;
+        slog("usbhostd: register touch slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u contacts=%d tip=%d x=%d y=%d\n",
+                slot, dev_idx, cand->iface_num, cand->ep_addr, mt->report_id,
+                mt->report_bytes, mt->max_contacts, mt->tip_bit, mt->x_bit, mt->y_bit);
+        return 0;
+    }
     _inputs[slot].report_len = parser->report_bytes;
     _inputs[slot].touch = *parser;
     slog("usbhostd: register touch slot=%d dev=%d iface=%u ep=%02x report_id=%u report_len=%u tip=%d x=%d y=%d\n",
             slot, dev_idx, cand->iface_num, cand->ep_addr, parser->report_id,
             parser->report_bytes, parser->tip_bit, parser->x_bit, parser->y_bit);
     return 0;
+}
+
+/* Wrap a legacy single-contact touch event (7 bytes: tip, x, y) into the
+   multi-contact frame hid_touchd reads: one slot, contact id 0. */
+static void touch_wrap_legacy(const uint8_t* evt, uint8_t* out) {
+    touch_mt_evt_t frame;
+    memset(&frame, 0, sizeof(frame));
+    frame.contact_count = 1;
+    frame.contacts[0].id = 0;
+    frame.contacts[0].tip = evt[0];
+    frame.contacts[0].x = le16(evt + 1);
+    frame.contacts[0].y = le16(evt + 3);
+    memcpy(out, &frame, sizeof(frame));
+}
+
+/* Absolute-coordinate mouse presented as touch: normalize, wrap into the
+   multi-contact frame and dispatch, so hid_touchd reads one format from
+   every touch source. */
+static void usb_dispatch_mouse_touch(usb_input_dev_t* in,
+        const uint8_t* report, int ret, bool* any_edge) {
+    uint8_t evt[HID_POINTER_EVENT_SIZE];
+    uint8_t frame[HID_TOUCH_EVENT_SIZE];
+    if (mouse_normalize_as_touch(&in->mouse, report, ret, evt) ==
+            HID_POINTER_EVENT_SIZE) {
+        touch_wrap_legacy(evt, frame);
+        if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, frame,
+                HID_TOUCH_EVENT_SIZE)) {
+            *any_edge = true;
+        }
+    }
 }
 
 /* Register a Precision Touchpad digitizer interface: one interrupt source
@@ -792,8 +831,10 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         hid_dev_type_t dev_type = HID_DEV_TYPE_UNKNOWN;
         mouse_parser_t mouse_probe;
         touch_parser_t touch_probe;
+        touch_mt_parser_t touch_mt_probe;
         touchpad_parser_t touchpad_probe;
         joystick_parser_t joy_probe;
+        bool touch_mt_desc_ok = false;
 
         if (!candidates[i].valid) {
             continue;
@@ -817,6 +858,8 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
                     candidates[i].report_desc_len, &mouse_probe);
             touch_desc_ok = hid_probe_touch_report(report_desc,
                     candidates[i].report_desc_len, &touch_probe);
+            touch_mt_desc_ok = hid_probe_touch_mt_report(report_desc,
+                    candidates[i].report_desc_len, &touch_mt_probe);
             touchpad_desc_ok = hid_probe_touchpad_report(report_desc,
                     candidates[i].report_desc_len, &touchpad_probe);
             joy_desc_ok = hid_probe_joystick_report(report_desc,
@@ -833,6 +876,8 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
                             candidates[i].report_desc_len, &mouse_probe);
                     touch_desc_ok = hid_probe_touch_report(report_desc,
                             candidates[i].report_desc_len, &touch_probe);
+                    touch_mt_desc_ok = hid_probe_touch_mt_report(report_desc,
+                            candidates[i].report_desc_len, &touch_mt_probe);
                     touchpad_desc_ok = hid_probe_touchpad_report(report_desc,
                             candidates[i].report_desc_len, &touchpad_probe);
                     joy_desc_ok = hid_probe_joystick_report(report_desc,
@@ -882,8 +927,9 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
                 registered++;
             }
         }
-        else if (dev_type == HID_DEV_TYPE_TOUCH && touch_desc_ok) {
-            if (usb_register_touch(dev_idx, &candidates[i], &touch_probe) == 0) {
+        else if (dev_type == HID_DEV_TYPE_TOUCH && (touch_desc_ok || touch_mt_desc_ok)) {
+            if (usb_register_touch(dev_idx, &candidates[i], &touch_probe,
+                    &touch_mt_probe) == 0) {
                 registered++;
             }
         }
@@ -1474,14 +1520,7 @@ static bool usb_poll_inputs(vdevice_t* dev) {
              * standard 8-bit boot mice and relative devices.
              */
             if (in->mouse.valid && mouse_parser_is_absolute(&in->mouse)) {
-                uint8_t tp[HID_MAX_EVENT_SIZE];
-                if (mouse_normalize_as_touch(&in->mouse, report, ret, tp) ==
-                        HID_POINTER_EVENT_SIZE) {
-                    if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, tp,
-                            HID_POINTER_EVENT_SIZE)) {
-                        any_edge = true;
-                    }
-                }
+                usb_dispatch_mouse_touch(in, report, ret, &any_edge);
             }
             got = true;
         }
@@ -1543,11 +1582,32 @@ static bool usb_poll_inputs(vdevice_t* dev) {
             }
             memcpy(in->last_report, report, ret);
             in->last_len = (uint8_t)ret;
-            if (touch_normalize_report(&in->touch, in->report_len, report, ret, payload) ==
+            /* every touch source dispatches the same multi-contact frame:
+               the MT parser when the descriptor has one, otherwise the
+               legacy single-contact event wrapped into a one-slot frame */
+            bool ok = false;
+            if (in->touch_mt.valid) {
+                touch_mt_evt_t frame;
+                if (touch_mt_normalize_report(&in->touch_mt, report, ret, &frame) == 0) {
+                    memcpy(payload, &frame, sizeof(frame));
+                    if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, payload,
+                            HID_TOUCH_EVENT_SIZE)) {
+                        any_edge = true;
+                    }
+                    ok = true;
+                }
+            }
+            else if (touch_normalize_report(&in->touch, in->report_len, report, ret, payload) ==
                     HID_POINTER_EVENT_SIZE) {
-                if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, payload, HID_POINTER_EVENT_SIZE)) {
+                uint8_t frame[HID_TOUCH_EVENT_SIZE];
+                touch_wrap_legacy(payload, frame);
+                if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, frame,
+                        HID_TOUCH_EVENT_SIZE)) {
                     any_edge = true;
                 }
+                ok = true;
+            }
+            if (ok) {
                 got = true;
             }
             else {
@@ -1592,14 +1652,7 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                 if (mouse_normalize_report(&in->mouse, report, ret, payload) == HID_POINTER_EVENT_SIZE) {
                     if (mouse_payload_idle(in, payload)) {
                         if (in->mouse.valid && mouse_parser_is_absolute(&in->mouse)) {
-                            uint8_t tp[HID_MAX_EVENT_SIZE];
-                            if (mouse_normalize_as_touch(&in->mouse, report, ret, tp) ==
-                                    HID_POINTER_EVENT_SIZE) {
-                                if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, tp,
-                                        HID_POINTER_EVENT_SIZE)) {
-                                    any_edge = true;
-                                }
-                            }
+                            usb_dispatch_mouse_touch(in, report, ret, &any_edge);
                         }
                         continue;
                     }
@@ -1613,14 +1666,7 @@ static bool usb_poll_inputs(vdevice_t* dev) {
                     any_edge = true;
                 }
                 if (in->mouse.valid && mouse_parser_is_absolute(&in->mouse)) {
-                    uint8_t tp[HID_MAX_EVENT_SIZE];
-                    if (mouse_normalize_as_touch(&in->mouse, report, ret, tp) ==
-                            HID_POINTER_EVENT_SIZE) {
-                        if (hid_dispatch_evt(HID_REPORT_ID_TOUCH, tp,
-                                HID_POINTER_EVENT_SIZE)) {
-                            any_edge = true;
-                        }
-                    }
+                    usb_dispatch_mouse_touch(in, report, ret, &any_edge);
                 }
                 got = true;
             }
@@ -1728,7 +1774,32 @@ static char* usb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, vo
     (void)from_pid;
     (void)p;
 
-    if (argc <= 0 || strcmp(argv[0], "kbd_state") != 0)
+    if (argc <= 0)
+        return NULL;
+    if (strcmp(argv[0], "inputs") == 0) { /* MTDBG */
+        char* ret = (char*)malloc(768);
+        if (ret == NULL)
+            return NULL;
+        int off = 0;
+        for (int i = 0; i < USB_MAX_INPUTS; ++i) {
+            if (!_inputs[i].present)
+                continue;
+            usb_input_dev_t* in = &_inputs[i];
+            off += snprintf(ret + off, 768 - off,
+                    "slot=%d type=%d dev=%d if=%u ep=%02x mps=%u rlen=%u mt=%d/%d t=%d m=%d/%d kbd=%u mid=%u\n",
+                    i, in->type, in->dev_idx, in->iface_num, in->ep_addr,
+                    in->max_packet, in->report_len,
+                    in->touch_mt.valid, in->touch_mt.max_contacts,
+                    in->touch.valid, in->mouse.valid, in->mouse.axis_relative,
+                    in->kbd_report_id, in->mouse_report_id);
+            if (off >= 700)
+                break;
+        }
+        if (off == 0)
+            snprintf(ret, 768, "no inputs\n");
+        return ret;
+    }
+    if (strcmp(argv[0], "kbd_state") != 0)
         return NULL;
 
     int present = 0;

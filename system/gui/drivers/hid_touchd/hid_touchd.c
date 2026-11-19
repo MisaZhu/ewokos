@@ -11,16 +11,19 @@
 #include <ewoksys/ipc.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/kernel_tic.h>
+#include <hid/hid_defs.h>
+#include <hid/hid_touch.h>
+#include <hid/hid_mt.h>
+#include <hid/hid_touch_map.h>
 
 #define HID_TOUCH_REPORT_ID 3
-#define TOUCH_CACHE_SIZE 128u
 
 /*
- * Movement coalescing cadence: while a finger is in contact, positions are
- * collapsed onto the latest one and flushed at most once per interval,
+ * Movement coalescing cadence: while fingers are in contact, positions are
+ * collapsed onto the latest ones and flushed at most once per interval,
  * capping the event rate on /dev/touch0 at 100Hz even for high-rate touch
- * panels. Contact DOWN/UP edges are NEVER coalesced - they bypass this
- * path and are pushed immediately.
+ * panels. Contact PRESS/RELEASE edges are NEVER coalesced - they bypass
+ * this path and are queued immediately.
  */
 #define TOUCH_FLUSH_MS 10u
 
@@ -28,13 +31,17 @@
 #define HID_CONNECT_SLEEP_US 200000u
 
 /*
- * /dev/usb0 subscriber-queue protocol (see libs/usb/usb_defs.h): fixed
- * 7-byte touch events, queue depth 32. One read sized for the whole
- * queue drains an entire backlog in a single vfsd/usbhostd round-trip;
- * the old one-event-per-read drain paid that round-trip per report.
+ * /dev/usb0 subscriber-queue protocol (see libs/hid): fixed-size
+ * multi-contact touch frames (hid/hid_touch.h), queue depth 32. One read
+ * sized for the whole queue drains an entire backlog in a single
+ * vfsd/usbhostd round-trip. Every touch source - MT digitizer, legacy
+ * single-contact panel, absolute mouse - arrives in this one format.
+ *
+ * /dev/touch0 serves the multi-touch edge record stream (hid/hid_mt.h)
+ * that xtouch reads from the goodixd/himaxd panels; single-finger mouse
+ * compatibility and gestures live in xtouch/xserverd.
  */
-#define HID_EVT_SIZE 7
-#define HID_QUEUE_DEPTH 32
+#define HID_EVT_SIZE HID_TOUCH_EVENT_SIZE
 #define TOUCH_DRAIN_SIZE (HID_QUEUE_DEPTH * HID_EVT_SIZE)
 
 static int hid = -1;
@@ -42,81 +49,92 @@ static const char* _dev_point = "/dev/usb0";
 /* cached fsinfo of the open /dev/usb0 fd: node id and mount pid stay stable
    for the whole mount, so the wait path does not pay a VFS_GET_BY_FD IPC */
 static fsinfo_t _hid_info;
-static uint16_t touch_data[TOUCH_CACHE_SIZE][3];
-static uint32_t touch_data_read = 0;
-static uint32_t touch_data_write = 0;
-/* last contact state and position emitted to the reader, used to spot
-   empty (repeated release / stationary) reports */
-static uint16_t last_state = 0;
-static uint16_t last_x = 0;
-static uint16_t last_y = 0;
-/* coalesced position waiting for the next flush tick */
-static uint16_t pend_x = 0;
-static uint16_t pend_y = 0;
-static bool pend_valid = false;
-static uint64_t last_flush_ms = 0;
 
-static bool touch_has_data(void) {
-        return (touch_data_write - touch_data_read) > 0;
+/* wire-slot edge queue the /dev/touch0 readers drain */
+static hid_mt_t _mt;
+/* device contact id -> wire slot */
+static hid_touch_map_t _map;
+/* the last report's contact set: press/release edges are spotted against it */
+static hid_mt_contact_t _last[HID_MT_MAX_CONTACTS];
+/* coalesced contact set waiting for the next flush tick */
+static hid_mt_contact_t _pend[HID_MT_MAX_CONTACTS];
+static bool _pend_valid = false;
+static uint64_t last_flush_ms = 0;
+/* MTDBG: drain telemetry exposed via `devcmd /dev/touch0 stat` */
+static int _dbg_connected = 0;
+static int _dbg_last_ret = -999;
+static int _dbg_last_err = 0;
+static uint8_t _dbg_b0 = 0;
+static int _dbg_reads_total = 0;
+static int _dbg_frames_total = 0;
+static int _dbg_cc = -1;
+
+static char* touch_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
+    (void)dev; (void)from_pid; (void)p;
+    if (argc <= 0 || strcmp(argv[0], "stat") != 0)
+        return NULL;
+    char* ret = (char*)malloc(112);
+    if (ret == NULL)
+        return NULL;
+    snprintf(ret, 112, "conn=%d ret=%d err=%d b0=%u reads=%d frames=%d cc=%d mt=%u\n",
+            _dbg_connected, _dbg_last_ret, _dbg_last_err, _dbg_b0,
+            _dbg_reads_total, _dbg_frames_total, _dbg_cc, _mt.count);
+    return ret;
 }
 
-static void touch_push(uint16_t state, uint16_t x, uint16_t y) {
-        if (touch_data_write - touch_data_read >= TOUCH_CACHE_SIZE) {
-                touch_data_read++;
-        }
-
-        uint16_t* evt = touch_data[touch_data_write % TOUCH_CACHE_SIZE];
-        evt[0] = state;
-        evt[1] = x;
-        evt[2] = y;
-        touch_data_write++;
-        last_x = x;
-        last_y = y;
+static bool touch_has_data(void) {
+    return _mt.count != 0;
 }
 
 /*
- * Emit the coalesced position as a single move event and restart the flush
- * window. All reports inside one window collapse onto the latest position,
- * which keeps /dev/touch0 under the 100Hz cap.
+ * Emit the coalesced contact set and restart the flush window. All reports
+ * inside one window collapse onto the latest positions, which keeps
+ * /dev/touch0 under the 100Hz cap.
  */
 static void touch_flush_pending(void) {
-    if (pend_valid) {
-        touch_push(1, pend_x, pend_y);
-        pend_valid = false;
+    if (_pend_valid) {
+        hid_mt_update(&_mt, _pend, NULL);
+        _pend_valid = false;
     }
     last_flush_ms = kernel_tic_ms(0);
 }
 
 /*
- * Contact edges (state 0<->1) are never coalesced or delayed: any pending
- * move is flushed first to keep ordering, then the edge is pushed right
- * away. Moves during contact only update the pending position.
- * Empty reports are dropped here: a release while already released carries
- * no information, and a stationary finger re-reporting the same position
- * adds nothing the reader does not already know.
+ * One normalized report frame. Contact edges (a slot pressed or released,
+ * or handed to another finger) are never coalesced or delayed: any pending
+ * move is flushed first to keep ordering, then the edge frame is queued
+ * right away. Move-only frames only update the pending set; a frame equal
+ * to what is already pending (or last emitted) adds nothing and is dropped.
  */
-static void touch_handle_report(uint16_t state, uint16_t x, uint16_t y) {
-    if (state == 0) {
-        if (last_state == 0)
-            return; /* empty: repeated release with no contact in between */
-        touch_flush_pending();
-        touch_push(0, x, y);
+static void touch_handle_frame(const touch_mt_evt_t* frame) {
+    hid_mt_contact_t cur[HID_MT_MAX_CONTACTS];
+    bool edge = false;
+
+    hid_touch_map_frame(&_map, frame, cur);
+    for (unsigned s = 0; s < HID_MT_MAX_CONTACTS; s++) {
+        if (cur[s].active != _last[s].active ||
+                (cur[s].active && cur[s].fresh))
+            edge = true;
     }
-    else if (last_state == 0) {
+    if (edge) {
         touch_flush_pending();
-        touch_push(1, x, y);
+        hid_mt_update(&_mt, cur, NULL);
     }
     else {
-        /* next position to be emitted, pending move wins over last push */
-        uint16_t cx = pend_valid ? pend_x : last_x;
-        uint16_t cy = pend_valid ? pend_y : last_y;
-        if (cx == x && cy == y)
-            return; /* empty: stationary finger */
-        pend_x = x;
-        pend_y = y;
-        pend_valid = true;
+        /* next positions to be emitted: the pending set wins over the last */
+        const hid_mt_contact_t* ref = _pend_valid ? _pend : _last;
+        bool moved = false;
+        for (unsigned s = 0; s < HID_MT_MAX_CONTACTS; s++) {
+            if (cur[s].active &&
+                    (cur[s].x != ref[s].x || cur[s].y != ref[s].y))
+                moved = true;
+        }
+        if (moved) {
+            memcpy(_pend, cur, sizeof(_pend));
+            _pend_valid = true;
+        }
     }
-    last_state = state;
+    memcpy(_last, cur, sizeof(_last));
 }
 
 static int touch_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
@@ -128,17 +146,18 @@ static int touch_read(vdevice_t* dev, int fd, int from_pid, fsinfo_t* node,
     (void)offset;
     (void)p;
 
-        if (!touch_has_data()) {
+    hid_mt_record_t rec;
+    if (!touch_has_data()) {
         return VFS_ERR_RETRY;
     }
-    if (size < 6) {
+    if (size < (int)sizeof(rec)) {
         return -1;
     }
-
-        memcpy(buf, touch_data[touch_data_read % TOUCH_CACHE_SIZE], 6);
-        memset(touch_data[touch_data_read % TOUCH_CACHE_SIZE], 0, sizeof(touch_data[0]));
-        touch_data_read++;
-    return 6;
+    if (!hid_mt_pop(&_mt, &rec)) {
+        return VFS_ERR_RETRY;
+    }
+    memcpy(buf, &rec, sizeof(rec));
+    return (int)sizeof(rec);
 }
 
 static int set_report_id(int fd, int id) {
@@ -157,7 +176,7 @@ static uint32_t touch_check_poll_events(vdevice_t* dev, int fd, int from_pid, fs
     (void)node;
     (void)p;
 
-        return touch_has_data() ? VFS_EVT_RD : 0;
+    return touch_has_data() ? VFS_EVT_RD : 0;
 }
 
 /*
@@ -199,6 +218,7 @@ static bool hid_connect(void) {
     ipc_call(get_vfsd_pid(), VFS_BLOCK, &in, NULL);
     PF->clear(&in);
     hid = fd;
+    _dbg_connected = 1; /* MTDBG */
     return true;
 }
 
@@ -239,21 +259,28 @@ static int touch_loop(vdevice_t* dev, void* p) {
 
     bool failed = false;
     uint8_t buf[TOUCH_DRAIN_SIZE];
+    int dbg_reads = 0, dbg_first = 0, dbg_err = 0, dbg_frames = 0, dbg_cc = -1; /* MTDBG */
+    uint8_t dbg_b0 = 0; /* MTDBG */
     /*
      * Drain every queued report in one pass: reads are O_NONBLOCK, so the
      * loop stops at the first EAGAIN. Each read fetches a whole batch (up
-     * to the full queue depth) from usbhidsrv's batched queue_pop, so a
+     * to the full queue depth) from hid_srv's batched queue_pop, so a
      * backlog costs one vfsd/usbhostd round-trip, not one per report.
+     * IPC is held off for the drain: touch_read() is a handler that can
+     * cut into the loop anywhere, and the edge queue must not be updated
+     * and popped inside one another.
      */
     ipc_disable();
     while (true) {
         int ret = read(hid, buf, sizeof(buf));
+        if (dbg_reads == 0) { dbg_first = ret; dbg_err = errno; dbg_b0 = (ret > 0) ? buf[0] : 0; } /* MTDBG */
+        dbg_reads++; /* MTDBG */
         if (ret >= HID_EVT_SIZE) {
-            /* payload per event: contact state, x, y (little-endian u16) */
             for (int off = 0; off + HID_EVT_SIZE <= ret; off += HID_EVT_SIZE) {
-                touch_handle_report((uint16_t)buf[off],
-                        (uint16_t)buf[off + 1] | ((uint16_t)buf[off + 2] << 8),
-                        (uint16_t)buf[off + 3] | ((uint16_t)buf[off + 4] << 8));
+                touch_mt_evt_t frame;
+                memcpy(&frame, buf + off, sizeof(frame));
+                dbg_frames++; if (dbg_cc < 0) dbg_cc = frame.contact_count; /* MTDBG */
+                touch_handle_frame(&frame);
             }
             if (ret < (int)sizeof(buf)) {
                 break; /* short batch: the queue ran dry */
@@ -267,30 +294,43 @@ static int touch_loop(vdevice_t* dev, void* p) {
         break;
     }
     ipc_enable();
+    _dbg_last_ret = dbg_first; _dbg_last_err = dbg_err; _dbg_b0 = dbg_b0; /* MTDBG */
+    _dbg_reads_total += dbg_reads; _dbg_frames_total += dbg_frames; /* MTDBG */
+    if (dbg_cc >= 0) _dbg_cc = dbg_cc; /* MTDBG */
 
     if (failed) {
         close(hid);
         hid = -1;
         memset(&_hid_info, 0, sizeof(fsinfo_t));
+        /* the report source died: lift whatever the readers still hold,
+           then forget the device's slot layout along with the connection */
+        ipc_disable();
+        hid_mt_update(&_mt, NULL, NULL);
+        hid_touch_map_init(&_map);
+        memset(_last, 0, sizeof(_last));
+        _pend_valid = false;
+        ipc_enable();
         usleep(HID_CONNECT_SLEEP_US);
         return 0;
     }
 
     /*
-     * Flush the coalesced position at most once per TOUCH_FLUSH_MS so the
+     * Flush the coalesced positions at most once per TOUCH_FLUSH_MS so the
      * event rate on /dev/touch0 never exceeds 100Hz. Contact edges were
-     * already pushed during the drain above; reports arriving while we
+     * already queued during the drain above; reports arriving while we
      * sleep here queue up on /dev/usb0 and are drained (edges included,
      * none lost) on the next loop pass - a tap during the window waits at
      * most one flush interval. The edge wake is latched while we are
      * RUNNING, so touch_wait_report() returns at once afterwards.
      */
-    if (pend_valid) {
+    if (_pend_valid) {
         uint64_t now = kernel_tic_ms(0);
         uint64_t next = last_flush_ms + TOUCH_FLUSH_MS;
         if (now < next)
             usleep((uint32_t)((next - now) * 1000u));
+        ipc_disable();
         touch_flush_pending();
+        ipc_enable();
     }
 
     /*
@@ -311,11 +351,15 @@ int main(int argc, char** argv) {
         _dev_point = argv[2];
     }
 
+    hid_mt_init(&_mt);
+    hid_touch_map_init(&_map);
+
     vdevice_t dev;
     memset(&dev, 0, sizeof(dev));
     strcpy(dev.desc, "touch");
     dev.loop_step = touch_loop;
     dev.read = touch_read;
     dev.check_poll_events = touch_check_poll_events;
+    dev.cmd = touch_dev_cmd; /* MTDBG */
     return device_run(&dev, mnt_point, FS_TYPE_CHAR, 0444, false);
 }

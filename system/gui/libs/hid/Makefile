@@ -8,7 +8,7 @@ LDFLAGS = -L $(TARGET_DIR)/lib
 
 CFLAGS += -Iinclude -I $(TARGET_DIR)/include
 
-LIB_HID_OBJS = $(ARCH)/src/hid_report.o $(ARCH)/src/hid_srv.o
+LIB_HID_OBJS = $(ARCH)/src/hid_report.o $(ARCH)/src/hid_srv.o $(ARCH)/src/hid_mt.o
 
 HID = $(TARGET_DIR)/lib/libhid.a
 
