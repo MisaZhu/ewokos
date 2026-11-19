@@ -68,17 +68,30 @@ static uint8_t _dbg_b0 = 0;
 static int _dbg_reads_total = 0;
 static int _dbg_frames_total = 0;
 static int _dbg_cc = -1;
+/* MTDBG: last frame's first contact + edge/tip telemetry */
+static int _dbg_edges_total = 0;
+static int _dbg_tip_frames = 0;
+static int _dbg_active_frames = 0;
+static uint8_t _dbg_cid = 0;
+static uint8_t _dbg_tip = 0;
+static uint16_t _dbg_x = 0;
+static uint16_t _dbg_y = 0;
+static uint16_t _dbg_xmax = 0;
+static uint16_t _dbg_ymax = 0;
 
 static char* touch_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* p) {
     (void)dev; (void)from_pid; (void)p;
     if (argc <= 0 || strcmp(argv[0], "stat") != 0)
         return NULL;
-    char* ret = (char*)malloc(112);
+    char* ret = (char*)malloc(256);
     if (ret == NULL)
         return NULL;
-    snprintf(ret, 112, "conn=%d ret=%d err=%d b0=%u reads=%d frames=%d cc=%d mt=%u\n",
-            _dbg_connected, _dbg_last_ret, _dbg_last_err, _dbg_b0,
-            _dbg_reads_total, _dbg_frames_total, _dbg_cc, _mt.count);
+    snprintf(ret, 256,
+            "conn=%d ret=%d err=%d reads=%d frames=%d cc=%d mt=%u edges=%d tipf=%d actf=%d cid=%u tip=%u x=%u y=%u xmax=%u ymax=%u\n",
+            _dbg_connected, _dbg_last_ret, _dbg_last_err,
+            _dbg_reads_total, _dbg_frames_total, _dbg_cc, _mt.count,
+            _dbg_edges_total, _dbg_tip_frames, _dbg_active_frames,
+            _dbg_cid, _dbg_tip, _dbg_x, _dbg_y, _dbg_xmax, _dbg_ymax);
     return ret;
 }
 
@@ -111,11 +124,21 @@ static void touch_handle_frame(const touch_mt_evt_t* frame) {
     bool edge = false;
 
     hid_touch_map_frame(&_map, frame, cur);
+    /* MTDBG: capture first contact + frame-level telemetry */
+    _dbg_cid = frame->contacts[0].id;
+    _dbg_tip = frame->contacts[0].tip;
+    _dbg_x = frame->contacts[0].x;
+    _dbg_y = frame->contacts[0].y;
+    _dbg_xmax = frame->x_max;
+    _dbg_ymax = frame->y_max;
+    if (frame->contacts[0].tip) _dbg_tip_frames++;
+    if (cur[0].active) _dbg_active_frames++;
     for (unsigned s = 0; s < HID_MT_MAX_CONTACTS; s++) {
         if (cur[s].active != _last[s].active ||
                 (cur[s].active && cur[s].fresh))
             edge = true;
     }
+    if (edge) _dbg_edges_total++; /* MTDBG */
     if (edge) {
         touch_flush_pending();
         hid_mt_update(&_mt, cur, NULL);

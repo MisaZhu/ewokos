@@ -198,11 +198,12 @@ char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void*
         while (win != NULL) {
             char item[128];
             if(win->xinfo != NULL) {
-                snprintf(item, 128, "%4d  %4d  %s %s (x:%d, y:%d, w:%d, h:%d)\n", i, win->from_pid,
+                snprintf(item, 128, "%4d  %4d  %s %s (x:%d, y:%d, w:%d, h:%d) vis:%d rdy:%d\n", i, win->from_pid,
                    win->xinfo->name,
                    win->xinfo->title,
                    win->xinfo->wsr.x, win->xinfo->wsr.y,
-                   win->xinfo->wsr.w, win->xinfo->wsr.h);
+                   win->xinfo->wsr.w, win->xinfo->wsr.h,
+                   win->xinfo->visible ? 1 : 0, win->ready ? 1 : 0);
             }
             else {
                 snprintf(item, 128, "%4d  %4d  <pending> <pending> (x:%d, y:%d, w:%d, h:%d)\n",

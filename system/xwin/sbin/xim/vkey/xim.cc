@@ -8,6 +8,7 @@
 #include <ewoksys/keydef.h>
 #include <ewoksys/kernel_tic.h>
 #include <font/font.h>
+#include <x/xwin.h>
 #include <x++/X.h>
 
 using namespace Ewok;
@@ -73,13 +74,27 @@ enum KeyAction {
     KA_TO_ALPHA,
     KA_SPACE,
     KA_RETURN,
-    KA_GLOBE,
-    KA_DISMISS
+    KA_GLOBE
 };
 
 #define MAX_KEYS_PER_ROW 12
 #define MAX_ROWS 4
 #define MAX_KEYS (MAX_ROWS * MAX_KEYS_PER_ROW)
+
+/* --- Typing feel (physical-keyboard parity) --- */
+/*commit a tap this long after the press, like a physical keyboard: waiting
+  for the release CLICK costs the whole hold time plus the touch driver's
+  40ms release grace. The window is long enough that a second finger
+  landing for a drag cancels the pending commit before it types.*/
+#define KEY_COMMIT_MS   35
+#define REPEAT_DELAY_MS 400   /* hold this long before auto-repeat starts */
+#define REPEAT_RATE_MS  35    /* repeat cadence once started (~28 chars/s) */
+/*the server promotes a touch UP to CLICK within 6px + MT_CLICK_SLACK(16):
+  keep the armed key across any UP that may still be followed by a CLICK*/
+#define TOUCH_CLICK_MAX_DIST 22
+/*two-finger drag engages only after this midpoint travel - the same slop
+  the server uses to tell a drag from typing rollover (MT_MULTI_SLOP)*/
+#define MT_DRAG_SLOP 12
 
 /* --- Layout definitions --- */
 
@@ -111,7 +126,7 @@ static IOSKey layout_qwerty[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"l","L",'l','L',KT_NORMAL,1.0f,KA_NONE},
         {"","",0,0,KT_NONE,0,KA_NONE},
     },
-    // Row 2: shift z x c v b n m backspace
+    // Row 2: shift z x c v b n m - backspace
     {
         {"","",0,0,KT_FUNC,-1.0f,KA_SHIFT},
         {"z","Z",'z','Z',KT_NORMAL,1.0f,KA_NONE},
@@ -121,6 +136,7 @@ static IOSKey layout_qwerty[MAX_ROWS][MAX_KEYS_PER_ROW] = {
         {"b","B",'b','B',KT_NORMAL,1.0f,KA_NONE},
         {"n","N",'n','N',KT_NORMAL,1.0f,KA_NONE},
         {"m","M",'m','M',KT_NORMAL,1.0f,KA_NONE},
+        {"-","_",'-','_',KT_NORMAL,1.0f,KA_NONE},
         {"","",0,0,KT_FUNC,-1.0f,KA_BACKSPACE},
         {"","",0,0,KT_NONE,0,KA_NONE},
     },
@@ -295,9 +311,6 @@ class XIMIOS : public XWin {
     KeyRect keyRects[MAX_KEYS];
     int keyCount;
 
-    /* Hide mode */
-    bool hideMode;
-
     /* Input buffer for display */
     static const int INPUT_MAX = 128;
     char inputS[INPUT_MAX];
@@ -312,8 +325,28 @@ class XIMIOS : public XWin {
     };
     MTContact mtContacts[X_TOUCH_MAX];
     bool mtDragging;
+    bool mtArmed;                  /* midpoint anchor captured, awaiting slop */
     int32_t mtAnchorX, mtAnchorY;  /* contact midpoint at drag start */
     int32_t mtStartX, mtStartY;    /* window origin at drag start */
+
+    /* Key auto-repeat: holding a key types it repeatedly, like a physical
+       keyboard. The first character commits on the press (KEY_COMMIT_MS);
+       once it or the repeat fired, the release CLICK must not type again. */
+    int repeatKey;                 /* armed key index, -1 = off */
+    char repeatChar;               /* effective char captured at press */
+    uint32_t repeatNextMs;         /* next fire deadline (ms tic) */
+    bool repeatFired;
+
+    /* Press-commit: type the key shortly after DOWN instead of waiting for
+       the lift CLICK. A second contact (possible drag) or the lift itself
+       cancels a pending commit; the CLICK then types as the fallback. */
+    uint32_t commitAtMs;           /* commit deadline (ms tic) */
+    bool commitArmed;
+    bool tapCommitted;             /* press-commit already typed this press */
+
+    /* Coalesced repaint: at most one queued REPAINT between renders, so a
+       burst of key events costs a single full-panel draw */
+    bool repaintPending;
 
     /* Expanded panel placement, remembered across hide/show */
     bool hasPlace;
@@ -340,13 +373,6 @@ protected:
         if(keyHeight * MAX_ROWS > availH)
             keyHeight = availH / MAX_ROWS;
         if(keyHeight < 20) keyHeight = 20;
-    }
-
-    /* Panel height that exactly fits four iOS-proportioned rows. */
-    int idealPanelHeight(int w) {
-        computeResponsiveParams(w, 0x7fffffff);
-        return topMargin + bottomMargin +
-            rowGap * (MAX_ROWS - 1) + keyHeight * MAX_ROWS;
     }
 
     IOSKey* getLayout(int row) {
@@ -635,20 +661,9 @@ protected:
     }
 
     void onRepaint(graph_t* g) {
+        repaintPending = false;
         /* Background */
         graph_fill_rect(g, 0, 0, g->w, g->h, IOS_BG_COLOR);
-
-        if(hideMode) {
-            /* Draw a small restore button */
-            int bw = g->w;
-            int bh = g->h;
-            graph_fill_round(g, 2, 2, bw-4, bh-4, 4, IOS_KEY_FUNC_COLOR);
-            const char* t = "...";
-            uint32_t tw;
-            font_text_size(t, font, fontSize, &tw, NULL);
-            graph_draw_text_font(g, (bw-tw)/2, (bh-fontSize)/2, t, font, fontSize, 0xFF000000);
-            return;
-        }
 
         /* Recompute layout if needed */
         computeKeyPositions(g->w, g->h);
@@ -666,6 +681,96 @@ protected:
     }
 
     /* --- Input handling --- */
+    void reqRepaint() {
+        if(!repaintPending) {
+            repaintPending = true;
+            repaintReq();
+        }
+    }
+
+    char effectiveChar(KeyRect* kr) {
+        char c = kr->ch;
+        if(isShifted() && kr->chShift != 0)
+            c = kr->chShift;
+        else if(isShifted() && c >= 'a' && c <= 'z')
+            c = c - 'a' + 'A';
+        return c;
+    }
+
+    /* --- Key auto-repeat --- */
+    void armRepeat(int idx) {
+        repeatKey = -1;
+        repeatFired = false;
+        if(idx < 0 || idx >= keyCount)
+            return;
+        KeyRect* kr = &keyRects[idx];
+        char c;
+        if(kr->action == KA_BACKSPACE)
+            c = KEY_BACKSPACE;
+        else if(kr->action == KA_RETURN || kr->ch == 0)
+            return; /* return and the function keys do not repeat */
+        else
+            c = effectiveChar(kr);
+        repeatKey = idx;
+        repeatChar = c;
+        repeatNextMs = (uint32_t)kernel_tic_ms(0) + REPEAT_DELAY_MS;
+    }
+
+    void cancelRepeat() {
+        repeatKey = -1;
+        repeatFired = false;
+    }
+
+    void repeatTick() {
+        if(repeatKey < 0 || repeatKey >= keyCount)
+            return;
+        uint32_t now = (uint32_t)kernel_tic_ms(0);
+        if((int32_t)(now - repeatNextMs) < 0)
+            return;
+        input(repeatChar);
+        if(!repeatFired) {
+            repeatFired = true;
+            /*the first repeat commits the press: auto-release shift exactly
+              like a tapped character, then keep repeating the plain key*/
+            if(repeatChar != KEY_BACKSPACE && shiftActive && !capsLock) {
+                shiftActive = false;
+                repeatChar = keyRects[repeatKey].ch;
+                reqRepaint();
+            }
+        }
+        repeatNextMs = now + REPEAT_RATE_MS;
+    }
+
+    /* --- Press-commit --- */
+    void armCommit(int idx) {
+        commitArmed = false;
+        tapCommitted = false;
+        if(idx < 0 || idx >= keyCount)
+            return;
+        commitArmed = true;
+        commitAtMs = (uint32_t)kernel_tic_ms(0) + KEY_COMMIT_MS;
+    }
+
+    void cancelCommit() {
+        commitArmed = false;
+    }
+
+    void keyTick() {
+        uint32_t now = (uint32_t)kernel_tic_ms(0);
+        if(commitArmed && pressedKey >= 0 &&
+                (int32_t)(now - commitAtMs) >= 0) {
+            commitArmed = false;
+            tapCommitted = true;
+            doKeyAction(pressedKey);
+            /*doKeyAction may have auto-released shift: keep the armed
+              repeat in sync with what the next fire should emit*/
+            if(repeatKey >= 0 && repeatKey < keyCount &&
+                    repeatChar != KEY_BACKSPACE)
+                repeatChar = effectiveChar(&keyRects[repeatKey]);
+        }
+        repeatTick();
+    }
+
     void inputX(char c) {
         xevent_t ev;
         ev.type = XEVT_IM_VKEYB;
@@ -717,7 +822,7 @@ protected:
                 }
             }
             lastShiftTap = now;
-            repaint();
+            reqRepaint();
             break;
         }
         case KA_BACKSPACE:
@@ -726,17 +831,17 @@ protected:
         case KA_TO_NUMBERS:
             currentLayout = KBL_NUMBERS;
             shiftActive = false;
-            repaint();
+            reqRepaint();
             break;
         case KA_TO_SYMBOLS:
             currentLayout = KBL_SYMBOLS;
             shiftActive = false;
-            repaint();
+            reqRepaint();
             break;
         case KA_TO_ALPHA:
             currentLayout = KBL_QWERTY;
             shiftActive = false;
-            repaint();
+            reqRepaint();
             break;
         case KA_SPACE:
             input(' ');
@@ -750,25 +855,17 @@ protected:
             /* Cycle layouts: QWERTY -> Numbers -> Symbols -> QWERTY */
             currentLayout = (KBLayout)((currentLayout + 1) % KBL_COUNT);
             shiftActive = false;
-            repaint();
-            break;
-        case KA_DISMISS:
-            changeMode(true);
+            reqRepaint();
             break;
         default: {
             /* Normal character key */
-            char c = kr->ch;
-            if(isShifted() && kr->chShift != 0) {
-                c = kr->chShift;
-            } else if(isShifted() && c >= 'a' && c <= 'z') {
-                c = c - 'a' + 'A';
-            }
+            char c = effectiveChar(kr);
             if(c != 0)
                 input(c);
             /* Auto-release shift after one character (unless caps lock) */
             if(shiftActive && !capsLock) {
                 shiftActive = false;
-                repaint();
+                reqRepaint();
             }
             break;
         }
@@ -777,43 +874,62 @@ protected:
 
     /* --- Mouse/Touch events --- */
     void doMouseEvent(xevent_t* ev) {
-        if(hideMode) {
-            if(ev->state == MOUSE_STATE_CLICK) {
-                changeMode(false);
-            }
-            return;
-        }
-
         gpos_t pos = getInsidePos(ev->value.mouse.x, ev->value.mouse.y);
         int x = pos.x;
         int y = pos.y;
 
         if(ev->state == MOUSE_STATE_DOWN) {
             int idx = hitTest(x, y);
-            if(idx >= 0) {
-                pressedKey = idx;
-                popupKey = idx;
-                repaint();
-            }
+            pressedKey = idx;
+            popupKey = idx;
+            armRepeat(idx);
+            armCommit(idx);
+            reqRepaint();
         }
         else if(ev->state == MOUSE_STATE_DRAG) {
             int idx = hitTest(x, y);
-            if(idx != pressedKey) {
+            /*keep the press through gaps and jitter: dropping pressedKey
+              here used to break the CLICK match and eat the keystroke*/
+            if(idx >= 0 && idx != pressedKey) {
                 pressedKey = idx;
                 popupKey = idx;
-                repaint();
+                armRepeat(idx);
+                armCommit(idx);
+                reqRepaint();
             }
         }
-        else if(ev->state == MOUSE_STATE_UP || ev->state == MOUSE_STATE_CLICK) {
-            /*only a CLICK types: a plain UP can be the server cancelling the
-              synthetic press when a second finger lands for a drag*/
-            int idx = hitTest(x, y);
-            if(ev->state == MOUSE_STATE_CLICK && idx >= 0 && idx == pressedKey) {
-                doKeyAction(idx);
+        else if(ev->state == MOUSE_STATE_UP) {
+            /*the server delivers a tap as TWO events: UP then CLICK. Keep
+              pressedKey on any UP that may still promote (touch taps get
+              6px + the server's MT_CLICK_SLACK), so the CLICK can match it.
+              A release beyond the maximum promotion distance never gets a
+              CLICK - clear the press now. The cancel UP of a committed
+              two-finger drag also keeps the press, but no CLICK follows it
+              and mtAct clears pressedKey once the drag engages.*/
+            cancelRepeat();
+            cancelCommit();
+            if(abs(ev->value.mouse.from_x - ev->value.mouse.x) >= TOUCH_CLICK_MAX_DIST ||
+                    abs(ev->value.mouse.from_y - ev->value.mouse.y) >= TOUCH_CLICK_MAX_DIST) {
+                pressedKey = -1;
+                popupKey = -1;
+                reqRepaint();
             }
+        }
+        else if(ev->state == MOUSE_STATE_CLICK) {
+            /*the CLICK is the fallback commit: it types only when neither
+              the press-commit nor the auto-repeat already typed this press
+              (a plain UP can also be the server cancelling the synthetic
+              press when a two-finger drag commits - no CLICK follows it)*/
+            int idx = hitTest(x, y);
+            if(idx < 0)
+                idx = pressedKey; /*lifted in a gap: commit the held key*/
+            if(idx >= 0 && idx == pressedKey && !repeatFired && !tapCommitted)
+                doKeyAction(idx);
+            cancelRepeat();
+            cancelCommit();
             pressedKey = -1;
             popupKey = -1;
-            repaint();
+            reqRepaint();
         }
     }
 
@@ -825,32 +941,42 @@ protected:
         if(y > scrSize.h - h) y = scrSize.h - h;
     }
 
-    /* Released near a screen edge: snap flush to the closest of the four
-       edges; otherwise keep the free position. Either way remember the
-       placement so hide/show restores it. */
+    /* The only placements the panel may occupy: the four screen corners
+       plus the four edge midpoints. Pick the dock nearest to (x, y). */
+    void nearestDock(int x, int y, int w, int h, int& outX, int& outY) {
+        int xs[3] = {0, (scrSize.w - w) / 2, scrSize.w - w};
+        int ys[3] = {0, (scrSize.h - h) / 2, scrSize.h - h};
+        int64_t bestD = -1;
+        outX = x;
+        outY = y;
+        for(int i = 0; i < 3; i++) {
+            for(int j = 0; j < 3; j++) {
+                if(i == 1 && j == 1)
+                    continue; /*screen center is not a dock*/
+                int64_t dx = xs[i] - x;
+                int64_t dy = ys[j] - y;
+                int64_t d = dx * dx + dy * dy;
+                if(bestD < 0 || d < bestD) {
+                    bestD = d;
+                    outX = xs[i];
+                    outY = ys[j];
+                }
+            }
+        }
+        clampToScreen(outX, outY, w, h);
+    }
+
+    /* Drag end: the panel already sits on a dock (the drag snaps live);
+       settle it once more and remember the placement so hide/show
+       restores it. */
     void snapToEdge() {
         xinfo_t xi;
-        if(!getInfo(xi))
+        if(!getInfo(xi)) {
             return;
-        int w = xi.wsr.w, h = xi.wsr.h;
-        int x = xi.wsr.x, y = xi.wsr.y;
-
-        int dl = x;
-        int dr = scrSize.w - (x + w);
-        int dt = y;
-        int db = scrSize.h - (y + h);
-        int best = dl, edge = 0; /*0 left, 1 right, 2 top, 3 bottom*/
-        if(dr < best) { best = dr; edge = 1; }
-        if(dt < best) { best = dt; edge = 2; }
-        if(db < best) { best = db; edge = 3; }
-
-        if(best <= X::hidpiSize(48)) {
-            if(edge == 0) x = 0;
-            else if(edge == 1) x = scrSize.w - w;
-            else if(edge == 2) y = 0;
-            else y = scrSize.h - h;
         }
-        clampToScreen(x, y, w, h);
+        int w = xi.wsr.w, h = xi.wsr.h;
+        int x, y;
+        nearestDock(xi.wsr.x, xi.wsr.y, w, h, x, y);
         if(x != xi.wsr.x || y != xi.wsr.y)
             moveTo(x, y);
         placeX = x;
@@ -891,40 +1017,68 @@ protected:
         }
 
         if(active >= 2) {
-            /*the second finger cancels any key press (the server releases
-              the synthetic mouse press without a click)*/
-            if(pressedKey >= 0 || popupKey >= 0) {
-                pressedKey = -1;
-                popupKey = -1;
-                repaint();
-            }
-            /*drag by the midpoint travel of all active contacts*/
+            /*drag by the midpoint travel of all active contacts, but engage
+              only on real travel: a brief second-finger overlap while typing
+              (rollover) must not cancel the armed key - the server tells a
+              drag from rollover by the same midpoint slop. The pending
+              press-commit IS cancelled: if this turns into a drag it must
+              not type; rollover still types via the lift CLICK fallback.*/
+            cancelCommit();
             cx /= active;
             cy /= active;
             xinfo_t xi;
             if(!getInfo(xi))
                 return;
             if(!mtDragging) {
+                if(!mtArmed) {
+                    mtArmed = true;
+                    mtAnchorX = cx;
+                    mtAnchorY = cy;
+                }
+                if(abs(cx - mtAnchorX) <= MT_DRAG_SLOP &&
+                        abs(cy - mtAnchorY) <= MT_DRAG_SLOP)
+                    return;
                 mtDragging = true;
-                mtAnchorX = cx;
-                mtAnchorY = cy;
                 mtStartX = xi.wsr.x;
                 mtStartY = xi.wsr.y;
+                cancelRepeat();
+                cancelCommit();
+                if(pressedKey >= 0 || popupKey >= 0) {
+                    pressedKey = -1;
+                    popupKey = -1;
+                    reqRepaint();
+                }
             }
             int nx = mtStartX + (cx - mtAnchorX);
             int ny = mtStartY + (cy - mtAnchorY);
             clampToScreen(nx, ny, xi.wsr.w, xi.wsr.h);
-            if(nx != xi.wsr.x || ny != xi.wsr.y)
+            /*the drag itself stays continuous - the panel follows the
+              fingers freely; only the release snaps it onto a dock*/
+            if(nx != xi.wsr.x || ny != xi.wsr.y) {
                 moveTo(nx, ny);
+            }
         }
         else if(active == 0) {
             if(mtDragging) {
                 mtDragging = false;
                 snapToEdge();
             }
+            mtArmed = false;
+            /*every finger lifted: drop any press the UP left armed (a
+              release beyond the click distance never gets a CLICK)*/
+            cancelCommit();
+            if(pressedKey >= 0 || popupKey >= 0) {
+                pressedKey = -1;
+                popupKey = -1;
+                reqRepaint();
+            }
             memset(mtContacts, 0, sizeof(mtContacts));
         }
-        /*one finger left mid-gesture: hold position until every finger lifts*/
+        else {
+            /*one finger left mid-gesture: hold position until every finger
+              lifts; a fresh lone press re-arms the anchor next time*/
+            mtArmed = false;
+        }
     }
 
     void doTouchEvent(xevent_t* ev) {
@@ -937,8 +1091,9 @@ protected:
         while(guard++ < 64 && x_poll_event(getCWin()->x, &more) == 0) {
             if(more.type == XEVT_TOUCH_MT)
                 mtApply(&more);
-            else
+            else {
                 xwin_dispatch_event(getCWin()->x, &more);
+            }
         }
         mtAct();
     }
@@ -947,29 +1102,10 @@ protected:
     void doIMEvent(xevent_t* ev) {
         uint8_t c = ev->value.im.value;
 
-        if(ev->state == XIM_STATE_PRESS) {
-            if(hideMode)
-                return;
-            /* Pass through arrow keys for navigation when in hide mode */
+        if(ev->state == XIM_STATE_PRESS)
             return;
-        }
 
-        /* RELEASE events */
-        if(hideMode) {
-            if(c == KEY_UP || c == KEY_DOWN || c == KEY_LEFT ||
-               c == KEY_RIGHT || c == KEY_ENTER) {
-                inputX(c);
-                return;
-            }
-            changeMode(false);
-            return;
-        }
-
-        /* Handle joystick shortcuts like vkey does */
-        if(c == JOYSTICK_L1) {
-            changeMode(true);
-            return;
-        }
+        /* RELEASE events: joystick shortcuts */
         if(c == JOYSTICK_START) {
             input('\r');
             return;
@@ -985,6 +1121,9 @@ protected:
     }
 
     void onEvent(xevent_t* ev) {
+        /*a steady event stream starves the idle loop: keep the commit and
+          repeat deadlines alive while events flow too*/
+        keyTick();
         if(ev->type == XEVT_MOUSE) {
             doMouseEvent(ev);
         }
@@ -996,16 +1135,8 @@ protected:
         }
     }
 
-    /* --- Mode management --- */
-    void changeMode(bool hide) {
-        hideMode = hide;
-        if(hide) {
-            int kw = 32;
-            resizeTo(kw, kw);
-            moveTo((scrSize.w - kw) / 2, scrSize.h - kw);
-            return;
-        }
-
+    /* --- Panel geometry --- */
+    void showPanel() {
         int w = scrSize.w;
         if(panelSize.w > 0)
             w = panelSize.w;
@@ -1019,28 +1150,65 @@ protected:
             h = scrSize.h / 2;
 
         resizeTo(w, h);
+        /*default dock: bottom edge, centered - one of the eight placements*/
         int x = (scrSize.w - w) / 2;
         int y = scrSize.h - h;
-        if(hasPlace) { /*restore the dragged/snapped placement*/
-            x = placeX;
-            y = placeY;
+        if(hasPlace) { /*restore the dragged/snapped placement, on a dock*/
+            nearestDock(placeX, placeY, w, h, x, y);
         }
         clampToScreen(x, y, w, h);
         moveTo(x, y);
     }
 
     void onShow(void) {
-        changeMode(false);
+        showPanel();
     }
 
     void onHide(void) {
         /*the server put the XIM down (e.g. a physical keyboard attached):
-          drop any in-flight drag so stale contacts cannot move it later*/
+          drop any in-flight drag so stale contacts cannot move it later,
+          and any armed key so the re-show cannot type a phantom letter*/
         mtDragging = false;
         memset(mtContacts, 0, sizeof(mtContacts));
+        cancelRepeat();
+        cancelCommit();
+        pressedKey = -1;
+        popupKey = -1;
     }
 
 public:
+    /* Panel height that exactly fits four iOS-proportioned rows. */
+    int idealPanelHeight(int w) {
+        computeResponsiveParams(w, 0x7fffffff);
+        return topMargin + bottomMargin +
+            rowGap * (MAX_ROWS - 1) + keyHeight * MAX_ROWS;
+    }
+
+    /* idle-loop tick: fire due commits/repeats, then park until the next
+       deadline (or an event, whichever comes first - x_wait_event_timeout
+       wakes on the server's vfs_wakeup). A skipped fps_async present is
+       retried by x_run at the top of each pass, so keep the wait short
+       while one is owed or the final frame of a keystroke sits unpublished. */
+    void loopTick() {
+        keyTick();
+        uint32_t now = (uint32_t)kernel_tic_ms(0);
+        uint32_t waitMs = 50;
+        if(commitArmed) {
+            int32_t left = (int32_t)(commitAtMs - now);
+            uint32_t w = (left <= 0) ? 1 : (uint32_t)left;
+            if(w < waitMs)
+                waitMs = w;
+        }
+        if(repeatKey >= 0) {
+            int32_t left = (int32_t)(repeatNextMs - now);
+            uint32_t w = (left <= 0) ? 1 : (uint32_t)left;
+            if(w < waitMs)
+                waitMs = w;
+        }
+        if(xwin_present_pending() && waitMs > 2)
+            waitMs = 2;
+        x_wait_event_timeout(getCWin()->x, waitMs * 1000);
+    }
     inline XIMIOS(int fw, int fh, int pw, int ph) {
         scrSize.w = fw;
         scrSize.h = fh;
@@ -1053,14 +1221,22 @@ public:
         capsLock = false;
         pressedKey = -1;
         popupKey = -1;
-        hideMode = false;
         inputS[0] = 0;
         lastShiftTap = 0;
         keyCount = 0;
         memset(mtContacts, 0, sizeof(mtContacts));
         mtDragging = false;
+        mtArmed = false;
         mtAnchorX = mtAnchorY = 0;
         mtStartX = mtStartY = 0;
+        repeatKey = -1;
+        repeatChar = 0;
+        repeatNextMs = 0;
+        repeatFired = false;
+        commitAtMs = 0;
+        commitArmed = false;
+        tapCommitted = false;
+        repaintPending = false;
         hasPlace = false;
         placeX = placeY = 0;
         fontSize = X::hidpiSize(14);
@@ -1080,6 +1256,10 @@ public:
 };
 
 /* --- Main entry --- */
+static void imLoop(void* p) {
+    ((XIMIOS*)p)->loopTick();
+}
+
 static void waitX() {
     while(true) {
         int pid = dev_get_pid("/dev/x");
@@ -1127,13 +1307,15 @@ int main(int argc, char* argv[]) {
     if(_panelW > X::hidpiSize(800))
         _panelW = X::hidpiSize(800);
 
-    /* Height 0 means auto: onShow() sizes the panel from the key
-       geometry; open() only needs a placeholder. */
-    int openH = (_panelH > 0) ? _panelH : scr.size.h / 2;
-
+    /* Open straight onto the default dock (bottom edge, centered) with the
+       final key-geometry height, so the startup placement is the dock even
+       before the first show event. */
     XIMIOS xwin(scr.size.w, scr.size.h, _panelW, _panelH);
+    int openH = (_panelH > 0) ? _panelH : xwin.idealPanelHeight(_panelW);
+    if(openH > scr.size.h / 2)
+        openH = scr.size.h / 2;
     xwin.open(&x, -1, (scr.size.w - _panelW) / 2, scr.size.h - openH, _panelW, openH, "xim_ios",
             XWIN_STYLE_NO_FOCUS | XWIN_STYLE_SYSTOP | XWIN_STYLE_XIM | XWIN_STYLE_NO_BG_EFFECT | XWIN_STYLE_NO_TITLE, false);
-    x.run(NULL, &xwin);
+    x.run(imLoop, &xwin);
     return 0;
 }

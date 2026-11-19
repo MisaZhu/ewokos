@@ -346,6 +346,12 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
       compositor. geom_pending is read + cleared first, bracketed by barriers, so
       a torn wsr_pending can never be observed. This runs before the wsr_w/winr_w
       snapshot below, which then compares against the freshly applied geometry.*/
+    /*Snapshot the geometry before the client's pending handoff so a transient
+      xwm refusal during a pure position move can be repaired below without
+      losing the frame margin we already had.*/
+    grect_t wsr_pre = win->xinfo->wsr;
+    grect_t winr_pre = win->xinfo->winr;
+
     if(win->xinfo->geom_pending) {
         __sync_synchronize();
         win->xinfo->wsr = win->xinfo->wsr_pending;
@@ -394,6 +400,30 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             &win->xinfo->wsr,
             &win->xinfo->winr) != 0)	
         return -1;
+
+    /*A transient xwm refusal makes get_xwm_win_space fall back to winr == wsr.
+      On a pure position move the workspace size is unchanged, so that collapse
+      must not churn the window into a REBUILD below: a REBUILD clears ready and
+      the compositor then skips the window for ~X_NOT_READY_TIMEOUT_MS until a
+      repaint is re-accepted, which is the keyboard vanishing mid-drag. Reapply
+      the frame margin we already had to the new workspace rect (position tracks
+      the move, size keeps the decoration); the per-step xwin_revalidate_geometry
+      re-queries xwm and confirms it on the next cycle.
+
+      Guarded to a valid prior framed winr (winr_pre encloses wsr_pre and is
+      non-empty) so the open case (winr still 0x0) keeps the plain wsr fallback
+      and never sizes a frame buffer to zero, and a genuine resize is left to the
+      wsr-change REBUILD above.*/
+    if(wsr_w == win->xinfo->wsr.w && wsr_h == win->xinfo->wsr.h &&
+            win->xinfo->winr.w == win->xinfo->wsr.w &&
+            win->xinfo->winr.h == win->xinfo->wsr.h &&
+            winr_pre.w > 0 && winr_pre.h > 0 &&
+            winr_pre.w >= wsr_pre.w && winr_pre.h >= wsr_pre.h) {
+        win->xinfo->winr.x = win->xinfo->wsr.x - (wsr_pre.x - winr_pre.x);
+        win->xinfo->winr.y = win->xinfo->wsr.y - (wsr_pre.y - winr_pre.y);
+        win->xinfo->winr.w = win->xinfo->wsr.w + (winr_pre.w - wsr_pre.w);
+        win->xinfo->winr.h = win->xinfo->wsr.h + (winr_pre.h - wsr_pre.h);
+    }
 
     /* frame_g is sized from winr, not wsr. Theme/style/title changes can
      * change the outer frame size even when the workspace size stays the
