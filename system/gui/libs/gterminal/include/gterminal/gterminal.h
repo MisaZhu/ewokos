@@ -89,6 +89,7 @@ typedef struct {
 	bool full_dirty;
 	bool ever_flash;        /* some cell used SGR flash: blink needs full repaints */
 	int32_t curs_drawn_row;
+	uint32_t painted_shift_total; /* textgrid shift_total at the last paint */
 } gterminal_t;
 
 void gterminal_init(gterminal_t* terminal);
@@ -106,8 +107,15 @@ void gterminal_resize(gterminal_t* terminal, uint32_t gw, uint32_t gh);
 void gterminal_invalidate(gterminal_t* terminal);
 /* True when the next gterminal_paint will repaint every visible row:
  * callers should lay the terminal background over the whole paint rect
- * before painting only in that case (partial paints fill their own band). */
+ * before painting only in that case (partial paints fill their own band,
+ * and a canvas scroll moves the kept rows without repainting them). */
 bool gterminal_full_repaint_pending(gterminal_t* terminal);
+/* Damage query for widget damage-rect propagation: the pixel band the next
+ * gterminal_paint will repaint, relative to the paint origin, for a paint
+ * rect of height h. Returns false when the whole rect must be repainted
+ * (or the terminal is not paintable yet). Pure query: consumes no dirty
+ * state, so it can be called on every update between paints. */
+bool gterminal_damage_band(gterminal_t* terminal, int h, int32_t* y, int32_t* bh);
 
 /* Text selection. Pixel coordinates are relative to the paint origin
  * (0,0 = top-left of the visible grid). Grid coordinates are absolute

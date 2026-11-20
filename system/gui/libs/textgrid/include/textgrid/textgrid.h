@@ -32,10 +32,16 @@ typedef struct {
 	int32_t  tail_col;       // Last column with content in the last row
 
 	/* Dirty row range [dirty_start, dirty_end), absolute grid rows.
-	 * dirty_end == INT32_MAX means "everything is dirty" (reset, clear,
-	 * scrollback shift). dirty_start >= dirty_end means clean. */
+	 * dirty_end == INT32_MAX means "everything is dirty" (reset, clear).
+	 * dirty_start >= dirty_end means clean. A scrollback shift translates
+	 * the range with the content instead of invalidating it. */
 	int32_t dirty_start;
 	int32_t dirty_end;
+
+	/* Cumulative rows dropped by scrollback shifts. Painters compare it
+	 * against their own snapshot to scroll the canvas instead of repainting
+	 * every row; reset/clear zero it (content identity is lost). */
+	uint32_t shift_total;
 } textgrid_t;
 
 extern textgrid_t* textgrid_new(void);

@@ -76,6 +76,14 @@ void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	if(info->corners_only || contentOnly) {
 		grect_t ws = {(int)info->wsr.x - (int)info->winr.x, (int)info->wsr.y - (int)info->winr.y,
 			(int)info->wsr.w, (int)info->wsr.h};
+		/*content_only may carry a damage band: only the corner squares the
+		  band reaches were overwritten by the fresh content blit, so clip
+		  the re-cut to it (the rest of the ring is untouched)*/
+		if(contentOnly && xwm.draw.frame.damage_valid) {
+			grect_t d = xwm.draw.frame.damage;
+			if(grect_insect(&ws, &d))
+				ws = d;
+		}
 		grect_t bounds = {0, 0, frame_g->w, frame_g->h};
 		if(!grect_insect(&bounds, &ws) ||
 				(savedClip.w > 0 && savedClip.h > 0 && !grect_insect(&savedClip, &ws)))

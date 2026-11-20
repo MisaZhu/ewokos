@@ -221,6 +221,23 @@ void Widget::repaint(graph_t* g, XTheme* theme) {
 		return;
 	}
 
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint() && !root->isDmgFull()) {
+		grect_t clip = r;
+		if(!root->hasDamage() || !grect_insect(&root->getDamage(), &clip)) {
+			/* outside the damage: stay dirty for a frame that covers it */
+			return;
+		}
+		graph_set_clip(g, clip.x, clip.y, clip.w, clip.h);
+		/* raw-write the theme background the way the legacy clear+root-fill
+		 * pair lays it, so ink-only widgets (labels) don't ghost. Widgets
+		 * that manage their own canvas (ConsoleWidget) override repaint. */
+		graph_set(g, clip.x, clip.y, clip.w, clip.h, theme->basic.bgColor);
+		onRepaint(g, theme, r);
+		dirty = false;
+		return;
+	}
+
 	graph_set_clip(g, r.x, r.y, r.w, r.h);
 	onRepaint(g, theme, r);
 	dirty = false;
@@ -228,14 +245,32 @@ void Widget::repaint(graph_t* g, XTheme* theme) {
 
 void Widget::update() {
 	dirty = true;
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint()) {
+		/* damage-rect mode: only this widget's area is damaged; the parent
+		 * background under a translucent child is static, no propagation */
+		root->addDamage(getRootArea(false));
+		return;
+	}
 	if(father != NULL) {
 		if(isAlpha())
 			father->update();
 	}
 
-	RootWidget* root = getRoot();
 	if(root != NULL)
 		root->refresh();
+}
+
+void Widget::update(const grect_t& sub) {
+	RootWidget* root = getRoot();
+	if(root == NULL || !root->isPartialRepaint()) {
+		update();
+		return;
+	}
+	dirty = true;
+	gpos_t pos = getRootPos();
+	grect_t r = {pos.x + sub.x, pos.y + sub.y, sub.w, sub.h};
+	root->addDamage(r);
 }
 
 void Widget::disable() {
@@ -285,6 +320,10 @@ void Widget::resizeTo(int w, int h) {
 		father->layout();
 		father->update();
 	}
+	/* layout moved siblings: the whole window must redraw */
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint())
+		root->markFull();
 }
 
 void Widget::resize(int dw, int dh) {
@@ -299,6 +338,9 @@ void Widget::show() {
 		father->layout();
 		father->update();
 	}
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint())
+		root->markFull();
 }
 
 void Widget::hide() {
@@ -309,6 +351,9 @@ void Widget::hide() {
 		father->layout();
 		father->update();
 	}
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint())
+		root->markFull();
 }
 
 void Widget::moveTo(int x, int y) {
@@ -321,6 +366,9 @@ void Widget::moveTo(int x, int y) {
 		father->layout();
 		father->update();
 	}
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint())
+		root->markFull();
 }
 
 void Widget::move(int dx, int dy) {

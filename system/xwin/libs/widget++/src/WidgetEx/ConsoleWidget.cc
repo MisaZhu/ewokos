@@ -79,6 +79,47 @@ void ConsoleWidget::push(const char* buf, int size) {
 	gterminal_put(&terminal, buf, size);
 }
 
+void ConsoleWidget::update() {
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint()) {
+		int32_t by = 0, bh = 0;
+		if(gterminal_damage_band(&terminal, area.h, &by, &bh)) {
+			grect_t sub = {0, by, area.w, bh};
+			Widget::update(sub);
+			return;
+		}
+		/* full repaint (or a scroll, which moves every kept row): the
+		 * whole console area is damaged */
+	}
+	Widget::update();
+}
+
+void ConsoleWidget::repaint(graph_t* g, XTheme* theme) {
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint() && !root->isDmgFull()) {
+		if(!dirty || !visible)
+			return;
+		if(themePrivate != NULL)
+			theme = themePrivate;
+		grect_t r = getRootArea();
+		if(r.w <= 0 || r.h <= 0) {
+			dirty = false;
+			return;
+		}
+		grect_t clip = r;
+		if(!root->hasDamage() || !grect_insect(&root->getDamage(), &clip))
+			return;   /* outside the damage: stay dirty for a later frame */
+		/* the terminal lays its own background and a scroll blit moves
+		 * pixels above the damage band: clip to the whole widget area and
+		 * skip the theme prefill other widgets get */
+		graph_set_clip(g, r.x, r.y, r.w, r.h);
+		onRepaint(g, theme, r);
+		dirty = false;
+		return;
+	}
+	Widget::repaint(g, theme);
+}
+
 void ConsoleWidget::flash() {
 	gterminal_flash(&terminal);
 	update();

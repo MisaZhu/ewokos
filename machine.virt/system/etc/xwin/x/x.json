@@ -9,6 +9,7 @@
     "multi_task": 0,
     "fps_async": 1,
     "hidpi": 1,
+    "hidpi_scale": 1.6,
     "bg_proc_priority": 0,
     "#bg_proc_priority":  4
 }

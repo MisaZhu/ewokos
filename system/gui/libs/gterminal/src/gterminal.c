@@ -811,6 +811,7 @@ void gterminal_init(gterminal_t* terminal) {
     terminal->scroll_bottom = UINT32_MAX;
     terminal->full_dirty = true;
     terminal->curs_drawn_row = -1;
+    terminal->painted_shift_total = 0;
 }
 
 void gterminal_close(gterminal_t* terminal) {
@@ -955,6 +956,7 @@ static void save_view(gterminal_t* terminal) {
     v->selection = terminal->selection;
     terminal->last_view_valid = true;
     terminal->full_dirty = false;
+    terminal->painted_shift_total = terminal->textgrid->shift_total;
 }
 
 void gterminal_invalidate(gterminal_t* terminal) {
@@ -963,13 +965,10 @@ void gterminal_invalidate(gterminal_t* terminal) {
     terminal->full_dirty = true;
 }
 
-bool gterminal_full_repaint_pending(gterminal_t* terminal) {
-    if(terminal == NULL || terminal->textgrid == NULL)
-        return true;
-    if(terminal->full_dirty || !terminal->last_view_valid)
-        return true;
-    if(terminal->textgrid->dirty_end == INT32_MAX)
-        return true;
+/* Everything besides the view anchor (start row / scroll offset) that
+ * affects the painted output. An anchor move alone can be handled by a
+ * canvas scroll instead of a full repaint. */
+static bool view_state_changed(gterminal_t* terminal) {
     const gterm_view_t* v = &terminal->last_view;
     if(v->fg_color != terminal->fg_color ||
             v->bg_color != terminal->bg_color ||
@@ -980,8 +979,6 @@ bool gterminal_full_repaint_pending(gterminal_t* terminal) {
             v->cols != terminal->cols ||
             v->char_w != terminal->char_w ||
             v->char_h != terminal->char_h ||
-            v->textgrid_start_row != terminal->textgrid_start_row ||
-            v->scroll_offset != terminal->scroll_offset ||
             v->show_curs != terminal->show_curs)
         return true;
     if(memcmp(&v->selection, &terminal->selection, sizeof(gterm_selection_t)) != 0)
@@ -991,6 +988,122 @@ bool gterminal_full_repaint_pending(gterminal_t* terminal) {
     if(v->flash_show != terminal->flash_show && terminal->ever_flash)
         return true;
     return false;
+}
+
+/* Rows the painted content moved up on screen since the last paint: the
+ * view anchor advance plus any scrollback shift. A value in (0, rows)
+ * means the canvas can be scrolled with an overlap-safe self-blit and
+ * only the exposed band repainted; 0 means a full repaint is required.
+ * Selection rows are absolute and do not follow a scrollback shift, so
+ * a visible selection always falls back to the full path. */
+static int32_t scroll_delta(gterminal_t* terminal, int32_t first) {
+    if(terminal->full_dirty) return 0;
+    if(!terminal->last_view_valid) return 0;
+    if(terminal->selection.visible) return 0;
+    if(terminal->textgrid->dirty_end == INT32_MAX) return 0;
+    if(view_state_changed(terminal)) return 0;
+    int32_t first_old = terminal->last_view.textgrid_start_row +
+        terminal->last_view.scroll_offset;
+    if(first_old < 0)
+        first_old = 0;
+    int32_t delta = (first - first_old) +
+        (int32_t)(terminal->textgrid->shift_total - terminal->painted_shift_total);
+    if(delta <= 0) return 0;
+    if(terminal->rows == 0 || delta >= (int32_t)terminal->rows) return 0;
+    return delta;
+}
+
+bool gterminal_full_repaint_pending(gterminal_t* terminal) {
+    if(terminal == NULL || terminal->textgrid == NULL)
+        return true;
+    if(terminal->full_dirty || !terminal->last_view_valid) {
+        return true;
+    }
+    if(terminal->textgrid->dirty_end == INT32_MAX)
+        return true;
+    if(view_state_changed(terminal))
+        return true;
+    if(terminal->last_view.textgrid_start_row != terminal->textgrid_start_row ||
+            terminal->last_view.scroll_offset != terminal->scroll_offset) {
+        /* the view anchor moved: a canvas scroll covers it incrementally
+         * when the content shift stays within one viewport */
+        int32_t first = terminal->textgrid_start_row + terminal->scroll_offset;
+        if(first < 0)
+            first = 0;
+        if(scroll_delta(terminal, first) == 0)
+            return true;
+    }
+    return false;
+}
+
+/* Repaint decision shared by gterminal_paint and gterminal_damage_band
+ * so the damage a widget reports always covers what the paint touches. */
+typedef struct {
+    bool full;      /* whole viewport repaints; caller laid the background */
+    bool empty;     /* nothing visible changed */
+    int32_t lo, hi; /* absolute grid rows to repaint */
+    int32_t scroll; /* canvas rows to blit up first (0 = none) */
+} gterm_paint_plan_t;
+
+static gterm_paint_plan_t paint_plan(gterminal_t* terminal, int h) {
+    gterm_paint_plan_t plan;
+    plan.full = true;
+    plan.empty = false;
+    plan.scroll = 0;
+
+    textgrid_t* tg = terminal->textgrid;
+    int32_t chh = (int32_t)terminal->char_h;
+    int32_t first = terminal->textgrid_start_row + terminal->scroll_offset;
+    if(first < 0)
+        first = 0;
+    int32_t view_end = first + (h + chh - 1) / chh;
+    plan.lo = first;
+    plan.hi = view_end;
+
+    if(gterminal_full_repaint_pending(terminal))
+        return plan;
+
+    bool curs_on = terminal->char_h > 4 && terminal->flash_show &&
+        terminal->show_curs && terminal->scroll_offset == 0;
+    int32_t cur_row = cursor_drawn_row(terminal);
+    if(cur_row < 0)
+        cur_row = first;   /* get_pos falls back to the top-left cell */
+
+    int32_t delta = scroll_delta(terminal, first);
+    int32_t shift_diff = (int32_t)(tg->shift_total - terminal->painted_shift_total);
+    plan.full = false;
+    if(delta > 0) {
+        /* scroll the kept rows up, repaint the exposed bottom band */
+        plan.scroll = delta;
+        plan.lo = view_end - delta;
+        plan.hi = view_end;
+    }
+    else {
+        /* repaint only the union of the changed rows and both cursor rows
+         * (the bar must be erased from the row it left) */
+        plan.lo = INT32_MAX;
+        plan.hi = -1;
+    }
+
+    if(tg->dirty_start < tg->dirty_end) {
+        if(tg->dirty_start < plan.lo) plan.lo = tg->dirty_start;
+        if(tg->dirty_end > plan.hi) plan.hi = tg->dirty_end;
+    }
+    if(terminal->curs_drawn_row >= 0) {
+        /* the old bar row follows the content through a scrollback shift */
+        int32_t r = terminal->curs_drawn_row - shift_diff;
+        if(r < plan.lo) plan.lo = r;
+        if(r + 1 > plan.hi) plan.hi = r + 1;
+    }
+    if(curs_on) {
+        if(cur_row < plan.lo) plan.lo = cur_row;
+        if(cur_row + 1 > plan.hi) plan.hi = cur_row + 1;
+    }
+    if(plan.lo < first) plan.lo = first;
+    if(plan.hi > view_end) plan.hi = view_end;
+    if(plan.lo >= plan.hi)
+        plan.empty = true;
+    return plan;
 }
 
 void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int h) {
@@ -1006,7 +1119,6 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
     int32_t first = terminal->textgrid_start_row + terminal->scroll_offset;
     if(first < 0)
         first = 0;
-    int32_t view_end = first + (h + chh - 1) / chh;
 
     bool curs_on = terminal->char_h > 4 && terminal->flash_show &&
         terminal->show_curs && terminal->scroll_offset == 0;
@@ -1014,41 +1126,27 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
     if(cur_row < 0)
         cur_row = first;   /* get_pos falls back to the top-left cell */
 
-    bool full = gterminal_full_repaint_pending(terminal);
-    int32_t lo, hi;
-    if(full) {
-        /* the caller laid terminal->bg_color over the whole paint rect */
-        lo = first;
-        hi = view_end;
+    gterm_paint_plan_t plan = paint_plan(terminal, h);
+    if(plan.empty) {
+        /* nothing visible changed (idle blink with the cursor hidden,
+         * or output below a scrolled-back view) */
+        textgrid_clean_dirty(tg);
+        terminal->curs_drawn_row = curs_on ? cur_row : -1;
+        save_view(terminal);
+        return;
     }
-    else {
-        /* repaint only the union of the changed rows and both cursor rows
-         * (the bar must be erased from the row it left) */
-        lo = INT32_MAX;
-        hi = -1;
-        if(tg->dirty_start < tg->dirty_end) {
-            lo = tg->dirty_start;
-            hi = tg->dirty_end;
-        }
-        if(terminal->curs_drawn_row >= 0) {
-            int32_t r = terminal->curs_drawn_row;
-            if(r < lo) lo = r;
-            if(r + 1 > hi) hi = r + 1;
-        }
-        if(curs_on) {
-            if(cur_row < lo) lo = cur_row;
-            if(cur_row + 1 > hi) hi = cur_row + 1;
-        }
-        if(lo < first) lo = first;
-        if(hi > view_end) hi = view_end;
-        if(lo >= hi) {
-            /* nothing visible changed (idle blink with the cursor hidden,
-             * or output below a scrolled-back view) */
-            textgrid_clean_dirty(tg);
-            terminal->curs_drawn_row = curs_on ? cur_row : -1;
-            save_view(terminal);
-            return;
-        }
+
+    int32_t lo = plan.lo;
+    int32_t hi = plan.hi;
+    if(plan.scroll > 0) {
+        /* move the kept rows up in one overlap-safe self-blit instead of
+         * repainting every glyph; only the exposed band below is redrawn */
+        int32_t move_h = h - plan.scroll * chh;
+        if(move_h > 0)
+            graph_blt(g, x, y + plan.scroll * chh, w, move_h,
+                    g, x, y, w, move_h);
+    }
+    if(!plan.full) {
         graph_set(g, x, y + (lo - first) * chh, w, (hi - lo) * chh,
                 terminal->bg_color);
     }
@@ -1063,10 +1161,33 @@ void gterminal_paint(gterminal_t* terminal, graph_t* g, int x, int y, int w, int
     }
     draw_curs(terminal, g, x, y, w, h);
 
-    if(full || (tg->dirty_start >= lo && tg->dirty_end <= hi))
+    if(plan.full || (tg->dirty_start >= lo && tg->dirty_end <= hi))
         textgrid_clean_dirty(tg);
     terminal->curs_drawn_row = curs_on ? cur_row : -1;
     save_view(terminal);
+}
+
+bool gterminal_damage_band(gterminal_t* terminal, int h, int32_t* y, int32_t* bh) {
+    if(terminal == NULL || terminal->textgrid == NULL ||
+            terminal->font == NULL ||
+            terminal->textgrid->grid == NULL ||
+            terminal->textgrid->cols == 0 || terminal->textgrid->rows == 0 ||
+            terminal->char_h == 0 || h <= 0) {
+        return false;
+    }
+    gterm_paint_plan_t plan = paint_plan(terminal, h);
+    if(plan.full || plan.empty || plan.scroll > 0) {
+        /* full repaints need the whole rect; a scroll moves every kept row
+         * on screen, so the whole rect changes too */
+        return false;
+    }
+    int32_t chh = (int32_t)terminal->char_h;
+    int32_t first = terminal->textgrid_start_row + terminal->scroll_offset;
+    if(first < 0)
+        first = 0;
+    *y = (plan.lo - first) * chh;
+    *bh = (plan.hi - plan.lo) * chh;
+    return true;
 }
 
 #define ESC_BUF_CAP ((uint16_t)(sizeof(((gterminal_t*)0)->esc_buf) / sizeof(((gterminal_t*)0)->esc_buf[0])))

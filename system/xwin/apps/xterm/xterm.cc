@@ -775,6 +775,10 @@ static void* thread_loop(void* p) {
 	RootWidget* root = new RootWidget();
 	win.setRoot(root);
 	root->setType(Container::VERTICAL);
+	/* damage-rect repaint: idle blinks and typing only redraw the affected
+	 * rows, sustained output scrolls the canvas instead of re-rendering
+	 * every glyph each frame */
+	root->setPartialRepaint(true);
 
 	Menu* menu = new Menu();
 	menu->add(0, "txtcolor", NULL, NULL, onTextColor, &win);

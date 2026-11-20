@@ -18,6 +18,7 @@ typedef struct {
     char name[NAME_LEN];
     char fname[FNAME_LEN];
     FT_Face face;
+    uint8_t* mem;   /* whole-file image backing the face (FT_New_Memory_Face) */
     //uint32_t current_size;
 } ttf_item_t;
 
@@ -43,6 +44,8 @@ static void font_dev_quit(void) {
     for(int i=0;i < TTF_MAX; i++) {
         if(_ttfs[i].face != NULL)
             FT_Done_Face(_ttfs[i].face);
+        if(_ttfs[i].mem != NULL)
+            free(_ttfs[i].mem);
     }
 
     font_clear_cache();
@@ -87,12 +90,35 @@ int font_open(const char* name, const char* fname) {
     if(fd < 0) {
         return -1;
     }
-    uint8_t header[4];
-    ssize_t rd = read(fd, header, sizeof(header));
-    close(fd);
-    if(rd != (ssize_t)sizeof(header)) {
+    /* Read the whole container in bounded chunks and hand FreeType a memory
+     * image. The ANSI stdio stream backend would issue one IPC read per
+     * fread/fgetc on this OS, a device-only parse path that can mis-read
+     * subset fonts; a memory face parses exactly like the host does. */
+    off_t fsz = lseek(fd, 0, SEEK_END);
+    lseek(fd, 0, SEEK_SET);
+    if(fsz <= 4 || fsz > 64*1024*1024) {
+        close(fd);
         return -1;
     }
+    uint8_t* mem = (uint8_t*)malloc((size_t)fsz);
+    if(mem == NULL) {
+        close(fd);
+        return -1;
+    }
+    size_t got = 0;
+    while(got < (size_t)fsz) {
+        size_t want = (size_t)fsz - got;
+        if(want > 32768) want = 32768;
+        ssize_t r = read(fd, mem + got, want);
+        if(r <= 0) break;
+        got += (size_t)r;
+    }
+    close(fd);
+    if(got != (size_t)fsz) {
+        free(mem);
+        return -1;
+    }
+    uint8_t* header = mem;
     /*
      * Restrict fontd to SFNT/TrueType containers. This avoids sending
      * arbitrary inputs through FreeType's legacy bitmap loaders.
@@ -101,13 +127,16 @@ int font_open(const char* name, const char* fname) {
             memcmp(header, "OTTO", 4) == 0 ||
             memcmp(header, "true", 4) == 0 ||
             memcmp(header, "ttcf", 4) == 0)) {
+        free(mem);
         return -1;
     }
 
-    int err = FT_New_Face(_library, fname, 0, &_ttfs[i].face);
+    int err = FT_New_Memory_Face(_library, mem, (FT_Long)fsz, 0, &_ttfs[i].face);
     if(err != 0) {
+        free(mem);
         return -1;
     }
+    _ttfs[i].mem = mem;
     strncpy(_ttfs[i].name, name, NAME_LEN-1);
     strncpy(_ttfs[i].fname, fname, FNAME_LEN-1);
     return i;

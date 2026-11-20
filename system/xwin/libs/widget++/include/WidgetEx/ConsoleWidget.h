@@ -25,6 +25,10 @@ public:
 	void push(const char* buf, int size);
 	void flash();
 
+	/* damage-rect aware: only the rows the next terminal paint touches */
+	void update();
+	void repaint(graph_t* g, XTheme* theme);
+
 	void setFont(const string& fontName);
 	void setMaxRows(uint32_t maxRows);
 

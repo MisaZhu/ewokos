@@ -13,6 +13,10 @@ RootWidget::RootWidget() {
 	xwin = NULL;
 	alpha = false;
 	beRoot = true;
+	partialRepaint = false;
+	dmgValid = false;
+	dmgFull = true;
+	dmg = {0, 0, 0, 0};
 }
 
 void RootWidget::onRepaint(graph_t* g, XTheme* theme, const grect_t& r) {
@@ -81,8 +85,50 @@ void RootWidget::repaintWin() {
 }
 
 void RootWidget::update() {
+	markFull();
+}
+
+void RootWidget::setPartialRepaint(bool enable) {
+	partialRepaint = enable;
+	markFull();
+}
+
+void RootWidget::addDamage(const grect_t& r) {
+	if(r.w <= 0 || r.h <= 0)
+		return;
+	/* stay clean: a dirty root would fill its theme background over the
+	 * whole damage and force every child to repaint, defeating the point */
+	doRefresh = true;
+	if(dmgFull)
+		return;
+	if(!dmgValid) {
+		dmg = r;
+		dmgValid = true;
+		return;
+	}
+	/* union */
+	int32_t x1 = dmg.x < r.x ? dmg.x : r.x;
+	int32_t y1 = dmg.y < r.y ? dmg.y : r.y;
+	int32_t x2 = (dmg.x + dmg.w) > (r.x + r.w) ? (dmg.x + dmg.w) : (r.x + r.w);
+	int32_t y2 = (dmg.y + dmg.h) > (r.y + r.h) ? (dmg.y + dmg.h) : (r.y + r.h);
+	dmg.x = x1;
+	dmg.y = y1;
+	dmg.w = x2 - x1;
+	dmg.h = y2 - y1;
+}
+
+void RootWidget::markFull() {
 	dirty = true;
 	doRefresh = true;
+	dmgFull = true;
+	dmgValid = true;
+	dmg = getRootArea(false);
+}
+
+void RootWidget::clearDamage() {
+	dmgValid = false;
+	dmgFull = false;
+	dmg = {0, 0, 0, 0};
 }
 
 uint32_t RootWidget::getTouchNum() {

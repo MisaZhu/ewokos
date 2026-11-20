@@ -26,19 +26,35 @@ void WidgetWin::onRepaint(graph_t* g) {
 	if(root == NULL || g == NULL)
 		return;
 	if(xwin->xinfo != NULL && xwin->xinfo->update_theme)
-		root->dirty = true;
+		root->markFull();
 	if(theme.getFont() == NULL)
 		theme.loadSystem();
 
 	if(root->isAlpha()) {
-		/* alpha windows clear the whole workspace before repainting.
-		   A queued second repaint after the first full draw would otherwise
-		   wipe the buffer and skip child painting because their dirty flags
-		   were already consumed by the previous pass. */
-		root->dirty = true;
-		graph_clear(g, 0);
+		if(root->isPartialRepaint() && !root->isDmgFull()) {
+			/* damage-rect mode: no wipe. Widgets raw-write their own
+			 * background over the damage; untouched pixels (e.g. the
+			 * terminal canvas a scroll blit reads) must survive. */
+		}
+		else {
+			/* alpha windows clear the whole workspace before repainting.
+			   A queued second repaint after the first full draw would otherwise
+			   wipe the buffer and skip child painting because their dirty flags
+			   were already consumed by the previous pass. */
+			root->dirty = true;
+			graph_clear(g, 0);
+		}
 	}
 	root->repaint(g, &theme);
+	/*hand the damage just rendered to libx so the compositor can shrink its
+	 * recomposite to the band; anything but a clean partial rect claims the
+	 * whole frame (full redraws, non-partial apps) */
+	if(root->isPartialRepaint() && root->hasDamage() && !root->isDmgFull())
+		xwin_set_damage(xwin, &root->getDamage());
+	else
+		xwin_set_damage(xwin, NULL);
+	if(root->isPartialRepaint())
+		root->clearDamage();
 }
 
 void WidgetWin::onShow(void) {

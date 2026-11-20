@@ -763,25 +763,33 @@ const T& vector<T, Alloc>::at(size_t n) const {
 
 template <typename T, typename Alloc>
 void vector<T, Alloc>::assign(iterator first, iterator last) {
+    size_t n = (size_t)(last - first);
     clear();
-
-    length_ = last - first;
-    reserve(length_ * 2);
-
-    for (size_t i = 0; first != last; ++first, i++) {
+    /* reserve() copies length_ elements from the old buffer: keep length_ at 0
+     * (post-clear) until the new storage exists, else the grow loop reads past
+     * the old allocation. Bail out if growth failed instead of overflowing. */
+    reserve(n);
+    if (capacity_ < n) {
+        length_ = 0;
+        return;
+    }
+    for (size_t i = 0; i < n; ++i, ++first) {
         new (&data_[i]) T(*first);
     }
+    length_ = n;
 }
 
 template <typename T, typename Alloc>
 void vector<T, Alloc>::assign(size_t n, const T& val) {
     clear();
-    reserve(n * 2);
-
+    reserve(n);
+    if (capacity_ < n) {
+        length_ = 0;
+        return;
+    }
     for (size_t i = 0; i < n; i++) {
         new (&data_[i]) T(val);
     }
-
     length_ = n;
 }
 

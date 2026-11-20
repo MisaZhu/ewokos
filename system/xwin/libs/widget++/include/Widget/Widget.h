@@ -119,7 +119,10 @@ public:
 	Container* getFather() { return father; }
 
 	virtual gsize_t getMinSize(void);
-	void update();
+	virtual void update();
+	/* Damage only a sub-rect of the widget (widget-local coordinates) in
+	 * partial-repaint mode; falls back to a full update otherwise. */
+	void update(const grect_t& sub);
 };
 
 }
