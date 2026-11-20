@@ -156,6 +156,11 @@ static FT_GlyphSlot cache_slot_copy(FT_GlyphSlot slot) {
         }
         memcpy(p->bitmap.buffer, slot->bitmap.buffer, bmp_size);
     }
+    else {
+        /* empty glyph: never keep the backend's buffer pointer, it is
+         * not ours to free on cache clear */
+        p->bitmap.buffer = NULL;
+    }
     if(slot->other != NULL) {
         p->other = malloc(sizeof(face_info_t));
         if(p->other == NULL) {
@@ -299,160 +304,225 @@ static FT_GlyphSlot font_get_glyph(font_t* font, uint32_t size, uint32_t c,
     return scratch;
 }
 
+/* Advance of one rendered glyph, identical for measurement and drawing:
+ * horiAdvance, tab = 2x the tab bitmap width (size when empty). Keeping
+ * one rule makes font_text_size agree with the graph_draw_text_font pen
+ * step, so align boxes sized from the measurement fit the drawn text. */
+static uint32_t glyph_advance(FT_GlyphSlot slot, uint32_t size, uint32_t c) {
+    if(c == '\t') {
+        uint32_t w = slot->bitmap.width*2;
+        return w == 0 ? size : w;
+    }
+    uint32_t w = slot->metrics.horiAdvance / FACE_PIXEL_DENT;
+    return w == 0 ? size/2 : w;
+}
+
 void font_char_size(uint32_t c, font_t* font, uint32_t size, uint32_t *w, uint32_t* h) {
-    // Default values
-    uint32_t default_w = size/2;
-    uint32_t default_h = size;
+    uint32_t cw = size/2;
+    uint32_t ch = size;
 
     FT_GlyphSlotRec scratch;
     FT_GlyphSlot slot = font_get_glyph(font, size, c, &scratch);
-    if(slot == NULL) {
-        if(w != NULL) *w = default_w;
-        if(h != NULL) *h = default_h;
-        return;
+    if(slot != NULL) {
+        cw = glyph_advance(slot, size, c);
+        face_info_t* faceinfo = (face_info_t*)slot->other;
+        if(faceinfo != NULL) {
+            ch = faceinfo->height/FACE_PIXEL_DENT;
+            if(ch == 0) ch = size;
+        }
     }
-    
-    face_info_t* faceinfo = (face_info_t*)slot->other;
-    
-    // Calculate width based on metrics
-    default_w = slot->metrics.horiAdvance / FACE_PIXEL_DENT;
-    if(default_w == 0) default_w = size/2;
-    
-    if(h != NULL && faceinfo != NULL) {
-        default_h = (faceinfo->height/FACE_PIXEL_DENT);
-        if(default_h == 0) default_h = size;
-    }
-    
-    if(w != NULL) *w = default_w;
-    if(h != NULL) *h = default_h;
+    if(w != NULL) *w = cw;
+    if(h != NULL) *h = ch;
+}
 
-    // Debug: log character width
+/* One glyph walk over a decoded run: advance width, line height and the
+ * union of the real glyph ink (top/bot relative to the y handed to the
+ * draw path, which blits at y - bitmap_top + ascender). ink is false
+ * when no glyph metrics are available. Rides the glyph cache, so warm
+ * strings cost no IPC. */
+static bool measure_run(const uint16_t* out, int n, font_t* font, uint32_t size,
+        uint32_t* w, uint32_t* h, int32_t* top, int32_t* bot) {
+    uint32_t tw = 0, th = 0;
+    bool any = false;
+    int32_t t = 0, b = 0;
+    for(int i=0; i<n; i++) {
+        uint32_t c = out[i];
+        FT_GlyphSlotRec scratch;
+        FT_GlyphSlot slot = font_get_glyph(font, size, c, &scratch);
+        if(slot == NULL) {
+            tw += size/2;
+            if(th < size) th = size;
+            continue;
+        }
+        tw += glyph_advance(slot, size, c);
+        face_info_t* fi = (face_info_t*)slot->other;
+        uint32_t ch = size;
+        if(fi != NULL) {
+            ch = fi->height/FACE_PIXEL_DENT;
+            if(ch == 0) ch = size;
+        }
+        if(th < ch) th = ch;
+
+        if(c == ' ' || c == '\t' || c == 0x3000)
+            continue;
+        if(slot->bitmap.rows == 0 || fi == NULL)
+            continue;
+        int32_t gt = fi->ascender/FACE_PIXEL_DENT - slot->bitmap_top;
+        int32_t gb = gt + (int32_t)slot->bitmap.rows;
+        if(!any || gt < t) t = gt;
+        if(!any || gb > b) b = gb;
+        any = true;
+    }
+    if(w != NULL) *w = tw;
+    if(h != NULL) *h = th;
+    if(any && top != NULL && bot != NULL) {
+        *top = t;
+        *bot = b;
+    }
+    return any;
+}
+
+static bool text_measure(const char* str, font_t* font, uint32_t size,
+        uint32_t* w, uint32_t* h, int32_t* top, int32_t* bot) {
+    if(w != NULL) *w = 0;
+    if(h != NULL) *h = 0;
+    if(str == NULL)
+        return false;
+
+    int len = strlen(str);
+    uint16_t* out = (uint16_t*)malloc((len+1)*2);
+    if(out == NULL)
+        return false;
+    int n = utf82unicode((uint8_t*)str, len, out);
+    bool any = measure_run(out, n, font, size, w, h, top, bot);
+    free(out);
+    return any;
 }
 
 void font_text_size(const char* str,
-        font_t* font, uint32_t size, uint32_t *w, uint32_t* h) {
-    if(w != NULL)
-        *w = 0;
-    if(h != NULL)
-        *h = 0;
-    
-    int sz = strlen(str);
-    uint16_t* unicode = (uint16_t*)malloc((sz+1)*2);
-    if(unicode == NULL)
-        return;
-
-    int n = utf82unicode((uint8_t*)str, sz, unicode);
-
-    int32_t x = 0;
-    uint32_t th = 0;
-    
-    for(int i=0;i <n; i++) {
-        uint32_t cw = 0;
-        uint32_t ch = 0;
-        font_char_size(unicode[i], font, size, &cw, &ch);
-        x += cw;
-        if(th < ch)
-            th = ch;
-    }
-    if(w != NULL)
-        *w = x;
-    if(h != NULL)
-        *h = th;
-    free(unicode);
+        font_t* font, uint32_t size, uint32_t *w, uint32_t *h) {
+    text_measure(str, font, size, w, h, NULL, NULL);
 }
 
 void graph_draw_unicode_font(graph_t* g, int32_t x, int32_t y, uint32_t c,
         font_t* font, uint32_t size, uint32_t color, uint32_t *w, uint32_t *h) {
-    // Default values
-    uint32_t default_w = size/2;
-    uint32_t default_h = size;
+    uint32_t dw = size/2;
+    uint32_t dh = size;
 
     FT_GlyphSlotRec scratch;
     FT_GlyphSlot slot = font_get_glyph(font, size, c, &scratch);
-    if(slot == NULL) {
-        if(w != NULL) *w = default_w;
-        if(h != NULL) *h = default_h;
-        return;
-    }
-    
-    face_info_t* faceinfo = (face_info_t*)slot->other;
-    
-    // Calculate width based on metrics
-    default_w = slot->metrics.horiAdvance / FACE_PIXEL_DENT;
-    if(default_w == 0) default_w = size/2;
-    
-    default_h = (faceinfo->height/FACE_PIXEL_DENT);
-    if(default_h == 0) default_h = size;
-
-    x += slot->bitmap_left;
-    y = y - slot->bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
-    
-    if(c == '\t') {
-        if(w != NULL) {
-            *w = slot->bitmap.width*2;
-            if((*w) == 0)
-                *w = size;
+    if(slot != NULL) {
+        dw = glyph_advance(slot, size, c);
+        face_info_t* faceinfo = (face_info_t*)slot->other;
+        int32_t asc = 0;
+        if(faceinfo != NULL) {
+            dh = faceinfo->height/FACE_PIXEL_DENT;
+            if(dh == 0) dh = size;
+            asc = faceinfo->ascender/FACE_PIXEL_DENT;
         }
-        if(h != NULL) {
-            *h = default_h;
-        }
-        return;
+        if(c != '\t')
+            glyph_blit(g, x + slot->bitmap_left, y - slot->bitmap_top + asc,
+                    &slot->bitmap, color);
     }
-
-    glyph_blit(g, x, y, &slot->bitmap, color);
-
-    if(h != NULL) {
-        *h = default_h;
-    }
-
-    if(w != NULL) {
-        *w = default_w;
-    }
+    if(w != NULL) *w = dw;
+    if(h != NULL) *h = dh;
 }
 
 void graph_draw_char_font_fixed(graph_t* g, int32_t x, int32_t y, uint32_t c,
         font_t* font, uint32_t size, uint32_t color, uint32_t w, uint32_t h) {
-
+    (void)h;
     FT_GlyphSlotRec scratch;
     FT_GlyphSlot slot = font_get_glyph(font, size, c, &scratch);
     if(slot == NULL)
         return;
     face_info_t* faceinfo = (face_info_t*)slot->other;
+    int32_t asc = faceinfo != NULL ? faceinfo->ascender/FACE_PIXEL_DENT : 0;
 
-    x += ((int)w - ((int)slot->bitmap.width - slot->bitmap_left))/2;
-    y = y - slot->bitmap_top + (faceinfo->ascender/FACE_PIXEL_DENT);
+    /* centre the ink box [x+left, x+left+width] inside the cell: the
+     * old (w - (width - left))/2 ignored the bearing on the left side */
+    x += ((int)w - (int)slot->bitmap.width)/2 - slot->bitmap_left;
+    y = y - slot->bitmap_top + asc;
 
     glyph_blit(g, x, y, &slot->bitmap, color);
 }
 
-void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
-        font_t* font, uint32_t size, uint32_t color) {
-    if(g == NULL || str[0] == 0)
-        return;
-    
-    int len = strlen(str);
-    uint16_t* out = (uint16_t*)malloc((len+1)*2);
-    int n = utf82unicode((uint8_t*)str, len, out);
+static void draw_unicode_run(graph_t* g, int32_t x, int32_t y,
+        const uint16_t* out, int n, font_t* font, uint32_t size, uint32_t color) {
     for(int i=0;i <n; i++) {
         uint32_t w = 0;
         graph_draw_unicode_font(g, x, y, out[i], font, size, color, &w, NULL);
-        int dx = w;
-        if(dx < 0)
-            dx = w/2;
-        x += dx;
+        x += w;
     }
+}
+
+void graph_draw_text_font(graph_t* g, int32_t x, int32_t y, const char* str,
+        font_t* font, uint32_t size, uint32_t color) {
+    if(g == NULL || str == NULL || str[0] == 0)
+        return;
+
+    int len = strlen(str);
+    uint16_t* out = (uint16_t*)malloc((len+1)*2);
+    if(out == NULL)
+        return;
+    int n = utf82unicode((uint8_t*)str, len, out);
+    draw_unicode_run(g, x, y, out, n, font, size, color);
     free(out);
 }
 
 void graph_draw_text_font_align(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h,
         const char* str, font_t* font, uint32_t size, uint32_t color, uint32_t align) {
-    int32_t fw, fh;
-    font_text_size(str, font, size, (uint32_t*)&fw, (uint32_t*)&fh);
-    if((align & FONT_ALIGN_CENTER) != 0) {
-        x = x + (w-fw)/2;
-        y = y + (h-fh)/2;
+    if(g == NULL || str == NULL || str[0] == 0)
+        return;
+
+    int len = strlen(str);
+    uint16_t* out = (uint16_t*)malloc((len+1)*2);
+    if(out == NULL)
+        return;
+    int n = utf82unicode((uint8_t*)str, len, out);
+
+    /* one decode + one glyph walk for width, line height and ink union;
+     * the draw below reuses the same decoded run */
+    uint32_t fw = 0, fh = 0;
+    int32_t top = 0, bot = 0;
+    bool ink = measure_run(out, n, font, size, &fw, &fh, &top, &bot);
+
+    /* horizontal: advance-width box; LEFT/NONE keep x */
+    if((align & FONT_ALIGN_H_CENTER) != 0)
+        x = x + (w - (int32_t)fw)/2;
+    else if((align & FONT_ALIGN_RIGHT) != 0)
+        x = x + w - (int32_t)fw;
+
+    /* vertical: align the real glyph ink, not the line box — CJK faces
+     * (system-cn: +1.16em/-0.29em) have a tall asymmetric line box, so
+     * line-box centring lands visibly low. NONE keeps the legacy y. */
+    if((align & (FONT_ALIGN_V_CENTER|FONT_ALIGN_TOP|FONT_ALIGN_BOTTOM)) != 0) {
+        if((align & FONT_ALIGN_V_CENTER) != 0) {
+            if(ink) {
+                y = y + (h - top - bot)/2;
+            }
+            else {
+                /* no glyph metrics: ascender estimate, then line box */
+                face_info_t face;
+                if(font_get_face(font, size, &face) == 0 && face.ascender > 0) {
+                    int32_t baseline = y + h/2 + ((int32_t)size*37 + 50)/100;
+                    y = baseline - face.ascender/FACE_PIXEL_DENT;
+                }
+                else {
+                    y = y + (h - (int32_t)fh)/2;
+                }
+            }
+        }
+        else if((align & FONT_ALIGN_BOTTOM) != 0) {
+            /* ink bottom flush with the box bottom */
+            y = ink ? (y + h - bot) : (y + h - (int32_t)fh);
+        }
+        else if(ink) {
+            /* TOP: ink top flush with the box top */
+            y = y - top;
+        }
     }
-    graph_draw_text_font(g, x, y, str, font, size, color);
+    draw_unicode_run(g, x, y, out, n, font, size, color);
+    free(out);
 }
 
 #ifdef __cplusplus
