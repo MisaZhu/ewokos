@@ -26,6 +26,7 @@ typedef struct {
 	string fname;
 	string icon;
 	graph_t* iconImg;
+	bool isDir; /*folder entry (app group or ".."), fname is a directory*/
 } item_t;
 
 #define ITEM_MAX 128
@@ -38,6 +39,7 @@ class AppGrid: public Grid {
 	uint32_t iconSize;
 	DIR* dirp; /*directory handle for progressive loading*/
 	int loadCount; /*number of apps loaded so far*/
+	string cwd; /*current apps directory, "/apps" at top level*/
 
 	string getIconFname(const char* appName) {
 		//try theme icon first
@@ -47,9 +49,19 @@ class AppGrid: public Grid {
 		if(access(ret.c_str(), R_OK) == 0)
 			return ret;
 
-		ret = "/apps/";
+		ret = cwd + "/";
 		ret = ret + appName + "/res/icon.png";
 		return ret;
+	}
+
+	string getFolderIconFname() {
+		//try theme icon first
+		char fname[FS_FULL_NAME_MAX+1] = {0};
+		x_get_theme_fname(X_THEME_ROOT, "xapps", "icons/folder.png", fname, FS_FULL_NAME_MAX);
+		string ret = fname;
+		if(access(ret.c_str(), R_OK) == 0)
+			return ret;
+		return X::getResFullName("icons/folder.png");
 	}
 
 	void clearItem() {
@@ -131,6 +143,15 @@ protected:
 	}
 
 	void onEnter(int index) {
+		if(index < 0 || index >= loadCount)
+			return;
+
+		if(items[index].isDir) {
+			/*enter an app group directory, or go back via ".."*/
+			startLoadApps(items[index].fname.c_str());
+			return;
+		}
+
 		x_exec(items[index].fname.c_str());
 		if(!_launcher)
 			getWin()->close();
@@ -150,6 +171,7 @@ public:
 		scrollerV = NULL;
 		dirp = NULL;
 		loadCount = 0;
+		cwd = "/apps";
 		for(int i=0; i<ITEM_MAX; i++)
 			memset(&items[i], 0, sizeof(item_t));
 	}
@@ -160,11 +182,41 @@ public:
 		clearItem();
 	}
 
-	bool startLoadApps(void) {
-		dirp = opendir("/apps");
+	bool startLoadApps(const char* dir = "/apps") {
+		if(dirp != NULL) {
+			closedir(dirp);
+			dirp = NULL;
+		}
+		clearItem();
+		loadCount = 0;
+		cwd = dir;
+		itemStart = 0;
+		pixelOffset = 0;
+		itemSelected = 0;
+
+		/*inside a sub directory, the first item goes back to the parent*/
+		if(cwd != "/apps") {
+			string parent = cwd;
+			size_t pos = parent.find_last_of('/');
+			if(pos == string::npos || pos == 0)
+				parent = "/apps";
+			else
+				parent = parent.substr(0, pos);
+
+			items[0].app = "..";
+			items[0].fname = parent;
+			items[0].isDir = true;
+			items[0].icon = getFolderIconFname();
+			items[0].iconImg = get_icon(items[0].icon.c_str(), iconSize);
+			loadCount = 1;
+		}
+		setItemNum(loadCount);
+		updateScroller();
+		update();
+
+		dirp = opendir(cwd.c_str());
 		if(dirp == NULL)
 			return false;
-		loadCount = 0;
 		return true;
 	}
 
@@ -186,11 +238,25 @@ public:
 			if(it->d_name[0] == '.')
 				continue;
 
+			string path = cwd + "/" + it->d_name;
+			/*an app directory holds an executable named after itself;
+			  other directories are multi-level app groups shown as folders*/
+			string exe = path + "/" + it->d_name;
+			bool isApp = access(exe.c_str(), F_OK) == 0;
+			if(!isApp && it->d_type != DT_DIR)
+				continue;
+
 			int i = loadCount;
 			items[i].app = it->d_name;
-			items[i].fname = "/apps/";
-			items[i].fname = items[i].fname + it->d_name + "/" +  it->d_name;
-			items[i].icon = getIconFname(it->d_name);
+			items[i].isDir = !isApp;
+			if(isApp) {
+				items[i].fname = exe;
+				items[i].icon = getIconFname(it->d_name);
+			}
+			else {
+				items[i].fname = path;
+				items[i].icon = getFolderIconFname();
+			}
 			items[i].iconImg = get_icon(items[i].icon.c_str(), iconSize);
 			loadCount++;
 			setItemNum(loadCount);
