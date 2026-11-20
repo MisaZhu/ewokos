@@ -131,6 +131,9 @@ static void flush(fb_console_t* console) {
         }
     }
 
+    /* draw_bg wiped the whole canvas: every row must be repainted, not
+     * just the dirty band */
+    gterminal_invalidate(&console->terminal);
     gterminal_paint(&console->terminal, console->g, 0, 0, console->g->w, console->g->h);
     display_flush(&console->display, true);
 }

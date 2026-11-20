@@ -210,8 +210,9 @@ typedef struct {
 everything below are all unchanged. The decoration ring already sitting in
 	frame_g is therefore still valid and is NOT cleared, so the WM only has to
 	re-cut the rounded corners that the fresh workspace blit overwrote. Only
-	sent for a frosted rounded theme (frame_blur != 0 && round > 0), which is
-	the MisaWM glass model; other WMs never see it.*/
+	sent to a WM that registers retained_decorations, for a rounded theme
+	(round > 0) - the glass model that honours content_only, with or without
+	blur; WMs that redraw their ring every frame never see it.*/
 	bool backdrop_unchanged;
 	bool corners_only;
 } xinfo_t;

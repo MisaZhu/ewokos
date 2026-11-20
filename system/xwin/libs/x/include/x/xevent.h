@@ -43,7 +43,11 @@ enum {
 enum {
 	TOUCH_STATE_PRESS = 0,
 	TOUCH_STATE_RELEASE,
-	TOUCH_STATE_MOVE
+	TOUCH_STATE_MOVE,
+	TOUCH_STATE_CANCEL /*grip-filter cull of an already-delivered contact:
+	                     lifts it like RELEASE but the synthetic mouse UP
+	                     must never promote to CLICK; the server rewrites
+	                     it to RELEASE before delivering to clients*/
 };
 
 /*max contacts carried by one XEVT_TOUCH_MT frame (Goodix Berlin panels

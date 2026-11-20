@@ -63,6 +63,38 @@ void EwokWM:: markFrameRound(graph_t* frame_g, grect_t* fr, int r) {
 }
 
 void EwokWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinfo_t* info, grect_t* r, bool top) {
+	/*corners_only/content_only: only this window's own workspace content
+	  changed, so xserverd left the decoration ring already sitting in frame_g
+	  intact (it skipped clear_frame_ring) and re-blitted just the fresh
+	  content over the client area. That blit overwrote the rounded corner
+	  pixels where the radius reaches into the workspace, so all that is left
+	  is to re-cut the corners and redraw the border arc. The border bands,
+	  title, buttons and shadow are all still valid and must NOT be touched:
+	  the base DRAW_FRAME pass already skipped them via keep_decor.*/
+	bool contentOnly = xwm.draw.frame.content_only != 0;
+	grect_t savedClip = frame_g->clip;
+	if(info->corners_only || contentOnly) {
+		grect_t ws = {(int)info->wsr.x - (int)info->winr.x, (int)info->wsr.y - (int)info->winr.y,
+			(int)info->wsr.w, (int)info->wsr.h};
+		grect_t bounds = {0, 0, frame_g->w, frame_g->h};
+		if(!grect_insect(&bounds, &ws) ||
+				(savedClip.w > 0 && savedClip.h > 0 && !grect_insect(&savedClip, &ws)))
+			return;
+		frame_g->clip = ws;
+		if((info->style & XWIN_STYLE_NO_FRAME) == 0) {
+			int round = (int)xwm.theme.round;
+			if(round > 0) {
+				uint32_t fg, bg;
+				getColor(&fg, &bg, top);
+				markFrameRound(frame_g, r, round);
+				if(xwm.theme.frameW > 0)
+					graph_round(frame_g, r->x, r->y, r->w, r->h, round, xwm.theme.frameW, bg);
+			}
+		}
+		frame_g->clip = savedClip;
+		return;
+	}
+
 	uint32_t fg, bg;
 	getColor(&fg, &bg, top);
 
@@ -191,6 +223,11 @@ EwokWM::~EwokWM(void) {
 EwokWM::EwokWM(void) {
 	roundMask = NULL;
 	roundMaskSize = 0;
+	/*the decoration ring survives content-only presents: xserverd keeps it in
+	  frame_g and sends corners_only/content_only instead of clearing the ring,
+	  so an alpha window's steady-state repaint skips the title font rendering,
+	  buttons, border fills and shadow - the same fast path MisaWM uses*/
+	xwm.retained_decorations = true;
 	xwm.theme.desktopBGColor = 0xff555588;
 	xwm.theme.desktopFGColor = 0xff8888aa;
 	xwm.theme.frameBGColor = 0xffaaaaaa;

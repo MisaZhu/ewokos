@@ -8,8 +8,17 @@
 namespace Ewok {
 
 void ConsoleWidget::drawBG(graph_t* g, const grect_t& r) {
-	graph_set(g, r.x, r.y, r.w, r.h, terminal.bg_color);
+	/* A dirty root repaints its theme background over the whole window
+	 * before children (alpha windows propagate every update to it), which
+	 * wipes the persistent canvas: force a full terminal repaint then.
+	 * Otherwise only full repaints need the background laid; partial
+	 * gterminal_paint fills its own dirty band. */
 	RootWidget* root = getRoot();
+	bool wiped = (root != NULL && (Widget*)root != (Widget*)this && root->isDirty());
+	if(wiped || gterminal_full_repaint_pending(&terminal)) {
+		gterminal_invalidate(&terminal);
+		graph_set(g, r.x, r.y, r.w, r.h, terminal.bg_color);
+	}
 	if(color_a(terminal.bg_color) != 0xff) {
 		setAlpha(true);
 	}
@@ -21,6 +30,9 @@ void ConsoleWidget::drawBG(graph_t* g, const grect_t& r) {
 void ConsoleWidget::drawScrollbar(graph_t* g, const grect_t& r) {
 	if(terminal.textgrid == NULL || terminal.textgrid->rows == 0)
 		return;
+	/* the track colours are translucent: reset the strip to the terminal
+	 * background first so repeated partial repaints don't stack alpha */
+	graph_set(g, r.x + r.w - scrollW, r.y, scrollW, r.h, terminal.bg_color);
 	graph_fill_3d(g, r.x + r.w - scrollW, r.y, scrollW, r.h, 0x88000000, true);
 	int sh = r.h * ((float) terminal.rows / terminal.textgrid->rows);
 	int start_row = (int32_t)terminal.textgrid->rows - (int32_t)terminal.rows;

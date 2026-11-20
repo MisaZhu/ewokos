@@ -184,11 +184,12 @@ static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
       the backdrop below is stable, no ws blur or bg effect to rebuild) - only
       this window's own workspace content did. The ring already in frame_g is
       still valid, so it is NOT cleared and the xwm only re-cuts the rounded
-      corners the fresh workspace blit below overwrites. Gated on the frosted
-      rounded theme (frame_blur && round) because that is the MisaWM glass model
-      that knows how to honour the hint; other WMs never receive it.*/
+      corners the fresh workspace blit below overwrites. Gated on the WM's
+      retained-decoration capability and a rounded theme (round > 0) - the same
+      glass model that honours content_only, with or without blur; WMs that
+      redraw their ring every frame never receive it.*/
     bool corners_only = win->frame_dirty && !win->frame_full && backdrop_stable &&
-            x->config.xwm_theme.frameBlur != 0 &&
+            x->xwm_retained_decorations &&
             x->config.xwm_theme.round > 0 &&
             !ws_blur_active(x, win) && !win_bg_effect_active(x, win);
 

@@ -10,8 +10,11 @@
  *                  Drivers with multi-contact panels (q8b goodixd) also
  *                  emit tagged multi-touch frames on the same stream; those
  *                  are mapped to screen coordinates and passed through to
- *                  xserverd as XEVT_TOUCH_MT untouched - no gesture policy
- *                  runs here, the server routes the raw contacts.
+ *                  xserverd as XEVT_TOUCH_MT - no gesture policy runs here,
+ *                  the server routes the raw contacts. The one exception is
+ *                  handheld-grip edge ignore: while several contacts are
+ *                  down, contacts near the screen edge are culled (palm),
+ *                  keeping only the valid touches.
  *
  *  -m ............. Precision Touchpad (PTP) mode: reads multi-contact
  *                  touchpad_evt_t frames (58 bytes) from /dev/touchpad0
@@ -190,7 +193,8 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
  *                                        press/move/release, id 0..9
  * Frames are mapped to screen coordinates and forwarded to xserverd as
  * XEVT_TOUCH_MT without any gesture policy: the server owns routing and
- * single-finger mouse compatibility. */
+ * single-finger mouse compatibility. Only the handheld-grip edge ignore
+ * below filters contacts before forwarding. */
 #define TOUCH_MT_FRAME  0x8000u
 #define TOUCH_ACT_PRESS   1u
 #define TOUCH_ACT_MOVE    2u
@@ -199,6 +203,40 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
 static unsigned _mt_expect;   /* contact records still owed by the frame */
 static unsigned _mt_count;    /* entries collected into _mt_frame */
 static touch_evt_t _mt_frame[X_TOUCH_MAX];
+
+/* Handheld-grip edge ignore: while more than one contact is down, every
+ * contact within x_hidpi_size(32) of a screen edge is grip noise (palm /
+ * thumb base on the bezel) and is culled, keeping only the valid touches -
+ * a lone survivor degrades to single-finger server-side. Frames carry only
+ * EDGES (a stationary contact is absent), so the down set and its last
+ * positions are tracked across frames here. A press landing in the zone is
+ * dropped outright; an already-delivered edge contact (palm landed first,
+ * alone) is lifted with TOUCH_STATE_CANCEL so the server ends it without a
+ * phantom CLICK. An ignored id stays ignored until it lifts and all its
+ * later edges are swallowed too, so no orphan move/release reaches the
+ * server's contact tracking. A lone touch keeps the whole screen, edge UI
+ * included. */
+static uint16_t _mt_down;     /* bit per physically down contact id */
+static uint16_t _mt_ignored;  /* bit per edge-ignored id, sticky until lift */
+static int32_t _mt_last_x[X_TOUCH_MAX]; /* last screen position per id */
+static int32_t _mt_last_y[X_TOUCH_MAX];
+
+static bool mt_near_edge(int32_t x, int32_t y) {
+    int32_t m = x_hidpi_size(32);
+    return x < m || y < m || x >= _scr_w - m || y >= _scr_h - m;
+}
+
+/* physical contacts down, ignored ones included: grip noise still counts
+   as a touch point for the multi-contact rule */
+static int mt_down_count(void) {
+    uint16_t m = _mt_down;
+    int n = 0;
+    while(m != 0) {
+        n += m & 1u;
+        m >>= 1;
+    }
+    return n;
+}
 
 static void mt_reset(void) {
     _mt_expect = 0;
@@ -218,33 +256,85 @@ static void mt_send(void) {
     PF->clear(&in);
 }
 
+/* append one entry; a full frame is flushed, never truncated - a dropped
+   release/cancel would leave a ghost contact in the server's tracking */
+static void mt_append(uint32_t id, int32_t state, int32_t x, int32_t y) {
+    touch_evt_t* t;
+    if(_mt_count >= X_TOUCH_MAX) {
+        mt_send();
+        _mt_count = 0;
+    }
+    t = &_mt_frame[_mt_count++];
+    t->id = id;
+    t->state = state;
+    t->x = x;
+    t->y = y;
+}
+
 /* one raw panel record: xy_switch/offset/clamp exactly like the legacy
-   path, then the shared screen mapping */
+   path, then the shared screen mapping and the edge-ignore filter */
 static void mt_contact(uint16_t state, uint16_t rx, uint16_t ry) {
     unsigned act = (state >> 8) & 0x3u;
+    unsigned id = state & 0xffu;
     int16_t xraw = (int16_t)rx;
     int16_t yraw = (int16_t)ry;
-    touch_evt_t* t;
+    int32_t sx, sy;
+    bool tracked = id < X_TOUCH_MAX;
+    uint16_t bit = tracked ? (uint16_t)(1u << id) : 0;
+    bool ignored;
 
     if(_mt_expect == 0)
         return; /* stray contact record without a header */
     _mt_expect--;
-    if(_mt_count < X_TOUCH_MAX) {
-        if(_xtouch.xy_switch) {
-            int16_t tmp = xraw;
-            xraw = yraw;
-            yraw = tmp;
+    if(_xtouch.xy_switch) {
+        int16_t tmp = xraw;
+        xraw = yraw;
+        yraw = tmp;
+    }
+    int16_t tx = xraw - _xtouch.x_offset;
+    int16_t ty = yraw - _xtouch.y_offset;
+    tx = tx < 0 ? 0 : tx;
+    ty = ty < 0 ? 0 : ty;
+    map_pos(tx, ty, &sx, &sy);
+
+    ignored = tracked && (_mt_ignored & bit) != 0;
+    if(act == TOUCH_ACT_RELEASE) {
+        _mt_down &= (uint16_t)~bit;
+        _mt_ignored &= (uint16_t)~bit;
+    }
+    else if(act == TOUCH_ACT_PRESS) {
+        _mt_down |= bit;
+        if(tracked && mt_down_count() > 1) {
+            if(mt_near_edge(sx, sy)) {
+                _mt_ignored |= bit;
+                ignored = true;
+            }
+            /* cull already-delivered edge contacts too (the palm landed
+               first, alone): CANCEL lifts them server-side without a
+               phantom CLICK, leaving only the valid touches */
+            for(unsigned i = 0; i < X_TOUCH_MAX; i++) {
+                uint16_t b = (uint16_t)(1u << i);
+                if(i == id || !(_mt_down & b) || (_mt_ignored & b))
+                    continue;
+                if(mt_near_edge(_mt_last_x[i], _mt_last_y[i])) {
+                    _mt_ignored |= b;
+                    mt_append(i, TOUCH_STATE_CANCEL,
+                            _mt_last_x[i], _mt_last_y[i]);
+                }
+            }
         }
-        int16_t tx = xraw - _xtouch.x_offset;
-        int16_t ty = yraw - _xtouch.y_offset;
-        tx = tx < 0 ? 0 : tx;
-        ty = ty < 0 ? 0 : ty;
-        t = &_mt_frame[_mt_count++];
-        t->id = state & 0xffu;
-        t->state = act == TOUCH_ACT_PRESS ? TOUCH_STATE_PRESS :
+    }
+    /* an ignored contact never reached the server (or was just cancelled):
+       swallow its edges too, its release included, or the lift would hit
+       the server as an orphan */
+    if(!ignored) {
+        if(act != TOUCH_ACT_RELEASE && tracked) {
+            _mt_last_x[id] = sx;
+            _mt_last_y[id] = sy;
+        }
+        mt_append(id, act == TOUCH_ACT_PRESS ? TOUCH_STATE_PRESS :
                 (act == TOUCH_ACT_RELEASE ? TOUCH_STATE_RELEASE :
-                TOUCH_STATE_MOVE);
-        map_pos(tx, ty, &t->x, &t->y);
+                TOUCH_STATE_MOVE), sx, sy);
     }
     if(_mt_expect == 0) {
         if(_mt_count != 0)
@@ -367,11 +457,15 @@ static void ensure_x_server(void) {
     _x_pid = dev_get_pid("/dev/x");
     if (_x_pid > 0) {
         xscreen_info_t scr;
+        x_theme_t theme;
         x_screen_info(&scr, 0);
         if (scr.size.w > 0)
             _scr_w = scr.size.w;
         if (scr.size.h > 0)
             _scr_h = scr.size.h;
+        /* refresh the libx hidpi cache so x_hidpi_size() scales the
+           edge-ignore margin exactly like the server does */
+        x_get_theme(&theme);
     }
 }
 

@@ -97,6 +97,7 @@ static int32_t exec_from_storage(const char* prog, const char* cmdline,
 #define ROOTFS_AUTO 2
 #define ROOTFS_SELF 3
 #define ROOTFS_NVME 4
+#define ROOTFS_NET  5
 
 static int _bootnet;
 
@@ -335,6 +336,7 @@ static const char* rootfs_name(int selected) {
     case ROOTFS_USB: return "usb";
     case ROOTFS_SELF: return "self";
     case ROOTFS_NVME: return "nvme";
+    case ROOTFS_NET: return "net";
     default: return "none";
     }
 }
@@ -359,8 +361,19 @@ static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
             }
         }
     } else if (policy == ROOTFS_NVME) {
-        if (try_nvme_rootfs() == 0)
+        /* NVMe first; a missing NVMe (slot empty, link down) must not
+         * dead-end the boot -- continue with the established order. */
+        if (try_nvme_rootfs() == 0) {
             selected = ROOTFS_NVME;
+        } else {
+            if (run_before_vfs("/sbin/sdfsd") == 0)
+                selected = ROOTFS_SD;
+            else if (start_usb_host() == 0 && try_usb_rootfs() == 0) {
+                usb_host = 1;
+                selected = ROOTFS_USB;
+            } else if (try_net_rootfs() == 0)
+                selected = ROOTFS_NET;
+        }
     } else {
         /* Self first, followed by the fixed cross-device order.  Duplicate
          * backends are skipped because the daemon represents the whole class

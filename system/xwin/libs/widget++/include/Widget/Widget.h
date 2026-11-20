@@ -82,6 +82,7 @@ public:
 	inline void setMarginV(int32_t v) { marginV = v; }
 	inline void setFixed(bool fixed) { this->fixed = fixed; }
 	inline bool isAlpha() { return alpha; }
+	inline bool isDirty() { return dirty; }
 	inline uint32_t getID() { return id; }
 	inline void setID(uint32_t id) { this->id = id; }
 	inline const string& getName() { return name; }
