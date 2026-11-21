@@ -47,9 +47,26 @@ static uint64_t _autoconnect_due_ms = 0;
    reported from */
 static uint16_t _disc_pending_handle = 0;
 
+/* Reader wakeups are deferred to bt_loop: bt_emit also runs from dev.cmd
+   handlers, which execute on the kernel's IPC software interrupt. A nested
+   ipc_call to vfsd from there can park behind a vfsd worker that is itself
+   parked on a callback into this daemon (xbt reads/polls /dev/bt0 nonstop),
+   and the kernel watchdogs freeze parked waiters - the circular park never
+   recovers and wedges the whole IPC service (observed on 8gen3: LE
+   connect/pair replied no_reply and every later verb hung). The main loop
+   drains the flag within one tick (<=20ms idle, 2ms with a live HID link). */
+static volatile bool _evt_wakeup_pending = false;
+
 static void bt_wakeup_readers(void) {
-    if (_bt_dev != NULL && _bt_dev->mnt_info.node != 0) {
-        vfs_wakeup(_bt_dev->mnt_info.node, VFS_EVT_RD);
+    _evt_wakeup_pending = true;
+}
+
+static void bt_wakeup_readers_step(void) {
+    if (_evt_wakeup_pending) {
+        _evt_wakeup_pending = false;
+        if (_bt_dev != NULL && _bt_dev->mnt_info.node != 0) {
+            vfs_wakeup(_bt_dev->mnt_info.node, VFS_EVT_RD);
+        }
     }
 }
 
@@ -74,12 +91,23 @@ void bt_emit(const char* fmt, ...) {
         len = (int)sizeof(line) - 1;
     }
 
-    ipc_disable();
+    /* One raw attempt, never the libc ipc_disable(): that wrapper retries
+       with sched_yield() until the kernel accepts, and the kernel refuses
+       while ANY request is being served - from inside a dev.cmd handler
+       (this very request) it would spin forever and wedge the daemon.
+       Loop context: the disable succeeds and no handler can preempt the
+       push. Handler context: the refusal means the loop is suspended
+       outside this section (it only pushes while holding the disable,
+       which would have blocked this handler), so pushing unprotected
+       cannot interleave with a loop-side line. */
+    bool guarded = (syscall0(SYS_IPC_DISABLE) == 0);
     for (i = 0; i < len; ++i) {
         charbuf_push(_evt_buf, line[i], true);
     }
     charbuf_push(_evt_buf, '\n', true);
-    ipc_enable();
+    if (guarded) {
+        syscall0(SYS_IPC_ENABLE);
+    }
     bt_wakeup_readers();
 }
 
@@ -1940,6 +1968,17 @@ int bt_loop(vdevice_t* dev, void* p) {
     (void)p;
 
     hid_set_node(dev->mnt_info.node);
+
+    /* deferred reader wakeup: bt_emit may have run on a dev.cmd IPC
+       interrupt, where the nested vfsd call is unsafe (see
+       bt_wakeup_readers). This is the daemon's main context. */
+    bt_wakeup_readers_step();
+
+    /* flush the bsp's in-memory HCI trace to /tmp/bt0.log: the bsp logs
+       from rx_feed which also runs on IPC-interrupt context, so the file
+       write must happen here in the main context (weak: 8gen3 only) */
+    if (bsp_bt_trace_drain != NULL)
+        bsp_bt_trace_drain();
 
     /* must run before the first bt_poll_once: until bt_driver_init maps the
        MMIO window the UART registers are not readable */
