@@ -14,11 +14,37 @@ __entry:
 #endif
     # Mask exceptions and interrupts
     msr DAIFSet, #0xf
+
+#ifdef ORIN_BOARD
+    /* Resolve the logical core id while still executing in the physical
+     * .init alias (MMU off).  The resolver encodes the Orin MPIDRs as
+     * immediates, so it needs no mapped data.  x20 survives the C calls
+     * below (callee-saved). */
+    bl orin_resolve_core_id
+    mov x20, x0
+#endif
 	
 	# Check if we are running in EL2 and switch to EL1
     mrs x0, CurrentEL
     cmp x0, #4
     beq __el1_entry
+
+#ifdef ORIN_BOARD
+    # Enable GICv3 system-register access at EL2 before dropping to EL1.
+    # ICC_SRE_EL1.SRE is RAZ/WI while ICC_SRE_EL2.SRE=0, so the kernel's EL1
+    # SRE write would be silently ignored and every ICC_* access would trap.
+    # Jetson UEFI (and PSCI secondaries) enter at EL2; SRE|DIB|DFB = 0xD.
+    mov x0, #0xD
+    msr S3_4_C12_C9_5, x0   /* ICC_SRE_EL2 */
+    isb
+    # Zero the virtual-counter offset so CNTVCT == CNTPCT (the physical system
+    # counter).  The SBSA watchdog compares WCV against the physical counter,
+    # while the arm/pet code reads CNTVCT; they must agree or the dog fires
+    # immediately / never.
+    mov x0, #0
+    msr CNTVOFF_EL2, x0
+    isb
+#endif
 
     # Enable AARCH64 mode in EL1; Disable general exceptions trap
     mov x0, #1
@@ -97,11 +123,11 @@ __el1_entry:
     orr x0, x0, x1
     msr SCTLR_EL1, x0
 
-#ifdef Q8B_BOARD
+#if defined(Q8B_BOARD) || defined(ORIN_BOARD)
     cbnz x20, 8f
 #endif
 	bl _boot_start
-#ifdef Q8B_BOARD
+#if defined(Q8B_BOARD) || defined(ORIN_BOARD)
     b 9f
 8:
     /* The boot core has already published and flushed these tables before
@@ -111,12 +137,18 @@ __el1_entry:
 #endif
 
 #ifdef KERNEL_SMP
+#ifdef ORIN_BOARD
+	# logical id resolved at entry (the Aff0|Aff1 merge collides on the
+	# Orin Nano 4+2 cluster layout)
+	mov x0, x20
+#else
 	# core id: Aff0 on A53/A72 (virt/pi4), Aff1 on DynamIQ A76 (pi5);
 	# the unused level reads as 0, so merging both yields the core number
 	mrs x0, mpidr_el1
 	ubfx x1, x0, #8, #8
     and x0, x0, #0xFF
 	orr x0, x0, x1
+#endif
     cmp x0, #0
     bne slave_core
 #endif

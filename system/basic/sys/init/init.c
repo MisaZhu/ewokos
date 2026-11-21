@@ -23,6 +23,16 @@
 #  include <q8b_platform.h>
 #  define INIT_HAS_RAMFS_RELEASE 1
 # endif
+# if __has_include(<machine_conf.h>)
+#  include <machine_conf.h>
+# endif
+#endif
+
+/* Per-machine driver namespace under /drivers.  Defaults to the Q8B layout
+ * so existing machines are unchanged; a machine overrides it by installing
+ * machine_conf.h (e.g. orin.nano defines INIT_DRIVER_DIR "orin.nano"). */
+#ifndef INIT_DRIVER_DIR
+# define INIT_DRIVER_DIR "8gen3"
 #endif
 
 extern void* read_fs(const char* fname, off_t* size);
@@ -477,7 +487,7 @@ static void idle(void) {
  * process. */
 static void rescue_shell(void) {
     klog("init: starting rescue shell\n");
-    run_before_vfs("/drivers/8gen3/uartd /dev/tty0");
+    run_before_vfs("/drivers/" INIT_DRIVER_DIR "/uartd /dev/tty0");
     run_before_vfs("/sbin/sessiond");
     run_before_vfs("/bin/bgrun /bin/session -r -t /dev/tty0");
     while(true)

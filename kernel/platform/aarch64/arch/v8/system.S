@@ -1,5 +1,11 @@
 .global __core_id
 __core_id:
+#ifdef ORIN_BOARD
+    /* Tegra234 affinity is Aff2=cluster/Aff1=core/Aff0=0; the generic merge
+       below drops Aff2 and collides across Orin Nano's two clusters.  Use
+       the BSP MPIDR-table resolver (normal .text, valid after boot). */
+    b orin_core_id
+#else
     /* core id: Aff0 on A53/A72 (virt/pi4), Aff1 on DynamIQ A76 (pi5);
        the unused level reads as 0, so merging both yields the core number */
     mrs x0, mpidr_el1
@@ -7,6 +13,7 @@ __core_id:
     and x0, x0, #0xFF
     orr x0, x0, x1
 	ret
+#endif
 
 .global __set_vector_table
 __set_vector_table:

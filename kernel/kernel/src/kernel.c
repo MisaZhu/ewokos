@@ -396,11 +396,18 @@ void _kernel_entry_c(void) {
         kfork_core_halt(i);
         flush_dcache();
         start_core(i);
-        while(!_cpu_cores[i].actived) {
-            //continue;
+        /* Bounded wait: a secondary that fails to come up (e.g. PSCI CPU_ON
+         * RAS error) must not hang the boot core forever with IRQs off --
+         * give up after ~1s and continue so the system stays reachable. */
+        uint32_t wait = 0;
+        while(!_cpu_cores[i].actived && wait < 100) {
             _delay_msec(10);
+            wait++;
         }
-        printf(" %d", i);
+        if(_cpu_cores[i].actived)
+            printf(" %d", i);
+        else
+            printf(" %d:FAIL", i);
     }
     printf("\n");
 #endif
