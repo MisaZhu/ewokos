@@ -10,6 +10,12 @@ CFLAGS += -I $(BUILD_DIR)/include \
           -I $(SYS_DIR)/gui/libs/usb/include \
           -I $(SYS_DIR)/gui/libs/hid/include
 
+# Orin bring-up profile has no /dev/log: route enumeration logs to the
+# kernel console so they are visible on the serial rig.
+ifeq ($(HW),orin.nano)
+CFLAGS += -D'slog(...)=klog(__VA_ARGS__)'
+endif
+
 USBHOSTD_OBJS = $(ARCH)/usbhostd.o
 
 USBHOSTD = $(TARGET_DIR)/drivers/$(HW)/usbhostd
