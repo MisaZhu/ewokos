@@ -1430,6 +1430,19 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 	if(strcmp(argv[0], "info") == 0)
 		return g2d_strdup("stateless argb8888 shm canvases via soft");
 
+	/* `devcmd /dev/g2d sleep|wake` is powerd's GPU power hint: on sleep the
+	   back end may collapse idle GPU power domains (Q8B: GMU IFPC), on wake
+	   it restores them.  bsp_g3d_sleep is a weak symbol - only the Q8B BSP
+	   defines it, every other machine resolves it to NULL and declines, so
+	   the shared compositor needs no per-machine #ifdef. */
+	if(strcmp(argv[0], "sleep") == 0 || strcmp(argv[0], "wake") == 0) {
+		extern int32_t bsp_g3d_sleep(int32_t sleep) __attribute__((weak));
+		if(bsp_g3d_sleep == NULL)
+			return g2d_strdup("gpu power: not supported\n");
+		int32_t rc = bsp_g3d_sleep(strcmp(argv[0], "sleep") == 0 ? 1 : 0);
+		return g2d_strdup(rc == 0 ? "ok\n" : "gpu power: declined\n");
+	}
+
 	/* `devcmd /dev/g2d cache 0|1` toggles the attach cache at runtime,
 	   `devcmd /dev/g2d cache` reports the hit/miss/evict counters. The
 	   table walk, its counters and the drain all run under _g2d_map_lock

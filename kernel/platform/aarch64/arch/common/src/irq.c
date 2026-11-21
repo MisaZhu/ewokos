@@ -173,7 +173,14 @@ void arch_irq_prologue(context_t* ctx) {
 }
 
 void arch_irq_idle(void) {
+#ifdef Q8B_BOARD
+    /* SC8280XP: secondary cores may park via PSCI CPU_SUSPEND when powerd
+     * has opted in (flag defaults off -> plain WFI).  Core 0 always WFIs. */
+    extern void q8b_arch_irq_idle(void);
+    q8b_arch_irq_idle();
+#else
     wfi();
+#endif
 }
 
 uint8_t arch_fault_recoverable(uint32_t status) {

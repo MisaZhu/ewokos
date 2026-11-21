@@ -1055,6 +1055,21 @@ static int sdext_dev_cntl(vdevice_t* dev, int from_pid, int cmd,
     return 0;
 }
 
+/* Machine-specific dev.cmd diagnostics (Q8B: `devcmd / apst` reports the
+ * NVMe autonomous power state configuration).  bsp_sdfsd_cmd is a weak
+ * symbol - only the Q8B BSP defines it, every other machine resolves it
+ * to NULL and declines, so the shared rootfs server needs no per-machine
+ * #ifdef. */
+extern char* bsp_sdfsd_cmd(int argc, char** argv) __attribute__((weak));
+
+static char* sdext_cmd(vdevice_t* dev, int from_pid, int argc,
+        char** argv, void* p) {
+    (void)dev; (void)from_pid; (void)p;
+    if (bsp_sdfsd_cmd == NULL)
+        return NULL;
+    return bsp_sdfsd_cmd(argc, argv);
+}
+
 int main(int argc, char** argv) {
     const char* mount_point = "/";
     int sd_mode = 1;
@@ -1183,6 +1198,7 @@ int main(int argc, char** argv) {
     dev.mount = sdext_mount;
     dev.read = sdext_read;
     dev.dev_cntl = sdext_dev_cntl;
+    dev.cmd = sdext_cmd;
     dev.write = readonly ? NULL : sdext_write;
     dev.create = readonly ? NULL : sdext_create;
     dev.open = sdext_open;
