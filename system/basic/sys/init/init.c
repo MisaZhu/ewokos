@@ -35,6 +35,17 @@
 # define INIT_DRIVER_DIR "8gen3"
 #endif
 
+#define INIT_PCIED_PATH "/drivers/" INIT_DRIVER_DIR "/pcied"
+#define INIT_PCIED_LEN  (sizeof(INIT_PCIED_PATH) - 1)
+
+/* Starting the PCIe owner before the USB host's first root-hub scan is a Q8B
+ * WCN6855 workaround: the PCIe cold-cycle churns the shared USB bus.  Machines
+ * whose PCIe owner must not run at boot (orin.nano, where the C1 cold-own is
+ * still disabled) set INIT_EARLY_PCIE_OWNER 0 in machine_conf.h. */
+#ifndef INIT_EARLY_PCIE_OWNER
+# define INIT_EARLY_PCIE_OWNER 1
+#endif
+
 extern void* read_fs(const char* fname, off_t* size);
 
 /*
@@ -155,7 +166,8 @@ static int make_init_without_pcied(const char* source, const char* target) {
         off_t end = i < size ? i + 1 : i;
         int skip = 0;
         for(off_t j = line; j < i; j++) {
-            if(j + 18 <= i && memcmp(text + j, "/drivers/8gen3/pcied", 18) == 0) {
+            if(j + (off_t)INIT_PCIED_LEN <= i &&
+                    memcmp(text + j, INIT_PCIED_PATH, INIT_PCIED_LEN) == 0) {
                 skip = 1;
                 break;
             }
@@ -277,7 +289,7 @@ static int rootfs_policy(void) {
 }
 
 static int start_usb_host(void) {
-    return run_before_vfs("/drivers/8gen3/usbhostd /dev/usb0 --no-msc-mount");
+    return run_before_vfs("/drivers/" INIT_DRIVER_DIR "/usbhostd /dev/usb0 --no-msc-mount");
 }
 
 static int start_bootfs(void) {
@@ -527,8 +539,10 @@ int main(int argc, char** argv) {
      * the file present).  Bring the PCIe owner up before the USB host's
      * first root-hub scan for every rootfs source; the persistent
      * profiles' pcied line is filtered once /dev/pcie0 is owned. */
-    if(run_before_vfs("/drivers/8gen3/pcied /dev/pcie0") == 0)
-        klog("init: Q8B PCIe owner ready before USB host\n");
+#if INIT_EARLY_PCIE_OWNER
+    if(run_before_vfs(INIT_PCIED_PATH " /dev/pcie0") == 0)
+        klog("init: PCIe owner ready before USB host\n");
+#endif
     if(run_init("/etc/init.ramfs.rd") != 0)
         klog("init: boot init profile unavailable\n");
     _pcie_owner_active = dev_get_pid("/dev/pcie0") > 0;
@@ -584,7 +598,7 @@ int main(int argc, char** argv) {
          * init script cannot reach its normal network stage. */
         (void)run_before_vfs("/drivers/timerd");
         (void)run_before_vfs("/drivers/piped /dev/pipe0");
-        (void)run_before_vfs("/drivers/8gen3/net /dev/eth0");
+        (void)run_before_vfs("/drivers/" INIT_DRIVER_DIR "/net /dev/eth0");
         (void)run_before_vfs("/drivers/netd /dev/net0 /dev/eth0");
         /* sshd delegates password validation to sessiond.  Start it from
          * the boot image as well, so the recovery profile remains usable
@@ -609,14 +623,16 @@ int main(int argc, char** argv) {
          * booting already needs usbhostd before switchroot and is unchanged.
          */
 #if defined(INIT_HAS_RAMFS_RELEASE)
+#if INIT_EARLY_PCIE_OWNER
         if (!usb_host && !_pcie_owner_active) {
-            if (run_before_vfs("/drivers/8gen3/pcied /dev/pcie0") == 0) {
+            if (run_before_vfs(INIT_PCIED_PATH " /dev/pcie0") == 0) {
                 _pcie_owner_active = 1;
-                klog("init: Q8B PCIe owner ready before USB host\n");
+                klog("init: PCIe owner ready before USB host\n");
             } else {
-                klog("init: Q8B PCIe owner failed before USB host\n");
+                klog("init: PCIe owner failed before USB host\n");
             }
         }
+#endif
 #endif
         /* A USB host used only for automounting starts in the persistent root.
          * A host that supplied the USB rootfs was already moved by switchroot. */
