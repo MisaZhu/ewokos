@@ -26,6 +26,7 @@
 #include <ewoksys/mmio.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/ipc.h>
+#include <ewoksys/syscall.h>
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/klog.h>
 
@@ -948,6 +949,12 @@ extern bool _le_resolving;
 /* ---- cross-module function prototypes ---- */
 /* btd.c */
 void bt_emit(const char* fmt, ...);
+
+/* Machine trace drain (8gen3 bsp_bt): the bsp's bt_log buffers into memory
+   because it also runs on IPC-interrupt context; only the main loop may
+   write the trace file. Weak: machines without a buffered trace lack it. */
+void bsp_bt_trace_drain(void) __attribute__((weak));
+
 void bt_ret_append(char* ret, size_t ret_sz, const char* fmt, ...);
 int bt_hci_send_packet(uint8_t pkt_type, const uint8_t* data, size_t len);
 int bt_hci_send_command(uint16_t ogf, uint16_t ocf, const uint8_t* params, uint8_t param_len);

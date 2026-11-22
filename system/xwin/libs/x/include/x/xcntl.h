@@ -210,10 +210,22 @@ typedef struct {
 everything below are all unchanged. The decoration ring already sitting in
 	frame_g is therefore still valid and is NOT cleared, so the WM only has to
 	re-cut the rounded corners that the fresh workspace blit overwrote. Only
-	sent for a frosted rounded theme (frame_blur != 0 && round > 0), which is
-	the MisaWM glass model; other WMs never see it.*/
+	sent to a WM that registers retained_decorations, for a rounded theme
+	(round > 0) - the glass model that honours content_only, with or without
+	blur; WMs that redraw their ring every frame never see it.*/
 	bool backdrop_unchanged;
 	bool corners_only;
+
+	/*Client-published workspace damage, in ws coordinates. libx latches it
+	  from xwin_set_damage and publishes it with the frame (written before the
+	  update_requested release barrier), so the compositor may rebuild and
+	  blend only that band instead of the whole window - but only while
+	  everything the full-frame blend depends on is unchanged (see draw_win's
+	  band gate). The server clears ws_damage_valid once it consumed the hint,
+	  so a stale rect can never shrink a later frame. Clients that never stage
+	  damage leave valid 0 and keep the full-frame path.*/
+	grect_t ws_damage;
+	volatile uint32_t ws_damage_valid;
 } xinfo_t;
 
 typedef struct {

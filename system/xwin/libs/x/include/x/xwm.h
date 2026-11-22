@@ -27,6 +27,11 @@ typedef struct {
 	uint32_t backdrop_generation;
 	uint32_t clean_snapshot;
 	uint32_t content_only;
+	/*frame-coordinate band the content change is confined to (only ever
+	  valid alongside content_only). The WM clips its client-area rebuild
+	  to it; damage_valid 0 means the whole workspace.*/
+	grect_t damage;
+	uint32_t damage_valid;
 } xwm_frame_meta_t;
 
 typedef struct {

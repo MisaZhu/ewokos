@@ -1,12 +1,48 @@
 #include "textgrid/textgrid.h"
 #include "ewoksys/keydef.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define MAX_ROWS 1024
-#define EXPAND_ROWS  16
+/* Shift batch granularity once the scrollback is full: every batch costs one
+ * near-full-grid memmove, so a larger batch amortizes that move over more
+ * produced lines (16 -> 128 cuts the total bytes moved ~8x). The scrollback
+ * capacity is unchanged; only the granularity at which the oldest rows are
+ * dropped grows. */
+#define EXPAND_ROWS  128
+
+void textgrid_mark_dirty(textgrid_t* textgrid, int32_t start, int32_t end) {
+    if(!textgrid)
+        return;
+    if(start < 0)
+        start = 0;
+    if(start >= end)
+        return;
+    if(textgrid->dirty_start >= textgrid->dirty_end) {
+        textgrid->dirty_start = start;
+        textgrid->dirty_end = end;
+        return;
+    }
+    if(start < textgrid->dirty_start)
+        textgrid->dirty_start = start;
+    if(end > textgrid->dirty_end)
+        textgrid->dirty_end = end;
+}
+
+void textgrid_clean_dirty(textgrid_t* textgrid) {
+    if(!textgrid)
+        return;
+    textgrid->dirty_start = 0;
+    textgrid->dirty_end = 0;
+}
+
+static void textgrid_invalidate(textgrid_t* textgrid) {
+    textgrid->dirty_start = 0;
+    textgrid->dirty_end = INT32_MAX;
+}
 
 textgrid_t* textgrid_new(void) {
     textgrid_t* textgrid = (textgrid_t*)malloc(sizeof(textgrid_t));
@@ -14,6 +50,7 @@ textgrid_t* textgrid_new(void) {
         return NULL;
     memset(textgrid, 0, sizeof(textgrid_t));
     textgrid->max_rows = MAX_ROWS;
+    textgrid_invalidate(textgrid);
     return textgrid;
 }
 
@@ -39,6 +76,7 @@ void textgrid_clear(textgrid_t* textgrid) {
     memset(textgrid, 0, sizeof(textgrid_t));
     textgrid->cols = cols;
     textgrid->max_rows = max_rows;
+    textgrid_invalidate(textgrid);
 }
 
 int textgrid_set_max_rows(textgrid_t* textgrid, uint32_t max_rows) {
@@ -77,6 +115,8 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
     uint32_t rows = textgrid->rows;
     if(p == NULL || old_cols == 0 || rows == 0) {
         textgrid->cols = cols;
+        textgrid->shift_total = 0;
+        textgrid_invalidate(textgrid);
         return 0;
     }
 
@@ -215,10 +255,14 @@ int textgrid_reset(textgrid_t* textgrid, uint32_t cols) {
         }
     }
     textgrid->tail_col = tail;
+    textgrid->shift_total = 0;
+    textgrid_invalidate(textgrid);
     return 0;
 }
 
-static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
+static int textgrid_expand(textgrid_t* grid, uint32_t rows, uint32_t* shifted) {
+    if(shifted != NULL)
+        *shifted = 0;
     if(grid == NULL || grid->cols == 0)
         return -1;
 
@@ -231,6 +275,20 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
      * produced. */
     uint32_t rows_new = grid->total_rows + rows;
     if(rows_new <= grid->max_rows || grid->rows == 0) {
+        /* Grow the capacity in EXPAND_ROWS batches as well: cursor-addressed
+         * callers (textgrid_move_to) ask for the exact single row they need,
+         * and honoring that literally reallocs + clears the grid once per
+         * produced line during the initial fill (measured ~1ms/line). Keep
+         * the exact request for the empty-grid bootstrap so a lone blank
+         * cell does not allocate a full batch. total_rows stays the
+         * allocation bound every caller checks against, so overshooting the
+         * request is invisible to them; cap at max_rows. */
+        if(rows > 0 && rows < EXPAND_ROWS) {
+            rows = EXPAND_ROWS;
+            rows_new = grid->total_rows + rows;
+            if(rows_new > grid->max_rows)
+                rows_new = grid->max_rows;
+        }
         // Check for integer overflow.
         if(grid->cols == 0 ||
                 rows_new > (UINT32_MAX / sizeof(textchar_t)) / grid->cols)
@@ -253,17 +311,24 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
             
         if(rows_new > grid->total_rows)
             rows_new = grid->total_rows;
+        /* Shift in batches, not by the exact request: a newline asks for a
+         * single row, and moving the whole grid per line costs a full-grid
+         * memmove per produced line once the scrollback is full. Drop
+         * EXPAND_ROWS at once so the next lines grow into the freed tail
+         * without touching the grid again. */
+        if(rows < EXPAND_ROWS)
+            rows = EXPAND_ROWS;
         if(rows > grid->rows)
             rows = grid->rows;
         
-        for(uint32_t r = rows; r < grid->rows; r++) {
-            for(uint32_t c = 0; c < grid->cols; c++) {
-                uint32_t at0 = ((r-rows) * grid->cols) + c;
-                uint32_t at1 = (r * grid->cols) + c;
-                memcpy(&grid->grid[at0], &grid->grid[at1], sizeof(textchar_t));
-            }
-            grid->wrapped[r-rows] = grid->wrapped[r];
-        }
+        /* one bulk move instead of a per-row memcpy loop: this runs every
+         * EXPAND_ROWS new lines once the scrollback is full */
+        uint32_t keep = grid->rows - rows;
+        if(shifted != NULL)
+            *shifted = rows;
+        memmove(grid->grid, grid->grid + (size_t)rows * grid->cols,
+                (size_t)keep * grid->cols * sizeof(textchar_t));
+        memmove(grid->wrapped, grid->wrapped + rows, keep);
         grid->rows -= rows;
         if(grid->rows == 0)
             grid->curs_y = 0;
@@ -273,28 +338,30 @@ static int textgrid_expand(textgrid_t* grid, uint32_t rows) {
         /* the oldest kept row lost its predecessor: it starts a logical line */
         if(grid->rows > 0)
             grid->wrapped[0] = 0;
-        
-        // Shrink memory to match new total_rows
-        if(grid->total_rows > 0) {
-            if(grid->cols != 0 &&
-                    grid->total_rows > (UINT32_MAX / sizeof(textchar_t)) / grid->cols)
-                return -1;
-            uint32_t new_size = grid->cols * grid->total_rows;
-            textchar_t* new_grid = (textchar_t*)realloc(grid->grid, new_size * sizeof(textchar_t));
-            if(new_grid != NULL)
-                grid->grid = new_grid;
-            uint8_t* new_wrapped = (uint8_t*)realloc(grid->wrapped, grid->total_rows);
-            if(new_wrapped != NULL)
-                grid->wrapped = new_wrapped;
+        /* every produced row moved up by `rows`: translate the pending
+         * dirty range with the content so painters can scroll the canvas
+         * and repaint only the new rows instead of the whole viewport */
+        grid->shift_total += rows;
+        if(grid->dirty_end != INT32_MAX && grid->dirty_start < grid->dirty_end) {
+            grid->dirty_start -= (int32_t)rows;
+            grid->dirty_end -= (int32_t)rows;
+            if(grid->dirty_end <= 0)
+                textgrid_clean_dirty(grid);
+            else if(grid->dirty_start < 0)
+                grid->dirty_start = 0;
         }
+        /* total_rows (the allocation) is unchanged by a shift: no realloc
+         * here, the freed tail is simply cleared below */
     }
 
-    for(uint32_t r = grid->rows; r < grid->total_rows; r++) {
-        for(uint32_t c = 0; c < grid->cols; c++) {
-            uint32_t at = (r * grid->cols) + c;
-            memset(&grid->grid[at], 0, sizeof(textchar_t));
-        }
-        grid->wrapped[r] = 0;
+    /* clear the freed tail in one bulk memset per array: the per-cell loop
+     * used to issue cols memsets per row (thousands of tiny calls per shift,
+     * measured ~1ms of pure call overhead on a 200-column grid) */
+    if(grid->total_rows > grid->rows) {
+        uint32_t tail = grid->total_rows - grid->rows;
+        memset(grid->grid + (size_t)grid->rows * grid->cols, 0,
+                (size_t)tail * grid->cols * sizeof(textchar_t));
+        memset(grid->wrapped + grid->rows, 0, tail);
     }
     return 0;
 }
@@ -308,10 +375,23 @@ int textgrid_put(textgrid_t* textgrid, int x, int y, textchar_t* tc) {
         return -1;
     if((uint32_t)y >= textgrid->total_rows) {
         uint32_t expand = y-textgrid->total_rows+1;
-        if(textgrid_expand(textgrid, expand) != 0)
+        uint32_t shifted = 0;
+        if(textgrid_expand(textgrid, expand, &shifted) != 0)
+            return -1;
+        /* a full scrollback shifts content up instead of growing: the
+         * requested row moved with it, so translate instead of clamping
+         * to the tail (which would skip the freed rows as blank lines) */
+        y -= (int)shifted;
+        /* expand may shift the scrollback instead of growing when the
+         * request exceeds max_rows: re-clamp or the write lands past the
+         * allocation and corrupts the heap */
+        if((uint32_t)y >= textgrid->total_rows)
+            y = (int)textgrid->total_rows - 1;
+        if(y < 0)
             return -1;
     }
 
+    uint32_t old_rows = textgrid->rows;
     if((uint32_t)(y + 1) >= textgrid->rows) {
         /* cursor-addressed rows are hard breaks, never soft-wrap continuations */
         for(uint32_t r = textgrid->rows; r <= (uint32_t)y; r++)
@@ -321,7 +401,20 @@ int textgrid_put(textgrid_t* textgrid, int x, int y, textchar_t* tc) {
     }
 
     textgrid->grid[y * textgrid->cols + x] = *tc;
+    textgrid_mark_dirty(textgrid, y, y+1);
+    if(textgrid->rows > old_rows)
+        textgrid_mark_dirty(textgrid, (int32_t)old_rows, (int32_t)textgrid->rows);
     return 0;
+}
+
+/* push may move the cursor across rows (wrap, newline, backspace, or a
+ * scrollback shift resetting it): mark every row between the entry row
+ * and the final one so partial repaints cover erased and written cells */
+static void push_mark_dirty(textgrid_t* grid, int32_t r0) {
+    int32_t r1 = grid->curs_y;
+    int32_t lo = r0 < r1 ? r0 : r1;
+    int32_t hi = r0 > r1 ? r0 : r1;
+    textgrid_mark_dirty(grid, lo, hi+1);
 }
 
 int textgrid_push(textgrid_t* grid, textchar_t* tch) {
@@ -330,6 +423,8 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 
     if(tch->c == 0)
         return 0;
+
+    int32_t r0 = grid->curs_y;
     
     bool is_tail = false;
     if((uint32_t)(grid->curs_y + 1) >= grid->rows && grid->tail_col == grid->curs_x)
@@ -351,6 +446,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
                 grid->tail_col = grid->curs_x;
                 grid->rows = grid->curs_y+1;
             }
+            push_mark_dirty(grid, r0);
             return 0;
         }
 
@@ -384,7 +480,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 
     if(new_line) {
         if((uint32_t)(grid->curs_y + 1) >= grid->total_rows) { //expand grid
-            if(textgrid_expand(grid, EXPAND_ROWS) != 0)
+            if(textgrid_expand(grid, EXPAND_ROWS, NULL) != 0)
                 return -1;
         }
         if(grid->rows != 0)
@@ -404,7 +500,7 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
 
     if(tch->c == '\n' || tch->c == '\r') {
         if((uint32_t)(grid->curs_y + 1) >= grid->total_rows) {
-            if(textgrid_expand(grid, EXPAND_ROWS) != 0)
+            if(textgrid_expand(grid, EXPAND_ROWS, NULL) != 0)
                 return -1;
         }
         if(grid->rows != 0)
@@ -413,8 +509,10 @@ int textgrid_push(textgrid_t* grid, textchar_t* tch) {
             grid->rows = grid->curs_y+1;
         grid->wrapped[grid->curs_y] = 0;  /* explicit break, never a soft wrap */
         grid->curs_x = 0;
+        push_mark_dirty(grid, r0);
         return 0;
     }
+    push_mark_dirty(grid, r0);
     return 0;
 }
 
@@ -433,10 +531,20 @@ int textgrid_move_to(textgrid_t* textgrid, int32_t x, int32_t y) {
     
     if((uint32_t)y >= textgrid->total_rows) {
         uint32_t expand = y-textgrid->total_rows+1;
-        if(textgrid_expand(textgrid, expand) != 0)
+        uint32_t shifted = 0;
+        if(textgrid_expand(textgrid, expand, &shifted) != 0)
+            return -1;
+        /* expand may shift instead of grow past max_rows: the target row
+         * moved up with the content, translate before the final clamp */
+        y -= (int32_t)shifted;
+        if((uint32_t)y >= textgrid->total_rows)
+            y = (int32_t)textgrid->total_rows - 1;
+        if(y < 0)
             return -1;
     }
 
+    int32_t old_y = textgrid->curs_y;
+    uint32_t old_rows = textgrid->rows;
     if((uint32_t)(y + 1) >= textgrid->rows) {
         /* cursor-addressed rows are hard breaks, never soft-wrap continuations */
         for(uint32_t r = textgrid->rows; r <= (uint32_t)y; r++)
@@ -447,6 +555,12 @@ int textgrid_move_to(textgrid_t* textgrid, int32_t x, int32_t y) {
 
     textgrid->curs_x = x;	
     textgrid->curs_y = y;	
+    /* the cursor bar is painted on its row: refresh both the row it left
+     * and the row it landed on */
+    textgrid_mark_dirty(textgrid, old_y, old_y+1);
+    textgrid_mark_dirty(textgrid, y, y+1);
+    if(textgrid->rows > old_rows)
+        textgrid_mark_dirty(textgrid, (int32_t)old_rows, (int32_t)textgrid->rows);
     return 0;
 }
 
@@ -460,12 +574,17 @@ int textgrid_paint(graph_t* g,
 
     if(!textgrid || !textgrid->grid ||
             textgrid->cols == 0 || (uint32_t)start_row >= textgrid->rows ||
-            w == 0 || h == 0) 
+            w == 0 || h == 0 || row_height == 0)
         return -1;
     
     uint32_t chw = w / textgrid->cols;
     uint32_t chh = row_height;
-    for(uint32_t i = (uint32_t)start_row; i < textgrid->rows; i++) {
+    /* only the rows the viewport can show (round up for a partial row);
+     * painting the whole scrollback here is wasted work when scrolled back */
+    uint32_t end_row = (uint32_t)start_row + (h + chh - 1) / chh;
+    if(end_row > textgrid->rows || end_row < (uint32_t)start_row)
+        end_row = textgrid->rows;
+    for(uint32_t i = (uint32_t)start_row; i < end_row; i++) {
         int cy = y + ((i-start_row)*chh);
         for(uint32_t j = 0; j < textgrid->cols; j++) {
             uint32_t at = i*textgrid->cols + j;

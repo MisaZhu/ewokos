@@ -1,7 +1,7 @@
 all: builtin_apps
 	@echo "all done."
 
-DIRS = splash disptest g2dtest wavplayer mp3player oggplayer load_font
+DIRS = splash disptest g2dtest wavplayer mp3player oggplayer load_font vim
 builtin_apps: $(DIRS)
 
 $(DIRS):

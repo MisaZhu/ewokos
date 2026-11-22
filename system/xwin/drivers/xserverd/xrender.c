@@ -172,7 +172,8 @@ static void clear_frame_ring(xwin_t* win) {
     graph_set(g, ws.x + ws.w, ws.y, g->w - ws.x - ws.w, ws.h, 0); //right
 }
 
-static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
+static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable,
+        const grect_t* band) {
     x_display_t *display = &x->displays[win->xinfo->display_index];
     if(display->g == NULL)
         return;
@@ -184,11 +185,12 @@ static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
       the backdrop below is stable, no ws blur or bg effect to rebuild) - only
       this window's own workspace content did. The ring already in frame_g is
       still valid, so it is NOT cleared and the xwm only re-cuts the rounded
-      corners the fresh workspace blit below overwrites. Gated on the frosted
-      rounded theme (frame_blur && round) because that is the MisaWM glass model
-      that knows how to honour the hint; other WMs never receive it.*/
+      corners the fresh workspace blit below overwrites. Gated on the WM's
+      retained-decoration capability and a rounded theme (round > 0) - the same
+      glass model that honours content_only, with or without blur; WMs that
+      redraw their ring every frame never receive it.*/
     bool corners_only = win->frame_dirty && !win->frame_full && backdrop_stable &&
-            x->config.xwm_theme.frameBlur != 0 &&
+            x->xwm_retained_decorations &&
             x->config.xwm_theme.round > 0 &&
             !ws_blur_active(x, win) && !win_bg_effect_active(x, win);
 
@@ -211,10 +213,21 @@ static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
         if(g != NULL) {
             int32_t ox = win->xinfo->wsr.x - win->xinfo->winr.x;
             int32_t oy = win->xinfo->wsr.y - win->xinfo->winr.y;
-            graph_blt(g, 0, 0, g->w, g->h,
-                    win->frame_g, ox, oy,
-                    win->xinfo->wsr.w,
-                    win->xinfo->wsr.h);
+            /*with a damage band only that part of the workspace changed, so
+              only that part has to be refreshed inside frame_g (the rest
+              still holds the previous content the glass was blended over)*/
+            grect_t cp = {0, 0, (int32_t)win->xinfo->wsr.w, (int32_t)win->xinfo->wsr.h};
+            if(band != NULL) {
+                cp = *band;
+                cp.x -= ox;
+                cp.y -= oy;
+                grect_t ws_bounds = {0, 0, (int32_t)win->xinfo->wsr.w, (int32_t)win->xinfo->wsr.h};
+                if(!grect_insect(&ws_bounds, &cp))
+                    cp.w = cp.h = 0;
+            }
+            if(cp.w > 0 && cp.h > 0)
+                graph_blt(g, cp.x, cp.y, cp.w, cp.h,
+                        win->frame_g, ox + cp.x, oy + cp.y, cp.w, cp.h);
         }
     }
 
@@ -263,8 +276,13 @@ static void prepare_win_content(x_t* x, xwin_t* win, bool backdrop_stable) {
     PF->addi(&in, backdrop_unchanged ? 1 : 0);
     PF->addi(&in, corners_only ? 1 : 0);
     xwm_frame_meta_t meta = {
-        win->backdrop_generation, src == win->backdrop, content_only
+        win->backdrop_generation, src == win->backdrop, content_only,
+        {0, 0, 0, 0}, 0
     };
+    if(band != NULL && content_only) {
+        meta.damage = *band;
+        meta.damage_valid = 1;
+    }
     PF->add(&in, &meta, sizeof(meta));
 
     ipc_call_wait(x->xwm_pid, XWM_CNTL_DRAW_FRAME, &in);
@@ -509,11 +527,49 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
         capture_backdrop(x, win, &win->xinfo->winr);
     bool restored = !bd->dirty && win->backdrop_valid &&
             (win->xinfo->alpha || win->frame_full);
+
+    /*damage-band fast path: the client published exactly which part of its
+      workspace changed (ws_damage). When everything the full-frame blend
+      depends on is unchanged - the backdrop below is the same snapshot the
+      frost cache was built from, the decoration ring is retained, the
+      window has not moved - the backdrop restore, the frame rebuild and the
+      final blend can all shrink to that band: the display outside it still
+      holds the correct previous composite. Any structural change (move,
+      resize, title/theme change, desktop repaint, fresh backdrop capture)
+      breaks one of the gates and the whole window is recomposited as before.*/
+    grect_t band = {0, 0, 0, 0};
+    bool band_ok = false;
+    if(restored && win->frame_g != NULL &&
+            win->xinfo->alpha && x->xwm_retained_decorations &&
+            win->frame_dirty && !win->frame_full &&
+            !win_bg_effect_active(x, win) &&
+            win->backdrop_drawn_generation == win->backdrop_generation &&
+            win->xinfo->ws_damage_valid &&
+            win->shadow_valid &&
+            memcmp(&win->shadow_rect, &win->xinfo->winr, sizeof(grect_t)) == 0) {
+        grect_t ws_bounds = {0, 0, (int32_t)win->xinfo->wsr.w, (int32_t)win->xinfo->wsr.h};
+        band = win->xinfo->ws_damage;
+        if(grect_insect(&ws_bounds, &band)) {
+            band.x += win->xinfo->wsr.x - win->xinfo->winr.x;
+            band.y += win->xinfo->wsr.y - win->xinfo->winr.y;
+            band_ok = true;
+        }
+    }
+
     if(restored) {
-        const grect_t* r = &win->backdrop_visible;
-        graph_blt(win->backdrop, r->x - win->xinfo->winr.x,
-                r->y - win->xinfo->winr.y, r->w, r->h,
-                disp_g, r->x, r->y, r->w, r->h);
+        grect_t rr = win->backdrop_visible;
+        if(band_ok) {
+            /*only the band gets re-blended below, so only the band needs the
+              clean backdrop; outside it the previous blend stays valid*/
+            grect_t bd_band = {win->xinfo->winr.x + band.x,
+                    win->xinfo->winr.y + band.y, band.w, band.h};
+            if(!grect_insect(&bd_band, &rr))
+                rr.w = rr.h = 0;
+        }
+        if(rr.w > 0 && rr.h > 0)
+            graph_blt(win->backdrop, rr.x - win->xinfo->winr.x,
+                    rr.y - win->xinfo->winr.y, rr.w, rr.h,
+                    disp_g, rr.x, rr.y, rr.w, rr.h);
     }
 
     /*the backdrop handed to xwm is only byte-stable across frames when it was
@@ -521,11 +577,15 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
       the frost has to be rebuilt and the decoration cannot be reduced to
       corners-only*/
     prepare_win_content(x, win, win->backdrop_valid &&
-            win->backdrop_drawn_generation == win->backdrop_generation);
+            win->backdrop_drawn_generation == win->backdrop_generation,
+            band_ok ? &band : NULL);
 
     /*the published frame is accepted whole on every update, so the whole
-      window gets recomposited (in frame_g coordinates)*/
+      window gets recomposited (in frame_g coordinates) - unless the damage
+      band gate above confined the change to a sub-rect*/
     grect_t dmg = {0, 0, win->xinfo->winr.w, win->xinfo->winr.h};
+    if(band_ok)
+        dmg = band;
 
     /*unless the background effect or a translucent frame keeps the whole
       picture inside frame_g, that graph only holds the decorations here:
@@ -717,6 +777,9 @@ int draw_win(graph_t* disp_g, x_t* x, xwin_t* win, grect_t* out_dmg) {
     win->dirty = false;
     win->frame_dirty = false;
     win->frame_full = false;
+    /*the damage hint describes the frame just composited: consume it so a
+      later draw (e.g. after being uncovered) never shrinks to a stale rect*/
+    win->xinfo->ws_damage_valid = 0;
     return 0;
 }
 

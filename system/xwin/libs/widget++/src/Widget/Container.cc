@@ -164,9 +164,17 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 	if(g == NULL || theme == NULL)
 		return;
 
+	RootWidget* root = getRoot();
+	bool partial = (root != NULL && root->isPartialRepaint() && !root->isDmgFull());
+	grect_t r = getRootArea();
+	grect_t clip = r;
+	if(partial) {
+		if(!root->hasDamage() || !grect_insect(&root->getDamage(), &clip))
+			return;   /* outside the damage: stay dirty for a later frame */
+	}
+
 	if(dirty) {
-		grect_t r = getRootArea();
-		graph_set_clip(g, r.x, r.y, r.w, r.h);
+		graph_set_clip(g, clip.x, clip.y, clip.w, clip.h);
 		onRepaint(g, theme, r);
 	}
 
@@ -174,7 +182,14 @@ void  Container::repaint(graph_t* g, XTheme* theme) {
 	while(wd != NULL) {
 		if(dirty)
 			wd->dirty = true;
-		wd->repaint(g, theme);
+		if(partial) {
+			grect_t wa = wd->getRootArea(false);
+			if(wd->isVisible() && grect_insect(&clip, &wa))
+				wd->repaint(g, theme);
+		}
+		else {
+			wd->repaint(g, theme);
+		}
 		wd = wd->next;
 	}
 	dirty = false;

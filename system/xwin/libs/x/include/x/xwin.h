@@ -42,6 +42,19 @@ typedef struct st_xwin {
 	   not copy that stale workspace over the newer ws_g2 frame. */
 	bool direct_frame_valid;
 
+	/*Damage staged by xwin_set_damage since the last publish (ws coords).
+	  The rect is the union of every area redrawn into ws_g since the frame
+	  the server currently holds, so presents skipped while the server owned
+	  the handoff buffer keep accumulating and the retry publishes the whole
+	  union. damage_full overrides any partial rect. damage_ws_g_id pins the
+	  staging to the canvas it describes: a workspace rebuild invalidates it
+	  and the next publish falls back to the full frame. All under
+	  painting_lock.*/
+	bool damage_staged;
+	bool damage_full;
+	grect_t damage_rect;
+	int32_t damage_ws_g_id;
+
 	/*xwin_set_alpha was called while on_repaint was running. The flag itself is
 	  already in xinfo, but the server notify is latched here and issued once the
 	  callback returns: UPDATE_INFO mid-frame can escalate to a buffer rebuild
@@ -73,6 +86,11 @@ int      xwin_set_visible(xwin_t* xwin, bool visible);
 int      xwin_top(xwin_t* xwin);
 void     xwin_set_alpha(xwin_t* xwin, bool alpha);
 void     xwin_repaint(xwin_t* xwin);
+/*Stage the damage just rendered into the workspace (ws coordinates); NULL
+  means the whole frame changed. Successive calls union until the next
+  publish. Meant to be called from on_repaint (painting_lock held). The
+  compositor uses it to shrink its recomposite to the damaged band.*/
+void     xwin_set_damage(xwin_t* xwin, const grect_t* r);
 graph_t* xwin_fetch_graph(xwin_t* xwin, graph_t* g);
 /* Publish a finished source graph directly into the fps_async handoff buffer.
    The caller must be inside on_repaint (and therefore hold painting_lock). */

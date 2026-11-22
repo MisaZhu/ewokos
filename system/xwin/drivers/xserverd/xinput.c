@@ -261,8 +261,13 @@ static void cursor_safe(x_t* x, x_display_t* display) {
 }
 
 static int mouse_handle(x_t* x, xevent_t* ev) {
-    if(x->mouse_state.state == MOUSE_STATE_NONE && ev->state == MOUSE_STATE_UP)
+    if(x->mouse_state.state == MOUSE_STATE_NONE && ev->state == MOUSE_STATE_UP) {
+        /*per-event flags reset on EVERY return path, or a cull's no-click
+          leaks into the next real tap and eats its CLICK*/
+        x->current.mt_no_click = false;
+        x->current.mt_click_slack = 0;
         return 0;
+    }
 
     if(ev->value.mouse.relative != 0) {
         mouse_cxy(x, x->current_display, ev->value.mouse.rx, ev->value.mouse.ry);
@@ -327,6 +332,8 @@ static int mouse_handle(x_t* x, xevent_t* ev) {
         else {
             x_cursor_set_busy(x, gwin->busy);
             x_push_event(x, gwin, ev);
+            x->current.mt_no_click = false;
+            x->current.mt_click_slack = 0;
             if(x_cursor_redraw_now(x, x->current_display))
                 display->cursor_task = false;
             return 0;
@@ -493,7 +500,8 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
         char edge[8];
         snprintf(edge, sizeof(edge), "%u%c ", (unsigned)t->id,
                 t->state == TOUCH_STATE_PRESS ? 'P' :
-                t->state == TOUCH_STATE_RELEASE ? 'R' : 'M');
+                t->state == TOUCH_STATE_RELEASE ? 'R' :
+                t->state == TOUCH_STATE_CANCEL ? 'C' : 'M');
         if(strlen(_mt_diag.last_edges) + strlen(edge) < sizeof(_mt_diag.last_edges))
             strcat(_mt_diag.last_edges, edge);
     }
@@ -513,7 +521,8 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
     for(int i = 0; i < count; i++) {
         touch_evt_t* t = &ev->value.touch.touchs[i];
         if(t->id < X_TOUCH_MAX) {
-            if(t->state == TOUCH_STATE_RELEASE)
+            if(t->state == TOUCH_STATE_RELEASE ||
+                    t->state == TOUCH_STATE_CANCEL)
                 x->current.mt_active_mask &= ~(1u << t->id);
             else {
                 x->current.mt_active_mask |= (1u << t->id);
@@ -525,7 +534,8 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
                 }
             }
         }
-        if(t->state != TOUCH_STATE_RELEASE) {
+        if(t->state != TOUCH_STATE_RELEASE &&
+                t->state != TOUCH_STATE_CANCEL) {
             if(first < 0)
                 first = i;
             if(t->state == TOUCH_STATE_PRESS && press < 0)
@@ -545,16 +555,23 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
             !(x->current.mt_active_mask & (1u << x->current.mt_synth_id))) {
         int32_t px = x->current.mt_last_x[x->current.mt_synth_id];
         int32_t py = x->current.mt_last_y[x->current.mt_synth_id];
+        bool culled = false;
         for(int i = 0; i < count; i++) {
             touch_evt_t* t = &ev->value.touch.touchs[i];
-            if(t->state == TOUCH_STATE_RELEASE &&
+            if((t->state == TOUCH_STATE_RELEASE ||
+                    t->state == TOUCH_STATE_CANCEL) &&
                     t->id == (uint32_t)x->current.mt_synth_id) {
                 px = t->x;
                 py = t->y;
+                culled = (t->state == TOUCH_STATE_CANCEL);
                 break;
             }
         }
         x->current.mt_click_slack = MT_CLICK_SLACK;
+        /*a grip-filter cull must never tap: the culled contact may have
+          rested stationary well inside the promotion distance. mouse_handle
+          resets mt_no_click on every return path.*/
+        x->current.mt_no_click = culled;
         mt_synth_mouse(x, MOUSE_STATE_UP, px, py);
         x->current.mt_synth_down = false;
         x->current.mt_pending = false;
@@ -690,6 +707,12 @@ static void touch_mt_handle(x_t* x, xevent_t* ev) {
         win = prev_owner;
     }
     if(win != NULL) {
+        /*clients only know press/move/release: a grip cull reaches them as
+          a plain lift of that contact*/
+        for(int i = 0; i < count; i++) {
+            if(ev->value.touch.touchs[i].state == TOUCH_STATE_CANCEL)
+                ev->value.touch.touchs[i].state = TOUCH_STATE_RELEASE;
+        }
         x_push_event(x, win, ev);
         _mt_diag.delivered++;
     }

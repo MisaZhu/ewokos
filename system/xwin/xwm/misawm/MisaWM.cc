@@ -393,6 +393,15 @@ void MisaWM::drawFrame(graph_t* desktop_g, graph_t* frame_g, graph_t* ws_g, xinf
 	if(info->corners_only || contentOnly) {
 		grect_t ws = {info->wsr.x-info->winr.x, info->wsr.y-info->winr.y,
 			info->wsr.w, info->wsr.h};
+		/*content_only may carry a damage band: the backdrop is unchanged, so
+		  the glass sheet outside the band is still valid - clip the whole
+		  client-area rebuild (frost blit, tint wash, content blend, corner
+		  re-cut) to the band instead of the full workspace*/
+		if(contentOnly && xwm.draw.frame.damage_valid) {
+			grect_t d = xwm.draw.frame.damage;
+			if(grect_insect(&ws, &d))
+				ws = d;
+		}
 		grect_t bounds = {0, 0, frame_g->w, frame_g->h};
 		if(!grect_insect(&bounds, &ws) ||
 				(savedClip.w > 0 && savedClip.h > 0 && !grect_insect(&savedClip, &ws)))

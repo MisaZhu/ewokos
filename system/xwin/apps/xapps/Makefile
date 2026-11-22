@@ -14,6 +14,7 @@ XAPPS_DIR = $(TARGET_DIR)/apps/xapps
 XAPPS = $(XAPPS_DIR)/xapps
 
 all: $(XAPPS_DIR) $(XAPPS)
+	cp -r res $(XAPPS_DIR)
 
 $(XAPPS): $(XAPPS_OBJS) \
 		$(BUILD_DIR)/lib/libewoksys.a  \

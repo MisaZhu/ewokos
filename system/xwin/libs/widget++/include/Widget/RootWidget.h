@@ -15,6 +15,15 @@ class RootWidget: public Container {
 	Widget* touchedWidget;              /* owner of the multi-touch gesture in progress */
 	touch_evt_t touchs[X_TOUCH_MAX];    /* last known state of each contact, by id */
 	uint32_t touchMask;                 /* contacts currently down, one bit per id */
+
+	/* Opt-in damage-rect repaint: updates accumulate a damage rect and only
+	 * the widgets intersecting it repaint (no full-canvas wipe), instead of
+	 * the legacy full redraw every frame. Structural changes mark it full. */
+	bool partialRepaint;
+	bool dmgValid;
+	bool dmgFull;
+	grect_t dmg;
+
 	void onRepaint(graph_t* g, XTheme* theme, const grect_t& r);
 public:
 	friend WidgetWin;
@@ -24,6 +33,15 @@ public:
 	inline WidgetWin* getWin() { return xwin; }
 	inline void setWin(WidgetWin* xwin) { this->xwin = xwin; }
 	inline void refresh() { doRefresh = true; }
+
+	void setPartialRepaint(bool enable);
+	inline bool isPartialRepaint() { return partialRepaint; }
+	void addDamage(const grect_t& r);
+	void markFull();
+	inline bool hasDamage() { return dmgValid && dmg.w > 0 && dmg.h > 0; }
+	inline bool isDmgFull() { return dmgFull; }
+	inline const grect_t& getDamage() { return dmg; }
+	void clearDamage();
 
 	void focus(Widget* wd);
 	void onFocus();

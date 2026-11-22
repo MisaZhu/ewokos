@@ -987,21 +987,27 @@ static int bt_le_scan_enable_async(bool enable, bool filter_dup) {
     return ret;
 }
 
-/* LE 5.0 extended scanning. Scanning_PHYs = LE 1M only (bit 0): every HID
-   peripheral advertises on 1M, and adding the Coded PHY would double the
-   per-PHY parameter block for no benefit here. One Scan_Type/Interval/Window
-   triple follows for that single PHY. Filter policy 0x00 = accept all. */
+/* LE 5.0 extended scanning. Scanning_PHYs = LE 1M + LE Coded (bits 0|2):
+   most HID peripherals advertise on 1M, but some mice only advertise on
+   the Coded PHY while in pairing mode, and a 1M-only scan never sees them.
+   One Scan_Type/Interval/Window triple follows per PHY. Filter policy
+   0x00 = accept all. */
 static int bt_le_ext_scan_params(void) {
-    uint8_t params[8];
+    uint8_t params[13];
 
     params[0] = _local_addr_type;      /* Own_Address_Type */
     params[1] = 0x00;                  /* Scanning_Filter_Policy: accept all */
-    params[2] = 0x01;                  /* Scanning_PHYs: LE 1M */
+    params[2] = 0x05;                  /* Scanning_PHYs: LE 1M | LE Coded */
     params[3] = BT_LE_SCAN_TYPE_ACTIVE; /* Scan_Type[1M]: active (get SCAN_RSP) */
     params[4] = (uint8_t)(BT_LE_SCAN_INTERVAL & 0xff);
     params[5] = (uint8_t)(BT_LE_SCAN_INTERVAL >> 8);
     params[6] = (uint8_t)(BT_LE_SCAN_WINDOW & 0xff);
     params[7] = (uint8_t)(BT_LE_SCAN_WINDOW >> 8);
+    params[8] = BT_LE_SCAN_TYPE_ACTIVE; /* Scan_Type[Coded]: active */
+    params[9] = (uint8_t)(BT_LE_SCAN_INTERVAL & 0xff);
+    params[10] = (uint8_t)(BT_LE_SCAN_INTERVAL >> 8);
+    params[11] = (uint8_t)(BT_LE_SCAN_WINDOW & 0xff);
+    params[12] = (uint8_t)(BT_LE_SCAN_WINDOW >> 8);
     return bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_SET_EXT_SCAN_PARAMS,
             params, sizeof(params), 1000);
 }
@@ -3407,12 +3413,24 @@ retry_link:
     if (ext_conn && bt_le_ext_create_connection() == 0) {
         /* accepted */
     }
-    else if (bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_CREATE_CONNECTION, p,
-            sizeof(p), 2000) != 0) {
-        bt_le_stack_reset();
-        bt_emit("connect_fail %s reason=le_create_conn\n", addr_str);
-        slog("bluetooth le_create_conn_failed %s\n", addr_str);
-        return -1;
+    else {
+        int cc = bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_CREATE_CONNECTION,
+                p, sizeof(p), 2000);
+        /* WCN6855 answers Command Disallowed (0x0C) to the legacy create
+           connection once extended scanning has been used, even with scan
+           disabled (proven on 8gen3: cs op=200d st=0c right after an acked
+           ext-scan disable). The extended command initiates for legacy
+           advertisers too, so retry with it before giving up. */
+        if (cc == 0x0C) {
+            slog("bluetooth le_create_conn_disallowed retry_ext %s\n", addr_str);
+            cc = bt_le_ext_create_connection();
+        }
+        if (cc != 0) {
+            bt_le_stack_reset();
+            bt_emit("connect_fail %s reason=le_create_conn\n", addr_str);
+            slog("bluetooth le_create_conn_failed %s\n", addr_str);
+            return -1;
+        }
     }
     if (!bt_poll_until(le_link_up_pred, NULL, BT_LE_CONNECT_TIMEOUT_MS) ||
             !_le.handle_valid) {

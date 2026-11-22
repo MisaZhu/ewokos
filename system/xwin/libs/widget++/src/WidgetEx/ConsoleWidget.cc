@@ -8,8 +8,17 @@
 namespace Ewok {
 
 void ConsoleWidget::drawBG(graph_t* g, const grect_t& r) {
-	graph_set(g, r.x, r.y, r.w, r.h, terminal.bg_color);
+	/* A dirty root repaints its theme background over the whole window
+	 * before children (alpha windows propagate every update to it), which
+	 * wipes the persistent canvas: force a full terminal repaint then.
+	 * Otherwise only full repaints need the background laid; partial
+	 * gterminal_paint fills its own dirty band. */
 	RootWidget* root = getRoot();
+	bool wiped = (root != NULL && (Widget*)root != (Widget*)this && root->isDirty());
+	if(wiped || gterminal_full_repaint_pending(&terminal)) {
+		gterminal_invalidate(&terminal);
+		graph_set(g, r.x, r.y, r.w, r.h, terminal.bg_color);
+	}
 	if(color_a(terminal.bg_color) != 0xff) {
 		setAlpha(true);
 	}
@@ -21,6 +30,9 @@ void ConsoleWidget::drawBG(graph_t* g, const grect_t& r) {
 void ConsoleWidget::drawScrollbar(graph_t* g, const grect_t& r) {
 	if(terminal.textgrid == NULL || terminal.textgrid->rows == 0)
 		return;
+	/* the track colours are translucent: reset the strip to the terminal
+	 * background first so repeated partial repaints don't stack alpha */
+	graph_set(g, r.x + r.w - scrollW, r.y, scrollW, r.h, terminal.bg_color);
 	graph_fill_3d(g, r.x + r.w - scrollW, r.y, scrollW, r.h, 0x88000000, true);
 	int sh = r.h * ((float) terminal.rows / terminal.textgrid->rows);
 	int start_row = (int32_t)terminal.textgrid->rows - (int32_t)terminal.rows;
@@ -65,6 +77,47 @@ ConsoleWidget::~ConsoleWidget() {
 
 void ConsoleWidget::push(const char* buf, int size) {
 	gterminal_put(&terminal, buf, size);
+}
+
+void ConsoleWidget::update() {
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint()) {
+		int32_t by = 0, bh = 0;
+		if(gterminal_damage_band(&terminal, area.h, &by, &bh)) {
+			grect_t sub = {0, by, area.w, bh};
+			Widget::update(sub);
+			return;
+		}
+		/* full repaint (or a scroll, which moves every kept row): the
+		 * whole console area is damaged */
+	}
+	Widget::update();
+}
+
+void ConsoleWidget::repaint(graph_t* g, XTheme* theme) {
+	RootWidget* root = getRoot();
+	if(root != NULL && root->isPartialRepaint() && !root->isDmgFull()) {
+		if(!dirty || !visible)
+			return;
+		if(themePrivate != NULL)
+			theme = themePrivate;
+		grect_t r = getRootArea();
+		if(r.w <= 0 || r.h <= 0) {
+			dirty = false;
+			return;
+		}
+		grect_t clip = r;
+		if(!root->hasDamage() || !grect_insect(&root->getDamage(), &clip))
+			return;   /* outside the damage: stay dirty for a later frame */
+		/* the terminal lays its own background and a scroll blit moves
+		 * pixels above the damage band: clip to the whole widget area and
+		 * skip the theme prefill other widgets get */
+		graph_set_clip(g, r.x, r.y, r.w, r.h);
+		onRepaint(g, theme, r);
+		dirty = false;
+		return;
+	}
+	Widget::repaint(g, theme);
 }
 
 void ConsoleWidget::flash() {

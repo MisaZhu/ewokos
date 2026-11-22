@@ -411,6 +411,8 @@ static graph_t* x_get_flip_graph(xwin_t* xwin, graph_t* g) {
     return g;
 }
 
+static void xwin_publish_damage_locked(xwin_t* xwin);
+
 int xwin_present_direct(xwin_t* xwin, graph_t* src) {
     graph_t front;
 
@@ -430,6 +432,10 @@ int xwin_present_direct(xwin_t* xwin, graph_t* src) {
     __sync_synchronize();
     graph_blt(src, 0, 0, src->w, src->h, &front, 0, 0,
             front.w, front.h);
+    /*a direct present hands over a foreign source, not the ws_g the staged
+      damage describes: claim the whole frame*/
+    xwin->damage_full = true;
+    xwin_publish_damage_locked(xwin);
     xwin->xinfo->front_index = 1;
     xwin->xinfo->painting = 0;
     __sync_synchronize();
@@ -472,11 +478,65 @@ static bool xwin_flip_locked(xwin_t* xwin) {
     /* ws_g now contains the frame that was just published, so a later
        event-thread retry is allowed to use it again. */
     xwin->direct_frame_valid = false;
+    xwin_publish_damage_locked(xwin);
     xwin->xinfo->front_index = 1;
     xwin->xinfo->painting = 0;
     __sync_synchronize();
     xwin->xinfo->update_requested = 1;
     return true;
+}
+
+/*Stage the damage the caller just rendered into ws_g (ws coordinates).
+  NULL (or an empty rect) means the whole frame changed. Successive calls
+  union: the rect has to describe everything that differs from the frame
+  the server currently holds, which spans every repaint since the last
+  successful publish - including presents skipped while the server owned
+  the handoff buffer. Caller holds painting_lock (on_repaint runs inside
+  xwin_repaint).*/
+void xwin_set_damage(xwin_t* xwin, const grect_t* r) {
+    if(xwin == NULL || xwin->xinfo == NULL)
+        return;
+    xwin->damage_staged = true;
+    xwin->damage_ws_g_id = xwin->xinfo->ws_g_shm_id;
+    if(r == NULL || r->w <= 0 || r->h <= 0) {
+        xwin->damage_full = true;
+        return;
+    }
+    if(xwin->damage_full)
+        return;
+    if(xwin->damage_rect.w <= 0 || xwin->damage_rect.h <= 0) {
+        xwin->damage_rect = *r;
+        return;
+    }
+    grect_t* d = &xwin->damage_rect;
+    int32_t x1 = r->x < d->x ? r->x : d->x;
+    int32_t y1 = r->y < d->y ? r->y : d->y;
+    int32_t x2 = (r->x + r->w) > (d->x + d->w) ? (r->x + r->w) : (d->x + d->w);
+    int32_t y2 = (r->y + r->h) > (d->y + d->h) ? (r->y + r->h) : (d->y + d->h);
+    d->x = x1;
+    d->y = y1;
+    d->w = x2 - x1;
+    d->h = y2 - y1;
+}
+
+/*Latch the staged damage into the shared xinfo right before the frame is
+  published, so the server reads a rect describing exactly the buffer it is
+  about to composite. No staged damage (or a workspace rebuild since the
+  staging) means the whole frame: apps that never call xwin_set_damage keep
+  the full-frame path. Caller holds painting_lock and writes this before
+  the release barrier that publishes update_requested.*/
+static void xwin_publish_damage_locked(xwin_t* xwin) {
+    if(xwin->damage_staged && !xwin->damage_full &&
+            xwin->damage_ws_g_id == xwin->xinfo->ws_g_shm_id) {
+        xwin->xinfo->ws_damage = xwin->damage_rect;
+        xwin->xinfo->ws_damage_valid = 1;
+    }
+    else {
+        xwin->xinfo->ws_damage_valid = 0;
+    }
+    xwin->damage_staged = false;
+    xwin->damage_full = false;
+    memset(&xwin->damage_rect, 0, sizeof(grect_t));
 }
 
 /*how many skipped presents one event-loop tick retries at most; the rest are
@@ -709,6 +769,7 @@ void xwin_repaint(xwin_t* xwin) {
     /*the frame is complete: hand the canvas over. Clearing before the barrier
       means the server can never observe update_requested=1 while painting is
       still 1, and never composite a buffer we are about to write again.*/
+    xwin_publish_damage_locked(xwin);
     xwin->xinfo->painting = 0;
     __sync_synchronize();
     xwin->xinfo->update_requested = 1;
