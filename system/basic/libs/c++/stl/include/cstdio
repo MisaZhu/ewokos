@@ -6,7 +6,7 @@
  *
  * Restricted to what EwokOS libc declares.  Notably absent from the platform
  * and therefore not re-exported: fpos_t/fgetpos/fsetpos (the pair that breaks
- * libstdc++'s <cstdio>), remove, rename, tmpnam, scanf/sscanf and the v*printf
+ * libstdc++'s <cstdio>), remove, tmpnam, scanf/sscanf and the v*printf
  * family other than vsnprintf.
  */
 
@@ -46,6 +46,7 @@ using ::setvbuf;
 using ::tmpfile;
 using ::popen;
 using ::pclose;
+using ::rename;
 
 /* EwokOS declares these as plain `extern FILE *`, so a using-declaration
    brings the objects themselves into namespace std - no wrapper needed. */

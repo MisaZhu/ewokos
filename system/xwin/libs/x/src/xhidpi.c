@@ -11,6 +11,13 @@ float x_hidpi_scale(void) {
     return _x_hidpi_scale;
 }
 
+/* Effective device-pixel ratio: 1.0 when hidpi is off, the configured scale
+   otherwise. Unlike x_hidpi_size() this keeps fractional scales (e.g. 1.6)
+   intact - integer truncation there would turn 1.6 into 1 for size==1. */
+float x_hidpi_ratio(void) {
+    return _x_hidpi ? _x_hidpi_scale : 1.0f;
+}
+
 int x_hidpi_size(int size) {
     return _x_hidpi ? size*_x_hidpi_scale : size;
 }

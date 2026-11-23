@@ -99,9 +99,18 @@ struct pair {
     }
 };
 
+/* Standard make_pair decays its argument types: a string literal passed as
+   const T1& deduced T1 = char[N], and pair<char[N], ...> cannot initialize an
+   array member from another array ("array used as initializer").  decay turns
+   arrays/functions into pointers and strips cv-qualifiers, so
+   make_pair("Cookie", header) yields pair<const char*, string> as upstream
+   code expects.  reference_wrapper unwrapping is not needed: this STL has no
+   reference_wrapper (see <functional>). */
 template <typename T1, typename T2>
-pair<T1, T2> make_pair(const T1& a, const T2& b) {
-    return pair<T1, T2>(a, b);
+pair<typename decay<T1>::type, typename decay<T2>::type>
+make_pair(T1&& a, T2&& b) {
+    return pair<typename decay<T1>::type, typename decay<T2>::type>(
+        forward<T1>(a), forward<T2>(b));
 }
 
 template <typename T1, typename T2>
