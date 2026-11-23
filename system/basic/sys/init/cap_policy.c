@@ -175,7 +175,6 @@ void cap_policy_load(const char* fname) {
         _cap_rule_num++;
     }
     json_var_unref(root);
-    klog("init: cap policy '%s': %u rule(s)\n", fname, _cap_rule_num);
 }
 
 /*
@@ -184,18 +183,13 @@ void cap_policy_load(const char* fname) {
  * so no process-start timing is involved.
  */
 void cap_policy_install(void) {
-    uint32_t entries = 0;
     for(uint32_t r = 0; r < _cap_rule_num; r++) {
         cap_rule_t* rule = &_cap_rules[r];
         for(uint32_t e = 0; e < rule->num; e++) {
             cap_rule_entry_t* ce = &rule->entries[e];
             if(cap_policy_add(rule->cmd, ce->type, ce->rights, ce->a, ce->b) != 0) {
                 klog("init: cap policy install failed: '%s' entry %u\n", rule->cmd, e);
-                continue;
             }
-            entries++;
         }
     }
-    if(entries > 0)
-        klog("init: cap policy installed (%u entries)\n", entries);
 }

@@ -210,8 +210,6 @@ static void prepare_persistent_profiles(void) {
 }
 
 static int run_before_vfs_mode(const char* cmd, int wait_exit) {
-    klog("init: %-16s   ", cmd);
-
     char prog[FS_FULL_NAME_MAX];
     int i = 0;
     while(cmd[i] != 0 && cmd[i] != ' ' && cmd[i] != '\t' &&
@@ -224,22 +222,21 @@ static int run_before_vfs_mode(const char* cmd, int wait_exit) {
     int pid = fork();
     if(pid == 0) {
         if(exec_from_storage(prog, cmd, -1) != 0) {
-            klog("[failed]!\n");
+            klog("init: %s [failed]!\n", cmd);
             exit(-1);
         }
     }
     else if(pid < 0) {
-        klog("[failed]!\n");
+        klog("init: %s [failed]!\n", cmd);
         return -1;
     }
     else if(wait_exit) {
         ewok_waitpid(pid);
     }
     else if(ipc_wait_ready(pid) != 0) {
-        klog("[failed]!\n");
+        klog("init: %s [failed]!\n", cmd);
         return -1;
     }
-    klog("[ok]\n");
     return 0;
 }
 
@@ -327,16 +324,6 @@ static uint32_t boot_source(void) {
     return ((const q8b_platform_data_t*)info.platform_data)->rd.boot_source;
 }
 
-static const char* boot_source_name(uint32_t source) {
-    switch (source) {
-    case Q8B_BOOT_SOURCE_SD: return "sd";
-    case Q8B_BOOT_SOURCE_USB: return "usb";
-    case Q8B_BOOT_SOURCE_NVME: return "nvme";
-    case Q8B_BOOT_SOURCE_NET: return "net";
-    default: return "unknown";
-    }
-}
-
 /* NVMe rootfs: sdfsd -n mounts the first ext3 partition of the NVMe disk
  * straight from the boot RAMFS (the block backend is linked into sdfsd via
  * the machine's libbsp, and the controller enumeration comes from the
@@ -368,9 +355,6 @@ static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
     int usb_host = 0;
     int usb_root = 0;
     int selected = -1;
-
-    klog("init: rootfs policy=%d self=%s order=self,sd,usb,nvme,net\n",
-            policy, boot_source_name(self));
 
     if (policy == ROOTFS_SD) {
         selected = run_before_vfs("/sbin/sdfsd") == 0 ? ROOTFS_SD : -1;
@@ -449,7 +433,6 @@ static int run_init(const char* init_file) {
         filtered_profile_path(init_file, filtered_file, sizeof(filtered_file));
         if(access(filtered_file, R_OK) == 0) {
             exec_file = filtered_file;
-            klog("init: filtered persistent pcied entry from %s\n", init_file);
         } else {
             klog("init: filtered profile missing %s\n", filtered_file);
             return -1;
@@ -518,7 +501,6 @@ int main(int argc, char** argv) {
     if(getpid() != 0) //not first proc, must be cpu core idle
         idle();
 
-    klog("\n[init process started]\n");
     if(run_before_vfs("/sbin/core") != 0 ||
             run_before_vfs("/sbin/vfsd") != 0)
         return -1;
