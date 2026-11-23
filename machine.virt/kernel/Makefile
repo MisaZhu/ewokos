@@ -44,7 +44,7 @@ QEMU_HOST_CPU ?= max
 # "cannot set up guest memory 'mach-virt.ram': Cannot allocate memory".  Default
 # to a smaller 2 GB there; raise it (e.g. once KVM works, or on a big host) with
 #   make run QEMU_MEM=8192
-QEMU_MEM ?= 2048
+QEMU_MEM ?= 8192
 endif
 
 # Filter out harmless macOS Input Method Kit (IMK) console spam from QEMU's
