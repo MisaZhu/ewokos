@@ -178,39 +178,6 @@ void cap_policy_load(const char* fname) {
     klog("init: cap policy '%s': %u rule(s)\n", fname, _cap_rule_num);
 }
 
-static void cap_rights_str(uint32_t rights, char* out) {
-    uint32_t i = 0;
-    if(rights & CAP_R)     out[i++] = 'r';
-    if(rights & CAP_W)     out[i++] = 'w';
-    if(rights & CAP_X)     out[i++] = 'x';
-    if(rights & CAP_GRANT) out[i++] = 'g';
-    out[i] = 0;
-}
-
-static void cap_log_entry(const char* cmd, const cap_rule_entry_t* ce) {
-    char rights[5];
-    cap_rights_str(ce->rights, rights);
-    switch(ce->type) {
-    case CAP_ROOT:
-        klog("init: cap %s: root %s\n", cmd, rights);
-        break;
-    case CAP_FRAME:
-        klog("init: cap %s: frame 0x%llx+0x%llx %s\n", cmd,
-                (unsigned long long)ce->a, (unsigned long long)ce->b, rights);
-        break;
-    case CAP_IRQ:
-        klog("init: cap %s: irq %u %s\n", cmd, (uint32_t)ce->a, rights);
-        break;
-    case CAP_DMA:
-        klog("init: cap %s: dma %d %s\n", cmd, (int32_t)ce->a, rights);
-        break;
-    default:
-        klog("init: cap %s: type %u 0x%llx %s\n", cmd,
-                ce->type, (unsigned long long)ce->a, rights);
-        break;
-    }
-}
-
 /*
  * Push every parsed rule into the kernel's exec-time policy. From then on
  * the kernel itself grants a rule's caps whenever a matching image execs,
@@ -226,7 +193,6 @@ void cap_policy_install(void) {
                 klog("init: cap policy install failed: '%s' entry %u\n", rule->cmd, e);
                 continue;
             }
-            cap_log_entry(rule->cmd, ce);
             entries++;
         }
     }
