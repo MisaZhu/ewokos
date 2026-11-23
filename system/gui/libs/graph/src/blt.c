@@ -227,13 +227,14 @@ void graph_blt_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     if(sr.w == dr.w && sr.h == dr.h) {
         graph_copy_rows(src, &sr, dst, &dr);
@@ -374,14 +375,14 @@ void graph_blt_alpha_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
-
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     if(sr.w == dr.w && sr.h == dr.h) {
         for(int32_t row = 0; row < sr.h; ++row) {
@@ -546,13 +547,14 @@ void graph_blt_mask_cpu(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     register int32_t ex, ey;
     sy = sr.y;

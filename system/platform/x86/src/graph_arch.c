@@ -81,13 +81,14 @@ int graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return 0;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     /* 1:1 copy of the clipped region (like aarch64, the destination size is
        sr.w/sr.h); the engine keeps overlapping copies within one buffer safe */
@@ -111,13 +112,14 @@ int graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int32
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return 0;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     /* 1:1 blend of the clipped region; the engine applies the same per-block
        transparent/opaque fast paths and div255 blend math as the cpu */
@@ -166,13 +168,14 @@ int graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, 
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return 0;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     int32_t ex = sr.x + sr.w;
     int32_t ey = sr.y + sr.h;

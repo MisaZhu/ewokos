@@ -81,6 +81,7 @@ protected:
 	}
 
 	void onTimer(uint32_t timerFPS, uint32_t timerSteps) {
+		bool changed = false;
 		if((timerSteps % 4) == 0) {
 			if(powerFD < 0)
 				powerFD = ::open("/dev/power0", O_RDONLY);
@@ -94,10 +95,14 @@ protected:
 			if(buf[0] == 0)
 				return;
 
+			changed = (charging != (buf[1] ? 1 : 0)) || (batt != buf[2]);
 			charging = buf[1] ? 1 : 0;
 			batt = buf[2];
 		}
-		update();
+		/* only the charging bolt animates per tick: an unchanged level must
+		 * not repaint, every repaint here recomposites the glass above */
+		if(changed || charging)
+			update();
 	}
 
 public:
@@ -142,10 +147,15 @@ protected:
 		if(ksec == 0)
 			return;
 
-        min = (ksec / 60);
-        hour = (min / 60);
-        min = min % 60;
-        sec = ksec % 60;
+        uint32_t m = ksec / 60;
+        uint32_t h = m / 60;
+        m = m % 60;
+        uint32_t s = ksec % 60;
+        if(h == hour && m == min && s == sec)
+            return;
+        hour = h;
+        min = m;
+        sec = s;
         update();
     }
 public:

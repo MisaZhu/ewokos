@@ -84,14 +84,14 @@ inline int graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
-
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return 0;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     /* 1:1 copy of the clipped region; the g2d engine keeps overlapping
        copies within one buffer safe (memmove ordering) */
@@ -114,14 +114,14 @@ inline int graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
-
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return 0;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     /* 1:1 blend of the clipped region; the g2d engine applies the same
        per-block transparent/opaque fast paths and div255 blend math */
@@ -202,14 +202,14 @@ inline int graph_blt_alpha_mask_arch(graph_t* src, int32_t sx, int32_t sy, int32
     graph_insect(dst, &dr);
     if(dst->clip.w > 0 && dst->clip.h > 0)
         grect_insect(&dst->clip, &dr);
-
+    /* what the dst bounds and clip cut off the left/top edge comes off the
+       source too, so clipping crops the picture instead of shifting it */
+    sr.x += dr.x - dx;
+    sr.y += dr.y - dy;
+    sr.w -= dr.x - dx;
+    sr.h -= dr.y - dy;
     if(!graph_insect_with(src, &sr, dst, &dr))
         return 0;
-
-    if(dx < 0)
-        sr.x -= dx;
-    if(dy < 0)
-        sr.y -= dy;
 
     register int32_t ex, ey;
     sy = sr.y;
