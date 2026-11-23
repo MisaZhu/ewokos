@@ -640,9 +640,14 @@ int vfs_close(int fd) {
     fsfile_t* file = vfs_get_file(fd);
     if(file == NULL)
         return -1;
+    int sync_err = 0;
     if((file->info.state & FS_STATE_CHANGED) != 0) {
+        /* A failed final-state push must never abort the close itself:
+           returning here would leave the fd slot allocated in vfsd
+           forever, and enough failed closes exhaust the per-process
+           table so every later open() in this process fails. */
         if(vfs_sync(&file->info, true) != 0)
-            return -1;
+            sync_err = -1;
     }
 
     int close_pid = getpid();
@@ -655,7 +660,10 @@ int vfs_close(int fd) {
     PF->clear(&in);
 
     vfs_clear_file(fd);	
-    return vfs_close_info(fd);
+    int ret = vfs_close_info(fd);
+    if(ret != 0)
+        return ret;
+    return sync_err;
 }
 
 int vfs_dup(int fd) {
