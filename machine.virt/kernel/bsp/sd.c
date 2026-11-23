@@ -160,11 +160,7 @@ int virtio_blk_init(struct virtio_device *dev) {
     mmio_write(base + VIRTIO_MMIO_STATUS, status | VIRTIO_STATUS_FEATURES_OK);
   
     mmio_write(base + VIRTIO_MMIO_QUEUE_SEL, 0);
-    uint32_t max_queue_size = mmio_read(base + VIRTIO_MMIO_QUEUE_NUM_MAX);
-    printf("vio: ver=%u feat=%x qmax=%u paddr=%lx\n",
-        mmio_read(base + VIRTIO_MMIO_VERSION), features, max_queue_size,
-        (unsigned long)paddr);
-    
+
     mmio_write(base + VIRTIO_MMIO_QUEUE_NUM, 8);
 
     mmio_write(base + VIRTIO_MMIO_GUEST_PG_SZ, VIRTIO_PAGE_SIZE);
@@ -232,10 +228,6 @@ int virtio_blk_rw(struct virtio_device *dev, void *buffer, uint32_t count, int w
         printf("vio: TIMEOUT isr=%x pad=%x req_pa=%lx buf_pa=%lx\n",
             irq, virtq->pad[0],
             (unsigned long)virtq->desc[0].addr, (unsigned long)virtq->desc[1].addr);
-    else
-        printf("vio: done isr=%x pad=%x sec=%lu b0=%x b56=%x b57=%x\n",
-            irq, virtq->pad[0], (unsigned long)dev->sector,
-            buf_ptr[0], buf_ptr[56], buf_ptr[57]);
     
     memset(&virtq->desc[head_idx], 0, sizeof(struct virtq_desc) * 3);
    
