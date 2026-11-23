@@ -721,9 +721,6 @@ int virtio_init(virtio_dev_t dev, uint32_t feature)
     status = get32(dev->base + VIRTIO_MMIO_STATUS);
     put32(dev->base + VIRTIO_MMIO_STATUS, status | VIRTIO_STATUS_DRIVER_OK);
     dev->queue_ready = 1;
-    klog("vioU: init id=%d qphy=%llx st=%x\n", dev->device_id,
-         (unsigned long long)dev->phy,
-         get32(dev->base + VIRTIO_MMIO_STATUS));
     return 0;
 }
 
@@ -1289,15 +1286,10 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
                  (unsigned long long)sector, count, used_before,
                  virtq->used.idx, isr, *status, (unsigned long long)dev->phy);
         }
+        else if (*status != VIRTIO_BLK_OK)
         {
-            static uint32_t dbg_n = 0;
-            if (!completed || *status != VIRTIO_BLK_OK || dbg_n < 8)
-            {
-                klog("vioU: xfer sec=%llu n=%u comp=%d ub=%u used=%u isr=%x st=%x d0=%x d56=%x d57=%x\n",
-                     (unsigned long long)sector, count, completed, used_before,
-                     virtq->used.idx, isr, *status, buf[0], buf[56], buf[57]);
-                dbg_n++;
-            }
+            klog("vioU: ERR sec=%llu n=%u st=%x isr=%x\n",
+                 (unsigned long long)sector, count, *status, isr);
         }
 
         if (completed && !isWrite)
