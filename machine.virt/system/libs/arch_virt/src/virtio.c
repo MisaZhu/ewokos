@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 #include <arch/virt/dma.h>
 #include <arch/virt/virtio.h>
@@ -11,6 +12,7 @@
 #include <ewoksys/klog.h>
 #include <ewoksys/mmio.h>
 #include <ewoksys/proc.h>
+#include <ewoksys/sys.h>
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define ALIGN_UP(x, a) (((x) + (a)-1) & ~((a)-1))
@@ -719,6 +721,9 @@ int virtio_init(virtio_dev_t dev, uint32_t feature)
     status = get32(dev->base + VIRTIO_MMIO_STATUS);
     put32(dev->base + VIRTIO_MMIO_STATUS, status | VIRTIO_STATUS_DRIVER_OK);
     dev->queue_ready = 1;
+    klog("vioU: init id=%d qphy=%llx st=%x\n", dev->device_id,
+         (unsigned long long)dev->phy,
+         get32(dev->base + VIRTIO_MMIO_STATUS));
     return 0;
 }
 
@@ -1232,6 +1237,18 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
         mem_barrier();
         virtq->avail.idx++;
         mem_barrier();
+        /* Publish CPU-written rings/payload to PoC and drop stale CPU lines
+           for the whole virtq (a cacheable DMA alias is not snooped by the
+           emulator under KVM). Invalidating the device-written used/status
+           suffix BEFORE the device writes ensures the post-completion read
+           misses the CPU cache and fetches the device's bytes. */
+        sys_dma_sync(virtq, sizeof(struct virtq_t), 0);
+        if (isWrite)
+            sys_dma_sync(buf, bytes, 0);
+        /* Clear any leftover interrupt so a stale ISR bit cannot be mistaken
+           for this request's completion (which would run avail.idx ahead of
+           the device and make QEMU pop a zeroed descriptor). */
+        virtio_ack_interrupt(base, 0x1);
         put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
         /*
@@ -1240,9 +1257,14 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
          * coherent used-ring read, as in the other virtio request queues.
          */
         uint8_t completed = 0;
+        uint32_t isr = 0;
         for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
         {
-            virtio_ack_interrupt(base, 0x1);
+            isr = get32(base + VIRTIO_MMIO_INTERRUPT_STATUS);
+            if (isr & 0x1)
+            {
+                put32(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
+            }
             mem_barrier();
             if (virtq->used.idx != used_before)
             {
@@ -1253,6 +1275,29 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
             }
             if (i >= 128)
                 sched_yield();
+        }
+
+        /* Drop stale CPU lines (no writeback) so status/payload reads fetch
+           the bytes the device wrote, not the CPU's cached sentinels. */
+        sys_dma_sync(virtq, sizeof(struct virtq_t), 1);
+        if (!isWrite)
+            sys_dma_sync(buf, bytes, 1);
+
+        if (!completed)
+        {
+            klog("vioU: TIMEOUT sec=%llu n=%u ub=%u used=%u isr=%x st=%x qphy=%llx\n",
+                 (unsigned long long)sector, count, used_before,
+                 virtq->used.idx, isr, *status, (unsigned long long)dev->phy);
+        }
+        {
+            static uint32_t dbg_n = 0;
+            if (!completed || *status != VIRTIO_BLK_OK || dbg_n < 8)
+            {
+                klog("vioU: xfer sec=%llu n=%u comp=%d ub=%u used=%u isr=%x st=%x d0=%x d56=%x d57=%x\n",
+                     (unsigned long long)sector, count, completed, used_before,
+                     virtq->used.idx, isr, *status, buf[0], buf[56], buf[57]);
+                dbg_n++;
+            }
         }
 
         if (completed && !isWrite)
@@ -1313,11 +1358,15 @@ int virtio_blk_flush(virtio_dev_t dev)
     mem_barrier();
     virtq->avail.idx++;
     mem_barrier();
+    sys_dma_sync(virtq, sizeof(struct virtq_t), 0);
+    virtio_ack_interrupt(base, 0x1);
     put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
     for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
     {
-        virtio_ack_interrupt(base, 0x1);
+        uint32_t isr = get32(base + VIRTIO_MMIO_INTERRUPT_STATUS);
+        if (isr & 0x1)
+            put32(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
         mem_barrier();
         if (virtq->used.idx != used_before)
         {
@@ -1330,6 +1379,7 @@ int virtio_blk_flush(virtio_dev_t dev)
             sched_yield();
     }
 
+    sys_dma_sync(virtq, sizeof(struct virtq_t), 1);
     memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 2);
     if (!completed || *status != VIRTIO_BLK_OK)
     {

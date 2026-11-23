@@ -70,7 +70,11 @@ ifeq ($(ARCH), aarch64)
 	# page tables past the backed RAM and hanging right after the
 	# "remapping kernel mem ... [OK]" line.  Changing QEMU_MEM therefore REQUIRES
 	# rebuilding kernel8.img (make) before make run.
-	ARCH_CFLAGS = -Wa,-march=armv8-a -DMAX_USABLE_MEM_SIZE='($(QEMU_MEM)ull*MB)'
+	# QEMU's emulated devices DMA through the emulator's cacheable host
+	# mapping, so guest DMA buffers must stay cacheable too: a Non-cacheable
+	# guest alias never sees used-ring writes left dirty in host CPU caches
+	# under KVM (userspace virtio would time out on every request).
+	ARCH_CFLAGS = -Wa,-march=armv8-a -DMAX_USABLE_MEM_SIZE='($(QEMU_MEM)ull*MB)' -DPTE_ATTR_SYS_DMA=PTE_ATTR_WRBACK
 	ifeq ($(PAGE_SIZE),64k)
 		QEMU_RUN_ACCEL ?= tcg
 		QEMU_RUN_CPU ?= cortex-a72

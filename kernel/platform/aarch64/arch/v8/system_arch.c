@@ -19,6 +19,7 @@ extern void __set_translation_table_base(uint64_t base);
 extern void __set_translation_table_base_asid(uint64_t base, uint64_t asid);
 extern void __dcache_clean_pou_range(uint64_t start, uint64_t end);
 extern void __dcache_flush_poc_range(uint64_t start, uint64_t end);
+extern void __dcache_inval_poc_range(uint64_t start, uint64_t end);
 extern void __invalidate_icache_all_is(void);
 
 /*
@@ -82,6 +83,12 @@ void dcache_flush_range(const void* start, uint32_t size) {
     if(size == 0)
         return;
     __dcache_flush_poc_range((uint64_t)start, (uint64_t)start + size);
+}
+
+void dcache_inval_range(const void* start, uint32_t size) {
+    if(size == 0)
+        return;
+    __dcache_inval_poc_range((uint64_t)start, (uint64_t)start + size);
 }
 
 void flush_tlb_addr(ewokos_addr_t addr) {

@@ -39,6 +39,7 @@ extern void invalidate_dcache(void);
 /* code-load coherency: clean written code to PoU, then drop the I-cache */
 extern void dcache_clean_code_range(const void* start, uint32_t size);
 extern void dcache_flush_range(const void* start, uint32_t size);
+extern void dcache_inval_range(const void* start, uint32_t size);
 extern void invalidate_icache_all(void);
 
 #ifdef KERNEL_SMP

@@ -135,11 +135,13 @@ static void* read_ext3(const char* fname, off_t* size) {
     ext3_t ext3;
     int32_t r = ext3_init_ro_ex2(&ext3, sd_read, ext_sd_read_blocks, sd_write, NULL,
             NULL, SD_BUFFER_SIZE);
+    klog("init: ext3_init=%d (%s)\n", r, fname);
     if(r != 0) {
-        klog("init: ext3_init_ex2=%d (%s)\n", r, fname);
         return NULL;
     }
     void* ret = ext3_readfile(&ext3, fname, size);
+    klog("init: readfile=%p sz=%lld (%s)\n", ret,
+            (long long)(size ? *size : -1), fname);
     ext3_quit(&ext3);
     return ret;
 }

@@ -52,8 +52,14 @@
 #define KMALLOC_END                   (KMALLOC_BASE + _sys_info.kmalloc_size)
 
 /* attribute shared by every mapping of the sys_dma window (kernel identity,
-   per-process identity, dma_alloc, peer map). */
+   per-process identity, dma_alloc, peer map). Machines whose DMA masters are
+   coherent (e.g. QEMU virt, where the "device" is the emulator's cacheable
+   host mapping) may override this to a cacheable attribute: a Non-cacheable
+   guest alias cannot observe writes the emulator leaves in host CPU caches,
+   which breaks virtqueue completion polling under KVM. */
+#ifndef PTE_ATTR_SYS_DMA
 #define PTE_ATTR_SYS_DMA              PTE_ATTR_NOCACHE
+#endif
 
 #ifndef MAX_USABLE_MEM_SIZE
 #ifdef __aarch64__

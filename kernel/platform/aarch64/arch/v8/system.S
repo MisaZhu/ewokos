@@ -242,6 +242,29 @@ __dcache_flush_poc_range:
     dsb sy
     ret
 
+/*
+ * void __dcache_inval_poc_range(uint64_t start, uint64_t end)
+ * Invalidate-only (no clean) a VA range to the point of coherency. Used after
+ * a coherent master (e.g. QEMU's emulated virtio under KVM) has written DMA
+ * data: dropping the CPU's stale lines WITHOUT writing them back lets the next
+ * read fetch the device's bytes. A clean here would overwrite the device data
+ * with whatever the CPU last wrote (e.g. the 0xFF status sentinel).
+ */
+.global __dcache_inval_poc_range
+__dcache_inval_poc_range:
+    mrs x2, ctr_el0
+    ubfx x2, x2, #16, #4
+    mov x3, #4
+    lsl x3, x3, x2
+    sub x4, x3, #1
+    bic x0, x0, x4
+1:  dc ivac, x0
+    add x0, x0, x3
+    cmp x0, x1
+    b.lo 1b
+    dsb sy
+    ret
+
 .global __irq_enable
 __irq_enable:
 	msr daifclr, #0x2

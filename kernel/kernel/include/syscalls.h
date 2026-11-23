@@ -169,6 +169,14 @@ enum {
 	SYS_MMAP_ANON,
 	SYS_MPROTECT,
 	SYS_MUNMAP,
+
+	/* DMA cache coherency for a user range (arg0=vaddr, arg1=size, arg2=op):
+	   op0 = clean+invalidate to PoC (publish CPU-written descriptors/buffers
+	   before notifying the device); op1 = invalidate-only to PoC (drop stale
+	   CPU lines after the device wrote, WITHOUT writing back the CPU's old
+	   bytes). Needed because EL0 cannot run DC CVAC/IVAC and a cacheable DMA
+	   alias is not kept coherent with the emulator's host writes under KVM. */
+	SYS_DMA_SYNC,
 	SYS_CALL_NUM
 };
 

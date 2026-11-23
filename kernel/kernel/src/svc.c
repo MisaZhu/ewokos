@@ -771,6 +771,58 @@ static int32_t sys_cache_sync(ewokos_addr_t vaddr, uint32_t size) {
 }
 
 /*
+ * SYS_DMA_SYNC: cache coherency for a user DMA range, walked through the
+ * kernel alias (the caller's mapping may be Device/NC). op0 clean+invalidate
+ * publishes CPU-written bytes to PoC before the device reads them; op1
+ * invalidate-only drops stale CPU lines after the device wrote so the next
+ * read fetches device data (a clean here would write the CPU's old bytes back
+ * over the device's). EL0 cannot execute DC CVAC/IVAC itself.
+ */
+static int32_t sys_dma_sync(ewokos_addr_t vaddr, uint32_t size, uint32_t op) {
+    proc_t* cproc = get_current_proc();
+    if(cproc == NULL || cproc->space == NULL)
+        return -1;
+    if(size == 0)
+        return 0;
+    if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
+        return -1;
+    /* The sys_dma window lives in kernel-half VA but is mapped AP_RW_RW for
+       DMA-authorized procs, so user_ptr_ok() (which rejects kernel VA) cannot
+       validate it. Restrict the sync to that window instead. */
+    ewokos_addr_t end = vaddr + size;
+    if(end < vaddr)
+        return -1;
+    if(vaddr < _sys_info.sys_dma.v_base ||
+            end > (_sys_info.sys_dma.v_base + _sys_info.sys_dma.size))
+        return -1;
+
+    ewokos_addr_t cur = vaddr;
+    ewokos_addr_t stop = vaddr + size;
+    while(cur < stop) {
+        uint32_t chunk = (uint32_t)(PAGE_SIZE - (cur & (PAGE_SIZE - 1)));
+        if((ewokos_addr_t)chunk > stop - cur)
+            chunk = (uint32_t)(stop - cur);
+        ewokos_addr_t phy = resolve_phy_address(cproc->space->vm, cur);
+        if(phy != 0) {
+            /* The sys_dma pool is identity-mapped (VA==phy) and excluded from
+               the P2V allocable direct map, so P2V(phy) would be unmapped. */
+            ewokos_addr_t kva;
+            if(phy >= _sys_info.sys_dma.phy_base &&
+                    phy < (_sys_info.sys_dma.phy_base + _sys_info.sys_dma.size))
+                kva = phy;
+            else
+                kva = P2V(phy);
+            if(op == 1)
+                dcache_inval_range((const void*)kva, chunk);
+            else
+                dcache_flush_range((const void*)kva, chunk);
+        }
+        cur += chunk;
+    }
+    return 0;
+}
+
+/*
  * SYS_MMAP_ANON / SYS_MPROTECT / SYS_MUNMAP: the anonymous user-mapping window.
  *
  * These give a dynamic loader memory that is NOT the sbrk heap and that has
@@ -1069,6 +1121,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_CACHE_SYNC:
         ctx->gpr[0] = sys_cache_sync(arg0, (uint32_t)arg1);
+        return;
+    case SYS_DMA_SYNC:
+        ctx->gpr[0] = sys_dma_sync(arg0, (uint32_t)arg1, (uint32_t)arg2);
         return;
     case SYS_MMAP_ANON:
         ctx->gpr[0] = sys_mmap_anon((uint32_t)arg0, (uint32_t)arg1);

@@ -18,6 +18,13 @@ void __attribute__((weak)) flush_tlb_range(ewokos_addr_t start, uint32_t pages) 
         flush_tlb_addr(start);
 }
 
+/* Invalidate-only D-cache range. Arch overrides with a true DC IVAC walk;
+ * the default falls back to clean+invalidate (correct on coherent-DMA arches
+ * where this path is not exercised for device-written buffers). */
+void __attribute__((weak)) dcache_inval_range(const void* start, uint32_t size) {
+    dcache_flush_range(start, size);
+}
+
 void __attribute__((optimize("O0"))) _delay(uint32_t count) {
     while(count > 0) {
         count--;
