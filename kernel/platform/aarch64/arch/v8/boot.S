@@ -29,14 +29,18 @@ __entry:
     cmp x0, #4
     beq __el1_entry
 
-#ifdef ORIN_BOARD
+#if defined(ORIN_BOARD) || defined(VIRT_GICV3)
     # Enable GICv3 system-register access at EL2 before dropping to EL1.
     # ICC_SRE_EL1.SRE is RAZ/WI while ICC_SRE_EL2.SRE=0, so the kernel's EL1
     # SRE write would be silently ignored and every ICC_* access would trap.
     # Jetson UEFI (and PSCI secondaries) enter at EL2; SRE|DIB|DFB = 0xD.
+    # QEMU virt (TCG) also enters at EL2 with ICC_SRE_EL2 reset to 0.
     mov x0, #0xD
     msr S3_4_C12_C9_5, x0   /* ICC_SRE_EL2 */
     isb
+#endif
+
+#ifdef ORIN_BOARD
     # Zero the virtual-counter offset so CNTVCT == CNTPCT (the physical system
     # counter).  The SBSA watchdog compares WCV against the physical counter,
     # while the arm/pet code reads CNTVCT; they must agree or the dog fires
