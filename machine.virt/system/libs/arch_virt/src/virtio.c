@@ -1250,18 +1250,16 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
 
         /*
          * used.idx is the completion source of truth; the MMIO interrupt is
-         * only a wake hint. Keep the status/ack sequence ordered before each
-         * coherent used-ring read, as in the other virtio request queues.
+         * only a wake hint. Poll the used ring in memory: reading
+         * INTERRUPT_STATUS every iteration traps to the hypervisor under
+         * KVM (a vmexit per poll) and dominated small-I/O latency. The
+         * pre-notify dma_sync already invalidated the used/status lines,
+         * so these reads fetch the device's bytes directly.
          */
         uint8_t completed = 0;
         uint32_t isr = 0;
         for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
         {
-            isr = get32(base + VIRTIO_MMIO_INTERRUPT_STATUS);
-            if (isr & 0x1)
-            {
-                put32(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
-            }
             mem_barrier();
             if (virtq->used.idx != used_before)
             {
@@ -1270,9 +1268,15 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
                 completed = 1;
                 break;
             }
-            if (i >= 128)
-                sched_yield();
+            /* Spin natively first; sleep in chunks only if the device is
+               slow, instead of a sched_yield syscall per iteration. */
+            if (i >= 256 && (i & 63) == 0)
+                usleep(100);
         }
+        /* Ack the completion interrupt once, now that used.idx advanced. */
+        isr = get32(base + VIRTIO_MMIO_INTERRUPT_STATUS);
+        if (isr & 0x1)
+            put32(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
 
         /* Drop stale CPU lines (no writeback) so status/payload reads fetch
            the bytes the device wrote, not the CPU's cached sentinels. */
@@ -1356,9 +1360,6 @@ int virtio_blk_flush(virtio_dev_t dev)
 
     for (uint32_t i = 0; i < VIRTIO_TIMEOUT_LOOPS; i++)
     {
-        uint32_t isr = get32(base + VIRTIO_MMIO_INTERRUPT_STATUS);
-        if (isr & 0x1)
-            put32(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
         mem_barrier();
         if (virtq->used.idx != used_before)
         {
@@ -1367,9 +1368,14 @@ int virtio_blk_flush(virtio_dev_t dev)
             completed = 1;
             break;
         }
-        if (i >= 128)
-            sched_yield();
+        if (i >= 256 && (i & 63) == 0)
+            usleep(100);
     }
+    /* Ack once after completion; see virtio_blk_transfer for why the poll
+       stays in memory instead of trapping on INTERRUPT_STATUS. */
+    uint32_t isr = get32(base + VIRTIO_MMIO_INTERRUPT_STATUS);
+    if (isr & 0x1)
+        put32(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
 
     sys_dma_sync(virtq, sizeof(struct virtq_t), 1);
     memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 2);
