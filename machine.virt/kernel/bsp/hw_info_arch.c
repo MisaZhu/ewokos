@@ -100,7 +100,11 @@ static unsigned long psci_cpu_on(unsigned long target_cpu, unsigned long entry_p
 }
 extern char __entry[];
 inline void __attribute__((optimize("O0"))) start_core(uint32_t core_id) {
+    flush_dcache();
     unsigned long ret = psci_cpu_on(core_id, __entry);
+    if(ret != 0) {
+        printf("\npsci CPU_ON core %d failed: %ld\n", core_id, (long)ret);
+    }
 }
 #else
 static uint32_t psci_cpu_on(uint32_t target_cpu, ewokos_addr_t entry_point)
