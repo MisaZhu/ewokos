@@ -117,12 +117,16 @@ struct virtio_device {
     uint64_t sector;
 };
 
+/* Plain ldr/str [reg] only: Apple hvf cannot decode post-index/pre-index
+ * MMIO accesses (ISV=0 data abort, QEMU asserts).  See gic_v3.c. */
 static inline void mmio_write(uintptr_t addr, uint32_t value) {
-    *(volatile uint32_t *)addr = value;
+    __asm__ volatile("str %w0, [%1]" :: "r"(value), "r"(addr) : "memory");
 }
 
 static inline uint32_t mmio_read(uintptr_t addr) {
-    return *(volatile uint32_t *)addr;
+    uint32_t v;
+    __asm__ volatile("ldr %w0, [%1]" : "=r"(v) : "r"(addr) : "memory");
+    return v;
 }
 
 // Global device instance

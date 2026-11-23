@@ -61,17 +61,24 @@
 #define GICD  ((volatile uint32_t*)(MMIO_BASE))
 #define GICR  ((volatile uint8_t*)(MMIO_BASE + 0xA0000))
 
+/* MMIO accessors must emit plain ldr/str [reg]: Apple hvf cannot decode
+ * post-index/pre-index forms (ISV=0 data abort) and QEMU asserts on them.
+ * Same reason Linux's aarch64 readl/writel use explicit asm. */
 static inline uint32_t rd32(volatile void* base, uint32_t off) {
-    return *(volatile uint32_t*)((volatile uint8_t*)base + off);
+    uint32_t v;
+    __asm__ volatile("ldr %w0, [%1]" : "=r"(v)
+        : "r"((volatile uint8_t*)base + off) : "memory");
+    return v;
 }
 static inline void wr32(volatile void* base, uint32_t off, uint32_t v) {
-    *(volatile uint32_t*)((volatile uint8_t*)base + off) = v;
+    __asm__ volatile("str %w0, [%1]" :: "r"(v),
+        "r"((volatile uint8_t*)base + off) : "memory");
 }
 static void wr64(volatile void* base, uint32_t off, uint64_t v) {
     /* KVM's vgic rejects 64-bit MMIO accesses (injects a permission fault);
      * split into two 32-bit writes (low word first, like Linux's split path). */
-    *(volatile uint32_t*)((volatile uint8_t*)base + off) = (uint32_t)v;
-    *(volatile uint32_t*)((volatile uint8_t*)base + off + 4) = (uint32_t)(v >> 32);
+    wr32(base, off, (uint32_t)v);
+    wr32(base, off + 4, (uint32_t)(v >> 32));
 }
 
 static inline uint64_t icc_read_sre(void) {
