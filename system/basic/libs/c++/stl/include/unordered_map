@@ -70,6 +70,11 @@ public:
     bool operator!=(const unordered_map_iterator& other) const { return node_ != other.node_; }
 
 private:
+    /* unordered_map::erase(iterator) needs the node/bucket bookkeeping below
+       to unlink an element without re-hashing its key. */
+    template <typename K, typename V>
+    friend class unordered_map;
+
     unordered_map_node<Key, T>* node_;
     unordered_map_node<Key, T>** bucket_;
     size_t bucket_idx_;
@@ -257,6 +262,37 @@ class unordered_map {
                 node = node->next;
             }
             return 0;
+        }
+
+        /* Standard erase(iterator): unlink the node the iterator points at and
+           return an iterator to the element that followed it.  The successor
+           is captured before unlinking, since ++ on the victim afterwards
+           would walk a freed node.  const_iterator is the same type as
+           iterator here, so this single overload covers both. */
+        iterator erase(iterator pos) {
+            if (pos.node_ == nullptr) {
+                return end();
+            }
+            iterator next = pos;
+            ++next;
+            unordered_map_node<Key, T>* node = pos.node_;
+            unordered_map_node<Key, T>* prev = nullptr;
+            unordered_map_node<Key, T>* cur = buckets_[pos.bucket_idx_];
+            while (cur) {
+                if (cur == node) {
+                    if (prev) {
+                        prev->next = cur->next;
+                    } else {
+                        buckets_[pos.bucket_idx_] = cur->next;
+                    }
+                    delete cur;
+                    size_--;
+                    break;
+                }
+                prev = cur;
+                cur = cur->next;
+            }
+            return next;
         }
 
         T& operator[](const Key& key) {

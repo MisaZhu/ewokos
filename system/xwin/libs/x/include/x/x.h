@@ -48,6 +48,10 @@ void     x_wait_event_timeout(x_t* x, uint32_t timeout_usec);
 void     x_terminate(x_t* x);
 float    x_hidpi_scale(void);
 int      x_hidpi_size(int size);
+/*effective device-pixel ratio as a float (1.0 when hidpi is off): use this
+  for DPR-style scaling where x_hidpi_size's int return would truncate a
+  fractional hidpi_scale (e.g. 1.6) down to 1*/
+float    x_hidpi_ratio(void);
 /*xserverd keeps the theme cache of its own copy of libx in sync with its
   config, so x_hidpi_size scales inside the server too; clients refresh the
   cache through x_get_theme*/

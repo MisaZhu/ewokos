@@ -104,6 +104,12 @@ int setvbuf(FILE *stream, char *buf, int mode, size_t size);
 FILE *popen(const char *command, const char *type);
 int pclose(FILE *stream);
 
+/* Implemented in libgloss/syscalls.c (_rename hook: copy + unlink, since the
+   vfs layer has no atomic rename).  The definition has been in libc.a for a
+   while but the declaration was missing, so C++ callers including <stdio.h>
+   could not name it. */
+int rename(const char *oldpath, const char *newpath);
+
 #ifdef __cplusplus
 }
 #endif
