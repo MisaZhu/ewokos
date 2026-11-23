@@ -44,6 +44,12 @@ static void input(int pid, mouse_evt_t* mevt) {
         ev.value.mouse.relative = 0;
         ev.value.mouse.x = mevt->x;
         ev.value.mouse.y = mevt->y;
+    }else{
+        /* untyped button-only event: keep the cursor where it is,
+         * a zeroed absolute event would teleport it to (0,0) */
+        ev.value.mouse.relative = 1;
+        ev.value.mouse.rx = 0;
+        ev.value.mouse.ry = 0;
     }
     ev.value.mouse.button = mevt->button;
     proto_t in;
