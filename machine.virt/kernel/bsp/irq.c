@@ -1,7 +1,6 @@
 #include <kernel/irq.h>
 #include <kernel/hw_info.h>
 #include <mm/mmu.h>
-#include <kprintf.h>
 #include "arch.h"
 
 /* GICv3 (see bsp/gic_v3.c): KVM on GICv3 hosts cannot emulate GICv2. */
@@ -18,12 +17,10 @@ void irq_init_arch(void) {
      * lands in the syndrome-printing handler instead of the VBAR=0 loop. */
     set_vector_table(&interrupt_table_start);
     gic_v3_init();
-    kout_str("gicv3: dist init ok\n");
     /* Start from a clean slate for SPIs; SGI0/PPI27 are set up by the driver. */
     for (int i = 32; i < 1020; i++)
         gic_v3_irq_disable(0, i);
     gic_v3_core_init(0);
-    kout_str("gicv3: core0 init ok\n");
 }
 
 void irq_enable_arch(uint32_t irq) {

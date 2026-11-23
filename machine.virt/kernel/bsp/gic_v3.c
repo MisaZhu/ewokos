@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <mm/mmu.h>
 #include <kernel/hw_info.h>
-#include <kprintf.h>
 
 /*
  * GICv3 driver for the QEMU virt machine (machine.virt).
@@ -201,52 +200,33 @@ static void spi_irq_disable(uint32_t irq) {
  * sources (SGI0 for IPIs, PPI27 for the virtual timer).
  */
 void gic_v3_init(void) {
-    printf("gic3: enter\n");
     /* Enable system-register access if the firmware has not done it yet. */
     uint64_t sre = icc_read_sre();
-    printf("gic3: sre=%llx\n", sre);
     sre |= (1u << 0);  /* SRE */
     sre |= (1u << 2);  /* DIB */
     sre |= (1u << 3);  /* DFB */
     icc_write_sre(sre);
     isb();
-    printf("gic3: sre set\n");
 
-    uint32_t ctlr = rd32(GICD, GICD_CTLR);
-    printf("gic3: ctlr=%x typer=%x\n", ctlr, rd32(GICD, GICD_TYPER));
-
-    /* KVM experiment: skip the disable/ARE re-write sequence (reset CTLR
-     * already has ARE_NS|DS set); only the final enable write remains. */
-    printf("gic3: skip mid-ctlr writes\n");
-
-    printf("gic3: A\n");
-    uint32_t typer2 = rd32(GICD, GICD_TYPER);
-    printf("gic3: B typer2=%x\n", typer2);
-    uint32_t lines = ((typer2 & 0x1F) + 1) * 32;
+    uint32_t lines = ((rd32(GICD, GICD_TYPER) & 0x1F) + 1) * 32;
     if (lines > GIC_INT_MAX)
         lines = GIC_INT_MAX;
-    printf("gic3: loops start lines=%u\n", lines);
 
     for (uint32_t i = 0; i < lines; i += 32) {
         wr32(GICD, GICD_IGROUPR + (i / 32) * 4, 0xFFFFFFFFu);
         /* Group 1 non-secure (not Group 1 secure). */
         wr32(GICD, GICD_IGRPMODR + (i / 32) * 4, 0);
     }
-    printf("gic3: groups done\n");
     for (uint32_t i = 32; i < lines; i++)
         gicd_set_prio(i);
-    printf("gic3: prio done\n");
     for (uint32_t i = 32; i < lines; i++)
         wr64(GICD, GICD_IROUTER + (uint64_t)i * 8, 0);
-    printf("gic3: router done\n");
 
     wr32(GICD, GICD_CTLR, rd32(GICD, GICD_CTLR) | GICD_CTLR_ARE_NS |
             GICD_CTLR_ENABLE_G1NS);
     gicd_wait_rwp();
-    printf("gic3: enabled ctlr=%x lines=%u\n", rd32(GICD, GICD_CTLR), lines);
 
     for (uint32_t c = 0; c < VIRT_CORES; c++) {
-        printf("gic3: rd%u typer=%x\n", c, rd32(gicr_rd(c), GICR_TYPER));
         redist_wake(c);
         redist_irq_enable(c, VIRT_IPI_IRQ);
         if (c == 0)
@@ -254,7 +234,6 @@ void gic_v3_init(void) {
         else
             redist_irq_disable(c, VIRT_TIMER_IRQ);
     }
-    printf("gic3: dist init done\n");
 }
 
 /*
@@ -262,7 +241,6 @@ void gic_v3_init(void) {
  * irq_init_arch for core 0 and cpu_core_ready() for the APs).
  */
 void gic_v3_core_init(uint32_t core) {
-    printf("gic3: core%u init\n", core);
     uint64_t sre = icc_read_sre();
     sre |= (1u << 0);
     icc_write_sre(sre);
@@ -272,7 +250,6 @@ void gic_v3_core_init(uint32_t core) {
     icc_write_ctlr(0);          /* EOImode=0: EOIR1 both priority-drops and deactivates */
     icc_write_igrpen1(1);
     isb();
-    printf("gic3: core%u iface on\n", core);
 
     redist_wake(core);
     redist_irq_enable(core, VIRT_IPI_IRQ);
@@ -280,7 +257,6 @@ void gic_v3_core_init(uint32_t core) {
         redist_irq_enable(core, VIRT_TIMER_IRQ);
     else
         redist_irq_disable(core, VIRT_TIMER_IRQ);
-    printf("gic3: core%u done\n", core);
 }
 
 void gic_v3_irq_enable(int core, int irq) {

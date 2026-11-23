@@ -86,9 +86,15 @@ ifeq ($(ARCH), aarch64)
 		QEMU_GUI_ACCEL ?= $(QEMU_HOST_ACCEL)
 		QEMU_GUI_CPU ?= $(QEMU_HOST_CPU)
 	endif
-	QEMU_RUN_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=$(QEMU_RUN_ACCEL) -cpu $(QEMU_RUN_CPU) -m $(QEMU_MEM) \
+	# The aarch64 BSP uses the GICv3 redistributor + ICC_* sysreg interface
+	# (bsp/gic_v3.c).  QEMU's virt default is GICv2 for both hvf and TCG, which
+	# has no redistributors and no ICC sysregs: every ICC access takes an
+	# undefined-instruction trap (EC=0).  Force gic-version=3.  Do NOT add
+	# virtualization=on: it switches QEMU's PSCI conduit from HVC to SMC and
+	# the BSP's HVC CPU_ON would trap to an uninstalled EL2 vector.
+	QEMU_RUN_FLAGS = -M $(QEMU_MACHINE),highmem=on,gic-version=3,accel=$(QEMU_RUN_ACCEL) -cpu $(QEMU_RUN_CPU) -m $(QEMU_MEM) \
 		-serial mon:stdio -nographic
-	QEMU_GUI_FLAGS = -M $(QEMU_MACHINE),highmem=on,accel=$(QEMU_GUI_ACCEL) -cpu $(QEMU_GUI_CPU) -m $(QEMU_MEM) \
+	QEMU_GUI_FLAGS = -M $(QEMU_MACHINE),highmem=on,gic-version=3,accel=$(QEMU_GUI_ACCEL) -cpu $(QEMU_GUI_CPU) -m $(QEMU_MEM) \
 		-serial mon:stdio -device ramfb \
 		-display $(QEMU_GUI_DISPLAY)
 else
