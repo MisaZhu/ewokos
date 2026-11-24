@@ -71,7 +71,12 @@ tcp_seq_between(uint32_t seq, uint32_t first, uint32_t last)
 
 #define TCP_DEFAULT_RTO 200000 /* micro seconds */
 #define TCP_TX_RETRY 1000 /* local TX backpressure is not wire loss */
-#define TCP_RETRANSMIT_DEADLINE 60 /* seconds - increased for better reliability */
+#define TCP_RETRANSMIT_DEADLINE 15 /* seconds of total silence = dead peer.
+                                    * Was 60: a blackholed CDN edge (accepts
+                                    * TCP, drops TLS) pinned every fetch for a
+                                    * full minute per retry. Healthy flows on
+                                    * lossless links ACK within ms and never
+                                    * come near this last-resort deadline. */
 #define TCP_TIMEWAIT_SEC 30 /* substitute for 2MSL */
 /*
  * With WSOPT enabled the peer can legitimately advertise far more than the
@@ -90,7 +95,7 @@ tcp_seq_between(uint32_t seq, uint32_t first, uint32_t last)
 /*
  * Idle-connection reaping. EwokOS has no SO_KEEPALIVE, and a peer that
  * disappears without FIN/RST (WiFi drop, killed client, AP cut) leaves the
- * ESTABLISHED pcb silent forever: no retransmit entry exists, so the 60s
+ * ESTABLISHED pcb silent forever: no retransmit entry exists, so the 15s
  * retransmit deadline never runs, and the orphan reaper below deliberately
  * does not cover ESTABLISHED. Over time such connections fill the 64-slot
  * PCB table and the 160-slot sock table, after which new SYNs are silently
@@ -103,7 +108,7 @@ tcp_seq_between(uint32_t seq, uint32_t first, uint32_t last)
 #define TCP_ORPHAN_IDLE_TIMEOUT_SECS 60 /* sock-gone ESTABLISHED/CLOSE_WAIT */
 /*
  * Half-open (SYN_RECEIVED) cap. A handshake that never completes otherwise
- * occupies its PCB slot for the full TCP_RETRANSMIT_DEADLINE (60s); under a
+ * occupies its PCB slot for the full TCP_RETRANSMIT_DEADLINE (15s); under a
  * burst of SYNs that rapidly exhausts the table. Give up after a bounded
  * number of SYN-ACK retries (~13s worst case) and let the orphan reaper
  * reclaim the slot.
@@ -788,6 +793,16 @@ tcp_retransmit_queue_emit(void *arg, void *data)
         pcb->state = TCP_PCB_STATE_CLOSED;
         pcb->close_reason = 2; /* timeout */
         tcp_log_close_event("tcp_retransmit timeout close", pcb);
+        /*
+         * Drain the queue: a CLOSED pcb must stop retransmitting. Leaving the
+         * entry queued makes every later tick re-fire this deadline branch
+         * (RST + log spam) and pins the PCB until the owning sock closes --
+         * the orphan reaper only reclaims sock-less slots. The blocked app
+         * was already woken below; freeing the copies cannot lose data.
+         */
+        while ((entry = queue_pop(&pcb->queue)) != NULL) {
+            memory_free(entry);
+        }
         tcp_sched_wakeup_all(pcb);
         return;
     }
@@ -797,7 +812,7 @@ tcp_retransmit_queue_emit(void *arg, void *data)
         /*
          * Half-open handshake cap: a SYN/SYN-ACK that never completes the
          * handshake releases its PCB slot after TCP_SYN_RETRY_MAX retries
-         * (~13s) instead of pinning it until the 60s deadline; the orphan
+         * (~13s) instead of pinning it until the 15s deadline; the orphan
          * reaper reclaims the slot on the next tick.
          */
         if (TCP_FLG_ISSET(entry->flg, TCP_FLG_SYN) &&
@@ -805,6 +820,9 @@ tcp_retransmit_queue_emit(void *arg, void *data)
             pcb->state = TCP_PCB_STATE_CLOSED;
             pcb->close_reason = 2;
             tcp_log_close_event("tcp_syn retries exhausted close", pcb);
+            while ((entry = queue_pop(&pcb->queue)) != NULL) {
+                memory_free(entry);
+            }
             tcp_sched_wakeup_all(pcb);
             return;
         }
@@ -1852,7 +1870,7 @@ tcp_timer(void)
         /*
          * Idle-connection reaper. A peer that vanished without FIN/RST
          * (WiFi drop, killed client) leaves ESTABLISHED/CLOSE_WAIT silent
-         * forever: no retransmit entry exists, so the 60s deadline never
+         * forever: no retransmit entry exists, so the 15s deadline never
          * runs, and the orphan branch above does not cover these states.
          * Close idling sessions after TCP_IDLE_TIMEOUT_SECS (live socket)
          * or the shorter TCP_ORPHAN_IDLE_TIMEOUT_SECS (owning sock already

@@ -1047,7 +1047,16 @@ int fbdisplayd_run(displayd_t* fbdisplayd, const char* mnt_name,
     uint8_t dep = 32;
     _rotate = G_ROTATE_0;
 
-    int32_t index = displayman_add_dev("/dev/displayman", mnt_name, display_index);
+    /* displaymand may still be mounting when init.rd launches us right after
+     * it; a single add attempt then fails and the whole display chain (and
+     * every xwin client) dies at boot. Retry briefly instead of exiting. */
+    int32_t index = -1;
+    for(int attempt = 0; attempt < 50; attempt++) {
+        index = displayman_add_dev("/dev/displayman", mnt_name, display_index);
+        if(index >= 0)
+            break;
+        usleep(100000);
+    }
     if(index < 0) {
         slog("fbdisplayd: displayman rejected %s index %u\n",
                 mnt_name, display_index);
