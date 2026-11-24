@@ -655,6 +655,48 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
     flush_tlb_nosweep();
 }
 
+/*
+ * Release fully-free interior heap pages back to the kernel without moving
+ * the break (madvise(DONTNEED)-style). The user allocator hands over a range
+ * it knows is dead; whole pages inside it are unmapped and their physical
+ * frames freed. heap_size/heap_used stay untouched, so the sbrk break and
+ * every live allocation above the hole keep their addresses. Reuse of a
+ * released page faults through is_user_heap_or_stack_fault() ->
+ * copy_on_write(), which already backs unmapped heap addresses with fresh
+ * zero pages. Only the sbrk heap [malloc_base, heap_size) is eligible -
+ * releasing loaded-image pages below malloc_base would zero globals on
+ * refault.
+ */
+int32_t proc_release_mem(proc_t* proc, ewokos_addr_t addr, ewokos_addr_t size) {
+    if(proc == NULL || proc->space == NULL || proc->space->vm == NULL)
+        return -1;
+    if(size == 0)
+        return 0;
+
+    ewokos_addr_t base = proc->space->malloc_base;
+    ewokos_addr_t end = addr + size;
+    if(end < addr || addr < base || end > proc->space->heap_size)
+        return -1;
+
+    /* Round inward so partial edge pages - which may carry a live block
+     * header or the previous block's tail - are never released. */
+    ewokos_addr_t v = ALIGN_UP(addr, PAGE_SIZE);
+    ewokos_addr_t stop = ALIGN_DOWN(end, PAGE_SIZE);
+    int32_t released = 0;
+    for(; v < stop; v += PAGE_SIZE) {
+        /* Already-released holes resolve to 0: skip them, both to keep the
+         * return count honest and because unmap_page_ref() must not touch
+         * the refcount of physical page 0. */
+        if(resolve_phy_address(proc->space->vm, v) == 0)
+            continue;
+        unmap_page_ref(proc->space->vm, v);
+        released++;
+    }
+    if(released > 0)
+        flush_tlb_nosweep();
+    return released;
+}
+
 /* proc_exapnad_memory expands the heap size of the given process. */
 static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
     int32_t i;

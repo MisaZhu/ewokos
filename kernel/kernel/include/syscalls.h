@@ -9,12 +9,6 @@
 
 #define DMA_MAGIC   0xCAFECAFF
 
-/* Architecture-specific, privileged controls. Outside the counted enum to
- * preserve sys_state_t's ABI for existing rootfs binaries. */
-#define SYS_PLATFORM_CTL 0x100
-/* Drop a caller-owned SYS_MEM_MAP window: arg0=VA, arg1=byte size. */
-#define SYS_MEM_UNMAP 0x101
-
 /* SYS_SEMAPHORE_ALLOC: arg0=0 allocates a private semaphore (legacy ABI).
  * Nonzero keys retrieve kernel-owned hardware locks. Successful lookups
  * return SYS_SEM_HANDLE_TAG | id; old kernels return an untagged private id,
@@ -177,6 +171,21 @@ enum {
 	   bytes). Needed because EL0 cannot run DC CVAC/IVAC and a cacheable DMA
 	   alias is not kept coherent with the emulator's host writes under KVM. */
 	SYS_DMA_SYNC,
+
+	/* Fixed-number syscalls beyond the counted range: values sit above
+	 * SYS_CALL_NUM so sys_state_t's svc_counter[SYS_CALL_NUM] ABI is
+	 * preserved for existing rootfs binaries. */
+
+	/* Architecture-specific, privileged controls. */
+	SYS_PLATFORM_CTL,
+	/* Drop a caller-owned SYS_MEM_MAP window: arg0=VA, arg1=byte size. */
+	SYS_MEM_UNMAP,
+	/* madvise(DONTNEED)-style release of fully-free interior heap pages:
+	 * arg0=VA, arg1=byte size. Unmaps whole pages inside [malloc_base,
+	 * heap_size) WITHOUT moving the break; the demand-fault path
+	 * (copy_on_write in irq.c) refaults them as zero pages on reuse.
+	 * Returns pages released, or -1. */
+	SYS_MALLOC_RELEASE,
 	SYS_CALL_NUM
 };
 

@@ -61,6 +61,13 @@ inline int32_t map_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_ad
 
 inline void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t virtual_addr) {
     ewokos_addr_t paddr = resolve_phy_address(vm, virtual_addr);
+    /* Unmapped hole (e.g. a heap page released by SYS_MALLOC_RELEASE and
+     * later swept by a tail shrink): nothing to deref. Without this guard
+     * the refcount of physical page 0 would be decremented instead. */
+    if(paddr == 0) {
+        unmap_page(vm, virtual_addr);
+        return;
+    }
     uint32_t i = page_ref_index(paddr);
     if(i < _pages_ref.max) {
         if(_pages_ref.refs[i] > 0)

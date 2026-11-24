@@ -290,6 +290,17 @@ static FT_GlyphSlot font_get_glyph(font_t* font, uint32_t size, uint32_t c,
     if(cache != NULL) {
         FT_GlyphSlot p = cache_slot_copy(scratch);
         if(p != NULL) {
+            /* The backend (font_cs IPC / font_file FreeType) malloc'd
+             * scratch->other and scratch->bitmap.buffer for this render;
+             * cache_slot_copy deep-copied both into the cache entry, so the
+             * scratch originals must be released here. Dropping them leaked
+             * one face_info_t + one glyph bitmap per cache miss - i.e. on
+             * every page navigation, whose fresh fonts start with an empty
+             * cache (unbounded heap growth across repeated loads). */
+            if(scratch->bitmap.buffer != NULL)
+                free(scratch->bitmap.buffer);
+            if(scratch->other != NULL)
+                free(scratch->other);
             if(cache->count >= GLYPH_CACHE_MAX)
                 glyph_cache_clear(cache);
             uint32_t i = glyph_hash(key);

@@ -363,6 +363,10 @@ inline uint32_t proc_malloc_size(void) {
     return syscall0(SYS_MALLOC_SIZE);
 }
 
+inline int32_t proc_malloc_release(void* addr, ewokos_addr_t size) {
+    return (int32_t)syscall2(SYS_MALLOC_RELEASE, (ewokos_addr_t)addr, size);
+}
+
 /*
  * Largest tick period proc_nsleep_precise() will trust as a spin budget, and
  * the budget it clamps to when the measured tick is larger or not yet known.

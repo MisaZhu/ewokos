@@ -906,6 +906,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
     case SYS_MALLOC_EXPAND:
         ctx->gpr[0] = sys_malloc(arg0);
         return;
+    case SYS_MALLOC_RELEASE:
+        ctx->gpr[0] = (ewokos_addr_t)proc_release_mem(get_current_proc(), arg0, arg1);
+        return;
     case SYS_MALLOC_SIZE:
         ctx->gpr[0] = sys_msize();
         return;

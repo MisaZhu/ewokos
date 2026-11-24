@@ -381,6 +381,32 @@ void data_abort_handler(context_t* ctx, ewokos_addr_t addr_fault, uint32_t statu
         halt();
     }
     if(abort_from_kernel(ctx)) {
+        /* Kernel-mode access to the CURRENT proc's user heap/stack is legal:
+         * syscalls copy results straight into user buffers (e.g. memcpy in
+         * sys_get_sys_info). SYS_MALLOC_RELEASE leaves unmapped holes in that
+         * heap which refault zeroed on reuse, so such a write can take a
+         * same-EL translation fault here. Back the page exactly like the
+         * user-mode demand path and retry the instruction; anything else
+         * (kernel VA, foreign address, permission bug) stays a fatal kernel
+         * bug. */
+        if(is_recoverable_user_data_fault(status) &&
+                is_user_heap_or_stack_fault(cproc, addr_fault)) {
+            int32_t res;
+            if(kernel_lock_check() > 0) {
+                /* Already serialized on this core (syscall path holds the
+                 * kernel lock); taking it again would deadlock. */
+                res = copy_on_write(cproc, addr_fault);
+            }
+            else {
+                kernel_lock();
+                res = copy_on_write(cproc, addr_fault);
+                kernel_unlock();
+            }
+            if(res == 0) {
+                abort_guard_leave(core);
+                return;
+            }
+        }
         printf("_kernel, data abort in KERNEL mode!! (core %d) at: 0x%llX status: 0x%X - kernel bug\n",
             core, (unsigned long long)addr_fault, status);
         dump_ctx(ctx);
