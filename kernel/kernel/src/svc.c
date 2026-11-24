@@ -60,20 +60,29 @@ static inline void svc_account(int32_t code) {
     svc_stat_unlock();
 }
 
+/*
+ * Lock-free fastpath: ONLY calls that return scalars and never write user
+ * memory may run here. A kernel write into a user buffer can take a
+ * demand-paging data abort (SYS_MALLOC_RELEASE may have unmapped the page),
+ * and data_abort_handler's recoverable path takes kernel_lock(). Handlers
+ * like get_proc()/get_procs()/proc_get_cmd_safe() copy out under proc_lock,
+ * so a fastpath user write would hold proc_lock while acquiring kernel_lock
+ * - the inverse of the canonical kernel_lock->proc_lock order used by
+ * proc_ipc_close() teardown - deadlocking the two cores (ABBA). Calls that
+ * write user buffers (SYS_PROC_GET_CMD, SYS_GET_SYS_INFO, SYS_GET_PROC,
+ * SYS_GET_PROCS) therefore stay on the kernel_lock() path below, where the
+ * fault handler sees kernel_lock_check() > 0 and never re-takes the lock.
+ */
 static inline bool svc_is_query_fastpath(int32_t code) {
     switch(code) {
     case SYS_GET_PID:
     case SYS_GET_THREAD_ID:
     case SYS_PROC_GET_UID:
     case SYS_PROC_GET_GID:
-    case SYS_PROC_GET_CMD:
     case SYS_IPC_PING:
     case SYS_CORE_PID:
-    case SYS_GET_SYS_INFO:
     case SYS_GET_VSYSCALL_INFO:
-    case SYS_GET_PROC:
     case SYS_GET_PROCS_NUM:
-    case SYS_GET_PROCS:
         return true;
     default:
         return false;
@@ -206,9 +215,9 @@ static void sys_fork(context_t* ctx) {
          * kev_push takes proc_lock via proc_wakeup, so do not hold proc_lock
          * around this call.
          */
-        proc->info.state = BLOCK;
-        cproc->info.state = BLOCK;
         cproc->ctx.gpr[0] = proc->info.pid;
+        proc_park_clone(proc, proc->info.pid);
+        proc_park_clone(cproc, proc->info.pid);
 
         kev_push(KEV_PROC_CREATED, cproc->info.pid, proc->info.pid, 0);
         schedule(ctx);
@@ -512,7 +521,7 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
  * Provide the matching voluntary teardown so a short-lived bootstrap mapping
  * cannot survive exec and pin firmware-owned RAM forever.  This only removes
  * PTEs from the calling address space; physical pages remain owned by the
- * caller of the mapping API (q8b_release_ramdisk() handles RAM reclamation).
+ * caller of the mapping API (qcom8gen3_release_ramdisk() handles RAM reclamation).
  */
 static int32_t sys_mem_unmap(ewokos_addr_t vaddr, uint32_t size) {
     proc_t* cproc = proc_get_proc(get_current_proc());
@@ -905,6 +914,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_MALLOC_EXPAND:
         ctx->gpr[0] = sys_malloc(arg0);
+        return;
+    case SYS_MALLOC_RELEASE:
+        ctx->gpr[0] = (ewokos_addr_t)proc_release_mem(get_current_proc(), arg0, arg1);
         return;
     case SYS_MALLOC_SIZE:
         ctx->gpr[0] = sys_msize();
