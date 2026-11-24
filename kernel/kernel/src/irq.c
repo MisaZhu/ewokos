@@ -150,6 +150,16 @@ static inline void _irq_handler(uint32_t cid, context_t* ctx) {
     else if(cid == 0 && irq == IRQ_TIMER0) {
         irq_do_timer0(ctx);
     }
+    else if(irq == IRQ_TIMER0) {
+        /*
+         * Secondary-core local tick: preempt the running task so a CPU-bound
+         * task cannot monopolize this core and starve its other ready tasks.
+         * Global time accounting stays on the boot core; here we only ack the
+         * per-core CNTV and reschedule (round-robin timeslice).
+         */
+        arch_irq_timer_ack();
+        schedule(ctx);
+    }
     else if(irq == IRQ_IPI) {
 #ifdef KERNEL_SMP
         ipi_clear(get_core_id());

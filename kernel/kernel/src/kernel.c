@@ -206,6 +206,15 @@ void __attribute__((optimize("O0"))) _slave_kernel_entry_c(uint32_t boot_core_id
      * only covers the boot core.
      */
     arch_enable_user_cnt();
+    /*
+     * Arm this AP's own per-core virtual timer (CNTV) and unmask its PPI in
+     * the GIC. Without a local tick a CPU-bound task on this core is never
+     * preempted and starves every other task pinned here (sshd / X included),
+     * freezing the box while one core spins. The boot-core tick alone cannot
+     * guarantee timely preemption on remote cores.
+     */
+    timer_set_interval(0, _kernel_config.timer_freq);
+    irq_enable_core_arch(cid, IRQ_TIMER0);
     _cpu_cores[cid].actived = true;
     flush_dcache();
     proc_t* idle_proc = _cpu_cores[cid].idle_proc;

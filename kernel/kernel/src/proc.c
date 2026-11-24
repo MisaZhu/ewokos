@@ -1229,6 +1229,9 @@ bool proc_have_ready_task(uint32_t core) {
     return ready;
 }
 
+/* Max concurrently RUNNING threads of one process across cores; keeps a
+ * multi-threaded compute process from monopolizing every core. */
+#define PROC_RUN_CAP 2
 proc_t* proc_get_next_ready(void) {
     proc_lock_enter();
     uint32_t core_id = get_core_id();
@@ -1236,12 +1239,55 @@ proc_t* proc_get_next_ready(void) {
     while(next != NULL && next->info.state != READY && next->info.state != RUNNING) {
         next = queue_pop(&_ready_queue[core_id]);
     }
+    /*
+     * Per-process CPU bandwidth cap: a multi-threaded compute process (browser
+     * engine/JS/TLS) must not occupy every core and starve unrelated system
+     * services (sshd/X/vfsd). Skip ready tasks whose process already has
+     * PROC_RUN_CAP threads RUNNING elsewhere; they wait for a free slot while
+     * other processes (and idle) use the core. Bounded scan, requeue to tail.
+     */
+    if(next != NULL) {
+        for(int guard = 0; guard < 64 && next != NULL; guard++) {
+            if(next->info.state != READY && next->info.state != RUNNING) {
+                next = queue_pop(&_ready_queue[core_id]);
+                continue;
+            }
+            uint32_t run = 0;
+            for(uint32_t c = 0; c < _sys_info.cores; c++) {
+                proc_t* t = get_current_core_proc(c);
+                if(t != NULL && t != next && t->info.state == RUNNING &&
+                        t->info.pid == next->info.pid && !t->is_core_idle_proc)
+                    run++;
+            }
+            if(run < PROC_RUN_CAP)
+                break;
+            queue_push(&_ready_queue[core_id], next);
+            next = queue_pop(&_ready_queue[core_id]);
+        }
+        if(next != NULL && next->info.state != READY && next->info.state != RUNNING)
+            next = NULL;
+    }
     if(next == NULL) {
         proc_t*	cproc = get_current_proc();
         if(cproc != NULL && cproc->info.state == RUNNING &&
                 cproc != _cpu_cores[cproc->info.core].idle_proc) {
                 //halt proc can't be sheduled.
-            next = cproc;
+            /*
+             * Do not keep an over-bandwidth compute thread running just
+             * because it is current: count its process's RUNNING threads
+             * (including itself) and yield to idle when over cap, so a
+             * multi-threaded process is forced down to PROC_RUN_CAP cores
+             * and the freed cores serve unrelated system services.
+             */
+            uint32_t run = 0;
+            for(uint32_t c = 0; c < _sys_info.cores; c++) {
+                proc_t* t = get_current_core_proc(c);
+                if(t != NULL && t->info.state == RUNNING &&
+                        t->info.pid == cproc->info.pid && !t->is_core_idle_proc)
+                    run++;
+            }
+            if(run <= PROC_RUN_CAP)
+                next = cproc;
         }
     }
     proc_lock_leave();
@@ -1284,6 +1330,8 @@ static inline void proc_update_vsyscall(proc_t* proc) {
     _kernel_info.vsyscall_info->proc_info[proc->info.pid].uuid = proc->info.uuid;
     _kernel_info.vsyscall_info->proc_info[proc->info.pid].type = proc->info.type;
 }
+
+static void proc_terminate_thread_tree(context_t* ctx, proc_t* t);
 
 static void proc_terminate(context_t* ctx, proc_t* proc) {
     if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
@@ -1346,7 +1394,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
                          * down. The child's stack/space refs are released by
                          * its proc_funeral once it is reaped.
                          */
-                        proc_terminate(ctx, p);
+                        proc_terminate_thread_tree(ctx, p);
                 }
             }
         }
@@ -1397,6 +1445,28 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 
     proc->info.uuid = 0;
     proc_update_vsyscall(proc);
+}
+
+/*
+ * Terminate a child THREAD and, recursively, every thread it created.
+ * proc_terminate()'s PROC branch only walks DIRECT children; a worker thread
+ * spawned by another worker thread (father_pid == the creating thread, not the
+ * main proc) would otherwise survive its parent's death as an orphan, keeping
+ * the shared address space (and its whole heap) alive forever. Recursing here
+ * tears the entire thread subtree down with the owning process. Safe against
+ * cycles: proc_terminate() marks the task ZOMBIE up front and returns early on
+ * re-entry, and a child's father_pid still equals this task's pid after the
+ * parent is zombied (only the parent's OWN father_pid is cleared).
+ */
+static void proc_terminate_thread_tree(context_t* ctx, proc_t* t) {
+    proc_terminate(ctx, t);
+    int32_t i;
+    for (i = 0; i < _kernel_config.max_task_num; i++) {
+        proc_t* p = _task_table[i];
+        if(p != NULL && p->info.type == TASK_TYPE_THREAD &&
+                p->info.father_pid == t->info.pid)
+            proc_terminate_thread_tree(ctx, p);
+    }
 }
 
 static inline int32_t proc_init_user_stack(proc_t* proc) {

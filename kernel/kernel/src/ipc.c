@@ -909,6 +909,27 @@ static bool ipc_server_client_busy_locked(ipc_server_t* server, int32_t client_p
 }
 
 /*
+ * Count a client PROCESS's in-flight tasks on this server across ALL of its
+ * threads (uuids). Per-thread serialization alone lets a multi-threaded
+ * flood client (browser engine/JS/TLS) own one task per thread and exhaust
+ * the whole worker pool, parking every unrelated client (sshd, top, X).
+ * Capping per-process in-flight keeps a single process from monopolizing a
+ * shared MULTI_TASK server. Caller holds the server lock.
+ */
+#define IPC_CLIENT_PROC_INFLIGHT_MAX 2
+static uint32_t ipc_server_client_proc_count_locked(ipc_server_t* server, int32_t client_pid, const ipc_task_t* skip) {
+    uint32_t n = 0;
+    for(uint32_t i = 0; i < IPC_CTX_MAX; i++) {
+        ipc_task_t* t = &server->tasks[i];
+        if(t == skip)
+            continue;
+        if(t->uid != 0 && t->state != IPC_IDLE && t->client_pid == client_pid)
+            n++;
+    }
+    return n;
+}
+
+/*
  * Hand request ipc to a pool worker on the requesting client's core -
  * a request NEVER crosses cores: first look for a parked member pinned
  * to that core, and when there is none, grow the pool with a new worker
@@ -933,7 +954,8 @@ static proc_t* ipc_pool_assign(proc_t* serv_proc, ipc_task_t* ipc, uint32_t core
 
     proc_ipc_server_lock(server);
     bool no_assign = ((server->flags & IPC_MULTI_CORE) == 0) &&
-            ipc_server_client_busy_locked(server, ipc->client_pid, ipc->client_uuid, ipc);
+            (ipc_server_client_busy_locked(server, ipc->client_pid, ipc->client_uuid, ipc) ||
+             ipc_server_client_proc_count_locked(server, ipc->client_pid, ipc) >= IPC_CLIENT_PROC_INFLIGHT_MAX);
     if(!no_assign) {
         worker = ipc_pool_pick_idle_locked(server, ipc, core);
         if(worker == NULL &&

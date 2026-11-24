@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <unistd.h>
 #include <ewoksys/syscall.h>
 #include <stddef.h>
 
@@ -17,7 +18,7 @@ static void once_lock(void) {
 		return; /* recursive call from the same init routine */
 
 	while(__sync_lock_test_and_set(&_once_locked, 1) != 0)
-		syscall0(SYS_YIELD);
+		usleep(500); /* real sleep, no yield-storm */
 	_once_owner = self;
 }
 

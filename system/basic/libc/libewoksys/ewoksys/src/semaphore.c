@@ -1,5 +1,6 @@
 #include <ewoksys/semaphore.h>
 #include <ewoksys/syscall.h>
+#include <unistd.h>
 #include <ewoksys/kernel_tic.h>
 #include <sys/time.h>
 #include <stdbool.h>
@@ -50,7 +51,7 @@ int  semaphore_enter(int sem_id) {
             return res;
         if(res != SEM_RES_OCCUPIED)
             continue;   /* SEM_RES_RETRY: re-park in place, no yield */
-        syscall0(SYS_YIELD);
+        usleep(500); /* real sleep, no yield-storm */
     }
 }
 
@@ -89,7 +90,7 @@ int  semaphore_enter_timeout(int sem_id, uint32_t timeout_usec) {
         if(res == SEM_RES_ACQUIRED || res == SEM_RES_ERROR)
             return res;
         if(res == SEM_RES_OCCUPIED)
-            syscall0(SYS_YIELD);
+            usleep(500); /* real sleep, no yield-storm */
         /*
          * SEM_RES_TIMEOUT from a single kernel attempt covers both "the slice
          * elapsed" and "an unrelated wake released the block" - the kernel

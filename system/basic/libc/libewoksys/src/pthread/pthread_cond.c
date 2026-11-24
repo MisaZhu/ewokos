@@ -34,6 +34,29 @@ static inline void cond_state_unlock(pthread_cond_t* cond) {
     pthread_mutex_unlock(&cond->state_lock);
 }
 
+/*
+ * Lazy init for statically-initialized (PTHREAD_COND_INITIALIZER / zeroed)
+ * condition variables. The kernel waiter semaphore cannot be allocated at
+ * compile time, so the first wait/signal/broadcast allocates it here, guarded
+ * by state_lock (a zero pthread_mutex is a valid unlocked mutex). Double-check
+ * keeps the common already-initialized path lock-free.
+ */
+static int cond_ensure_init(pthread_cond_t* cond) {
+    if(cond->sem_wait != 0)
+        return 0;
+    cond_state_lock(cond);
+    if(cond->sem_wait == 0) {
+        int32_t s = semaphore_alloc_count(0);
+        if(s == 0) {
+            cond_state_unlock(cond);
+            return ENOMEM;
+        }
+        cond->sem_wait = s;
+    }
+    cond_state_unlock(cond);
+    return 0;
+}
+
 // Get current time in microseconds
 static inline uint64_t get_time_usec(void) {
     struct timeval tv;
@@ -111,7 +134,7 @@ static int cond_wait_internal(pthread_cond_t* cond, pthread_mutex_t* mutex,
     if(cond == NULL || mutex == NULL)
         return EINVAL;
     
-    if(cond->sem_wait == 0)
+    if(cond_ensure_init(cond) != 0)
         return EINVAL;
     
     /*
@@ -219,7 +242,7 @@ int pthread_cond_signal(pthread_cond_t* cond) {
     if(cond == NULL)
         return EINVAL;
     
-    if(cond->sem_wait == 0)
+    if(cond_ensure_init(cond) != 0)
         return EINVAL;
     
     /*
@@ -242,7 +265,7 @@ int pthread_cond_broadcast(pthread_cond_t* cond) {
     if(cond == NULL)
         return EINVAL;
     
-    if(cond->sem_wait == 0)
+    if(cond_ensure_init(cond) != 0)
         return EINVAL;
     
     cond_state_lock(cond);
