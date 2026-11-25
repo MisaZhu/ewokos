@@ -12,6 +12,10 @@ charbuf_t* _evt_buf = NULL;
 
 uint32_t _idle_sleep_us = BT_IDLE_SLEEP_MIN_US;
 
+/* powerd sleep fan-out flag: set by the sleep/wake devcmd, read by bt_loop's
+   idle-backoff cap. */
+static bool _bt_sleeping = false;
+
 bool _ready = false;
 
 bool _powered = false;
@@ -1853,6 +1857,15 @@ static char* bt_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, voi
     (void)from_pid;
     (void)p;
 
+    /* powerd sleep/wake fan-out: relax the idle poll ceiling while the board
+       sleeps so this core can stay PSCI-parked; real HCI traffic still resets
+       the backoff to the 2ms floor. */
+    if (argc > 0 && (!strcmp(argv[0], "sleep") || !strcmp(argv[0], "wake"))) {
+        _bt_sleeping = !strcmp(argv[0], "sleep");
+        snprintf(ret, BT_CMD_RET_SZ, "%s\n", argv[0]);
+        return ret;
+    }
+
     if (bt_handle_cmd_args(argc, argv, ret, BT_CMD_RET_SZ) != 0) {
         return ret;
     }
@@ -2068,7 +2081,8 @@ int bt_loop(vdevice_t* dev, void* p) {
            the safety timeout when nothing arrives. On machines without
            the event-driven path (bsp_bt_wait_readable returns -1: every
            stub, raspix, x86) the historical usleep cadence is kept. */
-        uint32_t cap = bt_hid_live() ? BT_IDLE_SLEEP_HID_US : BT_IDLE_SLEEP_MAX_US;
+        uint32_t cap = _bt_sleeping ? BT_SLEEP_IDLE_MAX_US :
+            (bt_hid_live() ? BT_IDLE_SLEEP_HID_US : BT_IDLE_SLEEP_MAX_US);
         uint32_t wait_ms = (_idle_sleep_us + 999u) / 1000u;
         int r = bsp_bt_wait_readable(wait_ms);
         if (r < 0) {

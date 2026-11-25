@@ -50,6 +50,12 @@ extern void bsp_usb_set_msc_auto_mount(bool enabled) __attribute__((weak));
 #define USB_IDLE_SLEEP_MIN_US 2000u
 #define USB_IDLE_SLEEP_MAX_US 8000u
 #define USB_NO_INPUT_SLEEP_US 20000u
+/* powerd sleep fan-out: while the board is asleep the idle cadence rises to
+   500ms and the hotplug scan relaxes to 5s so this core can stay PSCI-parked
+   (the kernel re-park sweep is 200ms; an 8ms poll keeps it powered in WFI).
+   A real report still snaps the backoff to the 2ms floor. */
+#define USB_SLEEP_IDLE_MAX_US 500000u
+#define USB_SLEEP_SCAN_INTERVAL_MS 5000u
 #define USB_MAX_HUB_DEPTH 2
 
 /* A touchpad that goes silent for this long while a contact was active is
@@ -138,6 +144,8 @@ static usb_dev_t _devs[USB_MAX_DEVS];
 static usb_input_dev_t _inputs[USB_MAX_INPUTS];
 static uint64_t _next_scan_ms = 0;
 static uint32_t _idle_sleep_us = USB_IDLE_SLEEP_MIN_US;
+/* powerd sleep fan-out flag: set by the sleep/wake devcmd, read by usb_step */
+static bool _usb_sleeping = false;
 static uint32_t _enum_fail_streak = 0;
 static uint64_t _next_reassert_ms = 0;
 
@@ -1712,7 +1720,8 @@ static int usb_step(vdevice_t* dev, void* p) {
     (void)p;
 
     if (now >= _next_scan_ms) {
-        _next_scan_ms = now + USB_SCAN_INTERVAL_MS;
+        _next_scan_ms = now + (_usb_sleeping ?
+            USB_SLEEP_SCAN_INTERVAL_MS : USB_SCAN_INTERVAL_MS);
         usb_scan_root_ports();
         for (int i = 0; i < USB_MAX_DEVS; ++i) {
             if (_devs[i].present && _devs[i].is_hub) {
@@ -1751,13 +1760,22 @@ static int usb_step(vdevice_t* dev, void* p) {
     if (got) {
         _idle_sleep_us = USB_IDLE_SLEEP_MIN_US;
     }
+    else if (_usb_sleeping) {
+        /* asleep with no report: jump straight to the long cadence */
+        _idle_sleep_us = USB_SLEEP_IDLE_MAX_US;
+    }
     else if (_idle_sleep_us < USB_IDLE_SLEEP_MAX_US) {
         _idle_sleep_us <<= 1;
         if (_idle_sleep_us > USB_IDLE_SLEEP_MAX_US) {
             _idle_sleep_us = USB_IDLE_SLEEP_MAX_US;
         }
     }
-    usleep(have_inputs ? _idle_sleep_us : USB_NO_INPUT_SLEEP_US);
+    else if (_idle_sleep_us > USB_IDLE_SLEEP_MAX_US) {
+        /* just woken: drop back from the sleep cadence at once */
+        _idle_sleep_us = USB_IDLE_SLEEP_MAX_US;
+    }
+    usleep(have_inputs ? _idle_sleep_us :
+        (_usb_sleeping ? USB_SLEEP_IDLE_MAX_US : USB_NO_INPUT_SLEEP_US));
     return 0;
 }
 
@@ -1776,6 +1794,16 @@ static char* usb_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, vo
 
     if (argc <= 0)
         return NULL;
+    /* powerd sleep/wake fan-out: relax the idle poll and hotplug scan while
+       the board sleeps so this core can stay PSCI-parked. */
+    if (strcmp(argv[0], "sleep") == 0 || strcmp(argv[0], "wake") == 0) {
+        _usb_sleeping = strcmp(argv[0], "sleep") == 0;
+        char* ret = (char*)malloc(8);
+        if (ret == NULL)
+            return NULL;
+        snprintf(ret, 8, "%s\n", argv[0]);
+        return ret;
+    }
     if (strcmp(argv[0], "kbd_state") != 0)
         return NULL;
 

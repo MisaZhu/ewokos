@@ -494,6 +494,13 @@
 #define BT_IDLE_SLEEP_HID_US 2000u
 #define BT_IDLE_SLEEP_MAX_US 20000u
 
+/* powerd sleep fan-out: while the board is asleep the idle ceiling rises to
+   500ms (even with a HID link live) so this core can stay PSCI-parked -- the
+   kernel re-park sweep is 200ms and the 2ms HID floor would keep it powered
+   in WFI. Input is not expected while asleep; a real report still resets the
+   backoff to the 2ms floor, and powerd's wake restores the normal ceiling. */
+#define BT_SLEEP_IDLE_MAX_US 500000u
+
 /* HIDP transaction headers (high nibble = message type) */
 #define HIDP_TRANS_HANDSHAKE 0x00
 #define HIDP_TRANS_HID_CONTROL 0x10
