@@ -34,6 +34,10 @@ class wstring {
                allocating room for the terminator, which made capacity() return
                (size_t)-1. */
             data_ = (wchar_t*)malloc(sizeof(wchar_t));
+            if (data_ == nullptr) {
+                capacity_ = 0;
+                return;
+            }
             data_[0] = 0;
         }
 
@@ -50,7 +54,8 @@ class wstring {
             if (pos > str.length_) {
                 pos = str.length_;
             }
-            if (len == npos || pos + len > str.length_) {
+            /* Subtraction form: pos + len can wrap for huge len. */
+            if (len == npos || len > str.length_ - pos) {
                 len = str.length_ - pos;
             }
             length_ = len;
@@ -110,14 +115,22 @@ class wstring {
         }
 
         wstring& operator=(const wchar_t* s) {
-            free(data_);
-            length_ = 0;
-            while (s[length_] != 0) length_++;
-            capacity_ = length_ + 1;
-            data_ = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
-            for (size_t i = 0; i <= length_; i++) {
-                data_[i] = s[i];
+            /* s may point into our own buffer (w = w.c_str() + k), so scan
+               and copy into a fresh buffer BEFORE freeing the old one; the
+               previous free-first order read freed memory in that case. */
+            size_t newLength = 0;
+            while (s[newLength] != 0) newLength++;
+            wchar_t* newData = (wchar_t*)malloc((newLength + 1) * sizeof(wchar_t));
+            if (newData == nullptr) {
+                return *this;
             }
+            for (size_t i = 0; i <= newLength; i++) {
+                newData[i] = s[i];
+            }
+            free(data_);
+            data_ = newData;
+            length_ = newLength;
+            capacity_ = newLength + 1;
             return *this;
         }
 
@@ -136,14 +149,26 @@ class wstring {
         size_t max_size() const { return -1; }
 
         void resize(size_t n) {
-            if (n > capacity_) {
-                capacity_ = n + 1;
-                wchar_t* newData = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
-                for (size_t i = 0; i < length_; i++) {
-                    newData[i] = data_[i];
+            if (data_ == nullptr) {
+                return;
+            }
+            /* capacity_ counts the terminator slot: resizing to exactly
+               capacity_ still needs one more slot for data_[n], so the test
+               is n + 1 > capacity_.  The old n > capacity_ let resize write
+               data_[capacity_], one past the buffer. */
+            if (n + 1 > capacity_) {
+                wchar_t* newData = (wchar_t*)malloc((n + 1) * sizeof(wchar_t));
+                if (newData == nullptr) {
+                    /* OOM: grow only as far as the existing buffer allows. */
+                    n = capacity_ - 1;
+                } else {
+                    for (size_t i = 0; i < length_; i++) {
+                        newData[i] = data_[i];
+                    }
+                    free(data_);
+                    data_ = newData;
+                    capacity_ = n + 1;
                 }
-                free(data_);
-                data_ = newData;
             }
             if (n > length_) {
                 for (size_t i = length_; i < n; i++) {
@@ -270,21 +295,40 @@ class wstring {
         wstring& operator+=(const wchar_t* s) {
             size_t sLen = 0;
             while (s[sLen] != 0) sLen++;
+            /* s may point into our own buffer (w += w.c_str()): the malloc +
+               free below would leave s dangling.  Copy it aside first. */
+            wchar_t* tmp = nullptr;
+            if (sLen > 0 && data_ != nullptr && s >= data_ && s < data_ + capacity_) {
+                tmp = (wchar_t*)malloc(sLen * sizeof(wchar_t));
+                if (tmp == nullptr) {
+                    return *this;
+                }
+                for (size_t i = 0; i < sLen; i++) {
+                    tmp[i] = s[i];
+                }
+                s = tmp;
+            }
             size_t newLength = length_ + sLen;
             if (newLength + 1 > capacity_) {
-                capacity_ = newLength + 1;
-                wchar_t* newData = (wchar_t*)malloc(capacity_ * sizeof(wchar_t));
+                wchar_t* newData = (wchar_t*)malloc((newLength + 1) * sizeof(wchar_t));
+                if (newData == nullptr) {
+                    /* OOM: keep the old buffer and contents untouched. */
+                    free(tmp);
+                    return *this;
+                }
                 for (size_t i = 0; i < length_; i++) {
                     newData[i] = data_[i];
                 }
                 free(data_);
                 data_ = newData;
+                capacity_ = newLength + 1;
             }
             for (size_t i = 0; i < sLen; i++) {
                 data_[length_ + i] = s[i];
             }
             length_ = newLength;
             data_[length_] = 0;
+            free(tmp);
             return *this;
         }
 
@@ -327,7 +371,8 @@ class wstring {
 
         wstring substr(size_t pos = 0, size_t len = npos) const {
             if (pos > length_) pos = length_;
-            if (len == npos || pos + len > length_) len = length_ - pos;
+            /* Subtraction form: pos + len can wrap for huge len. */
+            if (len == npos || len > length_ - pos) len = length_ - pos;
             return wstring(data_ + pos, len);
         }
 
