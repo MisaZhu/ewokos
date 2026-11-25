@@ -68,7 +68,6 @@ extern "C"
          * with a real sleep (>=200us, below that usleep busy-waits) so a busy
          * server can at most slow its clients, never spin them. */
         uint32_t backoff = 500;
-        int retries = 0;
         while (true) {
             if (opkg == NULL)
                 call_id |= IPC_NON_RETURN;
@@ -76,12 +75,11 @@ extern "C"
 
             if (res < 0) {
                 if (res == IPC_ERROR_RETRY) {
-                    /* Bounded: usleep can degenerate to an immediate return
-                     * when the block is latched by a foreign token, so a sleep
-                     * alone does not guarantee progress. Cap retries and fail
-                     * rather than spin a core forever. */
-                    if (++retries > 200)
-                        return -1;
+                    /* Unbounded: early boot has busy windows longer than any
+                     * fixed cap (PCIe cold-cycle, NVMe bring-up, the core/vfsd
+                     * registration storm); a capped retry turns a transient
+                     * busy server into a permanent boot failure. The sleeping
+                     * backoff keeps the wait from spinning the client's core. */
                     usleep(backoff);
                     if (backoff < 20000)
                         backoff *= 2;
@@ -100,15 +98,12 @@ extern "C"
         int res = -1;
         PF->clear(opkg);
         uint32_t rbackoff = 500;
-        int rretries = 0;
         while (true) {
             res = syscall3(SYS_IPC_GET_RETURN, (ewokos_addr_t)to_pid, (ewokos_addr_t)ipc_id, (ewokos_addr_t)opkg);
             if(res == 0)
                 break;
 
-            if (res == -1) { // retry: bounded backoff, never spin forever
-                if (++rretries > 200)
-                    return -1;
+            if (res == -1) { // retry: unbounded sleeping backoff (see above)
                 usleep(rbackoff);
                 if (rbackoff < 20000)
                     rbackoff *= 2;
