@@ -30,6 +30,9 @@ static inline const char* svc_name(int32_t code) {
         return "yield";
     case SYS_WAIT_PID:
         return "wait_pid";
+    /* not a syscall: SYS_WAIT_PID's "parked, re-check" return value */
+    case SYS_WAIT_PID_AGAIN:
+        return "wait_pid_again";
     case SYS_USLEEP:
         return "usleep";
     case SYS_EXIT:

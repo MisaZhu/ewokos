@@ -2478,7 +2478,7 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
      * only ever resumes in userspace (schedule() swaps ctx for the next
      * task's trap frame and the kernel never returns into this function on
      * the waiter's behalf), so the re-check after a wake cannot live here.
-     * Return SYS_WAITPID_AGAIN instead: libc's ewok_waitpid() re-issues the
+     * Return SYS_WAIT_PID_AGAIN instead: libc's ewok_waitpid() re-issues the
      * syscall, which re-checks the child at entry and either reaps the
      * zombie (exit code) or parks again. Wake edges that are not the
      * child's exit (lingering vfsd wait-queue entries, pipe stamps, generic
@@ -2495,7 +2495,7 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
     proc_lock_leave();
     /* schedule() replaces ctx with the next task's trap frame: the return
      * value must be stored before it and nothing may write ctx after it. */
-    ctx->gpr[0] = SYS_WAITPID_AGAIN;
+    ctx->gpr[0] = SYS_WAIT_PID_AGAIN;
     proc_account_pause_current();
     schedule(ctx);
     proc_account_resume_current();
