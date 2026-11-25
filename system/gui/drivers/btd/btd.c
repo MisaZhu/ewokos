@@ -37,6 +37,10 @@ bt_wait_debug_t _wait_debug;
 static int      _init_state    = 0;
 static uint64_t _init_retry_ms = 0;
 static bool     _known_loaded  = false;
+/* set by "close" so the next "open" passes recovery=true to bsp_bt_init,
+   per the bsp contract (open-after-close is a recovery bring-up, not the
+   first cold probe) */
+static bool     _reopen_recovery = false;
 
 /* deferred adapter work: devcmd handlers must answer at once (an xbt click
    blocks on the reply), so "open"'s firmware reload and the known-device
@@ -640,7 +644,13 @@ static int bt_load_firmware(void) {
 }
 
 static int bt_configure_controller(void) {
-    uint8_t mask[8] = {0xff, 0xff, 0xfb, 0xff, 0x07, 0xf8, 0xbf, 0x3d};
+    /* Byte 2 was 0xfb (event-mask bit 18 cleared). Measured on WCN6855:
+       with 0xfb every HCI_Inquiry was accepted (command status 0) but no
+       inquiry result was ever delivered, so classic discovery listed
+       nothing while LE worked; with 0xff the results arrive. Why that one
+       bit matters to this firmware is not established - do not clear it
+       again without re-checking inquiry on the 8gen3. */
+    uint8_t mask[8] = {0xff, 0xff, 0xff, 0xff, 0x07, 0xf8, 0xbf, 0x3d};
     uint8_t scan_enable = 0x03;
     uint8_t auth_enable = 0x01;
     uint8_t inquiry_mode = 0x02;
@@ -706,11 +716,13 @@ static int bt_driver_init(void) {
     /* the machine's bsp maps its MMIO window, sequences the combo-chip
        power (a retry passes recovery=true for the long off-pulse) and
        brings the HCI UART up at the default baud; failing here keeps the
-       daemon in bt_loop's bounded bring-up retry */
-    if (bsp_bt_init(_init_state == 2) != 0) {
+       daemon in bt_loop's bounded bring-up retry. An open-after-close is
+       a recovery bring-up too (bsp contract), not a first cold probe. */
+    if (bsp_bt_init(_init_state == 2 || _reopen_recovery) != 0) {
         slog("bluetooth init transport_failed\n");
         return -1;
     }
+    _reopen_recovery = false;
     bt_uart_flush();
     /* BT_ON release already allowed 100ms (300ms on recovery) to settle. */
     ret = bt_hci_command_sync(HCI_OGF_HOST_CTRL, HCI_OCF_RESET, NULL, 0, 3000);
@@ -1509,6 +1521,7 @@ static int bt_close_adapter(char* ret, size_t ret_sz) {
     /* BT_ON low (the machine's bsp leaves the WiFi side of a combo chip
        alone) */
     bsp_bt_power_off();
+    _reopen_recovery = true;
 
     _powered = false;
     _ready = false;

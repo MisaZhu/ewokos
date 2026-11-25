@@ -707,6 +707,7 @@ bool _le_resolving = false;
 static int bt_le_resolving_list_add(uint8_t id_addr_type,
         const uint8_t* id_addr, const uint8_t* peer_irk) {
     uint8_t p[39];
+    uint8_t mode[8];
 
     /* Peer_Identity_Address_Type(1) Peer_Identity_Address(6) Peer_IRK(16)
        Local_IRK(16). A zero Local_IRK keeps our own static random address as
@@ -715,8 +716,27 @@ static int bt_le_resolving_list_add(uint8_t id_addr_type,
     memcpy(p + 1, id_addr, 6);
     memcpy(p + 7, peer_irk, 16);
     memset(p + 23, 0, 16);
-    return bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_ADD_DEV_RESOLV_LIST,
-            p, sizeof(p), 1000);
+    if (bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_ADD_DEV_RESOLV_LIST,
+            p, sizeof(p), 1000) != 0) {
+        return -1;
+    }
+    /* A new entry defaults to NETWORK privacy mode, in which the controller
+       drops every packet the peer sends from its identity address. Plenty of
+       peripherals distribute an IRK yet keep advertising on that identity
+       address (WiWU-WM105 mouse: public address, IRK handed out at pairing);
+       once bonded such a peer vanished from scanning and could not be
+       reconnected until its bond was deleted (measured on WCN6855). DEVICE
+       privacy mode accepts the identity address as well as a resolvable one.
+       A pre-5.0 controller has no such command and no such filtering, so a
+       refusal leaves the entry as it was. */
+    mode[0] = id_addr_type;
+    memcpy(mode + 1, id_addr, 6);
+    mode[7] = 0x01;
+    if (bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_SET_PRIVACY_MODE,
+            mode, sizeof(mode), 1000) != 0) {
+        slog("bluetooth le_resolving privacy_mode_failed\n");
+    }
+    return 0;
 }
 
 /* Rebuild the resolving list from the bonds loaded at mount and enable
@@ -869,6 +889,23 @@ int bt_le_controller_init(void) {
 
     _le_supported = false;
     _le_scan_enabled = false;
+    /* A warm reopen (open after close, no power cycle) re-enters an
+       already-patched controller whose LE scan state survives HCI_Reset:
+       the first slice then gets Unsupported Feature on ext-scan enable and
+       Command Disallowed on Set_Scan_Parameters ("scan already enabled"),
+       and no advertiser is ever reported. Quiesce both scan modes before
+       anything else - on a cold controller both are harmless no-ops - and
+       drop the cached ext-scan probe so the capability is re-probed clean
+       instead of trusting state carried over from the previous session. */
+    _le_scan_extended = false;
+    _le_ext_scan_supp = -1;
+    {
+        uint8_t off[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+        (void)bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_SET_EXT_SCAN_ENABLE,
+                off, sizeof(off), 1000);
+        (void)bt_hci_command_sync(HCI_OGF_LE, HCI_OCF_LE_SET_SCAN_ENABLE,
+                off, 2, 1000);
+    }
     bt_le_stack_reset();
 
     memset(le_mask, 0xff, sizeof(le_mask)); /* every LE sub-event */
@@ -990,8 +1027,11 @@ static int bt_le_scan_enable_async(bool enable, bool filter_dup) {
 /* LE 5.0 extended scanning. Scanning_PHYs = LE 1M + LE Coded (bits 0|2):
    most HID peripherals advertise on 1M, but some mice only advertise on
    the Coded PHY while in pairing mode, and a 1M-only scan never sees them.
-   One Scan_Type/Interval/Window triple follows per PHY. Filter policy
-   0x00 = accept all. */
+   Bit 1 (LE 2M) is reserved here - primary advertising only exists on 1M
+   and Coded, the controller follows aux packets onto 2M by itself - and
+   WCN6855 rejects a mask that sets it with Invalid Parameters, which kills
+   LE scanning outright. One Scan_Type/Interval/Window triple follows per
+   PHY. Filter policy 0x00 = accept all. */
 static int bt_le_ext_scan_params(void) {
     uint8_t params[13];
 

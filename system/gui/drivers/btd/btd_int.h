@@ -166,6 +166,7 @@
 #define HCI_OCF_LE_CLEAR_RESOLV_LIST 0x0029
 #define HCI_OCF_LE_READ_RESOLV_LIST_SIZE 0x002a
 #define HCI_OCF_LE_SET_ADDR_RESOLUTION_ENABLE 0x002d
+#define HCI_OCF_LE_SET_PRIVACY_MODE 0x004e
 /* LE 5.0 extended scanning / initiating. A BLE 5.0 peripheral (many
    keyboards) advertises with ADV_EXT_IND, which a legacy LE_Set_Scan_Enable
    scan physically cannot receive: the controller only reports those PDUs to

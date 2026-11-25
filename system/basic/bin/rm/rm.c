@@ -13,7 +13,10 @@
     - the getopt_long() this binary links (libc/libgloss/compat.c) neither
       permutes argv nor accepts abbreviated long options, both of which GNU
       getopt does; prepare_argv() supplies them here instead of changing the
-      libc every other tool is built against.
+      libc every other tool is built against;
+    - the shell hands operands over unexpanded, so wildcard patterns are
+      globbed here with the libc glob(); GLOB_NOCHECK keeps a pattern that
+      matches nothing literal, the way a Unix shell would pass it through.
 */
 
 #include <unistd.h>
@@ -22,6 +25,7 @@
 #include <string.h>
 #include <errno.h>
 #include <getopt.h>
+#include <glob.h>
 #include <sys/stat.h>
 #include <ewoksys/vfs.h>
 
@@ -539,9 +543,11 @@ static int is_option_arg(const char* arg) {
 
 /*
  * Reorder argv the way GNU getopt would have: every option first, then every
- * operand, with "--" dropped and everything past it forced to be an operand.
- * Long options are expanded to their full name on the way. Returns the new
- * argument count; argv itself is rewritten in place.
+ * operand, with everything past "--" forced to be an operand. The "--" itself
+ * is kept ahead of the operands so getopt_long() stops there and a file name
+ * like "-foo" is never parsed as an option. Long options are expanded to their
+ * full name on the way. Returns the new argument count; argv itself is
+ * rewritten in place.
  */
 static int prepare_argv(int argc, char** argv) {
     if(argc <= 1)
@@ -573,6 +579,8 @@ static int prepare_argv(int argc, char** argv) {
             }
             if(strcmp(arg, "--") == 0) {
                 past_separator = 1;
+                if(pass != 0)
+                    tail[nt++] = arg;   /* getopt_long() must still see it */
                 continue;
             }
             if(is_option_arg(arg)) {
@@ -613,6 +621,122 @@ static void diagnose_leading_hyphen(int argc, char** argv) {
             return;
         }
     }
+}
+
+/* True when ARG holds an unescaped wildcard, the same test glob() applies. */
+static int has_magic(const char* arg) {
+    for(const char* p = arg; *p != 0; p++) {
+        if(*p == '\\' && p[1] != 0) {
+            p++;   /* an escaped character is never a wildcard */
+            continue;
+        }
+        if(*p == '*' || *p == '?' || *p == '[')
+            return 1;
+    }
+    return 0;
+}
+
+/* Growable operand list: argv strings and glob() matches alike are copied in,
+   so the whole list is freed the same way. */
+typedef struct {
+    char** items;
+    int num;
+    int max;
+} op_list_t;
+
+static int op_push(op_list_t* ops, const char* arg) {
+    if(ops->num >= ops->max) {
+        int max = ops->max == 0 ? 16 : ops->max * 2;
+        char** items = (char**)realloc(ops->items, sizeof(char*) * (size_t)max);
+        if(items == NULL)
+            return -1;
+        ops->items = items;
+        ops->max = max;
+    }
+    char* copy = strdup(arg);
+    if(copy == NULL)
+        return -1;
+    ops->items[ops->num++] = copy;
+    return 0;
+}
+
+static void op_free(op_list_t* ops) {
+    for(int i = 0; i < ops->num; i++)
+        free(ops->items[i]);
+    free(ops->items);
+    ops->items = NULL;
+    ops->num = ops->max = 0;
+}
+
+/* glob() anchors a relative pattern at the cwd and returns absolute paths;
+   drop that prefix again so prompts and -v show the names the user typed. */
+static const char* strip_cwd(const char* path, const char* cwd, size_t cwd_len) {
+    if(cwd_len == 0 || strncmp(path, cwd, cwd_len) != 0)
+        return path;
+    const char* rest = path + cwd_len;
+    if(cwd[cwd_len - 1] == '/')   /* the cwd is "/" */
+        return rest[0] == 0 ? path : rest;
+    return rest[0] == '/' ? rest + 1 : path;
+}
+
+/* Replace one operand by its sorted matches. GLOB_NOCHECK keeps a pattern
+   that matches nothing as a literal, so it still fails with ENOENT - or is
+   ignored under -f - exactly as a Unix shell would hand it to GNU rm.
+   Returns -1 on allocation failure; the caller then falls back to the
+   unexpanded argv. */
+static int expand_operand(op_list_t* ops, const char* arg) {
+    if(!has_magic(arg))
+        return op_push(ops, arg);
+
+    /* Trailing slashes are dropped from the pattern too: the libc glob()
+       has no trailing-slash form, so a pattern ending in a slash must
+       behave like the same pattern without it. */
+    char pat[PATH_BUF];
+    size_t len = strlen(arg);
+    while(len > 1 && arg[len - 1] == '/')
+        len--;
+    if(len >= sizeof(pat))
+        return op_push(ops, arg);   /* rm_operand() reports ENAMETOOLONG */
+    memcpy(pat, arg, len);
+    pat[len] = 0;
+
+    glob_t gl;
+    if(glob(pat, GLOB_NOCHECK, NULL, &gl) != 0)
+        return op_push(ops, arg);   /* out of memory: keep the literal */
+
+    char cwd[PATH_BUF];
+    size_t cwd_len = 0;
+    if(pat[0] != '/' && getcwd(cwd, sizeof(cwd)) != NULL)
+        cwd_len = strlen(cwd);
+
+    int res = 0;
+    for(size_t i = 0; i < gl.gl_pathc; i++) {
+        if(op_push(ops, strip_cwd(gl.gl_pathv[i], cwd, cwd_len)) != 0) {
+            res = -1;
+            break;
+        }
+    }
+    globfree(&gl);
+    return res;
+}
+
+/* Remove one operand string. The path is rebuilt in a local buffer because
+   rm_argument() rewrites it in place while walking a tree. */
+static int rm_operand(const char* arg) {
+    char path[PATH_BUF];
+    size_t len = strlen(arg);
+
+    /* Drop trailing slashes so that "dir//" and "dir/" behave like "dir",
+       but keep a name made only of slashes: that is the root. */
+    while(len > 1 && arg[len - 1] == '/')
+        len--;
+    if(len >= sizeof(path)) {
+        rm_error(arg, ENAMETOOLONG);
+        return RM_ERROR;
+    }
+    memcpy(path, arg, len);
+    path[len] = 0;
+    return rm_argument(path);
 }
 
 int main(int argc, char** argv) {
@@ -724,41 +848,43 @@ int main(int argc, char** argv) {
         usage(1);
     }
 
+    /* Wildcard expansion happens here because the shell does not do it; the
+       -I prompt below counts the expanded files, as GNU's shell would have
+       presented them. On allocation failure fall back to literal argv. */
+    op_list_t ops = {NULL, 0, 0};
+    int expanded = 1;
+    for(int i = optind; i < argc; i++) {
+        if(expand_operand(&ops, argv[i]) != 0) {
+            expanded = 0;
+            break;
+        }
+    }
+    if(expanded)
+        nfiles = ops.num;
+    else
+        op_free(&ops);
+
     if(g_x.prompt_once && (g_x.recursive || nfiles > 3)) {
         fprintf(stderr, "rm: remove %d argument%s%s? ", nfiles,
                 nfiles == 1 ? "" : "s", g_x.recursive ? " recursively" : "");
         fflush(stderr);
         if(!yesno()) {
+            op_free(&ops);
             free_built_options();
             return 0;
         }
     }
 
     int status = RM_OK;
-    char path[PATH_BUF];
-    for(int i = optind; i < argc; i++) {
-        const char* arg = argv[i];
-        size_t len = strlen(arg);
-
-        /* Drop trailing slashes so that "dir//" and "dir/" behave like "dir",
-           but keep a name made only of slashes: that is the root. */
-        while(len > 1 && arg[len - 1] == '/')
-            len--;
-        if(len >= sizeof(path)) {
-            rm_error(arg, ENAMETOOLONG);
-            status = RM_ERROR;
-            continue;
-        }
-        memcpy(path, arg, len);
-        path[len] = 0;
-
-        int s = rm_argument(path);
+    for(int i = 0; i < nfiles; i++) {
+        int s = rm_operand(expanded ? ops.items[i] : argv[optind + i]);
         if(s == RM_ERROR)
             status = RM_ERROR;
         else if(s == RM_USER_DECLINED && status != RM_ERROR)
             status = RM_USER_DECLINED;
     }
 
+    op_free(&ops);
     free_built_options();
     return status == RM_ERROR ? 1 : 0;
 }
