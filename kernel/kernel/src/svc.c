@@ -521,7 +521,7 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
  * Provide the matching voluntary teardown so a short-lived bootstrap mapping
  * cannot survive exec and pin firmware-owned RAM forever.  This only removes
  * PTEs from the calling address space; physical pages remain owned by the
- * caller of the mapping API (q8b_release_ramdisk() handles RAM reclamation).
+ * caller of the mapping API (qcom8gen3_release_ramdisk() handles RAM reclamation).
  */
 static int32_t sys_mem_unmap(ewokos_addr_t vaddr, uint32_t size) {
     proc_t* cproc = proc_get_proc(get_current_proc());

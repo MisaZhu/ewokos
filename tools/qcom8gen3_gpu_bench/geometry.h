@@ -1,5 +1,5 @@
-#ifndef Q8B_BENCH_GEOMETRY_H
-#define Q8B_BENCH_GEOMETRY_H
+#ifndef QCOM8GEN3_BENCH_GEOMETRY_H
+#define QCOM8GEN3_BENCH_GEOMETRY_H
 #include <stdint.h>
 /* Host compiler reflection; offsets address the concatenated draw blob. */
 struct geom_meta {

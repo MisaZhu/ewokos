@@ -512,7 +512,7 @@ static int32_t map_stack(proc_t* proc, ewokos_addr_t* stacks,
      * existing user translation-fault path as the stack moves downward.
      * Build the initial mapping transactionally: publishing V2P(NULL) after
      * kalloc exhaustion creates an address-size-fault PTE (0xFFC080000000 on
-     * q8b) and turns a recoverable OOM into a nested kernel abort.
+     * qcom8gen3) and turns a recoverable OOM into a nested kernel abort.
      */
     for(i=first; i<pages; i++) {
         void* page = kalloc_page();
@@ -3424,7 +3424,7 @@ static void renew_vsyscall_info(uint32_t usec_gap, uint64_t fine_cnt, uint32_t f
 
     /* Align the pair at an integral counter/usec boundary.  Truncating
      * 19.2 MHz to 19 ticks/us rejects alignment and re-latches a varying
-     * sub-microsecond sampling lag every tick.  Q8B instead uses 5 us/96
+     * sub-microsecond sampling lag every tick.  QCOM8GEN3 instead uses 5 us/96
      * ticks; integer-MHz platforms retain their original 1 us boundary. */
     fine_clock_anchor(fine_hz, _fine_period_usec, &uptime_usec, &base_cnt);
 

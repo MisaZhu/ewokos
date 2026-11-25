@@ -1,8 +1,8 @@
-# Q8B offscreen GPU regression
+# QCOM8GEN3 offscreen GPU regression
 
-`make -C tools/q8b_gpu_bench -j4` builds AArch64 `bench`, `clock`,
-`input-latency`, `shm-pool`, `shm-map`, `g2d-ipc` and a texture shader in `/tmp/q8b-gpu-bench`.
-It uses the Q8B SDK and current GLSL frontend/Adreno backend. `make ... check` runs the native
+`make -C tools/qcom8gen3_gpu_bench -j4` builds AArch64 `bench`, `clock`,
+`input-latency`, `shm-pool`, `shm-map`, `g2d-ipc` and a texture shader in `/tmp/qcom8gen3-gpu-bench`.
+It uses the QCOM8GEN3 SDK and current GLSL frontend/Adreno backend. `make ... check` runs the native
 clock-anchor and physical memory pool regressions with ASan/UBSan.
 
 The offscreen benchmark must be the **only GPU owner**: boot without g2dd,
@@ -12,7 +12,7 @@ run `/gpu-bench/bench 300`. The argument is the stress duration in seconds.
 It deliberately parks after completion, keeping ring/GMU/DMA memory alive
 because the driver has no validated GPU teardown protocol. Reset through the
 MCP interface before returning to the desktop. Follow the machine's
-[kernel test workflow](../../machines/q8b/skills/q8b-kernel-test/SKILL.md)
+[kernel test workflow](../../machines/qcom/8gen3/skills/qcom8gen3-kernel-test/SKILL.md)
 for PXE/reset and read only the monitored serial cache.
 
 The suite directly calls libadreno, with no CPU fallback. It checks every
@@ -52,7 +52,7 @@ about 4.48 ms to 3.23 ms (28%); texture raster remained about 4.50 ms with a
 16×16 workgroup versus 11.52 ms for the old 8×8 shape. The one-submit change
 helps submission-bound draws: 64×64 color fell from 36.6 µs to 24.1 µs, while
 the 1080p case remains GPU-bound at about 4.49 ms. Full serial output is in
-`/tmp/q8b-3d-pipeline-20261026/sweep.log`.
+`/tmp/qcom8gen3-3d-pipeline-20261026/sweep.log`.
 
 The initial vsyscall page contained an odd seqlock (`f4eb55dd`) and nonzero
 reserved RAM. Since the writer increments the sequence by two, it remained
@@ -62,9 +62,9 @@ once after installing the boot address space, outside per-process mapping.
 
 Further live checks found occasional clock regressions. Synchronize AArch64
 CNTVCT reads with ISB, allow short seqlock publications to finish, and align
-the kernel clock pair to the exact 5µs/96-count period of Q8B's 19.2MHz clock.
+the kernel clock pair to the exact 5µs/96-count period of QCOM8GEN3's 19.2MHz clock.
 Integer-MHz clocks retain their 1µs boundary. The shared coarse timestamp can
-be rounded down by at most 4µs on Q8B; interpolation recovers that interval.
+be rounded down by at most 4µs on QCOM8GEN3; interpolation recovers that interval.
 Unsupported periods and BSP clocks with different origins keep their sampled
 base. Native tests check 300,000 samples against an independent 128-bit oracle
 at 19.2MHz, 24MHz and 1MHz, plus unavailable and mismatched clocks.
@@ -75,7 +75,7 @@ completion. Short UBO uploads clear the remaining bytes. Normal program
 release frees the pool; a wedged device retains allocations and rejects
 subsequent dispatch/release, preserving in-flight GPU references.
 
-Q8B's counter-access setup now preserves CNTKCTL event-stream controls and
+QCOM8GEN3's counter-access setup now preserves CNTKCTL event-stream controls and
 executes ISB, matching the common AArch64 setup.
 
 Measurements and serial excerpts are in `evidence/`. Old-kernel percentile
@@ -120,8 +120,8 @@ server/compositor blocking is visible in the logs.
 
 ## Rootfs update
 
-Rebuilt the complete X userland with `make -C machines/q8b/system x -j8`,
-then regenerated `machines/q8b/root_aarch64.img` with `make ... sd`.
+Rebuilt the complete X userland with `make -C machines/qcom/8gen3/system x -j8`,
+then regenerated `machines/qcom/8gen3/root_aarch64.img` with `make ... sd`.
 The staged files total about 250MB; the previous 112MB image was nearly
 full and lacked `/apps`. The default image capacity is now 320MB.
 `e2fsck -fn` passes, and all 446 staged files match their image readback.
@@ -151,7 +151,7 @@ SHM pool also covered firmware-owned memory beginning at `0xaeb00000`.
 The last GPU submissions had retired; no kernel zero-completion message
 appeared, and a warm reset into Sahara followed about 44 seconds later.
 
-Q8B now chooses both pools from reclaimable final UEFI descriptors, joining
+QCOM8GEN3 now chooses both pools from reclaimable final UEFI descriptors, joining
 physically adjacent descriptors regardless of allocation type/order, excluding
 firmware reservations, GOP framebuffer, ramdisk and GPU ZAP. Pools stay below
 4GB and use full 16KB CPU pages. An invalid map or unavailable safe range stops
@@ -196,7 +196,7 @@ test apps closed. Final kernel SHA-256:
 `218b8d6633140c8801209a603572fb47c69a5349b3e917a33f4f8ccb3a8cbde9`.
 The installed/image g2dd (optional bounded trace, default off) SHA-256 is
 `4cb73731009b42701adbbd38ccef93cd47f7f644163c40a2c9ef328e689f6a0d`.
-The Q8B BSP/driver changes are in machines commit `00ca0c57`.
+The QCOM8GEN3 BSP/driver changes are in machines commit `00ca0c57`.
 
 ## Shared canvas mapping, 2026-10-26
 
@@ -227,7 +227,7 @@ Two new tools exercise the common path without becoming another GPU owner:
   Every output pixel and all 64 guard words are checked after the timed work.
   Terminal GPU errors retain all buffers and stop the benchmark until reset.
 
-Upload these executables from `/tmp/q8b-gpu-bench` to the board and run them
+Upload these executables from `/tmp/qcom8gen3-gpu-bench` to the board and run them
 by absolute path. Keep the desktop workload fixed for comparisons. Do not
 confuse them with `bench`, which still requires exclusive GPU ownership.
 
@@ -267,7 +267,7 @@ No production rootfs binary changes are required by this kernel-only change.
 New kernel SHA-256:
 `7148b0493f3f9e1345452cc8af3ae857f05d408bb75045e4377cbf9b583bdc8e`.
 
-## Q8B completion-wait parking (2026-10-26)
+## QCOM8GEN3 completion-wait parking (2026-10-26)
 
 The synchronous GPU wait previously spent up to 32 precise 10µs polls, then
 called `usleep(1000)`. With the board's timer scheduling, a warmed 4K fill
@@ -455,16 +455,16 @@ the complete response. A 100-request 4K fill IPC test on the final desktop
 passed full pixels and guards; 109 samples including desktop work reported
 `cp_khz=689995`. Sampling was then disabled and statistics reset.
 
-To repeat a layout sweep, build with `make -C tools/q8b_gpu_bench exec-shaders`.
+To repeat a layout sweep, build with `make -C tools/qcom8gen3_gpu_bench exec-shaders`.
 To compare against the original source, save `blit.comp` and `raster.comp`
 from machines revision `ba9ad788` in a separate directory, then run
-`python3 tools/q8b_gpu_bench/exec_shaders.py /tmp/q8b-gpu-bench /path/to/saved-sources`.
+`python3 tools/qcom8gen3_gpu_bench/exec_shaders.py /tmp/qcom8gen3-gpu-bench /path/to/saved-sources`.
 This makes 8×8 the original baseline and the other layouts use current sources.
 Upload `bench` and all `blit-*.bin`/`raster-*.bin` files to `/gpu-bench` and run
 `/gpu-bench/bench 0 /gpu-bench exec` once on an exclusive boot. It parks after
 the sweep; reset before starting any other GPU owner.
 
-The actual SD `/drivers/q8b/g2dd` and the staged 320MB rootfs image both match
+The actual SD `/drivers/8gen3/g2dd` and the staged 320MB rootfs image both match
 the final build (`db450318...`); the image passes `e2fsck -fn`. The original
 SD init script was restored byte-for-byte, and PXE kernel `7148b049...` was
 unchanged. On the restored desktop, glmatrix plus fullscreen xapps completed

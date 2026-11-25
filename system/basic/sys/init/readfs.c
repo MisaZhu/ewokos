@@ -9,9 +9,9 @@
 #include <ext3/ext3fs.h>
 
 #if defined(__has_include)
-# if __has_include(<q8b_platform.h>)
-#  include <q8b_platform.h>
-#  define INIT_HAS_Q8B_BOOTFS 1
+# if __has_include(<qcom8gen3_platform.h>)
+#  include <qcom8gen3_platform.h>
+#  define INIT_HAS_QCOM8GEN3_BOOTFS 1
 # endif
 #endif
 
@@ -21,8 +21,8 @@ static int32_t ext_sd_read_blocks(int32_t block, void* buf, uint32_t count) {
     return sd_read_blocks(block, buf, count);
 }
 
-#ifdef INIT_HAS_Q8B_BOOTFS
-#define Q8B_BOOTFS_VA 0x60000000ULL
+#ifdef INIT_HAS_QCOM8GEN3_BOOTFS
+#define QCOM8GEN3_BOOTFS_VA 0x60000000ULL
 static uint8_t* _bootfs_va;
 static uint32_t _bootfs_size;
 static int32_t _bootfs_pid = -1;
@@ -30,7 +30,7 @@ static uint32_t _bootfs_block_size = 1024;
 
 static void bootfs_unmap(void) {
     if (_bootfs_va != NULL && _bootfs_size != 0)
-        (void)syscall3(SYS_MEM_UNMAP, (ewokos_addr_t)Q8B_BOOTFS_VA,
+        (void)syscall3(SYS_MEM_UNMAP, (ewokos_addr_t)QCOM8GEN3_BOOTFS_VA,
                 (ewokos_addr_t)_bootfs_size, 0);
     _bootfs_va = NULL;
     _bootfs_size = 0;
@@ -40,7 +40,7 @@ static void bootfs_unmap(void) {
 
 static int bootfs_map(void) {
     sys_info_t info;
-    const q8b_platform_data_t* pd;
+    const qcom8gen3_platform_data_t* pd;
     int32_t pid = (int32_t)getpid();
     if (_bootfs_va != NULL && _bootfs_pid == pid)
         return 0;
@@ -48,19 +48,19 @@ static int bootfs_map(void) {
         klog("init: bootfs sysinfo failed\n");
         return -1;
     }
-    pd = (const q8b_platform_data_t*)info.platform_data;
+    pd = (const qcom8gen3_platform_data_t*)info.platform_data;
     if (pd->rd.phy_base == 0 || pd->rd.size == 0 ||
-            (pd->rd.flags & Q8B_RD_FLAG_BOOT_ONLY) == 0) {
+            (pd->rd.flags & QCOM8GEN3_RD_FLAG_BOOT_ONLY) == 0) {
         return -1;
     }
-    ewokos_addr_t map_ret = syscall3(SYS_MEM_MAP, (ewokos_addr_t)Q8B_BOOTFS_VA,
+    ewokos_addr_t map_ret = syscall3(SYS_MEM_MAP, (ewokos_addr_t)QCOM8GEN3_BOOTFS_VA,
             (ewokos_addr_t)pd->rd.phy_base, (ewokos_addr_t)pd->rd.size);
-    if (map_ret != (ewokos_addr_t)Q8B_BOOTFS_VA) {
+    if (map_ret != (ewokos_addr_t)QCOM8GEN3_BOOTFS_VA) {
         klog("init: bootfs map failed ret=0x%llx\n",
                 (unsigned long long)map_ret);
         return -1;
     }
-    _bootfs_va = (uint8_t*)(uintptr_t)Q8B_BOOTFS_VA;
+    _bootfs_va = (uint8_t*)(uintptr_t)QCOM8GEN3_BOOTFS_VA;
     _bootfs_size = pd->rd.size;
     _bootfs_pid = pid;
     _bootfs_block_size = 1024;
@@ -146,7 +146,7 @@ static void* read_ext3(const char* fname, off_t* size) {
 /* same contract as the kernel's read_fs: probe the partition and use the
  * matching reader (ext3 preferred when a usable journal is present) */
 void* read_fs(const char* fname, off_t* size) {
-#ifdef INIT_HAS_Q8B_BOOTFS
+#ifdef INIT_HAS_QCOM8GEN3_BOOTFS
     void* boot = read_bootfs(fname, size);
     if (boot != NULL)
         return boot;

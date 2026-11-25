@@ -117,15 +117,15 @@ DIFF 389998c9f1f0e78ca4dd56ab296d7f87 123352 755 /drivers/logd
 DIFF ccd0344bf681f616324ec1a21b159049 220872 755 /drivers/netd
 DIFF 38b122055085174319d46ba8217eb68a 121616 755 /drivers/nulld
 DIFF c885c27620acd326ae63e1dce6785af5 125728 755 /drivers/piped
-DIFF 687d08693910454d0da1e376d8120daa 126328 755 /drivers/q8b/fand
-DIFF 5278086912cf33f9ef0e1930a978b455 820368 755 /drivers/q8b/fbdisplayd
-DIFF cab3f1f9d38dc1c1941a6c138d223c51 125424 755 /drivers/q8b/hid_keybd
-DIFF fbfbd71852b1f18c4815ba577e7f845c 124864 755 /drivers/q8b/hid_moused
-DIFF e02c0be28594d7515d774653d7f2db7d 133320 755 /drivers/q8b/net
-DIFF f8046d2be829f3b4d48b1f7597e12263 162272 755 /drivers/q8b/sdfat32fsd
-DIFF e9968b16b9c95b933e9eeb3b2cb9ece4 124848 755 /drivers/q8b/uartd
-DIFF 1c5517ded587c8bc7e6c909c031ba048 164608 755 /drivers/q8b/usbfat32fsd
-DIFF 9847c867494410f1ccf844075e960a01 169176 755 /drivers/q8b/usbhostd
+DIFF 687d08693910454d0da1e376d8120daa 126328 755 /drivers/qcom8gen3/fand
+DIFF 5278086912cf33f9ef0e1930a978b455 820368 755 /drivers/qcom8gen3/fbdisplayd
+DIFF cab3f1f9d38dc1c1941a6c138d223c51 125424 755 /drivers/qcom8gen3/hid_keybd
+DIFF fbfbd71852b1f18c4815ba577e7f845c 124864 755 /drivers/qcom8gen3/hid_moused
+DIFF e02c0be28594d7515d774653d7f2db7d 133320 755 /drivers/qcom8gen3/net
+DIFF f8046d2be829f3b4d48b1f7597e12263 162272 755 /drivers/qcom8gen3/sdfat32fsd
+DIFF e9968b16b9c95b933e9eeb3b2cb9ece4 124848 755 /drivers/qcom8gen3/uartd
+DIFF 1c5517ded587c8bc7e6c909c031ba048 164608 755 /drivers/qcom8gen3/usbfat32fsd
+DIFF 9847c867494410f1ccf844075e960a01 169176 755 /drivers/qcom8gen3/usbhostd
 DIFF 9c050b14de747fb0f74944cd612c0984 122240 755 /drivers/ramfsd
 DIFF c68e3b2c8bfe2f0a208110813695c73c 133384 755 /drivers/timed
 DIFF 07962806fd0a78d80113576a4d5591da 123544 755 /drivers/timerd
@@ -426,16 +426,16 @@ MATCH 81f2299697cebe6e5f1cd694389f129e 123320 755 /drivers/logd
 MATCH c362df47cc7b770a2e9c68e6fb5f5c41 220840 755 /drivers/netd
 MATCH ddb6e8e59b1b19d71d43aaa373cbbc28 121584 755 /drivers/nulld
 MATCH d8fe37c9e9e5e98e796954a1d12a69ef 125696 755 /drivers/piped
-MATCH c06cf5df6320a89e39f0cc14f40962e0 126296 755 /drivers/q8b/fand
-MATCH 3825c2a399ae9ab39a522b2eb83c88c4 820336 755 /drivers/q8b/fbdisplayd
-MATCH 820347210f2d2a6e1e8bbefda097af9b 246176 755 /drivers/q8b/g2dd
-MATCH bcb13dfc68152ebf4ae92b001078a036 125392 755 /drivers/q8b/hid_keybd
-MATCH 8c9d05000a557d704dee18698e36717e 124832 755 /drivers/q8b/hid_moused
-MATCH c7e3a62d475f80f994838e83bdb820cb 133288 755 /drivers/q8b/net
-MATCH 5255f271ba8c884cc486194e49ba7374 162240 755 /drivers/q8b/sdfat32fsd
-MATCH c463c23b1cc83b97764c2c26a9369d7f 124816 755 /drivers/q8b/uartd
-MATCH bdd0223be23bdaf69c0874842696babb 164576 755 /drivers/q8b/usbfat32fsd
-MATCH 704f38e942c38d8e735bdc8c01225984 169144 755 /drivers/q8b/usbhostd
+MATCH c06cf5df6320a89e39f0cc14f40962e0 126296 755 /drivers/qcom8gen3/fand
+MATCH 3825c2a399ae9ab39a522b2eb83c88c4 820336 755 /drivers/qcom8gen3/fbdisplayd
+MATCH 820347210f2d2a6e1e8bbefda097af9b 246176 755 /drivers/qcom8gen3/g2dd
+MATCH bcb13dfc68152ebf4ae92b001078a036 125392 755 /drivers/qcom8gen3/hid_keybd
+MATCH 8c9d05000a557d704dee18698e36717e 124832 755 /drivers/qcom8gen3/hid_moused
+MATCH c7e3a62d475f80f994838e83bdb820cb 133288 755 /drivers/qcom8gen3/net
+MATCH 5255f271ba8c884cc486194e49ba7374 162240 755 /drivers/qcom8gen3/sdfat32fsd
+MATCH c463c23b1cc83b97764c2c26a9369d7f 124816 755 /drivers/qcom8gen3/uartd
+MATCH bdd0223be23bdaf69c0874842696babb 164576 755 /drivers/qcom8gen3/usbfat32fsd
+MATCH 704f38e942c38d8e735bdc8c01225984 169144 755 /drivers/qcom8gen3/usbhostd
 MATCH 85f616ed4977d11f80ef5447ed20c16a 122208 755 /drivers/ramfsd
 MATCH 22c0f099a246d41a8fc806ea25923d3d 133352 755 /drivers/timed
 MATCH c7dad06be95184cf4b1198f01696f31b 123512 755 /drivers/timerd
@@ -639,8 +639,8 @@ Filesystem                   Used    iused  Mounted on
 === ps-after.log ===
 root     12   0     4:0%  slp       /sbin/sdfsd [4t]
 root     34   0     6:0%  slp       /drivers/ramfsd
-root     43   0     7:28% slp       /drivers/q8b/g2dd [4t]
-root     66   0     4:2%  slp       /drivers/q8b/fbdisplayd
+root     43   0     7:28% slp       /drivers/qcom8gen3/g2dd [4t]
+root     66   0     4:2%  slp       /drivers/qcom8gen3/fbdisplayd
 root     71   0     7:1%  slp       /drivers/xserverd
 root     74   0     1:0%  blk       /sbin/x/xmouse
 misa     82   0     0:0%  rdy       /sbin/x/xwm_misa

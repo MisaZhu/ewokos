@@ -276,7 +276,7 @@ typedef struct {
    an empty rect or non-positive radius returns FAILED. Geometry/radius
    eligibility and the filter are backend-specific. Exact backends use
    fixed Q16 weights at radii 1..4 (sigma=radius/2), composing larger radii.
-   Q8B prioritizes throughput with a bilinear downsample/upsample cascade,
+   QCOM8GEN3 prioritizes throughput with a bilinear downsample/upsample cascade,
    radii 1..64, including cropped rectangles on a 64-byte-aligned canvas
    pitch. Its pixels need not match the CPU Q16 kernel.
    Both canvases must be GPU-visible. For a clipped rect w*h on canvas
@@ -313,7 +313,7 @@ typedef struct g2d_pgl_ext_s {
 	uint32_t color_mask;  /* RGBA write-enable, GL order: bit0=R,1=G,2=B,3=A;
 	                         0xF (or 0 from an old caller) = write all four */
 	/* Optional compute-raster dispatch window.  These fields are consumed only
-	   by the Q8B Adreno pixel-owned path; zero width/height keeps the historic
+	   by the QCOM8GEN3 Adreno pixel-owned path; zero width/height keeps the historic
 	   full-frame launch.  Coordinates are framebuffer rows (top-left origin),
 	   matching the clipRect already carried in the shader uniform. */
 	int32_t  dispatch_x;

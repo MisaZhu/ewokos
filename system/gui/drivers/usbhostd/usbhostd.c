@@ -33,7 +33,7 @@
 #include <hid/hid_joystick.h>
 #include <hid/hid_srv.h>
 
-/* Older BSPs do not implement the Q8B MSC auto-mount policy hook. */
+/* Older BSPs do not implement the QCOM8GEN3 MSC auto-mount policy hook. */
 extern void bsp_usb_set_msc_auto_mount(bool enabled) __attribute__((weak));
 
 #ifndef USB_MAX_INPUTS

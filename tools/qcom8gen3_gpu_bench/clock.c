@@ -1,4 +1,4 @@
-/* Q8B live regression: the reserved vsyscall page must start with an even
+/* QCOM8GEN3 live regression: the reserved vsyscall page must start with an even
  * seqlock, and precise GPU polling waits must use the 19.2 MHz counter. */
 #include <ewoksys/kernel_tic.h>
 #include <ewoksys/proc.h>

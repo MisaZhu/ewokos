@@ -103,14 +103,14 @@
 [2026-10-26 11:07:57.871] adreno_ring: CP idle complete int0=00000000
 [2026-10-26 11:07:57.923] adreno_ring: CP_ME_INIT fault check begin
 [2026-10-26 11:07:57.923] adreno_ring: CP_ME_INIT complete
-[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000601 a0=0 a1=1 a2=0
-[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000207 a0=0 a1=1 a2=0
-[2026-10-26 11:07:57.923] q8b SCM fn=207 arg=d a0=0 a1=0 a2=0
-[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000201 a0=0 a1=1 a2=0
-[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000202 a0=0 a1=1 a2=0
-[2026-10-26 11:07:57.923] q8b SCM fn=601 arg=2000205 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] qcom8gen3 SCM fn=601 arg=2000601 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] qcom8gen3 SCM fn=601 arg=2000207 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] qcom8gen3 SCM fn=207 arg=d a0=0 a1=0 a2=0
+[2026-10-26 11:07:57.923] qcom8gen3 SCM fn=601 arg=2000201 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] qcom8gen3 SCM fn=601 arg=2000202 a0=0 a1=1 a2=0
+[2026-10-26 11:07:57.923] qcom8gen3 SCM fn=601 arg=2000205 a0=0 a1=1 a2=0
 [2026-10-26 11:07:57.923] adreno_a6xx: PAS op=51380000 ret=1362644993
-[2026-10-26 11:07:57.923] adreno_fw: Q8B signed zap /etc/firmware/adreno/sc8280xp/LENOVO/21BX/qcdxkmsuc8280.mbn (14392 bytes, metadata=6708, payload=2104, region=4096)
+[2026-10-26 11:07:57.923] adreno_fw: QCOM8GEN3 signed zap /etc/firmware/adreno/sc8280xp/LENOVO/21BX/qcdxkmsuc8280.mbn (14392 bytes, metadata=6708, payload=2104, region=4096)
 [2026-10-26 11:07:57.974] adreno_rpmh: rsc id=20400 v2.4 layout=2.7
 [2026-10-26 11:07:57.975] adreno_rpmh: bcm CE0 addr=50054 unit=7935 width=8 vcd=6 peak=4294967295 vote=60003fff
 [2026-10-26 11:07:57.975] adreno_rpmh: bcm SN4 addr=5001c unit=530000 width=16 vcd=3 peak=4294967295 vote=60003fff
@@ -118,12 +118,12 @@
 [2026-10-26 11:07:57.975] adreno_rpmh: bcm SH0 addr=50004 unit=9000000 width=128 vcd=1 peak=4294967295 vote=60003fff
 [2026-10-26 11:07:57.975] adreno_rpmh: bcm ACV addr=500ac vcd=15 vote=60000008
 [2026-10-26 11:07:57.975] adreno_rpmh: bcm MC0 addr=50000 unit=4200000 width=32 vcd=0 peak=4294967295 vote=60003fff
-[2026-10-26 11:07:58.029] q8b SCM fn=201 arg=d a0=0 a1=0 a2=0
+[2026-10-26 11:07:58.029] qcom8gen3 SCM fn=201 arg=d a0=0 a1=0 a2=0
 [2026-10-26 11:07:58.029] adreno_a6xx: PAS op=51380001 ret=0
-[2026-10-26 11:07:58.029] q8b SCM fn=202 arg=d a0=0 a1=0 a2=0
+[2026-10-26 11:07:58.029] qcom8gen3 SCM fn=202 arg=d a0=0 a1=0 a2=0
 [2026-10-26 11:07:58.029] adreno_a6xx: PAS op=51380002 ret=0
 [2026-10-26 11:07:58.029] adreno_a6xx: PAS op=51380003 ret=0
-[2026-10-26 11:07:58.029] q8b SCM fn=205 arg=d a0=0 a1=0 a2=0
+[2026-10-26 11:07:58.029] qcom8gen3 SCM fn=205 arg=d a0=0 a1=0 a2=0
 [2026-10-26 11:07:58.029] adreno_a6xx: PAS op=51380004 ret=0
 [2026-10-26 11:07:58.029] adreno_a6xx: official signed zap authenticated
 [2026-10-26 11:07:58.029] adreno_ring: CP_SET_SECURE_MODE doorbell returned

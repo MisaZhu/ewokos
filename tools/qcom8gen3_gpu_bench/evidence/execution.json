@@ -4873,7 +4873,7 @@
     "limitation": "Synthetic X input IPC, single integration run, no USB-to-scanout measurement."
   },
   "final_state": {
-    "actual_sd_driver": "/drivers/q8b/g2dd",
+    "actual_sd_driver": "/drivers/8gen3/g2dd",
     "sd_driver_matches_build_and_image": true,
     "image_e2fsck_exit_code": 0,
     "original_init_restored_byte_for_byte": true,

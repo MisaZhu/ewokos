@@ -1,5 +1,5 @@
 {
-  "target": "Q8B SD-card rootfs mounted at /",
+  "target": "QCOM8GEN3 SD-card rootfs mounted at /",
   "source_commit": "f23ce2ab1",
   "machines_commit": "60adaad9",
   "total_manifest_files": 446,

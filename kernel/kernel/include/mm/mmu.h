@@ -82,7 +82,7 @@
 
 /* Scattered (kalloc-backed) shm virtual window. ONLY non-contig segments draw
    addresses from here, so it is fully independent of the contig slab window
-   below. Boards without a g2d engine (Q8B/GOP) put every canvas here: the
+   below. Boards without a g2d engine (QCOM8GEN3/GOP) put every canvas here: the
    display keeps two full frames (scan-out shm + libdisplay's cache_g back
    buffer) and every window keeps ws_g, ws_g2 (fps_async), frame_g and often a
    frosted backdrop. A 3840x2160 canvas is 31.6MB, so 4K needs ~66MB just for

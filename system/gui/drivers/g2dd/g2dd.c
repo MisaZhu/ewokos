@@ -1431,8 +1431,8 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 		return g2d_strdup("stateless argb8888 shm canvases via soft");
 
 	/* `devcmd /dev/g2d sleep|wake` is powerd's GPU power hint: on sleep the
-	   back end may collapse idle GPU power domains (Q8B: GMU IFPC), on wake
-	   it restores them.  bsp_g3d_sleep is a weak symbol - only the Q8B BSP
+	   back end may collapse idle GPU power domains (QCOM8GEN3: GMU IFPC), on wake
+	   it restores them.  bsp_g3d_sleep is a weak symbol - only the QCOM8GEN3 BSP
 	   defines it, every other machine resolves it to NULL and declines, so
 	   the shared compositor needs no per-machine #ifdef. */
 	if(strcmp(argv[0], "sleep") == 0 || strcmp(argv[0], "wake") == 0) {
@@ -1558,7 +1558,7 @@ static char* g2d_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
 }
 
 /* GPU-only blur of a clipped canvas rect, in place. Exact backends use
-   separable Q16 stages; Q8B uses a throughput-first bilinear mip cascade.
+   separable Q16 stages; QCOM8GEN3 uses a throughput-first bilinear mip cascade.
    Scratch guarantees (h-1) canvas-pitch rows plus one rect row. Backend
    geometry/radius restrictions return FAILED with dst unchanged (scratch
    is disposable); the client may then run its software blur. Submitted

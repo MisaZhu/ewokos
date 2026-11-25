@@ -36,9 +36,9 @@ int main(int argc,char **argv) {
         const char *raster=kind==1?geom_raster_cs_glsl:geom_raster_tex_cs_glsl;
         char *cs=NULL;
         if(variant>=2) {
-            const char *body=kind==1?q8b_geom_color_pixel:q8b_geom_texture_pixel;
+            const char *body=kind==1?qcom8gen3_geom_color_pixel:qcom8gen3_geom_texture_pixel;
             cs=malloc(strlen(body)+64);
-            sprintf(cs,"#version 310 es\n#define Q8B_TRI_CACHE %u\n%s",cached,strchr(body,'\n')+1);
+            sprintf(cs,"#version 310 es\n#define QCOM8GEN3_TRI_CACHE %u\n%s",cached,strchr(body,'\n')+1);
             raster=cs;
         }
         if (!pglc_compile_compute_raw(raster,&r) ||

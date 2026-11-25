@@ -46,7 +46,7 @@ Independent bounded GPU trace: final 49th submission completed before hang
 [2026-10-26 06:50:20.500] adreno_trace: checked fence=5554
 
 First fixed boot and overlap tests:
-[2026-10-26 07:03:32.682] kernel: load kernel config     ... q8b: DMA/SHM pools reserved from final UEFI memory map
+[2026-10-26 07:03:32.682] kernel: load kernel config     ... qcom8gen3: DMA/SHM pools reserved from final UEFI memory map
 [2026-10-26 07:03:32.682]   sys_dma_base         Phy:0x00000000c8600000 ~ 0x00000000d8600000 (256 MB)
 [2026-10-26 07:03:32.682]   sys_shm_contig_base  Phy:0x00000000d8600000 ~ 0x00000000f8600000 (512 MB)
 [2026-10-26 07:03:32.682]   allocable mem info   Phy:0x00000000987a8000 ~ 0x0000000280000000 (6617 MB)
@@ -89,7 +89,7 @@ First fixed boot and overlap tests:
 
 Final kernel boot, bounded trace and memory-pool regression:
 [2026-10-26 07:11:22.231] === ewokos booting ===
-[2026-10-26 07:11:22.231] kernel: load kernel config     ... q8b: DMA/SHM pools reserved from final UEFI memory map
+[2026-10-26 07:11:22.231] kernel: load kernel config     ... qcom8gen3: DMA/SHM pools reserved from final UEFI memory map
 [2026-10-26 07:11:22.231]   sys_dma_base         Phy:0x00000000c8600000 ~ 0x00000000d8600000 (256 MB)
 [2026-10-26 07:11:22.231]   sys_shm_contig_base  Phy:0x00000000d8600000 ~ 0x00000000f8600000 (512 MB)
 [2026-10-26 07:11:22.231]   allocable mem info   Phy:0x00000000987a8000 ~ 0x0000000280000000 (6617 MB)
@@ -159,19 +159,19 @@ precise rc=0 raw=10729 ns
 clock checked=100000 even=99991 backwards=0 max_backwards=0 ns failures=0
 
 Full SD manifest checks, before/after final MCP reboot:
-MATCH a3b386feed97d4e2baf24fa3e4c3e3db 247336 755 /drivers/q8b/g2dd
+MATCH a3b386feed97d4e2baf24fa3e4c3e3db 247336 755 /drivers/qcom8gen3/g2dd
 SUMMARY checked=446 different_or_missing=0
-MATCH a3b386feed97d4e2baf24fa3e4c3e3db 247336 755 /drivers/q8b/g2dd
+MATCH a3b386feed97d4e2baf24fa3e4c3e3db 247336 755 /drivers/qcom8gen3/g2dd
 SUMMARY checked=446 different_or_missing=0
 
 Host regressions:
 clang -std=c99 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
-	 -I/Users/tony/work/ewokos/kernel/kernel/include clock_anchor_test.c -o /tmp/q8b-gpu-bench/clock-anchor-test
-/tmp/q8b-gpu-bench/clock-anchor-test
+	 -I/Users/tony/work/ewokos/kernel/kernel/include clock_anchor_test.c -o /tmp/qcom8gen3-gpu-bench/clock-anchor-test
+/tmp/qcom8gen3-gpu-bench/clock-anchor-test
 clock anchor: 300000 fractional/integer clock samples passed
 clang -std=c11 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined \
-	 memory_pool_test.c -o /tmp/q8b-gpu-bench/memory-pool-test
-/tmp/q8b-gpu-bench/memory-pool-test
+	 memory_pool_test.c -o /tmp/qcom8gen3-gpu-bench/memory-pool-test
+/tmp/qcom8gen3-gpu-bench/memory-pool-test
 memory pool regression: physical hole, exclusions, alignment, overflow and 20000 oracle cases passed
 
 Rootfs filesystem check:
@@ -181,4 +181,4 @@ Pass 2: Checking directory structure
 Pass 3: Checking directory connectivity
 Pass 4: Checking reference counts
 Pass 5: Checking group summary information
-machines/q8b/root_aarch64.img: 606/81984 files (0.3% non-contiguous), 68509/81920 blocks
+machines/qcom8gen3/root_aarch64.img: 606/81984 files (0.3% non-contiguous), 68509/81920 blocks

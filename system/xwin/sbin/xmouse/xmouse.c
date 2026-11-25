@@ -29,7 +29,7 @@ static void input(int pid, mouse_evt_t* mevt) {
          * it by the cursor position and keeps cpos untouched for a relative
          * event. Encoding it as an absolute position (this device's own last
          * point) teleports the cursor and misroutes the wheel as soon as two
-         * pointers feed the server (USB mouse0 + Bluetooth mouse1 on q8b, or
+         * pointers feed the server (USB mouse0 + Bluetooth mouse1 on qcom8gen3, or
          * a touch panel that moved the cursor away from the last mouse move).
          */
         ev.value.mouse.relative = 1;

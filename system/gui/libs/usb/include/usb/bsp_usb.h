@@ -44,7 +44,7 @@ int  bsp_usb_init(void);
 int  bsp_usb_reinit(void);
 /* drain controller event rings; call from the daemon's main loop */
 void bsp_usb_poll(void);
-/* Toggle the platform's optional automatic FAT32 mount.  The Q8B boot
+/* Toggle the platform's optional automatic FAT32 mount.  The QCOM8GEN3 boot
    path disables it while probing a USB rootfs; other platforms may no-op. */
 void bsp_usb_set_msc_auto_mount(bool enabled);
 

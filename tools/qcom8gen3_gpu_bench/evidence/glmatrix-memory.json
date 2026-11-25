@@ -99,7 +99,7 @@
     "e2fsck_exit": 0
   },
   "deployment": {
-    "kernel": "PXE tftp/q8b/KERNEL.BIN",
+    "kernel": "PXE tftp/qcom8gen3/KERNEL.BIN",
     "rootfs": "actual SD card mounted at / by /sbin/sdfsd",
     "temporary_kernel_allocation_trace": "removed",
     "normal_desktop": "restored; test apps closed"

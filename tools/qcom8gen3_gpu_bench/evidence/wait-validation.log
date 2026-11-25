@@ -1,4 +1,4 @@
-Q8B final GPU wait validation, 2026-10-26
+QCOM8GEN3 final GPU wait validation, 2026-10-26
 kernel SHA256 7148b0493f3f9e1345452cc8af3ae857f05d408bb75045e4377cbf9b583bdc8e
 SD g2dd SHA256 cf003bf0c165cacc9fc709c8c1b45405350af0477f9a68347d7bb5b888f37392
 image g2dd SHA256 cf003bf0c165cacc9fc709c8c1b45405350af0477f9a68347d7bb5b888f37392
@@ -17,7 +17,7 @@ Pass 2: Checking directory structure
 Pass 3: Checking directory connectivity
 Pass 4: Checking reference counts
 Pass 5: Checking group summary information
-machines/q8b/root_aarch64.img: 637/81984 files (0.3% non-contiguous), 80305/81920 blocks
+machines/qcom8gen3/root_aarch64.img: 637/81984 files (0.3% non-contiguous), 80305/81920 blocks
 
 gui0-stat.log:
 fill 20526 avg 1466us

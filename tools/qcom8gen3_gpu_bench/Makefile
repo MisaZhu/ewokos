@@ -2,8 +2,8 @@ ROOT := $(abspath ../..)
 SDK := $(ROOT)/system/build_aarch64/8gen3
 ADRENO := $(ROOT)/machines/qcom/8gen3/system/libs/adreno
 FE := $(ROOT)/projects/opengl/libs/gles/pglcompiler
-OUT ?= /tmp/q8b-gpu-bench
-COMPILER_OUT ?= /tmp/q8b-builtin-shaders
+OUT ?= /tmp/qcom8gen3-gpu-bench
+COMPILER_OUT ?= /tmp/qcom8gen3-builtin-shaders
 .PHONY: all shaders exec-shaders geometry check
 all: $(OUT)/bench $(OUT)/clock $(OUT)/input-latency $(OUT)/shm-pool $(OUT)/shm-map $(OUT)/g2d-ipc shaders
 $(OUT):
