@@ -1,7 +1,7 @@
 all: basic_drivers
 	@echo "all done."
 
-DIRS = netd timed
+DIRS = netd timed nfsfsd
 basic_drivers: $(DIRS)
 
 $(DIRS):
