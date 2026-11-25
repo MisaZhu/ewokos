@@ -530,15 +530,13 @@ static int font_dev_free(proto_t* in, proto_t* ret) {
     }
     if(_ttfs[i].refs > 0)
         _ttfs[i].refs--;
-    if(_ttfs[i].refs == 0) {
-        FT_Done_Face(_ttfs[i].face);
-        free(_ttfs[i].mem);
-        _ttfs[i].face = NULL;
-        _ttfs[i].mem = NULL;
-        _ttfs[i].name[0] = 0;
-        _ttfs[i].fname[0] = 0;
-        font_clear_cache();
-    }
+    /* Keep the face registered when the last handle closes. Clients reopen
+     * the same book/font repeatedly (ereader close->open); destroying here
+     * lost every non-system face (only "system" survives, held by xwin), so
+     * the next open fell back to the Latin system font and re-parsed all
+     * embedded programs. Unreferenced slots are recycled by font_open's LRU
+     * only when the table is actually full. */
+    _ttfs[i].use = ++_use_clock;
     PF->init(ret)->addi(ret, 0);
     return 0;
 }
