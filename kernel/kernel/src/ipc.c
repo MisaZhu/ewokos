@@ -388,8 +388,24 @@ int32_t proc_ipc_do_task(context_t* ctx, proc_t* serv_proc, uint32_t core) {
     serv_proc->space->ipc_server.restore_pending = 0;
     proc_lock_leave();
 
-    if((ipc->call_id & IPC_LAZY) == 0)
-        proc_switch_multi_core(ctx, serv_proc, core);
+    if((ipc->call_id & IPC_LAZY) == 0) {
+        /*
+         * Cross-core dispatch must FORCE-wake a node-parked server: the
+         * plain token-0 wake in proc_switch_multi_core() only latches
+         * against a scoped park (proc_wakeup_by), so a server blocked in
+         * proc_block_by(node) - e.g. hid_touchpadd parked on its USB host
+         * node - would never run to serve this request. The client's
+         * GET_RETURN retries never re-dispatch, so the read would strand
+         * until the server's own node event fires (input latency). The
+         * same-core branch hands the cpu over directly and bypasses the
+         * latch; FORCE keeps cross-core dispatch equivalent. Stray generic
+         * edges still latch, so the fork-clone park keeps its protection.
+         */
+        if(serv_proc->info.core != core)
+            proc_wakeup_by(serv_proc, PROC_WAKE_FORCE);
+        else
+            proc_switch_multi_core(ctx, serv_proc, core);
+    }
     return 0;
 }
 
