@@ -61,24 +61,6 @@ int font_load(const char* name, const char* fname) {
     return ret;
 }
 
-int font_load_mem(const char* name, const void* data, uint32_t size) {
-    if(_font_dev_pid < 0 || name == NULL || data == NULL || size == 0)
-        return -1;
-
-    proto_t in, out;
-    PF->init(&out);
-    PF->format(&in, "s,m", name, data, (int)size);
-
-    int ret = -1;
-    if(dev_cntl_by_pid(_font_dev_pid, FONT_DEV_LOAD_MEM, &in, &out) == 0) {
-        ret = proto_read_int(&out);
-    }
-
-    PF->clear(&in);
-    PF->clear(&out);
-    return ret;
-}
-
 int font_release(int id) {
     if(_font_dev_pid < 0 || id < 0)
         return -1;
