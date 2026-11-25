@@ -20,7 +20,8 @@ enum {
     FONT_DEV_GET_GLYPH,
     FONT_DEV_GET_FACE,
     FONT_DEV_LIST,
-    FONT_DEV_FREE
+    FONT_DEV_FREE,
+    FONT_DEV_LOAD_MEM
 };
 
 #define FONT_ALIGN_NONE    0x00
@@ -55,6 +56,9 @@ int     font_close(font_t* font);
 
 font_t* font_new(const char* fname, bool safe);
 int     font_load(const char* name, const char* fname);
+/* Register an in-memory font program (no backing file). The face is
+ * transient: fontd destroys it when the last handle is freed. */
+int     font_load_mem(const char* name, const void* data, uint32_t size);
 int     font_free(font_t* font);
 int     font_release(int id);
 
