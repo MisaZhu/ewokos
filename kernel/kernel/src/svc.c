@@ -215,9 +215,9 @@ static void sys_fork(context_t* ctx) {
          * kev_push takes proc_lock via proc_wakeup, so do not hold proc_lock
          * around this call.
          */
-        proc->info.state = BLOCK;
-        cproc->info.state = BLOCK;
         cproc->ctx.gpr[0] = proc->info.pid;
+        proc_park_clone(proc, proc->info.pid);
+        proc_park_clone(cproc, proc->info.pid);
 
         kev_push(KEV_PROC_CREATED, cproc->info.pid, proc->info.pid, 0);
         schedule(ctx);

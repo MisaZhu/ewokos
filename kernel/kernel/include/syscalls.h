@@ -7,6 +7,13 @@
 #define IPC_ERROR_NO_READY   -3
 #define IPC_ERROR_IN_INTR    -3
 
+/*
+ * SYS_WAIT_PID: the child was still alive, the caller parked and was woken
+ * by some edge. libc re-issues the syscall (level-triggered re-check); only
+ * a reaped zombie returns its exit code, a vanished child returns -1.
+ */
+#define SYS_WAITPID_AGAIN    ((int32_t)0x7FFF7FFF)
+
 #define DMA_MAGIC   0xCAFECAFF
 
 /* SYS_SEMAPHORE_ALLOC: arg0=0 allocates a private semaphore (legacy ABI).

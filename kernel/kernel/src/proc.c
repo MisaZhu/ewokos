@@ -844,7 +844,7 @@ static inline void proc_resume_after_timeout(proc_t* proc) {
     if(proc->info.state == BLOCK ||
             proc->info.state == SLEEPING ||
             proc->info.state == WAIT) {
-        proc_wakeup(proc);
+        proc_wakeup_by(proc, PROC_WAKE_FORCE);
     }
 }
 
@@ -1299,6 +1299,18 @@ static inline void proc_unready_locked(proc_t* proc, int32_t state) {
     proc_queue_remove_all(proc);
     proc_untrack_priority_update(proc);
     proc->info.state = state;
+}
+
+/* Park a fork parent/child on the clone token until the core daemon
+ * finishes cloning and wakes them with that same token. Generic edges
+ * only latch (see proc_wakeup_by), so a stray IPC/signal wake cannot
+ * release the pair before their userspace metadata / fd table exist. */
+void proc_park_clone(proc_t* proc, uint32_t token) {
+    proc_lock_enter();
+    proc->block_by = token;
+    proc->sleep_counter = 0;
+    proc_unready_locked(proc, BLOCK);
+    proc_lock_leave();
 }
 
 static inline void proc_unready(proc_t* proc, int32_t state) {
@@ -2462,25 +2474,31 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
     }
 
     /*
+     * Child still alive: park in WAIT and hand the cpu away. A blocked task
+     * only ever resumes in userspace (schedule() swaps ctx for the next
+     * task's trap frame and the kernel never returns into this function on
+     * the waiter's behalf), so the re-check after a wake cannot live here.
+     * Return SYS_WAITPID_AGAIN instead: libc's ewok_waitpid() re-issues the
+     * syscall, which re-checks the child at entry and either reaps the
+     * zombie (exit code) or parks again. Wake edges that are not the
+     * child's exit (lingering vfsd wait-queue entries, pipe stamps, generic
+     * IPC returns) therefore cost one extra syscall instead of cutting the
+     * wait short - that early return made the shell print its next prompt
+     * before the child's output reached the console.
+     *
      * Publish WAIT while holding the proc lock so a fast child exit cannot
      * run proc_wakeup_waiting(pid) before the parent becomes visible as a
-     * waiter, otherwise the wake edge is lost and waitpid() can sleep forever.
+     * waiter, otherwise the wake edge is lost and waitpid() sleeps forever.
      */
     cproc->info.wait_for = pid;
     proc_unready_locked(cproc, WAIT);
     proc_lock_leave();
-    /* schedule() replaces ctx with the next task's trap frame. Save the
-     * parent's return value first; nothing below may write through ctx. */
-    ctx->gpr[0] = 0;
+    /* schedule() replaces ctx with the next task's trap frame: the return
+     * value must be stored before it and nothing may write ctx after it. */
+    ctx->gpr[0] = SYS_WAITPID_AGAIN;
     proc_account_pause_current();
     schedule(ctx);
     proc_account_resume_current();
-
-    p = proc_take_zombie_by_pid(pid);
-    if(p != NULL) {
-        ctx->gpr[0] = p->exit_code;
-        proc_funeral(p);
-    }
 }
 
 static void proc_wakeup_all_state(proc_t* proc) {
@@ -2529,7 +2547,25 @@ void proc_wakeup_by(proc_t* proc, ewokos_addr_t token) {
      * releases a proc blocked on an unrelated node (e.g. a shell pipe write).
      */
     if(proc->info.state == BLOCK) {
-        if(token != 0 && proc->block_by != 0 && proc->block_by != token) {
+        if(token != 0 && token != PROC_WAKE_FORCE &&
+                proc->block_by != 0 && proc->block_by != token) {
+            proc_lock_leave();
+            return;
+        }
+        if(token == 0 && proc->block_by != 0) {
+            /*
+             * Scoped park (fork-clone token or VFS node): a generic edge
+             * (IPC reply, signal, kev) must not release it early - the
+             * fork parent would run waitpid() before the core daemon
+             * cloned the child, and the child would exec before vfsd
+             * dup'd its fd table. Latch instead; the park owner's token
+             * wake (or a force wake) releases it, and level-triggered
+             * re-checks make the extra edge safe.
+             */
+            if(!proc->wake_pending) {
+                proc->wake_pending = 1;
+                proc->wake_by = 0;
+            }
             proc_lock_leave();
             return;
         }

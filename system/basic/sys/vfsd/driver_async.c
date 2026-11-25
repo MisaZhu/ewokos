@@ -330,11 +330,15 @@ static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx) {
 
 /* must be called with NO _vfs_lock held (sleeps) */
 void clone_dup_ctx_wait(clone_dup_ctx_t* ctx, int32_t mount_pid) {
-    /* If this driver already saturated the sync in-flight budget it is not
-     * answering; do not park another clone worker on it - the queued async
-     * jobs still complete (or time out) on their own. */
-    if(sync_inflight_over(mount_pid))
-        return;
+    /*
+     * Always wait for the driver-side FS_CMD_DUP completion (bounded by the
+     * sleep-poll budget below). Skipping this wait when the driver's sync
+     * in-flight budget is saturated lets the cloning child run with pipe
+     * fds whose ring attach has not landed yet: dup2() then wires the
+     * wrong endpoint (command output straight to the console, readers
+     * seeing foreign bytes). The budget caps NEW sync calls, not the
+     * completion of dups already queued for this clone.
+     */
     uint32_t waited = 0;
     uint32_t step = CLONE_DUP_WAIT_STEP_MIN_US;
 
