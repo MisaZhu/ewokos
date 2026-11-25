@@ -19,12 +19,15 @@ typedef struct {
     char fname[FNAME_LEN];
     FT_Face face;
     uint8_t* mem;   /* whole-file image backing the face (FT_New_Memory_Face) */
+    int refs;       /* live font_t handles; 0 = registered but unreferenced */
+    uint64_t use;   /* LRU tick for evicting unreferenced slots */
     //uint32_t current_size;
 } ttf_item_t;
 
-#define TTF_MAX  128
+#define TTF_MAX  256
 
 static ttf_item_t _ttfs[TTF_MAX];
+static uint64_t _use_clock = 0;
 
 static FT_Library _library;
 #define DO_FONT_CACHE 1
@@ -73,6 +76,21 @@ int font_open(const char* name, const char* fname) {
     for(int i=0; i<TTF_MAX; i++) {
         if(_ttfs[i].face != NULL &&
                 strcmp(name, _ttfs[i].name) == 0) {
+            /* empty fname = handle lookup (font_new): take a reference */
+            if(fname[0] == 0)
+                _ttfs[i].refs++;
+            _ttfs[i].use = ++_use_clock;
+            return i;
+        }
+    }
+    if(fname[0] == 0)
+        return -1;
+    for(int i=0; i<TTF_MAX; i++) {
+        if(_ttfs[i].face != NULL &&
+                strcmp(fname, _ttfs[i].fname) == 0) {
+            /* same program under a new name: reuse the face, re-tag the name */
+            strncpy(_ttfs[i].name, name, NAME_LEN-1);
+            _ttfs[i].use = ++_use_clock;
             return i;
         }
     }
@@ -83,7 +101,24 @@ int font_open(const char* name, const char* fname) {
             break;
     }
     if(i >= TTF_MAX) {
-        return -1;
+        /* table full: recycle the least recently used slot no client holds */
+        uint64_t best = ~0ull;
+        i = -1;
+        for(int k=0; k<TTF_MAX; k++) {
+            if(_ttfs[k].face != NULL && _ttfs[k].refs == 0 && _ttfs[k].use < best) {
+                best = _ttfs[k].use;
+                i = k;
+            }
+        }
+        if(i < 0)
+            return -1;
+        FT_Done_Face(_ttfs[i].face);
+        free(_ttfs[i].mem);
+        _ttfs[i].face = NULL;
+        _ttfs[i].mem = NULL;
+        _ttfs[i].name[0] = 0;
+        _ttfs[i].fname[0] = 0;
+        font_clear_cache();
     }
 
     int fd = open(fname, O_RDONLY);
@@ -120,13 +155,18 @@ int font_open(const char* name, const char* fname) {
     }
     uint8_t* header = mem;
     /*
-     * Restrict fontd to SFNT/TrueType containers. This avoids sending
-     * arbitrary inputs through FreeType's legacy bitmap loaders.
+     * Accept the containers FreeType's outline drivers parse: SFNT
+     * (TrueType/OpenType), bare CFF (PDF FontFile3) and Type1 (PDF
+     * FontFile, PFB or PFA). Bitmap-only legacy formats stay excluded.
      */
     if(!((header[0] == 0x00 && header[1] == 0x01 && header[2] == 0x00 && header[3] == 0x00) ||
             memcmp(header, "OTTO", 4) == 0 ||
             memcmp(header, "true", 4) == 0 ||
-            memcmp(header, "ttcf", 4) == 0)) {
+            memcmp(header, "ttcf", 4) == 0 ||
+            (header[0] == 0x01 && header[1] == 0x00 && header[2] == 0x04) ||
+            (header[0] == 0x80 && header[1] == 0x01) ||
+            (fsz >= 14 && memcmp(header, "%!PS-AdobeFont", 14) == 0) ||
+            (fsz >= 11 && memcmp(header, "%!FontType1", 11) == 0))) {
         free(mem);
         return -1;
     }
@@ -137,6 +177,8 @@ int font_open(const char* name, const char* fname) {
         return -1;
     }
     _ttfs[i].mem = mem;
+    _ttfs[i].refs = 0;
+    _ttfs[i].use = ++_use_clock;
     strncpy(_ttfs[i].name, name, NAME_LEN-1);
     strncpy(_ttfs[i].fname, fname, FNAME_LEN-1);
     return i;
@@ -376,6 +418,7 @@ static int font_dev_get_glyph(proto_t* in, proto_t* ret) {
         PF->init(ret)->addi(ret, -1);
         return -1;
     }
+    _ttfs[findex].use = ++_use_clock;
 
     FT_Face face = _ttfs[findex].face; 
     uint8_t* face_bitmap_buffer = NULL;
@@ -453,6 +496,7 @@ static int font_dev_get_face(proto_t* in, proto_t* ret) {
         PF->init(ret)->addi(ret, -1);
         return -1;
     }
+    _ttfs[i].use = ++_use_clock;
 
     FT_Face face = _ttfs[i].face; 
     if(FT_Set_Pixel_Sizes(face, 0, size) != 0) {
@@ -478,6 +522,27 @@ static int font_dev_list(proto_t* in, proto_t* ret) {
     return 0;
 }
 
+static int font_dev_free(proto_t* in, proto_t* ret) {
+    int i = proto_read_int(in);
+    if(i < 0 || i >= TTF_MAX || _ttfs[i].face == NULL) {
+        PF->init(ret)->addi(ret, -1);
+        return -1;
+    }
+    if(_ttfs[i].refs > 0)
+        _ttfs[i].refs--;
+    if(_ttfs[i].refs == 0) {
+        FT_Done_Face(_ttfs[i].face);
+        free(_ttfs[i].mem);
+        _ttfs[i].face = NULL;
+        _ttfs[i].mem = NULL;
+        _ttfs[i].name[0] = 0;
+        _ttfs[i].fname[0] = 0;
+        font_clear_cache();
+    }
+    PF->init(ret)->addi(ret, 0);
+    return 0;
+}
+
 static int font_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, proto_t* ret, void* p) {
     (void)dev;
     (void)from_pid;
@@ -494,6 +559,9 @@ static int font_dev_cntl(vdevice_t* dev, int from_pid, int cmd, proto_t* in, pro
     }
     else if(cmd == FONT_DEV_LIST) {
         return font_dev_list(in, ret);
+    }
+    else if(cmd == FONT_DEV_FREE) {
+        return font_dev_free(in, ret);
     }
     return -1;
 }

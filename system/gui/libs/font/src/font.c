@@ -104,6 +104,7 @@ int font_close(font_t* font) {
     if(font == NULL)
         return -1;
 
+    font_release(font->id);
     font_clear_cache(font);
     free(font->cache);
     font->cache = NULL;

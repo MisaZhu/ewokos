@@ -61,6 +61,18 @@ int font_load(const char* name, const char* fname) {
     return ret;
 }
 
+int font_release(int id) {
+    if(_font_dev_pid < 0 || id < 0)
+        return -1;
+    proto_t in, out;
+    PF->init(&out);
+    PF->format(&in, "i", (ewokos_addr_t)id);
+    int ret = dev_cntl_by_pid(_font_dev_pid, FONT_DEV_FREE, &in, &out);
+    PF->clear(&in);
+    PF->clear(&out);
+    return ret;
+}
+
 int font_get_face(font_t* font, uint32_t size, face_info_t* face) {
     if(_font_dev_pid < 0 || font == NULL)
         return -1;
