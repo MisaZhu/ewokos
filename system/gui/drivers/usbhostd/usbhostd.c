@@ -26,6 +26,7 @@
 #include <ewoksys/klog.h>
 #include <ewoksys/proc.h>
 #include <ewoksys/usbhci.h>
+#include <ewoksys/usb_uvc.h>
 #include <usb/bsp_usb.h>
 #include <usb/usb_defs.h>
 #include <hid/hid_defs.h>
@@ -35,6 +36,18 @@
 
 /* Older BSPs do not implement the Q8B MSC auto-mount policy hook. */
 extern void bsp_usb_set_msc_auto_mount(bool enabled) __attribute__((weak));
+
+/* UVC webcam claim hooks: only BSPs with isochronous support (orin.nano)
+ * provide them; every other platform links them as NULL and the guarded
+ * calls below degrade to "no camera". */
+extern int  bsp_usb_uvc_probe(bsp_usb_dev_t* dev, const uint8_t* cfg,
+        int cfg_len) __attribute__((weak));
+extern void bsp_usb_uvc_detach(bsp_usb_dev_t* dev) __attribute__((weak));
+extern bool bsp_usb_uvc_attached(bsp_usb_dev_t* dev) __attribute__((weak));
+extern int  bsp_usb_uvc_cntl(vdevice_t* vdev, int from_pid, int cmd,
+        proto_t* in, proto_t* out) __attribute__((weak));
+extern void bsp_usb_uvc_poll(void) __attribute__((weak));
+extern bool bsp_usb_uvc_streaming(void) __attribute__((weak));
 
 #ifndef USB_MAX_INPUTS
 #define USB_MAX_INPUTS 8
@@ -241,7 +254,9 @@ static int usb_dev_alloc(void) {
      */
     for (int i = 0; i < USB_MAX_DEVS; ++i) {
         if (_devs[i].unsupported && !bsp_usb_msc_attached(_devs[i].hdev) &&
-                !bsp_usb_bt_attached(_devs[i].hdev)) {
+                !bsp_usb_bt_attached(_devs[i].hdev) &&
+                (bsp_usb_uvc_attached == NULL ||
+                 !bsp_usb_uvc_attached(_devs[i].hdev))) {
             usb_dev_remove(i);
             return i;
         }
@@ -270,6 +285,8 @@ static void usb_dev_remove(int idx) {
     }
     bsp_usb_msc_detach(_devs[idx].hdev);
     bsp_usb_bt_detach(_devs[idx].hdev);
+    if (bsp_usb_uvc_detach != NULL)
+        bsp_usb_uvc_detach(_devs[idx].hdev);
     bsp_usb_device_detach(_devs[idx].hdev);
     memset(&_devs[idx], 0, sizeof(_devs[idx]));
 }
@@ -749,7 +766,10 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
         return -1;
     }
     total_len = le16(cfg_head + 2);
-    if (total_len < sizeof(usb_config_desc_t) || total_len > 1024) {
+    /* UVC cameras enumerate many alternate settings and routinely exceed
+       1KB of configuration descriptor; the control bounce buffer holds
+       up to 4KB. */
+    if (total_len < sizeof(usb_config_desc_t) || total_len > 4096) {
         slog("usbhostd: enumerate invalid_config_len total=%u\n", total_len);
         usb_dev_remove(dev_idx);
         return -1;
@@ -810,6 +830,15 @@ static int usb_enumerate_device(int root_port, int speed, int parent, int hub_po
     if (bsp_usb_bt_probe(dev->hdev, dev_desc.idVendor, dev_desc.idProduct,
             cfg_buf, total_len) == 0) {
         slog("usbhostd: bt claimed dev=%d\n", dev_idx);
+        registered++;
+    }
+
+    /* UVC webcam claim (platforms with isochronous support only): parses
+       the format/frame/alt-setting descriptors and parks the selection;
+       streaming itself starts on USB_UVC_CMD_START from the preview app */
+    if (bsp_usb_uvc_probe != NULL &&
+            bsp_usb_uvc_probe(dev->hdev, cfg_buf, total_len) == 0) {
+        slog("usbhostd: uvc claimed dev=%d\n", dev_idx);
         registered++;
     }
 
@@ -1702,6 +1731,11 @@ static int usb_dev_cntl(vdevice_t* dev, int from_pid, int cmd,
     if (cmd >= USBHCI_CMD_INFO && cmd <= USBHCI_CMD_SETUP) {
         return bsp_usb_bt_cntl(dev, from_pid, cmd, in, out);
     }
+    if (cmd >= USB_UVC_CMD_INFO && cmd <= USB_UVC_CMD_STATS) {
+        if (bsp_usb_uvc_cntl != NULL)
+            return bsp_usb_uvc_cntl(dev, from_pid, cmd, in, out);
+        return -1;
+    }
     return bsp_usb_msc_cntl(dev, from_pid, cmd, in, out);
 }
 
@@ -1723,6 +1757,10 @@ static int usb_step(vdevice_t* dev, void* p) {
 
     bsp_usb_poll();
     got = usb_poll_inputs(dev);
+    /* isochronous video capture: drain completed isoc TDs and assemble
+       UVC frames (no-op on platforms without the hook / no camera) */
+    if (bsp_usb_uvc_poll != NULL)
+        bsp_usb_uvc_poll();
 
     /*
      * Re-assert the directed wakes while a subscriber queue is still
@@ -1756,6 +1794,12 @@ static int usb_step(vdevice_t* dev, void* p) {
         if (_idle_sleep_us > USB_IDLE_SLEEP_MAX_US) {
             _idle_sleep_us = USB_IDLE_SLEEP_MAX_US;
         }
+    }
+    /* live video: keep the loop at 1ms so isoc TDs are re-armed and
+       frames assembled without waiting out the idle backoff */
+    if (bsp_usb_uvc_streaming != NULL && bsp_usb_uvc_streaming()) {
+        usleep(1000);
+        return 0;
     }
     usleep(have_inputs ? _idle_sleep_us : USB_NO_INPUT_SLEEP_US);
     return 0;
