@@ -93,6 +93,12 @@ inline int graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
     if(!graph_insect_with(src, &sr, dst, &dr))
         return 0;
 
+    /* this path is a 1:1 NEON copy only (no scale engine); decline scaled
+       requests so graph_blt falls through to the CPU area-average scaler
+       instead of silently copying an unscaled region */
+    if(sr.w != dr.w || sr.h != dr.h)
+        return -1;
+
     /* 1:1 copy of the clipped region; the g2d engine keeps overlapping
        copies within one buffer safe (memmove ordering) */
     arch_g2d_blt(src->buffer, graph_g2d_phy(src), src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
