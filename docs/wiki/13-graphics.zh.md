@@ -196,7 +196,7 @@ xwm 本身是一个独立的用户态进程，它与 xserverd 之间的 IPC 协�
   通过与 GPU 无关的 `pglcompiler.h` 契约（`pglc_*`）被所有带 GPU 的板子共用。
   NIR → 机器码的**后端**跟各机器的 GPU 驱动放在一起：
   `machines/raspi5|raspix/system/libs/v3dcompiler`（mesa Broadcom
-  `NIR → VIR → QPU`，V3D 4.2/7.1）和 `machines/q8b/system/libs/adrenocompiler`
+  `NIR → VIR → QPU`，V3D 4.2/7.1）和 `machines/qcom/8gen3/system/libs/adrenocompiler`
   （mesa freedreno `NIR → ir3`，Adreno 690）。机器的 `make.inc` 导出
   `PGL_G3D=yes` 并用 `PGL_G3D_COMPILER_DIR` 指向自己的后端；gles 的 Makefile
   把前后端各编成私有归档，于是 GLSL ES 3.10 着色器**在设备上**被编成 GPU 机器码。
@@ -213,7 +213,7 @@ BCM2712）；引擎适配层会在每次 draw 时选择走 CPU 还是 GPU，应�
 ```
 portablegl (pgl_g3d)  →  g2dclient  →  g2dd  →  bsp_g3d  →  vc_pgl3d
       →  machines/raspi5 .../videocore/src/v3d_3d.c  →  V3D CSD dispatch
-      →  machines/q8b    .../adreno/src/adreno_3d.c  →  Adreno CP_EXEC_CS
+      →  machines/qcom/8gen3    .../adreno/src/adreno_3d.c  →  Adreno CP_EXEC_CS
 ```
 
 这个 compute 光栅器分 **两趟**：第一趟对每个顶点做一次变换与光照（一个
@@ -228,7 +228,7 @@ invocation 处理一个顶点，写出紧凑的 32 字节记录）；第二趟�
 
 `opengl` 的应用（`teapot`、`gears`、`3ddemo`、`matrix`、`Fireworks`、
 `imgui_demo`）以及 `shadertoy` 风格的全屏 compute demo 都会走到这些路径。
-同一套两趟内核（`pglcompiler/include/geom_raster_cs.h`）也被 Radxa Dragon Q8B
+同一套两趟内核（`pglcompiler/include/geom_raster_cs.h`）也被 Radxa Dragon QCOM8GEN3
 的构建送进 Adreno 后端；该移植目前只做了编译验证，尚未在 SC8280XP 实机上跑过。
 
 ## 13.3 跟着做：跑一个图形程序

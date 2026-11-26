@@ -3,9 +3,9 @@
 //#include <ext2read.h>
 #include <ext3read.h>
 
-/* Q8B supplies a standalone boot-only ext3 image.  Other machines leave
+/* QCOM8GEN3 supplies a standalone boot-only ext3 image.  Other machines leave
  * this weak hook unresolved and continue using their normal SD reader. */
-extern int32_t q8b_ramdisk_read_block(int32_t block, void* buf)
+extern int32_t qcom8gen3_ramdisk_read_block(int32_t block, void* buf)
         __attribute__((weak));
 
 /*
@@ -14,8 +14,8 @@ extern int32_t q8b_ramdisk_read_block(int32_t block, void* buf)
  * carries a usable journal; anything else keeps the legacy ext2 reader.
  */
 void* read_fs(const char* fname, int32_t* sz) {
-	if(q8b_ramdisk_read_block != NULL) {
-		void* boot = read_ext3_with_reader(q8b_ramdisk_read_block, 0,
+	if(qcom8gen3_ramdisk_read_block != NULL) {
+		void* boot = read_ext3_with_reader(qcom8gen3_ramdisk_read_block, 0,
 				fname, sz);
 		if(boot != NULL)
 			return boot;

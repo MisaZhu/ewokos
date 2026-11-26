@@ -4,8 +4,8 @@
 .align 4
 .global __entry
 __entry:
-#ifdef Q8B_BOARD
-    /* PSCI starts every Q8B core at this entry point.  Remember the core id
+#ifdef QCOM8GEN3_BOARD
+    /* PSCI starts every QCOM8GEN3 core at this entry point.  Remember the core id
      * before any C call so secondaries can avoid touching boot-global state. */
     mrs x20, mpidr_el1
     ubfx x21, x20, #8, #8
@@ -95,14 +95,14 @@ __el1_entry:
 	adr x0, #_svc_start_stack
     mov sp, x0
 
-#ifdef Q8B_BOARD
+#ifdef QCOM8GEN3_BOARD
     cbnz x20, 8f
 
     /* UEFI's serial driver is stopped at EBS: re-enable QUP2/SE1,
      * re-init the GENI UART before any C code leaves the physical .init
      * mapping. */
-    bl q8b_early_watchdog_disable
-    bl q8b_early_uart_init
+    bl qcom8gen3_early_watchdog_disable
+    bl qcom8gen3_early_uart_init
 8:
 #endif
 
@@ -127,11 +127,11 @@ __el1_entry:
     orr x0, x0, x1
     msr SCTLR_EL1, x0
 
-#if defined(Q8B_BOARD) || defined(ORIN_BOARD)
+#if defined(QCOM8GEN3_BOARD) || defined(ORIN_BOARD)
     cbnz x20, 8f
 #endif
 	bl _boot_start
-#if defined(Q8B_BOARD) || defined(ORIN_BOARD)
+#if defined(QCOM8GEN3_BOARD) || defined(ORIN_BOARD)
     b 9f
 8:
     /* The boot core has already published and flushed these tables before

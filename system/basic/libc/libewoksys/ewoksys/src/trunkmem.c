@@ -232,6 +232,7 @@ static void try_break(malloc_t* m, mem_block_t* block, ewokos_addr_t size) {
 
     /* a new free block just appeared: publish it on its size class */
     fl_push(m, newBlock);
+    m->free_bytes += newBlock->size;
 }
 
 /* O(1) validation of a block candidate without scanning from head.
@@ -288,9 +289,12 @@ char* trunk_malloc(malloc_t* m, ewokos_addr_t size) {
             mem_block_t* cur = m->free_class[c];
             if(cur != NULL && !cur->used && cur->size >= size &&
                     trunk_block_sane(m->head, heap_end, cur->prev, cur)) {
+                ewokos_addr_t whole = cur->size;
                 fl_unlink(m, cur);
                 cur->used = 1;
                 try_break(m, cur, size);
+                m->free_bytes -= whole;
+                m->used_bytes += cur->size;
                 m->start = cur->next;
                 trunk_unlock_heap(m);
                 return cur->mem;
@@ -302,10 +306,13 @@ char* trunk_malloc(malloc_t* m, ewokos_addr_t size) {
                 mem_block_t* nx = *fl_next_slot(cur);
                 if(!cur->used && cur->size >= size &&
                         trunk_block_sane(m->head, heap_end, cur->prev, cur)) {
+                    ewokos_addr_t whole = cur->size;
                     fl_unlink(m, cur);
                     cur->used = 1;
                     /* any remainder is republished on its own size class */
                     try_break(m, cur, size);
+                    m->free_bytes -= whole;
+                    m->used_bytes += cur->size;
                     m->start = cur->next;
                     trunk_unlock_heap(m);
                     return cur->mem;
@@ -358,6 +365,7 @@ char* trunk_malloc(malloc_t* m, ewokos_addr_t size) {
     }
 
     try_break(m, block, size);
+    m->used_bytes += block->size;
     m->start = block;
     trunk_unlock_heap(m);
     return block->mem;
@@ -387,6 +395,9 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
          * the merged block's payload and a stale entry would be fatal). */
         fl_unlink(m, b);
         block->size += (b->size + block_size);
+        /* b's payload was already counted free; the absorbed header bytes
+         * become free payload too */
+        m->free_bytes += block_size;
         block->next = bn;
         if(bn != NULL)
             bn->prev = block;
@@ -399,6 +410,7 @@ static mem_block_t* try_merge(malloc_t* m, mem_block_t* block) {
     if(b != NULL && b->used == 0) {
         fl_unlink(m, b); /* see above: b absorbs block, so b's links must go */
         b->size += (block->size + block_size);
+        m->free_bytes += block_size; /* absorbed header, as above */
         b->next = block->next;
         if(b->next != NULL)
             b->next->prev = b;
@@ -451,12 +463,75 @@ static void try_shrink(malloc_t* m) {
      * still the one it was pushed with. Leaving it on the list would hand out
      * unmapped memory on the next allocation. */
     fl_unlink(m, m->tail);
+    m->free_bytes -= m->tail->size;
     m->tail = m->tail->prev;
     if(m->tail != NULL)
         m->tail->next = NULL;
     else
         m->head = NULL;
     m->shrink(m->arg, pages);
+}
+
+/*
+ * Return the interior pages of a large free block to the kernel
+ * (madvise(DONTNEED)-style). try_shrink() can only give back the TAIL block,
+ * so a big hole freed below live allocations used to pin its physical pages
+ * until process exit - e.g. a browser navigating away from a heavy page freed
+ * ~74MB into the heap yet the break never moved. Here the dead payload goes
+ * back immediately while the block stays on its size class at the same
+ * address; reuse refaults zero pages through the kernel demand-fault path.
+ *
+ * Only bytes strictly past the free-list links are offered: the block header
+ * and both link words must stay resident (every merge/unlink/sanity check
+ * reads them). The kernel rounds the range inward to whole pages, so the
+ * page carrying the header/links and any trailing partial page - which may
+ * hold the NEXT block's header - are never released.
+ */
+static void try_release(malloc_t* m, mem_block_t* block) {
+    if(m->release == NULL || block == NULL || block->used != 0)
+        return;
+    if(block->size < TRUNK_RELEASE_MIN_BYTES)
+        return;
+    /* Only when the heap is predominantly hollow. Returning a big transient
+     * block mid-workload (alloc/free churn of a live page) would force a
+     * kernel zero-page refault on its very next reuse - measured several-fold
+     * slowdown on allocation-heavy JS. A navigation teardown instead leaves
+     * free >> used, which is exactly when the pages should go back. */
+    if(m->free_bytes <= m->used_bytes)
+        return;
+
+    ewokos_addr_t start = (ewokos_addr_t)block->mem + TRUNK_FREE_LINK_BYTES;
+    ewokos_addr_t end = (ewokos_addr_t)block->mem + block->size;
+    if(end <= start)
+        return;
+    m->release(m->arg, start, end - start);
+}
+
+/* The hollow gate above blocks release while a page is live, so the blocks
+ * freed EARLY in a teardown (vm_close frees the heavy globals first, while
+ * used still dominates) are pushed onto the free lists unreleased and would
+ * never be revisited - each later free only inspects its own block. When the
+ * heap crosses into predominantly-free, sweep every size class once and hand
+ * back the interior pages of ALL holes: a page torn down by the VM leaves
+ * its strings interleaved with surviving engine allocations, so the holes
+ * are numerous and mid-sized rather than a few giant merged blocks - a
+ * size floor here would strand most of the dead weight. The kernel rounds
+ * each range inward to whole pages, so small blocks simply release nothing.
+ * Runs only on the transition, so steady-state churn pays nothing. */
+static void try_release_sweep(malloc_t* m) {
+    if(m->release == NULL)
+        return;
+    for(int c = 0; c < TRUNK_FREE_CLASSES; c++) {
+        mem_block_t* b = m->free_class[c];
+        while(b != NULL) {
+            mem_block_t* nx = *fl_next_slot(b);
+            ewokos_addr_t start = (ewokos_addr_t)b->mem + TRUNK_FREE_LINK_BYTES;
+            ewokos_addr_t end = (ewokos_addr_t)b->mem + b->size;
+            if(end > start)
+                m->release(m->arg, start, end - start);
+            b = nx;
+        }
+    }
 }
 
 void trunk_free(malloc_t* m, char* p) {
@@ -477,7 +552,10 @@ void trunk_free(malloc_t* m, char* p) {
         return;
     }
 
+    int was_hollow = (m->free_bytes > m->used_bytes);
     block->used = 0; //mark as free.
+    m->used_bytes -= block->size;
+    m->free_bytes += block->size;
     block = try_merge(m, block);
     if(block == NULL) {
         trunk_unlock_heap(m);
@@ -488,6 +566,16 @@ void trunk_free(malloc_t* m, char* p) {
     fl_push(m, block);
     if(m->start == 0 || m->start >= block)
         m->start = block->prev;
+    /* Give the dead interior pages back before the tail-shrink attempt: a
+     * hole below live allocations can never reach try_shrink(), and if the
+     * tail does shrink afterwards its sweep skips the already-unmapped
+     * pages (unmap_page_ref tolerates holes). On the transition into a
+     * predominantly-free heap, sweep ALL large holes instead - the ones
+     * freed earlier in this teardown were gated out and never revisited. */
+    if(!was_hollow && m->free_bytes > m->used_bytes)
+        try_release_sweep(m);
+    else
+        try_release(m, block);
     if(m->shrink != NULL)
         try_shrink(m);
     trunk_unlock_heap(m);

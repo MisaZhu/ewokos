@@ -19,7 +19,8 @@ enum {
     FONT_DEV_LOAD = 0,
     FONT_DEV_GET_GLYPH,
     FONT_DEV_GET_FACE,
-    FONT_DEV_LIST
+    FONT_DEV_LIST,
+    FONT_DEV_FREE
 };
 
 #define FONT_ALIGN_NONE    0x00
@@ -55,6 +56,7 @@ int     font_close(font_t* font);
 font_t* font_new(const char* fname, bool safe);
 int     font_load(const char* name, const char* fname);
 int     font_free(font_t* font);
+int     font_release(int id);
 
 const char*  font_name_by_fname(const char* fname);
 

@@ -43,6 +43,7 @@ struct sched_ctx {
 
 void raise_softirq(uint32_t sig);
 int intr_poll_once(void);
+void intr_set_sleep(int on);
 
 #ifndef ECONNRESET
 #define ECONNRESET 104  /* Connection reset by peer */

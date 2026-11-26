@@ -949,9 +949,15 @@ typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator position, 
         length_ = oldLength;
     }
 
-    for (size_t i = length_ + n - 1; i >= pos + n; i--) {
-        new (&data_[i]) T(static_cast<T&&>(data_[i - n]));
-        data_[i - n].~T();
+    /* Count down from length_ + n (exclusive) instead of starting at
+       length_ + n - 1 with an >= bound: when length_ == pos == n == 0 the
+       old form started at SIZE_MAX and the >= 0 test never failed, so the
+       "shift" walked backwards off the buffer and trashed memory until it
+       hit an unmapped page.  This form runs zero iterations for an append
+       (length_ == pos) and can never underflow. */
+    for (size_t i = length_ + n; i > pos + n; i--) {
+        new (&data_[i - 1]) T(static_cast<T&&>(data_[i - 1 - n]));
+        data_[i - 1 - n].~T();
     }
 
     for (size_t i = pos; i < pos + n; i++) {
@@ -996,9 +1002,12 @@ typename vector<T, Alloc>::iterator vector<T, Alloc>::insert(iterator position, 
         length_ = oldLength;
     }
 
-    for (size_t i = length_ + size - 1; i >= pos + size; i--) {
-        new (&data_[i]) T(static_cast<T&&>(data_[i - size]));
-        data_[i - size].~T();
+    /* Same underflow-free countdown as the fill insert above: an empty
+       range appended to an empty vector (length_ == pos == size == 0)
+       must run zero iterations, not start at SIZE_MAX. */
+    for (size_t i = length_ + size; i > pos + size; i--) {
+        new (&data_[i - 1]) T(static_cast<T&&>(data_[i - 1 - size]));
+        data_[i - 1 - size].~T();
     }
 
     for (size_t i = pos, idx = 0; first != last; ++first, i++, idx++) {

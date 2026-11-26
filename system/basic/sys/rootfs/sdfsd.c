@@ -19,7 +19,7 @@
 #include <ewoksys/kernel_tic.h>
 
 /* The NVMe backend is optional: only machines whose libbsp provides the
- * shared <bsp/bsp_nvme.h> block API (raspi5/x86/q8b) build the "-n" mode.
+ * shared <bsp/bsp_nvme.h> block API (raspi5/x86/qcom8gen3) build the "-n" mode.
  * The machine-specific bsp_nvme_init() owns controller bring-up; this file
  * only adds the partition-table offset and the ext3 block translation. */
 #if defined(__has_include)
@@ -1055,9 +1055,9 @@ static int sdext_dev_cntl(vdevice_t* dev, int from_pid, int cmd,
     return 0;
 }
 
-/* Machine-specific dev.cmd diagnostics (Q8B: `devcmd / apst` reports the
+/* Machine-specific dev.cmd diagnostics (QCOM8GEN3: `devcmd / apst` reports the
  * NVMe autonomous power state configuration).  bsp_sdfsd_cmd is a weak
- * symbol - only the Q8B BSP defines it, every other machine resolves it
+ * symbol - only the QCOM8GEN3 BSP defines it, every other machine resolves it
  * to NULL and declines, so the shared rootfs server needs no per-machine
  * #ifdef. */
 extern char* bsp_sdfsd_cmd(int argc, char** argv) __attribute__((weak));

@@ -190,7 +190,7 @@ proc_t* proc_interrupt_wakeup(struct st_proc* serv_proc) {
     }
 
     kfree(item);
-    proc_wakeup(proc);
+    proc_wakeup_by(proc, PROC_WAKE_FORCE);
     return proc;
 }
 
@@ -212,7 +212,7 @@ void proc_interrupt_wakeup_all(struct st_proc* serv_proc) {
         }
 
         kfree(item);
-        proc_wakeup(proc);
+        proc_wakeup_by(proc, PROC_WAKE_FORCE);
     }
 }
 

@@ -99,9 +99,18 @@ fsinfo_t* dev_kids(int dev_pid, fsinfo_t* info, uint32_t *num) {
 }
 
 int dev_unlink(int dev_pid, ewokos_addr_t node, const char* fname) {
+    /* The mount daemon resolves fname from its own filesystem root (e.g.
+     * ext3_ino_by_fname always starts at the root inode), never from the
+     * caller's cwd. The node above was looked up through vfs_get_by_name,
+     * which applies vfs_fullname; ship the same absolute path so a relative
+     * operand (rm -r from a non-root cwd) cannot miss the entry and fail
+     * with a bogus EPERM. */
+    char fullname[FS_FULL_NAME_MAX+1] = {0};
+    vfs_fullname(fname, fullname, FS_FULL_NAME_MAX);
+
     proto_t in, out;
     PF->init(&out);
-    PF->init(&in)->addi(&in, node)->adds(&in, fname);
+    PF->init(&in)->addi(&in, node)->adds(&in, fullname);
 
     int res = ipc_call(dev_pid, FS_CMD_UNLINK, &in, &out);
     PF->clear(&in);

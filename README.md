@@ -204,7 +204,7 @@ The `opengl` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`, `imgui_de
 
 - `projects/` holds the larger standalone projects: a web browser, `macemu` and `minivmac` Macintosh emulators, `nesemu`, the `opengl` software 3D stack, `video`, and `saver`
 - `sw.extra/` contains demos and larger apps such as `doom`, `calculator`, `calendar`, and SDL-related pieces
-- `apps/nputest/` provides the Q8B native HTP test window and `npudemo` CLI, with bundled model resources
+- `apps/nputest/` provides the QCOM8GEN3 native HTP test window and `npudemo` CLI, with bundled model resources
 - Some installations depend on submodules being checked out locally
 
 ## Project Components

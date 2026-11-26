@@ -77,6 +77,21 @@ static mutex_t gSignelLock = MUTEX_INITIALIZER;
 #define NETD_DEEP_IDLE_SLEEP_MAX_US 50000U
 
 /*
+ * powerd sleep fan-out: while the board is asleep the idle cadence cap rises
+ * to 500ms so this core can stay in PSCI power-down between rounds (the
+ * kernel re-park sweep is 200ms; a <=50ms idle poll keeps pulling the core
+ * back into powered WFI). Real traffic still takes the busy fast path, and
+ * the tap-fd poll wakes immediately on wland's RX edge, so an asleep board
+ * still answers incoming packets without waiting out the long timeout.
+ */
+#define NETD_SLEEP_IDLE_SLEEP_MAX_US 500000U
+static volatile int intr_sleeping;
+
+void intr_set_sleep(int on) {
+    intr_sleeping = on ? 1 : 0;
+}
+
+/*
  * Bound on the tap->protocol re-poll passes inside one round. Frames keep
  * landing while a pass runs (the tap drain is a synchronous IPC to the
  * driver and pool workers feed the stack concurrently), so the round loops
@@ -269,6 +284,9 @@ void intr_step(void) {
 
         tcp_timer_due = tcp_timer_due_us();
 
+        uint32_t idle_max = intr_sleeping ?
+            NETD_SLEEP_IDLE_SLEEP_MAX_US : NETD_DEEP_IDLE_SLEEP_MAX_US;
+
         if (protocol_more_pending || event_ready) {
             sleep_us = NETD_BUSY_SLEEP_US;
         } else if (tap_pending) {
@@ -309,10 +327,10 @@ void intr_step(void) {
                 sleep_us = (uint32_t)tcp_timer_due;
                 if (sleep_us < NETD_BUSY_SLEEP_US)
                     sleep_us = NETD_BUSY_SLEEP_US;
-                if (sleep_us > NETD_DEEP_IDLE_SLEEP_MAX_US)
-                    sleep_us = NETD_DEEP_IDLE_SLEEP_MAX_US;
+                if (sleep_us > idle_max)
+                    sleep_us = idle_max;
             }
-        } else if (sleep_us < NETD_DEEP_IDLE_SLEEP_MAX_US) {
+        } else {
             tap_rounds = 0;
             /*
              * TCP timers are evaluated against wall-clock time in
@@ -320,9 +338,18 @@ void intr_step(void) {
              * cadence whenever a retransmit/TIME_WAIT entry exists just burns
              * CPU. Only real packets or read-ready wakeups need the fast path.
              */
-            sleep_us += NETD_IDLE_SLEEP_STEP_US;
-            if (sleep_us > NETD_DEEP_IDLE_SLEEP_MAX_US) {
-                sleep_us = NETD_DEEP_IDLE_SLEEP_MAX_US;
+            if (intr_sleeping) {
+                /* Asleep with no work: jump straight to the long cadence;
+                 * the gradual awake ramp would take minutes to get there. */
+                sleep_us = idle_max;
+            } else if (sleep_us > idle_max) {
+                /* Just woken: drop back from the sleep cadence at once. */
+                sleep_us = idle_max;
+            } else if (sleep_us < idle_max) {
+                sleep_us += NETD_IDLE_SLEEP_STEP_US;
+                if (sleep_us > idle_max) {
+                    sleep_us = idle_max;
+                }
             }
         }
         /*

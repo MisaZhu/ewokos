@@ -166,6 +166,7 @@
 #define HCI_OCF_LE_CLEAR_RESOLV_LIST 0x0029
 #define HCI_OCF_LE_READ_RESOLV_LIST_SIZE 0x002a
 #define HCI_OCF_LE_SET_ADDR_RESOLUTION_ENABLE 0x002d
+#define HCI_OCF_LE_SET_PRIVACY_MODE 0x004e
 /* LE 5.0 extended scanning / initiating. A BLE 5.0 peripheral (many
    keyboards) advertises with ADV_EXT_IND, which a legacy LE_Set_Scan_Enable
    scan physically cannot receive: the controller only reports those PDUs to
@@ -493,6 +494,13 @@
 #define BT_IDLE_SLEEP_MIN_US 2000u
 #define BT_IDLE_SLEEP_HID_US 2000u
 #define BT_IDLE_SLEEP_MAX_US 20000u
+
+/* powerd sleep fan-out: while the board is asleep the idle ceiling rises to
+   500ms (even with a HID link live) so this core can stay PSCI-parked -- the
+   kernel re-park sweep is 200ms and the 2ms HID floor would keep it powered
+   in WFI. Input is not expected while asleep; a real report still resets the
+   backoff to the 2ms floor, and powerd's wake restores the normal ceiling. */
+#define BT_SLEEP_IDLE_MAX_US 500000u
 
 /* HIDP transaction headers (high nibble = message type) */
 #define HIDP_TRANS_HANDSHAKE 0x00

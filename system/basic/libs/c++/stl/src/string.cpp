@@ -79,13 +79,18 @@ string::string(const string& str) {
 }
 
 
-string::string(const string& str, size_t pos, size_t len) : data_(nullptr), length_(len), capacity_(len) {
-    if (len == npos) {
-        length_ = str.length_ - pos;
-        capacity_ = length_;
+string::string(const string& str, size_t pos, size_t len) : data_(nullptr), length_(0), capacity_(0) {
+    /* Same clamp as substr(): an unclamped pos underflowed str.length_ - pos
+       for len == npos, and with an explicit len the copy loop below read past
+       the source buffer. */
+    if (pos > str.length_) {
+        pos = str.length_;
     }
-
-    capacity_ += 1;
+    if (len == npos || len > str.length_ - pos) {
+        len = str.length_ - pos;
+    }
+    length_ = len;
+    capacity_ = len + 1;
     data_ = alloc_string_buffer(capacity_);
     if (!data_) {
         length_ = 0;
@@ -93,7 +98,7 @@ string::string(const string& str, size_t pos, size_t len) : data_(nullptr), leng
         return;
     }
     for (size_t i = 0; i < length_; i++) {
-        data_[i] = str[pos++];
+        data_[i] = str.data_[pos + i];
     }
     data_[length_] = '\0';
 }
@@ -262,7 +267,13 @@ void string::resize(size_t n) {
         for (size_t i = 0; i < newLength; i++) {
             newData[i] = data_[i];
         }
-        newData[newLength] = '\0';
+        /* std::resize(n) value-initializes the appended characters; the
+           malloc buffer holds garbage, so fill the grown tail with '\0'
+           instead of exposing uninitialized heap bytes. */
+        for (size_t i = newLength; i < n; i++) {
+            newData[i] = '\0';
+        }
+        newData[n] = '\0';
 
         free(data_);
         data_ = newData;
@@ -393,8 +404,18 @@ string& string::operator+=(const char* s) {
 }
 
 string& string::operator+=(char c) {
-    if (length_ + 1 > (capacity_ - 1)) {
-        char* newData = alloc_string_buffer(capacity_ + 1);
+    /* capacity_ counts the terminator slot.  The old code grew the buffer
+       by exactly one slot AND did capacity_ += 1 even when no allocation
+       happened: after a reserve() the recorded capacity drifted past the
+       real buffer and the growth test never fired again, writing off the
+       end of the allocation.  Only update capacity_ when we actually
+       allocate, and double so char-by-char building stays amortized O(n). */
+    if (length_ + 2 > capacity_) {
+        size_t newCapacity = capacity_ * 2;
+        if (newCapacity < length_ + 2) {
+            newCapacity = length_ + 2;
+        }
+        char* newData = alloc_string_buffer(newCapacity);
         if (!newData) {
             return *this;
         }
@@ -405,12 +426,12 @@ string& string::operator+=(char c) {
 
         free(data_);
         data_ = newData;
+        capacity_ = newCapacity;
     }
 
     data_[length_] = c;
     data_[length_ + 1] = '\0';
     length_ += 1;
-    capacity_ += 1;
 
     return *this;
 }
@@ -464,6 +485,22 @@ string& string::assign(size_t n, char c) {
 }
 
 string& string::insert(size_t pos, const string& str) {
+    /* House style (erase/replace/substr): assert then clamp instead of
+       throwing.  An unclamped pos > length_ underflowed length_ - pos in
+       the in-place branch and read past the buffer in the grow branch. */
+    assert(pos <= length_);
+    if (pos > length_) {
+        pos = length_;
+    }
+
+    /* Self-insert: the in-place branch copies str.data_ forward over a
+       region that overlaps it, which corrupts the source mid-copy.  Insert
+       from a detached copy instead. */
+    if (&str == this) {
+        string tmp(str);
+        return insert(pos, tmp);
+    }
+
     size_t newLength = length_ + str.length_;
 
     if (newLength > (capacity_ - 1)) {
@@ -560,6 +597,14 @@ string& string::erase(size_t pos, size_t len) {
             return *this;
         }
 
+        /* std clamps len to the characters actually available; without this,
+           length_ - pos - len below underflows for any len > length_ - pos
+           (e.g. erase(1, npos - 1)), producing a huge or wrapped rightSize
+           and a wrapped source index pos + len that reads wild memory. */
+        if (len > length_ - pos) {
+            len = length_ - pos;
+        }
+
         // Copy the left part of the buffer
         char* leftBuffer = pos ? (char*)malloc(pos) : nullptr;
         if (pos && !leftBuffer) {
@@ -617,6 +662,13 @@ string& string::replace(size_t pos, size_t len, const string& str) {
     assert(pos <= length_);
     if (pos > length_) {
         return *this;
+    }
+
+    /* Self-replace: like self-insert, the in-place branch would copy the
+       source forward over an overlapping destination.  Use a detached copy. */
+    if (&str == this) {
+        string tmp(str);
+        return replace(pos, len, tmp);
     }
 
     // We need a larger buffer
@@ -726,10 +778,12 @@ size_t string::copy(char* s, size_t len, size_t pos) {
     if (pos >= length_) {
         return 0;
     }
-    size_t endPos = pos + len;
-    if (endPos > length_) {
-        endPos = length_;
+    /* Clamp by subtraction: pos + len can wrap for len near npos, which
+       slipped past the endPos > length_ test and underflowed endPos - pos. */
+    if (len > length_ - pos) {
+        len = length_ - pos;
     }
+    size_t endPos = pos + len;
 
     size_t idx = 0;
     for (size_t i = pos; i < endPos; i++) {
@@ -748,14 +802,13 @@ string string::substr(size_t pos, size_t len) const {
         return "";
     }
 
-    if (len == npos) {
+    if (len == npos || len > length_ - pos) {
         len = length_ - pos;
     }
 
+    /* Subtraction clamp above also covers the pos + len wrap that the old
+       endPos > length_ test missed for len near npos. */
     size_t endPos = pos + len;
-    if (endPos > length_) {
-        endPos = length_;
-    }
 
     size_t size = endPos - pos;
     string substring;
@@ -773,7 +826,8 @@ string string::substr(size_t pos, size_t len) const {
 
 size_t string::find(const string& str, size_t pos) const {
     if (str.length_ == 0) {
-        return pos;
+        /* std: the empty needle matches at pos only while pos <= size(). */
+        return (pos <= length_) ? pos : npos;
     }
 
     if (str.length_ + pos > length_) {
@@ -799,7 +853,12 @@ size_t string::find(const string& str, size_t pos) const {
         return npos;
     }
     table[0] = -1;
-    table[1] = 0;
+    /* table has exactly str.length_ entries: a one-character needle has no
+       slot 1, and writing it used to overflow the malloc block by one int
+       on every find("x") call. */
+    if (str.length_ > 1) {
+        table[1] = 0;
+    }
 
     // Table creation
     size_t position = 2;
@@ -1158,6 +1217,11 @@ string operator+(const string& lhs, const string& rhs) {
 
     string result;
     result.reserve(newSize);
+    /* reserve() fails silently on OOM; writing into the 1-byte empty
+       buffer would overflow the heap.  Return an empty string instead. */
+    if (result.capacity_ < newSize + 1) {
+        return string();
+    }
 
     for (size_t i = 0; i < lhs.length_; i++) {
         result.data_[i] = lhs.data_[i];
@@ -1186,6 +1250,9 @@ string operator+(const string& lhs, char rhs) {
 
     string result;
     result.reserve(newSize);
+    if (result.capacity_ < newSize + 1) {
+        return string();
+    }
 
     for (size_t i = 0; i < lhs.length_; i++) {
         result.data_[i] = lhs.data_[i];
@@ -1202,6 +1269,9 @@ string operator+(char lhs, const string& rhs) {
 
     string result;
     result.reserve(newSize);
+    if (result.capacity_ < newSize + 1) {
+        return string();
+    }
 
     result.data_[0] = lhs;
     for (size_t i = 0; i < rhs.length_; i++) {

@@ -20,6 +20,7 @@
 #include <ewoksys/vfs.h>
 #include <ewoksys/sys.h>
 #include <ewoksys/syscall.h>
+#include <ewoksys/proc.h>
 #include <sys/mman.h>
 
 void ewok_longjmp(jmp_buf env, int val) {
@@ -769,6 +770,13 @@ static void compat_heap_shrink(void *arg, int32_t pages) {
     (void)_sbrk(-bytes);
 }
 
+/* madvise-style interior page return: the break stays put, the kernel drops
+ * the dead pages and refaults them zeroed on reuse (SYS_MALLOC_RELEASE). */
+static int32_t compat_heap_release(void *arg, ewokos_addr_t addr, ewokos_addr_t size) {
+    (void)arg;
+    return proc_malloc_release((void *)addr, size);
+}
+
 static void compat_heap_init(void) {
     if (compat_heap_ready) {
         return;
@@ -778,6 +786,7 @@ static void compat_heap_init(void) {
     compat_heap.seg_size = 4096;
     compat_heap.expand = compat_heap_expand;
     compat_heap.shrink = compat_heap_shrink;
+    compat_heap.release = compat_heap_release;
     compat_heap.get_mem_tail = compat_heap_tail;
     compat_heap_ready = 1;
 }
@@ -793,6 +802,97 @@ void ewok_heap_stat(uint32_t *blocks, uint32_t *free_blocks,
     compat_heap_init();
     trunk_stat(&compat_heap, blocks, free_blocks, used_bytes, free_bytes,
                free_list_len, free_list_max);
+}
+
+/* TEMP leak-triage: per-size census of live heap blocks plus content samples
+ * (vtable words / string bytes) so leaked C++ objects can be identified.
+ * Formats into the caller's buffer (single write per census: ramfs appends
+ * from separate opens overlap otherwise). Diagnostics only; remove together
+ * with the ewebview census. */
+int ewok_heap_dump(char *out, int cap) {
+    static uint32_t hist[1025];
+    static uint64_t hist_bytes[1025];
+    static struct { uint32_t sz; uint64_t w[4]; char asc[33]; } samples[48];
+    static struct { uint32_t sz; uint64_t w[4]; char asc[33]; } bigsamples[24];
+    uint32_t small = 0, total = 0, idx = 0, shown = 0, stride;
+    uint32_t bigidx = 0, bigshown = 0, bigstride;
+    uint32_t bigcount = 0;
+    int off = 0;
+    mem_block_t *b;
+
+    compat_heap_init();
+    memset(hist, 0, sizeof(hist));
+    memset(hist_bytes, 0, sizeof(hist_bytes));
+    while (__sync_lock_test_and_set((volatile int32_t *)&compat_heap.lock, 1)) {
+    }
+    for (b = compat_heap.head; b != NULL; b = b->next) {
+        if (!b->used) continue;
+        total++;
+        hist[b->size < 1024 ? (uint32_t)b->size : 1024]++;
+        hist_bytes[b->size < 1024 ? (uint32_t)b->size : 1024] += b->size;
+        if (b->size <= 256) small++;
+        if (b->size > 4096) bigcount++;
+    }
+    stride = small / 48 + 1;
+    for (b = compat_heap.head; b != NULL && shown < 48; b = b->next) {
+        size_t n;
+        if (!b->used || b->size > 256) continue;
+        if ((idx++ % stride) != 0) continue;
+        n = b->size < 32 ? (size_t)b->size : 32;
+        samples[shown].sz = (uint32_t)b->size;
+        memset(samples[shown].w, 0, sizeof(samples[shown].w));
+        memcpy(samples[shown].w, b->mem, n);
+        memcpy(samples[shown].asc, b->mem, n);
+        samples[shown].asc[n] = 0;
+        for (size_t i = 0; i < n; i++)
+            if (samples[shown].asc[i] < 32 || samples[shown].asc[i] > 126)
+                samples[shown].asc[i] = '.';
+        shown++;
+    }
+    bigstride = bigcount / 24 + 1;
+    for (b = compat_heap.head; b != NULL && bigshown < 24; b = b->next) {
+        size_t n;
+        if (!b->used || b->size <= 4096) continue;
+        if ((bigidx++ % bigstride) != 0) continue;
+        n = 32;
+        bigsamples[bigshown].sz = (uint32_t)b->size;
+        memset(bigsamples[bigshown].w, 0, sizeof(bigsamples[bigshown].w));
+        memcpy(bigsamples[bigshown].w, b->mem, n);
+        memcpy(bigsamples[bigshown].asc, b->mem, n);
+        bigsamples[bigshown].asc[n] = 0;
+        for (size_t i = 0; i < n; i++)
+            if (bigsamples[bigshown].asc[i] < 32 || bigsamples[bigshown].asc[i] > 126)
+                bigsamples[bigshown].asc[i] = '.';
+        bigshown++;
+    }
+    __sync_lock_release((volatile int32_t *)&compat_heap.lock);
+
+    for (int s = 0; s <= 1024 && off < cap - 64; s++)
+        if (hist[s] >= 8)
+            off += snprintf(out + off, cap - off, "hist sz=%s%d n=%u bytes=%llu\n",
+                            s == 1024 ? ">=" : "", s, hist[s],
+                            (unsigned long long)hist_bytes[s]);
+    if (off < cap - 64)
+        off += snprintf(out + off, cap - off, "hist total=%u small=%u big=%u\n", total, small, bigcount);
+    for (uint32_t i = 0; i < shown && off < cap - 160; i++)
+        off += snprintf(out + off, cap - off,
+                "blk sz=%u w=%016llx %016llx %016llx %016llx [%s]\n",
+                samples[i].sz,
+                (unsigned long long)samples[i].w[0],
+                (unsigned long long)samples[i].w[1],
+                (unsigned long long)samples[i].w[2],
+                (unsigned long long)samples[i].w[3],
+                samples[i].asc);
+    for (uint32_t i = 0; i < bigshown && off < cap - 160; i++)
+        off += snprintf(out + off, cap - off,
+                "big sz=%u w=%016llx %016llx %016llx %016llx [%s]\n",
+                bigsamples[i].sz,
+                (unsigned long long)bigsamples[i].w[0],
+                (unsigned long long)bigsamples[i].w[1],
+                (unsigned long long)bigsamples[i].w[2],
+                (unsigned long long)bigsamples[i].w[3],
+                bigsamples[i].asc);
+    return off;
 }
 
 /*

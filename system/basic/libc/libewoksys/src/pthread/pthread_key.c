@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <unistd.h>
 #include <ewoksys/syscall.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,7 +28,7 @@ static volatile int _tls_locked = 0;
 
 static void tls_lock(void) {
 	while(__sync_lock_test_and_set(&_tls_locked, 1) != 0)
-		syscall0(SYS_YIELD);
+		usleep(500); /* real sleep, no yield-storm */
 }
 
 static void tls_unlock(void) {

@@ -626,6 +626,13 @@ void stable_sort_impl(Iterator first, Iterator last, Compare comp) {
     // Merge step - use a temporary buffer
     typedef typename iterator_traits<Iterator>::value_type value_type;
     value_type* temp = (value_type*)malloc(n * sizeof(value_type));
+    if (temp == 0) {
+        /* OOM: the placement-new writes below would go through a NULL
+           pointer.  Both halves are already sorted, so finish with the
+           allocation-free (stable) insertion sort instead. */
+        ewok_sort_detail::insertion_sort(first, last, comp);
+        return;
+    }
 
     Iterator left = first;
     Iterator right = middle;

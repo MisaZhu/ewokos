@@ -222,12 +222,17 @@ extern proc_t *proc_create(int32_t type, proc_t* parent);
 extern void*   proc_malloc(proc_t* proc, int64_t size);
 extern ewokos_addr_t proc_msize(proc_t* proc);
 extern void    proc_free(proc_t* proc);
+extern int32_t proc_release_mem(proc_t* proc, ewokos_addr_t addr, ewokos_addr_t size);
 
 extern void    proc_block(context_t* text, proc_t* proc);
 extern void    proc_block_by(context_t* ctx, proc_t* proc, ewokos_addr_t token);
 extern void    proc_block_by_timeout(context_t* ctx, proc_t* proc, ewokos_addr_t token, uint32_t timeout_usec);
 extern void    proc_wakeup(proc_t* proc);
 extern void    proc_wakeup_by(proc_t* proc, ewokos_addr_t token);
+
+/* Force-resume token: releases any scoped park (timeout/IRQ recovery). */
+#define PROC_WAKE_FORCE ((ewokos_addr_t)0xFFFFFFFFu)
+extern void    proc_park_clone(proc_t* proc, uint32_t token);
 extern void    proc_waitpid(context_t* ctx, int32_t pid);
 extern proc_t* proc_get(int32_t pid);
 extern proc_t* proc_get_by_uuid(uint32_t uuid);

@@ -7,7 +7,7 @@
  *                  samples from /dev/touch0 (hid_touchd) and maps them onto
  *                  the whole screen (touchscreen semantics: touch == left
  *                  click at the touched point).
- *                  Drivers with multi-contact panels (q8b goodixd) also
+ *                  Drivers with multi-contact panels (qcom8gen3 goodixd) also
  *                  emit tagged multi-touch frames on the same stream; those
  *                  are mapped to screen coordinates and passed through to
  *                  xserverd as XEVT_TOUCH_MT - no gesture policy runs here,
@@ -114,7 +114,7 @@ static void input(uint16_t state, int16_t tx, int16_t ty) {
     map_pos(tx, ty, &ev.value.mouse.x, &ev.value.mouse.y);
 
     /* Record states beyond the single-finger 0/1 come from drivers with
-       gesture detection (q8b goodixd):
+       gesture detection (qcom8gen3 goodixd):
          2/3 ... right button down/up (two-finger tap)
          4/5 ... one wheel notch, scroll up/down (two-finger swipe)
        Wheel notches are direction-only MOUSE_STATE_MOVE events, the same

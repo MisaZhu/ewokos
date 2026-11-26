@@ -218,7 +218,7 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
     return ret;
 }
 
-/* Q8B A2D requires a 64-byte row pitch; V3D handles arbitrary widths.
+/* QCOM8GEN3 A2D requires a 64-byte row pitch; V3D handles arbitrary widths.
    Query once, and only for an unaligned canvas, so normal allocations do
    not add an IPC round trip. A failed query keeps the conservative gate
    for that allocation and is retried by the next unaligned one. */

@@ -116,6 +116,62 @@ void enqueue_driver_close_task(driver_close_task_t* task) {
 }
 
 /*
+ * Mechanism-level self protection: vfsd must never be wedged by a misbehaving
+ * mount driver, regardless of whether that driver behaves. IPC_MULTI_TASK gives
+ * every request its own worker, but a driver that never replies would strand one
+ * worker per request until the per-proc task cap is exhausted and vfsd stops
+ * serving EVERYONE. Cap the number of concurrently in-flight synchronous driver
+ * round trips per mount; over the cap, fail fast / skip the wait so blocked
+ * workers stay bounded and unrelated clients keep being served. The async job
+ * queue (user-space, unbounded, no kernel tasks) absorbs the deferred work.
+ */
+#define DRIVER_SYNC_SLOTS        16
+#define DRIVER_SYNC_INFLIGHT_MAX 8
+static struct { int32_t pid; int32_t n; } _sync_inflight[DRIVER_SYNC_SLOTS];
+static pthread_mutex_t _sync_inflight_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static bool sync_inflight_acquire(int32_t pid) {
+    pthread_mutex_lock(&_sync_inflight_lock);
+    int slot = -1;
+    for(int i = 0; i < DRIVER_SYNC_SLOTS; i++) {
+        if(_sync_inflight[i].pid == pid) { slot = i; break; }
+        if(slot < 0 && _sync_inflight[i].pid == 0) slot = i;
+    }
+    bool ok = false;
+    if(slot >= 0 && _sync_inflight[slot].n < DRIVER_SYNC_INFLIGHT_MAX) {
+        _sync_inflight[slot].pid = pid;
+        _sync_inflight[slot].n++;
+        ok = true;
+    }
+    pthread_mutex_unlock(&_sync_inflight_lock);
+    return ok;
+}
+
+static void sync_inflight_release(int32_t pid) {
+    pthread_mutex_lock(&_sync_inflight_lock);
+    for(int i = 0; i < DRIVER_SYNC_SLOTS; i++) {
+        if(_sync_inflight[i].pid == pid && _sync_inflight[i].n > 0) {
+            _sync_inflight[i].n--;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&_sync_inflight_lock);
+}
+
+static bool sync_inflight_over(int32_t pid) {
+    pthread_mutex_lock(&_sync_inflight_lock);
+    bool over = false;
+    for(int i = 0; i < DRIVER_SYNC_SLOTS; i++) {
+        if(_sync_inflight[i].pid == pid) {
+            over = (_sync_inflight[i].n >= DRIVER_SYNC_INFLIGHT_MAX);
+            break;
+        }
+    }
+    pthread_mutex_unlock(&_sync_inflight_lock);
+    return over;
+}
+
+/*
  * Outbound FS_CMD_DUP. Called either from the async driver worker thread or
  * from a handler's UNLOCKED phase (fallback dups): never while _vfs_lock is
  * held.
@@ -159,8 +215,16 @@ int vfs_driver_dup_now(int32_t mount_pid, int32_t from_pid, int32_t from_fd,
          * Do not wait for the driver reply here. Cross-process dup is on the
          * fork/clone hot path; if netd/WLAN or any other mount server stalls,
          * vfsd must stay responsive and let the dup worker absorb that delay.
+         * The in-flight cap bounds how many workers may be parked on this one
+         * driver at once; over it, fail fast instead of stranding another.
          */
+        if(!sync_inflight_acquire(mount_pid)) {
+            PF->clear(&in);
+            klog("vfsd: driver %d sync dup budget full, fail fast\n", mount_pid);
+            return -1;
+        }
         int rc = ipc_call(mount_pid, FS_CMD_DUP, &in, NULL);
+        sync_inflight_release(mount_pid);
         PF->clear(&in);
         return rc;
     }
@@ -266,6 +330,15 @@ static void clone_dup_ctx_complete(clone_dup_ctx_t* ctx) {
 
 /* must be called with NO _vfs_lock held (sleeps) */
 void clone_dup_ctx_wait(clone_dup_ctx_t* ctx, int32_t mount_pid) {
+    /*
+     * Always wait for the driver-side FS_CMD_DUP completion (bounded by the
+     * sleep-poll budget below). Skipping this wait when the driver's sync
+     * in-flight budget is saturated lets the cloning child run with pipe
+     * fds whose ring attach has not landed yet: dup2() then wires the
+     * wrong endpoint (command output straight to the console, readers
+     * seeing foreign bytes). The budget caps NEW sync calls, not the
+     * completion of dups already queued for this clone.
+     */
     uint32_t waited = 0;
     uint32_t step = CLONE_DUP_WAIT_STEP_MIN_US;
 

@@ -43,6 +43,12 @@ typedef struct mem_block {
 #define TRUNK_FREE_CLASSES 24
 #define TRUNK_FREE_MIN_BITS 4
 
+/* Minimum merged free-block payload worth a SYS_MALLOC_RELEASE round-trip.
+ * Below this the syscall + refault cost outweighs the pages returned; above
+ * it (large JS strings, VM arenas, image buffers) the pages go straight back
+ * to the kernel instead of parking in a hole below the break forever. */
+#define TRUNK_RELEASE_MIN_BYTES (64*1024)
+
 typedef struct {
 	uint32_t seg_size;
 	void* arg;
@@ -62,6 +68,21 @@ typedef struct {
 	mem_block_t* free_class[TRUNK_FREE_CLASSES];
 	pthread_mutex_t lock;
 	uint32_t lock_inited;
+
+	/* Optional madvise-style page return: hand the kernel a byte range of
+	 * dead payload inside a large free block; whole pages within it are
+	 * unmapped and refault zeroed on reuse. The break does not move. NULL
+	 * (the zero-init default) keeps the classic grow-only behaviour. */
+	int32_t (*release)(void* arg, ewokos_addr_t addr, ewokos_addr_t size);
+
+	/* Running payload-byte totals (headers excluded), maintained by the
+	 * alloc/free/merge/shrink paths. try_release() only returns pages when
+	 * the heap is predominantly hollow (free > used): releasing large
+	 * transient blocks mid-workload would force a kernel refault on every
+	 * reuse and slow allocation-heavy pages down several-fold, while a
+	 * navigation teardown leaves free >> used and wants the pages back. */
+	ewokos_addr_t used_bytes;
+	ewokos_addr_t free_bytes;
 } malloc_t;
 
 char* trunk_malloc(malloc_t* m, ewokos_addr_t size);

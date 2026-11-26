@@ -109,7 +109,7 @@ static void gauss_ref_scalar(const uint32_t* src, uint32_t* dst,
     }
 }
 
-/* Q8B's throughput-first mip blur deliberately uses a different kernel.
+/* QCOM8GEN3's throughput-first mip blur deliberately uses a different kernel.
    Test actual smoothing plus DC/alpha preservation instead of CPU equality.
    Exact backends retain the original Q16 assertions below. */
 static int gauss_fast_check(graph_t* image, graph_t* tmp) {
@@ -1444,7 +1444,7 @@ int main(int argc, char** argv) {
         printf("SKIP %-22s canvas not GPU-visible\n", "gaussian_blur");
     }
     else if(g_gauss_fast) {
-        printf("Q8B fast blur: effect/DC/alpha acceptance; GPU/CPU timings use different kernels\n");
+        printf("QCOM8GEN3 fast blur: effect/DC/alpha acceptance; GPU/CPU timings use different kernels\n");
         failures += gauss_fast_check(gblur, gtmp);
     }
     else if((ref = (uint32_t*)malloc(320u * 200u * 4u)) == NULL ||

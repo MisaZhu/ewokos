@@ -112,6 +112,11 @@ class deque {
         void push_front(const T& val) {
             if (size_ >= capacity_) {
                 reserve(capacity_ == 0 ? 16 : capacity_ * 2);
+                /* reserve() fails silently on OOM; shifting into a full (or
+                   NULL) buffer would corrupt the heap. */
+                if (size_ >= capacity_) {
+                    return;
+                }
             }
             // Move existing elements using placement new and copy
             for (size_t i = size_; i > 0; --i) {
@@ -139,6 +144,10 @@ class deque {
         void push_back(const T& val) {
             if (size_ >= capacity_) {
                 reserve(capacity_ == 0 ? 16 : capacity_ * 2);
+                /* Same OOM guard as push_front. */
+                if (size_ >= capacity_) {
+                    return;
+                }
             }
             // Use placement new to construct element in place
             new (&data_[size_]) T(val);
@@ -169,6 +178,11 @@ class deque {
         void reserve(size_t n) {
             if (n > capacity_) {
                 T* new_data = (T*)malloc(n * sizeof(T));
+                /* OOM: keep the old buffer, size and capacity untouched;
+                   the placement-new loop below would write through NULL. */
+                if (new_data == nullptr) {
+                    return;
+                }
                 // Move existing elements using placement new
                 for (size_t i = 0; i < size_; ++i) {
                     new (&new_data[i]) T(data_[i]);

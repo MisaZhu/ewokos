@@ -33,6 +33,10 @@ uint32_t proc_get_uuid(int32_t pid);
 void*    proc_malloc_expand(int64_t size);
 void     proc_malloc_free(void);
 uint32_t proc_malloc_size(void);
+/* Return fully-free interior heap pages to the kernel without moving the
+ * break (SYS_MALLOC_RELEASE). Pages refault zeroed on reuse. Returns pages
+ * released, or -1 on an invalid range / a kernel without the call. */
+int32_t  proc_malloc_release(void* addr, ewokos_addr_t size);
 
 int      proc_nsleep_precise(uint64_t nsec);
 

@@ -57,6 +57,12 @@ static void mouse_commit_slot(void) {
     }
 
     mouse_drop_oldest_if_full();
+    if(!mouse_data[slot].type) {
+        /* button-only frame (no REL/ABS in this SYN): report as a
+         * zero-delta relative event, or consumers read the zeroed
+         * x/y as an absolute (0,0) and teleport the cursor */
+        mouse_data[slot].type = MOUSE_TYPE_REL;
+    }
     if(!mouse_data[slot].state) {
         mouse_data[slot].state = MOUSE_STATE_MOVE;
     }

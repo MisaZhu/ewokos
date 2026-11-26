@@ -22,13 +22,28 @@ endif
 # Host-appropriate defaults for the GUI display backend, the audio backend and
 # (in the aarch64 block below) the hardware accelerator + CPU model.
 ifeq ($(HOST_OS),macos)
-QEMU_GUI_DISPLAY ?= cocoa,zoom-to-fit=on,zoom-interpolation=on
+# Plain cocoa (no zoom-to-fit), same reason as the gtk branch below:
+# zoom-to-fit keeps the window at the initial 640x480 console size and
+# scales the guest framebuffer into it (tiny UI / letterbox bars). Without
+# it the window resizes 1:1 to the ramfb resolution, which fits Mac screens
+# at the default 1280x720 guest setting. The View menu's "Zoom To Fit"
+# toggle remains available for oversized guest resolutions.
+QEMU_GUI_DISPLAY ?= cocoa
 QEMU_AUDIODEV ?= coreaudio
 QEMU_HOST_ACCEL ?= hvf
 QEMU_HOST_CPU ?= host
 QEMU_MEM ?= 8192
 else
-QEMU_GUI_DISPLAY ?= gtk,zoom-to-fit=on
+# Plain gtk (no zoom-to-fit): zoom-to-fit pins the window at the initial
+# console size and scales the guest framebuffer into it, so once fbdisplayd
+# programs ramfb with /etc/display.json's resolution the UI shows up tiny
+# and letterboxed (black bars) in the stale-aspect window. Without it the
+# GTK window resizes to the guest resolution, matching the system setting.
+# show-menubar=off drops the in-window QEMU menu bar so the window is
+# exactly the guest framebuffer. Override with
+# QEMU_GUI_DISPLAY=gtk,zoom-to-fit=on when the guest resolution is larger
+# than the host monitor.
+QEMU_GUI_DISPLAY ?= gtk,show-menubar=off
 QEMU_AUDIODEV ?= pa
 # KVM is not always usable on a Linux/other host: it needs the host CPU arch to
 # match the aarch64 guest, an accessible /dev/kvm (user in the kvm group) and,
@@ -44,7 +59,7 @@ QEMU_HOST_CPU ?= max
 # "cannot set up guest memory 'mach-virt.ram': Cannot allocate memory".  Default
 # to a smaller 2 GB there; raise it (e.g. once KVM works, or on a big host) with
 #   make run QEMU_MEM=8192
-QEMU_MEM ?= 2048
+QEMU_MEM ?= 8192
 endif
 
 # Filter out harmless macOS Input Method Kit (IMK) console spam from QEMU's

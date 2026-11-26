@@ -6,7 +6,7 @@
 
 /* Gesture state machine over multi-contact touch frames.
  *
- * Ported from the q8b Goodix Berlin driver: event frames carry exactly the
+ * Ported from the qcom8gen3 Goodix Berlin driver: event frames carry exactly the
  * currently active contacts, so a contact that stops appearing has been
  * lifted. The caller feeds one frame per touch event and a periodic tick
  * for timeouts; recognized gestures are returned through the emit callback

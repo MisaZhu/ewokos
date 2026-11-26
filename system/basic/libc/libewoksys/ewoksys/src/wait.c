@@ -6,7 +6,17 @@ extern "C" {
 
 
 int ewok_waitpid(int pid) {
-    return syscall1(SYS_WAIT_PID, (ewokos_addr_t)pid);
+    int res;
+    /*
+     * The kernel parks the caller while the child is alive and returns
+     * SYS_WAIT_PID_AGAIN on any wake; the exit is only observed by the
+     * re-check at the next entry (zombie -> exit code, gone -> -1). Stray
+     * edges just cost one extra round trip instead of ending the wait early.
+     */
+    do {
+        res = syscall1(SYS_WAIT_PID, (ewokos_addr_t)pid);
+    } while(res == SYS_WAIT_PID_AGAIN);
+    return res;
 }
 
 #ifdef __cplusplus

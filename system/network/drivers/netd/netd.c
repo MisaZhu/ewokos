@@ -285,6 +285,19 @@ char* network_devcmd(vdevice_t* dev, int from_pid, int argc, char** argv, void* 
     (void)argc;
     (void)p;
     json_var_t* json_var = json_var_new_array();
+    /* powerd sleep/wake fan-out: raise the idle poll cadence while the board
+     * sleeps so this core can stay PSCI-parked; real traffic keeps the fast
+     * path and the tap poll still wakes on the RX edge. */
+    if(strcmp(argv[0], "sleep") == 0) {
+        intr_set_sleep(1);
+        json_var_unref(json_var);
+        return strdup("sleep\n");
+    }
+    if(strcmp(argv[0], "wake") == 0) {
+        intr_set_sleep(0);
+        json_var_unref(json_var);
+        return strdup("wake\n");
+    }
     if(strcmp(argv[0], "ip") == 0) {
         struct ip_iface *iface =  NULL;
         while(true){

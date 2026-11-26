@@ -512,7 +512,7 @@ static int32_t map_stack(proc_t* proc, ewokos_addr_t* stacks,
      * existing user translation-fault path as the stack moves downward.
      * Build the initial mapping transactionally: publishing V2P(NULL) after
      * kalloc exhaustion creates an address-size-fault PTE (0xFFC080000000 on
-     * q8b) and turns a recoverable OOM into a nested kernel abort.
+     * qcom8gen3) and turns a recoverable OOM into a nested kernel abort.
      */
     for(i=first; i<pages; i++) {
         void* page = kalloc_page();
@@ -653,6 +653,48 @@ static void proc_shrink_mem(proc_t* proc, int32_t page_num) {
     }
     /* heap descriptors published per-line by unmap_page_ref: TLB-only. */
     flush_tlb_nosweep();
+}
+
+/*
+ * Release fully-free interior heap pages back to the kernel without moving
+ * the break (madvise(DONTNEED)-style). The user allocator hands over a range
+ * it knows is dead; whole pages inside it are unmapped and their physical
+ * frames freed. heap_size/heap_used stay untouched, so the sbrk break and
+ * every live allocation above the hole keep their addresses. Reuse of a
+ * released page faults through is_user_heap_or_stack_fault() ->
+ * copy_on_write(), which already backs unmapped heap addresses with fresh
+ * zero pages. Only the sbrk heap [malloc_base, heap_size) is eligible -
+ * releasing loaded-image pages below malloc_base would zero globals on
+ * refault.
+ */
+int32_t proc_release_mem(proc_t* proc, ewokos_addr_t addr, ewokos_addr_t size) {
+    if(proc == NULL || proc->space == NULL || proc->space->vm == NULL)
+        return -1;
+    if(size == 0)
+        return 0;
+
+    ewokos_addr_t base = proc->space->malloc_base;
+    ewokos_addr_t end = addr + size;
+    if(end < addr || addr < base || end > proc->space->heap_size)
+        return -1;
+
+    /* Round inward so partial edge pages - which may carry a live block
+     * header or the previous block's tail - are never released. */
+    ewokos_addr_t v = ALIGN_UP(addr, PAGE_SIZE);
+    ewokos_addr_t stop = ALIGN_DOWN(end, PAGE_SIZE);
+    int32_t released = 0;
+    for(; v < stop; v += PAGE_SIZE) {
+        /* Already-released holes resolve to 0: skip them, both to keep the
+         * return count honest and because unmap_page_ref() must not touch
+         * the refcount of physical page 0. */
+        if(resolve_phy_address(proc->space->vm, v) == 0)
+            continue;
+        unmap_page_ref(proc->space->vm, v);
+        released++;
+    }
+    if(released > 0)
+        flush_tlb_nosweep();
+    return released;
 }
 
 /* proc_exapnad_memory expands the heap size of the given process. */
@@ -802,7 +844,7 @@ static inline void proc_resume_after_timeout(proc_t* proc) {
     if(proc->info.state == BLOCK ||
             proc->info.state == SLEEPING ||
             proc->info.state == WAIT) {
-        proc_wakeup(proc);
+        proc_wakeup_by(proc, PROC_WAKE_FORCE);
     }
 }
 
@@ -1187,6 +1229,9 @@ bool proc_have_ready_task(uint32_t core) {
     return ready;
 }
 
+/* Max concurrently RUNNING threads of one process across cores; keeps a
+ * multi-threaded compute process from monopolizing every core. */
+#define PROC_RUN_CAP 2
 proc_t* proc_get_next_ready(void) {
     proc_lock_enter();
     uint32_t core_id = get_core_id();
@@ -1194,12 +1239,55 @@ proc_t* proc_get_next_ready(void) {
     while(next != NULL && next->info.state != READY && next->info.state != RUNNING) {
         next = queue_pop(&_ready_queue[core_id]);
     }
+    /*
+     * Per-process CPU bandwidth cap: a multi-threaded compute process (browser
+     * engine/JS/TLS) must not occupy every core and starve unrelated system
+     * services (sshd/X/vfsd). Skip ready tasks whose process already has
+     * PROC_RUN_CAP threads RUNNING elsewhere; they wait for a free slot while
+     * other processes (and idle) use the core. Bounded scan, requeue to tail.
+     */
+    if(next != NULL) {
+        for(int guard = 0; guard < 64 && next != NULL; guard++) {
+            if(next->info.state != READY && next->info.state != RUNNING) {
+                next = queue_pop(&_ready_queue[core_id]);
+                continue;
+            }
+            uint32_t run = 0;
+            for(uint32_t c = 0; c < _sys_info.cores; c++) {
+                proc_t* t = get_current_core_proc(c);
+                if(t != NULL && t != next && t->info.state == RUNNING &&
+                        t->info.pid == next->info.pid && !t->is_core_idle_proc)
+                    run++;
+            }
+            if(run < PROC_RUN_CAP)
+                break;
+            queue_push(&_ready_queue[core_id], next);
+            next = queue_pop(&_ready_queue[core_id]);
+        }
+        if(next != NULL && next->info.state != READY && next->info.state != RUNNING)
+            next = NULL;
+    }
     if(next == NULL) {
         proc_t*	cproc = get_current_proc();
         if(cproc != NULL && cproc->info.state == RUNNING &&
                 cproc != _cpu_cores[cproc->info.core].idle_proc) {
                 //halt proc can't be sheduled.
-            next = cproc;
+            /*
+             * Do not keep an over-bandwidth compute thread running just
+             * because it is current: count its process's RUNNING threads
+             * (including itself) and yield to idle when over cap, so a
+             * multi-threaded process is forced down to PROC_RUN_CAP cores
+             * and the freed cores serve unrelated system services.
+             */
+            uint32_t run = 0;
+            for(uint32_t c = 0; c < _sys_info.cores; c++) {
+                proc_t* t = get_current_core_proc(c);
+                if(t != NULL && t->info.state == RUNNING &&
+                        t->info.pid == cproc->info.pid && !t->is_core_idle_proc)
+                    run++;
+            }
+            if(run <= PROC_RUN_CAP)
+                next = cproc;
         }
     }
     proc_lock_leave();
@@ -1211,6 +1299,18 @@ static inline void proc_unready_locked(proc_t* proc, int32_t state) {
     proc_queue_remove_all(proc);
     proc_untrack_priority_update(proc);
     proc->info.state = state;
+}
+
+/* Park a fork parent/child on the clone token until the core daemon
+ * finishes cloning and wakes them with that same token. Generic edges
+ * only latch (see proc_wakeup_by), so a stray IPC/signal wake cannot
+ * release the pair before their userspace metadata / fd table exist. */
+void proc_park_clone(proc_t* proc, uint32_t token) {
+    proc_lock_enter();
+    proc->block_by = token;
+    proc->sleep_counter = 0;
+    proc_unready_locked(proc, BLOCK);
+    proc_lock_leave();
 }
 
 static inline void proc_unready(proc_t* proc, int32_t state) {
@@ -1242,6 +1342,8 @@ static inline void proc_update_vsyscall(proc_t* proc) {
     _kernel_info.vsyscall_info->proc_info[proc->info.pid].uuid = proc->info.uuid;
     _kernel_info.vsyscall_info->proc_info[proc->info.pid].type = proc->info.type;
 }
+
+static void proc_terminate_thread_tree(context_t* ctx, proc_t* t);
 
 static void proc_terminate(context_t* ctx, proc_t* proc) {
     if(proc->info.state == ZOMBIE || proc->info.state == UNUSED)
@@ -1304,7 +1406,7 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
                          * down. The child's stack/space refs are released by
                          * its proc_funeral once it is reaped.
                          */
-                        proc_terminate(ctx, p);
+                        proc_terminate_thread_tree(ctx, p);
                 }
             }
         }
@@ -1355,6 +1457,28 @@ static void proc_terminate(context_t* ctx, proc_t* proc) {
 
     proc->info.uuid = 0;
     proc_update_vsyscall(proc);
+}
+
+/*
+ * Terminate a child THREAD and, recursively, every thread it created.
+ * proc_terminate()'s PROC branch only walks DIRECT children; a worker thread
+ * spawned by another worker thread (father_pid == the creating thread, not the
+ * main proc) would otherwise survive its parent's death as an orphan, keeping
+ * the shared address space (and its whole heap) alive forever. Recursing here
+ * tears the entire thread subtree down with the owning process. Safe against
+ * cycles: proc_terminate() marks the task ZOMBIE up front and returns early on
+ * re-entry, and a child's father_pid still equals this task's pid after the
+ * parent is zombied (only the parent's OWN father_pid is cleared).
+ */
+static void proc_terminate_thread_tree(context_t* ctx, proc_t* t) {
+    proc_terminate(ctx, t);
+    int32_t i;
+    for (i = 0; i < _kernel_config.max_task_num; i++) {
+        proc_t* p = _task_table[i];
+        if(p != NULL && p->info.type == TASK_TYPE_THREAD &&
+                p->info.father_pid == t->info.pid)
+            proc_terminate_thread_tree(ctx, p);
+    }
 }
 
 static inline int32_t proc_init_user_stack(proc_t* proc) {
@@ -2350,25 +2474,31 @@ void proc_waitpid(context_t* ctx, int32_t pid) {
     }
 
     /*
+     * Child still alive: park in WAIT and hand the cpu away. A blocked task
+     * only ever resumes in userspace (schedule() swaps ctx for the next
+     * task's trap frame and the kernel never returns into this function on
+     * the waiter's behalf), so the re-check after a wake cannot live here.
+     * Return SYS_WAIT_PID_AGAIN instead: libc's ewok_waitpid() re-issues the
+     * syscall, which re-checks the child at entry and either reaps the
+     * zombie (exit code) or parks again. Wake edges that are not the
+     * child's exit (lingering vfsd wait-queue entries, pipe stamps, generic
+     * IPC returns) therefore cost one extra syscall instead of cutting the
+     * wait short - that early return made the shell print its next prompt
+     * before the child's output reached the console.
+     *
      * Publish WAIT while holding the proc lock so a fast child exit cannot
      * run proc_wakeup_waiting(pid) before the parent becomes visible as a
-     * waiter, otherwise the wake edge is lost and waitpid() can sleep forever.
+     * waiter, otherwise the wake edge is lost and waitpid() sleeps forever.
      */
     cproc->info.wait_for = pid;
     proc_unready_locked(cproc, WAIT);
     proc_lock_leave();
-    /* schedule() replaces ctx with the next task's trap frame. Save the
-     * parent's return value first; nothing below may write through ctx. */
-    ctx->gpr[0] = 0;
+    /* schedule() replaces ctx with the next task's trap frame: the return
+     * value must be stored before it and nothing may write ctx after it. */
+    ctx->gpr[0] = SYS_WAIT_PID_AGAIN;
     proc_account_pause_current();
     schedule(ctx);
     proc_account_resume_current();
-
-    p = proc_take_zombie_by_pid(pid);
-    if(p != NULL) {
-        ctx->gpr[0] = p->exit_code;
-        proc_funeral(p);
-    }
 }
 
 static void proc_wakeup_all_state(proc_t* proc) {
@@ -2417,7 +2547,25 @@ void proc_wakeup_by(proc_t* proc, ewokos_addr_t token) {
      * releases a proc blocked on an unrelated node (e.g. a shell pipe write).
      */
     if(proc->info.state == BLOCK) {
-        if(token != 0 && proc->block_by != 0 && proc->block_by != token) {
+        if(token != 0 && token != PROC_WAKE_FORCE &&
+                proc->block_by != 0 && proc->block_by != token) {
+            proc_lock_leave();
+            return;
+        }
+        if(token == 0 && proc->block_by != 0) {
+            /*
+             * Scoped park (fork-clone token or VFS node): a generic edge
+             * (IPC reply, signal, kev) must not release it early - the
+             * fork parent would run waitpid() before the core daemon
+             * cloned the child, and the child would exec before vfsd
+             * dup'd its fd table. Latch instead; the park owner's token
+             * wake (or a force wake) releases it, and level-triggered
+             * re-checks make the extra edge safe.
+             */
+            if(!proc->wake_pending) {
+                proc->wake_pending = 1;
+                proc->wake_by = 0;
+            }
             proc_lock_leave();
             return;
         }
@@ -3312,7 +3460,7 @@ static void renew_vsyscall_info(uint32_t usec_gap, uint64_t fine_cnt, uint32_t f
 
     /* Align the pair at an integral counter/usec boundary.  Truncating
      * 19.2 MHz to 19 ticks/us rejects alignment and re-latches a varying
-     * sub-microsecond sampling lag every tick.  Q8B instead uses 5 us/96
+     * sub-microsecond sampling lag every tick.  QCOM8GEN3 instead uses 5 us/96
      * ticks; integer-MHz platforms retain their original 1 us boundary. */
     fine_clock_anchor(fine_hz, _fine_period_usec, &uptime_usec, &base_cnt);
 

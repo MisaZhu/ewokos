@@ -58,6 +58,14 @@ SECTIONS
 	_svc_stack = .;
 	PROVIDE(_kernel_sp = .);
 
+	/* AP stacks: boot.S slave_core sets SP = _svc_stack + cid*0x4000
+	 * (one 16K slot per secondary, 3 secondaries on virt).  Reserve the
+	 * slots INSIDE the image: past _kernel_end the kernel places the
+	 * vsyscall page (mapped Device in kernel_vm, so AP stack writes made
+	 * through the cacheable boot alias read back as 0 after the VM
+	 * switch) and the kernel page-table pool. */
+	. = . + 0x4000 * 3;
+
 	. = ALIGN(page_align_size);
 	PROVIDE(_kernel_end = .);
 }

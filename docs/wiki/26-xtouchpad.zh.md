@@ -171,9 +171,9 @@ IDLE ──1指落地──► WAIT ──原地≥tap_time(300ms)──► DRAG
 - `system/xwin/sbin/xtouch/`：现有客户端，PTP 手势引擎并入，`-m` 激活精准触控模式
 - `system/xwin/etc/x/xtouchpad.json`：PTP 模式示例配置部署到根文件系统 `/etc/x/`
 - `system/gui/drivers/Makefile`：DIRS 增加 hid_touchpadd
-- 机器 init.rd 接线（本方案**仅落地 q8b**，不触碰其他平台；其他平台如需接入可参照同样方式自行动 `init.rd`）：
-  - `machines/q8b/system/etc/xwin/init.rd`：
-    `@/bin/ipcserv /drivers/q8b/hid_touchpadd /dev/touchpad0 /dev/usb0`
+- 机器 init.rd 接线（本方案**仅落地 qcom8gen3**，不触碰其他平台；其他平台如需接入可参照同样方式自行动 `init.rd`）：
+  - `machines/qcom/8gen3/system/etc/xwin/init.rd`：
+    `@/bin/ipcserv /drivers/8gen3/hid_touchpadd /dev/touchpad0 /dev/usb0`
     `@/bin/bgrun /sbin/x/xtouch -m`
 
 无 PTP 设备时不影响启动：hid_touchpadd 打开节点即可（订阅不要求设备在场），xtouch -m 阻塞读零帧，零开销。
@@ -185,7 +185,7 @@ IDLE ──1指落地──► WAIT ──原地≥tap_time(300ms)──► DRAG
 构建验证（本仓库环境）：
 
 - x86 全量机器构建 `make -C machines/x86/system` **通过**：libhid、usbhostd（x86 bsp 含 USB）、hid_touchpadd、xtouch（绝对 + -m 双模式）全部链接成功，`etc/x/xtouchpad.json` 部署进镜像（另修复了 x86 gcc 16.1.0 下 xim/vkey C++ 窄化报错）。
-- aarch64/q8b：libhid、usbhostd、hid_touchpadd 以及合并后的 xtouch.c 均交叉编译零警告；usbhostd 用**真实的 q8b libbsp**（含 USB 控制器实现）全量链接成功。
+- aarch64/qcom8gen3：libhid、usbhostd、hid_touchpadd 以及合并后的 xtouch.c 均交叉编译零警告；usbhostd 用**真实的 qcom8gen3 libbsp**（含 USB 控制器实现）全量链接成功。
 
 ## 6. 已知限制与后续工作
 
@@ -213,4 +213,4 @@ IDLE ──1指落地──► WAIT ──原地≥tap_time(300ms)──► DRAG
 | `system/xwin/sbin/xtouch/xtouch.c` | PTP 单指转换引擎并入，`-m` 精准触控模式 |
 | `system/xwin/sbin/xim/vkey/xim.cc` | 3 处 char 窄化强转（x86 gcc 16.1.0 编译修复） |
 | `system/xwin/etc/x/xtouchpad.json` | PTP 模式示例配置（部署为 /etc/x/） |
-| `machines/q8b/system/etc/xwin/init.rd` | 接线（仅 q8b） |
+| `machines/qcom/8gen3/system/etc/xwin/init.rd` | 接线（仅 qcom8gen3） |

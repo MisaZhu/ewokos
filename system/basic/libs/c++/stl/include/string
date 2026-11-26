@@ -243,6 +243,9 @@ class basic_string {
         basic_string(size_type n, CharT c) : data_(0), length_(0), capacity_(0) {
             set_empty();
             reserve(n);
+            /* reserve() fails silently on OOM; writing n chars into the
+               1-slot empty buffer would overflow the heap. */
+            if (data_ == 0 || capacity_ < n + 1) return;
             for (size_type i = 0; i < n; ++i) data_[i] = c;
             length_ = n;
             data_[n] = CharT(0);
@@ -295,6 +298,9 @@ class basic_string {
         void resize(size_type n, CharT c) {
             if (n > length_) {
                 reserve(n);
+                if (data_ == 0) return;
+                /* OOM: grow only as far as the buffer actually allows. */
+                if (n > capacity_ - 1) n = capacity_ - 1;
                 for (size_type i = length_; i < n; ++i) data_[i] = c;
             }
             length_ = n;
@@ -324,16 +330,29 @@ class basic_string {
 
         void push_back(CharT c) {
             reserve(length_ + 1);
+            if (data_ == 0 || capacity_ < length_ + 2) return;
             data_[length_++] = c;
             data_[length_] = CharT(0);
         }
 
         basic_string& append(const CharT* s, size_type n) {
             size_type old = length_;
+            /* When s points into our own buffer (s += s, or appending a
+               substring of ourselves), reserve()'s realloc can free the
+               source mid-append.  Copy it aside first. */
+            CharT* tmp = 0;
+            if (n > 0 && data_ != 0 && s >= data_ && s < data_ + capacity_) {
+                tmp = (CharT*)malloc(n * sizeof(CharT));
+                if (tmp == 0) return *this;
+                for (size_type i = 0; i < n; ++i) tmp[i] = s[i];
+                s = tmp;
+            }
             reserve(old + n);
+            if (data_ == 0 || capacity_ < old + n + 1) { free(tmp); return *this; }
             for (size_type i = 0; i < n; ++i) data_[old + i] = s[i];
             length_ = old + n;
             data_[length_] = CharT(0);
+            free(tmp);
             return *this;
         }
         basic_string& append(const basic_string& s) { return append(s.data_, s.length_); }
@@ -341,6 +360,7 @@ class basic_string {
         basic_string& append(size_type n, CharT c) {
             size_type old = length_;
             reserve(old + n);
+            if (data_ == 0 || capacity_ < old + n + 1) return *this;
             for (size_type i = 0; i < n; ++i) data_[old + i] = c;
             length_ = old + n;
             data_[length_] = CharT(0);
@@ -363,7 +383,9 @@ class basic_string {
                excluded from the differential probe. */
             assert(pos <= length_);
             if (pos > length_) pos = length_;
-            if (len == npos || pos + len > length_) len = length_ - pos;
+            /* Subtraction form: pos + len can wrap for huge len and then
+               pass the old test, copying far past the buffer. */
+            if (len == npos || len > length_ - pos) len = length_ - pos;
             return basic_string(data_ + pos, len);
         }
 
@@ -463,14 +485,25 @@ class basic_string {
         }
 
         /* Replaces the contents, reusing the buffer when it is already large
-           enough.  Works for self-assignment of a substring because the copy
-           loop runs forward and reserve() has already sized the buffer. */
+           enough.  When s points into our own buffer (s = s.c_str() + k),
+           reserve()'s realloc can free the source mid-copy, so copy it aside
+           first, exactly as append() does. */
         void assign_buf(const CharT* s, size_type n) {
+            CharT* tmp = 0;
+            if (n > 0 && data_ != 0 && s >= data_ && s < data_ + capacity_) {
+                tmp = (CharT*)malloc(n * sizeof(CharT));
+                if (tmp == 0) return;
+                for (size_type i = 0; i < n; ++i) tmp[i] = s[i];
+                s = tmp;
+            }
             reserve(n);
-            if (data_ == 0) { length_ = 0; return; }
+            /* OOM: reserve() keeps the old buffer, which may be smaller than
+               n + 1; writing n chars into it would overflow the heap. */
+            if (data_ == 0 || capacity_ < n + 1) { free(tmp); return; }
             for (size_type i = 0; i < n; ++i) data_[i] = s[i];
             length_ = n;
             data_[n] = CharT(0);
+            free(tmp);
         }
 
         CharT*    data_;
@@ -521,17 +554,16 @@ inline void swap(basic_string<CharT,Tr,Al>& a, basic_string<CharT,Tr,Al>& b) { a
 inline string to_string(int val) {
     char buf[32];
     int len = 0;
-    bool neg = false;
-    if (val < 0) {
-        neg = true;
-        val = -val;
-    }
-    if (val == 0) {
+    bool neg = val < 0;
+    /* -INT_MIN is UB and stays negative, which made the digit loop emit
+       nothing and return "-".  Negate in unsigned arithmetic instead. */
+    unsigned u = neg ? 0u - (unsigned)val : (unsigned)val;
+    if (u == 0) {
         buf[len++] = '0';
     } else {
-        while (val > 0) {
-            buf[len++] = '0' + (val % 10);
-            val /= 10;
+        while (u > 0) {
+            buf[len++] = '0' + (u % 10);
+            u /= 10;
         }
     }
     if (neg) buf[len++] = '-';
@@ -569,17 +601,15 @@ inline string to_string(unsigned val) {
 inline string to_string(long val) {
     char buf[32];
     int len = 0;
-    bool neg = false;
-    if (val < 0) {
-        neg = true;
-        val = -val;
-    }
-    if (val == 0) {
+    bool neg = val < 0;
+    /* Same LONG_MIN guard as to_string(int): negate in unsigned arithmetic. */
+    unsigned long u = neg ? 0ul - (unsigned long)val : (unsigned long)val;
+    if (u == 0) {
         buf[len++] = '0';
     } else {
-        while (val > 0) {
-            buf[len++] = '0' + (val % 10);
-            val /= 10;
+        while (u > 0) {
+            buf[len++] = '0' + (u % 10);
+            u /= 10;
         }
     }
     if (neg) buf[len++] = '-';

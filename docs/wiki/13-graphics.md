@@ -237,7 +237,7 @@ Four pieces, all under
   contract (`pglc_*`). The NIR → machine-code **back end** lives with each
   machine, next to its GPU driver: `machines/raspi5|raspix/system/libs/`
   `v3dcompiler` (mesa Broadcom `NIR → VIR → QPU`, V3D 4.2/7.1) and
-  `machines/q8b/system/libs/adrenocompiler` (mesa freedreno `NIR → ir3`,
+  `machines/qcom/8gen3/system/libs/adrenocompiler` (mesa freedreno `NIR → ir3`,
   Adreno 690). The machine's `make.inc` exports `PGL_G3D=yes` and points
   `PGL_G3D_COMPILER_DIR` at its back end; the gles Makefile builds front and
   back end into private archives so GLSL ES 3.10 shaders are compiled to GPU
@@ -257,7 +257,7 @@ machines' `machines/<hw>/system/make.inc`):
 ```
 portablegl (pgl_g3d)  →  g2dclient  →  g2dd  →  bsp_g3d  →  vc_pgl3d
       →  machines/raspi5 .../videocore/src/v3d_3d.c  →  V3D CSD dispatch
-      →  machines/q8b    .../adreno/src/adreno_3d.c  →  Adreno CP_EXEC_CS
+      →  machines/qcom/8gen3    .../adreno/src/adreno_3d.c  →  Adreno CP_EXEC_CS
 ```
 
 The compute rasterizer runs in **two passes**: pass 1 transforms and lights
@@ -277,7 +277,7 @@ back to CPU.
 The `opengl` apps (`teapot`, `gears`, `3ddemo`, `matrix`, `Fireworks`,
 `imgui_demo`) and the `shadertoy`-style fullscreen-compute demos exercise
 these paths. The same two-pass kernels (`pglcompiler/include/geom_raster_cs.h`)
-are what the Radxa Dragon Q8B build feeds through the Adreno back end; that
+are what the Radxa Dragon QCOM8GEN3 build feeds through the Adreno back end; that
 port is compile-verified only — no SC8280XP hardware run yet.
 
 ## 13.3 Follow Along: Run a Graphics Program

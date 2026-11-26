@@ -18,6 +18,10 @@ extern "C" {
 #define PTHREAD_ONCE_INIT 0
 
 #define PTHREAD_MUTEX_INITIALIZER 0
+/* A zero-initialized cond is valid: the kernel waiter semaphore is allocated
+ * lazily on first use (see cond_ensure_init), so static storage works without
+ * an explicit pthread_cond_init call. */
+#define PTHREAD_COND_INITIALIZER { 0, 0, 0, 0 }
 #define PTHREAD_RWLOCK_INITIALIZER { 0 }
 #define PTHREAD_BARRIER_SERIAL_THREAD (-1)
 

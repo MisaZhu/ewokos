@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <unistd.h>
 #include <ewoksys/syscall.h>
 #include <string.h>
 #include <errno.h>
@@ -9,7 +10,7 @@ static volatile int _bar_init_locked = 0;
 
 static void bar_init_lock(void) {
 	while(__sync_lock_test_and_set(&_bar_init_locked, 1) != 0)
-		syscall0(SYS_YIELD);
+		usleep(500); /* real sleep, no yield-storm */
 }
 
 static void bar_init_unlock(void) {

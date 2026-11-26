@@ -405,8 +405,10 @@ static void do_proc_created(kevent_t* kev) {
         PF->clear(&data);
     }
     do_proc_clone(fpid, cpid);
-    proc_wakeup(cpid);
-    proc_wakeup(fpid);
+    /* Release the fork pair with the clone token they parked on; a
+     * generic wake would be latched, not delivered (scoped park). */
+    proc_wakeup_by(cpid, cpid);
+    proc_wakeup_by(fpid, cpid);
 }
 
 static void do_proc_exit(kevent_t* kev) {

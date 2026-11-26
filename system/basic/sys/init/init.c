@@ -19,8 +19,8 @@
 #include "cap_policy.h"
 
 #if defined(__has_include)
-# if __has_include(<q8b_platform.h>)
-#  include <q8b_platform.h>
+# if __has_include(<qcom8gen3_platform.h>)
+#  include <qcom8gen3_platform.h>
 #  define INIT_HAS_RAMFS_RELEASE 1
 # endif
 # if __has_include(<machine_conf.h>)
@@ -28,7 +28,7 @@
 # endif
 #endif
 
-/* Per-machine driver namespace under /drivers.  Defaults to the Q8B layout
+/* Per-machine driver namespace under /drivers.  Defaults to the QCOM8GEN3 layout
  * so existing machines are unchanged; a machine overrides it by installing
  * machine_conf.h (e.g. orin.nano defines INIT_DRIVER_DIR "orin.nano"). */
 #ifndef INIT_DRIVER_DIR
@@ -38,7 +38,7 @@
 #define INIT_PCIED_PATH "/drivers/" INIT_DRIVER_DIR "/pcied"
 #define INIT_PCIED_LEN  (sizeof(INIT_PCIED_PATH) - 1)
 
-/* Starting the PCIe owner before the USB host's first root-hub scan is a Q8B
+/* Starting the PCIe owner before the USB host's first root-hub scan is a QCOM8GEN3
  * WCN6855 workaround: the PCIe cold-cycle churns the shared USB bus.  Machines
  * whose PCIe owner must not run at boot (orin.nano, where the C1 cold-own is
  * still disabled) set INIT_EARLY_PCIE_OWNER 0 in machine_conf.h. */
@@ -53,7 +53,7 @@ extern void* read_fs(const char* fname, off_t* size);
  * its own address space: SYS_MEM_MAP windows (SD controller / RAM disk) are
  * not inherited across fork, so the backing store must be (re)established in
  * THIS process before read_fs().  That is the BSP's job: bsp_sd_init() both
- * registers the libsd callbacks and maps the windows.  On q8b it re-maps the
+ * registers the libsd callbacks and maps the windows.  On qcom8gen3 it re-maps the
  * SDCC2/RAM-disk windows while reusing the card identification the kernel
  * already published, so calling it per child is a cheap remap, not a card
  * re-probe.
@@ -320,8 +320,8 @@ static void enable_usb_automount(void) {
 static uint32_t boot_source(void) {
     sys_info_t info;
     if (sys_get_sys_info(&info) != 0)
-        return Q8B_BOOT_SOURCE_UNKNOWN;
-    return ((const q8b_platform_data_t*)info.platform_data)->rd.boot_source;
+        return QCOM8GEN3_BOOT_SOURCE_UNKNOWN;
+    return ((const qcom8gen3_platform_data_t*)info.platform_data)->rd.boot_source;
 }
 
 /* NVMe rootfs: sdfsd -n mounts the first ext3 partition of the NVMe disk
@@ -383,22 +383,22 @@ static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
     } else {
         /* Self first, followed by the fixed cross-device order.  Duplicate
          * backends are skipped because the daemon represents the whole class
-         * of devices currently visible to the Q8B. */
+         * of devices currently visible to the QCOM8GEN3. */
         uint32_t order[5];
         order[0] = self;
-        order[1] = Q8B_BOOT_SOURCE_SD;
-        order[2] = Q8B_BOOT_SOURCE_USB;
-        order[3] = Q8B_BOOT_SOURCE_NVME;
-        order[4] = Q8B_BOOT_SOURCE_NET;
+        order[1] = QCOM8GEN3_BOOT_SOURCE_SD;
+        order[2] = QCOM8GEN3_BOOT_SOURCE_USB;
+        order[3] = QCOM8GEN3_BOOT_SOURCE_NVME;
+        order[4] = QCOM8GEN3_BOOT_SOURCE_NET;
         int tried_sd = 0, tried_usb = 0, tried_nvme = 0, tried_net = 0;
         for (int i = 0; i < 5 && selected < 0; i++) {
             uint32_t source = order[i];
-            if (source == Q8B_BOOT_SOURCE_SD) {
+            if (source == QCOM8GEN3_BOOT_SOURCE_SD) {
                 if (tried_sd++)
                     continue;
                 if (run_before_vfs("/sbin/sdfsd") == 0)
                     selected = ROOTFS_SD;
-            } else if (source == Q8B_BOOT_SOURCE_USB) {
+            } else if (source == QCOM8GEN3_BOOT_SOURCE_USB) {
                 if (tried_usb++)
                     continue;
                 if (!usb_host && start_usb_host() == 0)
@@ -407,10 +407,10 @@ static int select_rootfs(int policy, int* usb_host_out, int* usb_root_out) {
                     usb_root = 1;
                     selected = ROOTFS_USB;
                 }
-            } else if (source == Q8B_BOOT_SOURCE_NVME) {
+            } else if (source == QCOM8GEN3_BOOT_SOURCE_NVME) {
                 if (!tried_nvme++ && try_nvme_rootfs() == 0)
                     selected = ROOTFS_NVME;
-            } else if (source == Q8B_BOOT_SOURCE_NET) {
+            } else if (source == QCOM8GEN3_BOOT_SOURCE_NET) {
                 if (!tried_net++)
                     (void)try_net_rootfs();
             }
@@ -511,7 +511,7 @@ int main(int argc, char** argv) {
      * rootfs replaces that initial root. */
     if(start_bootfs() != 0)
         return -1;
-    /* Q8B WCN6855 exposes WLAN on PCIe and Bluetooth on USB.  The PCIe
+    /* QCOM8GEN3 WCN6855 exposes WLAN on PCIe and Bluetooth on USB.  The PCIe
      * owner cold-cycles the shared module (E-key rail, PERST, root-complex
      * reset) during bring-up, and that power-cycle churns the USB bus (the
      * BT function drops and re-enumerates).  When the rootfs itself lives
@@ -596,7 +596,7 @@ int main(int argc, char** argv) {
             rescue_shell();
             return -1;
         }
-        /* Q8B's WCN6855 exposes WLAN on PCIe and Bluetooth on USB.  The
+        /* QCOM8GEN3's WCN6855 exposes WLAN on PCIe and Bluetooth on USB.  The
          * PCIe owner cold-cycles the shared module during link bring-up.
          * Starting usbhostd first lets its root-hub worker reset/re-enumerate
          * the Bluetooth function while LTSSM is training, which can hold the
