@@ -10,9 +10,33 @@
 
 kernel_conf_t _kernel_config;
 
-static uint32_t mem_size(const char* v) {
-    uint32_t size = 0;
+/* 64-bit magnitude parse: decimal, or 0x-prefixed hex (physical addresses
+   above 4GB do not fit the int32_t atoi()). */
+static ewokos_addr_t mem_atou(const char* s) {
+    ewokos_addr_t v = 0;
+    if(s == NULL)
+        return 0;
+    if(s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        for(uint32_t i = 2; s[i] != 0; i++) {
+            char c = s[i];
+            uint32_t d;
+            if(c >= '0' && c <= '9') d = c - '0';
+            else if(c >= 'a' && c <= 'f') d = c - 'a' + 10;
+            else if(c >= 'A' && c <= 'F') d = c - 'A' + 10;
+            else return 0;
+            v = v * 16 + d;
+        }
+        return v;
+    }
+    for(uint32_t i = 0; s[i] != 0; i++) {
+        if(s[i] < '0' || s[i] > '9')
+            return 0;
+        v = v * 10 + (s[i] - '0');
+    }
+    return v;
+}
 
+static ewokos_addr_t mem_size(const char* v) {
     if(v == NULL)
         return 0;
 
@@ -21,15 +45,22 @@ static uint32_t mem_size(const char* v) {
         return 0;
 
     char unit = v[len-1];
-    char s[16] = {0};
-    sstrncpy(s, v, len-1);
-
-    size = atoi(s);
-    if(unit == 'k' || unit == 'K')
-        size = size * KB;
-    else if(unit == 'm' || unit == 'M')
-        size = size * MB;
-
+    ewokos_addr_t size;
+    if(unit == 'k' || unit == 'K' || unit == 'm' || unit == 'M' ||
+            unit == 'g' || unit == 'G') {
+        char s[16] = {0};
+        sstrncpy(s, v, len-1);
+        size = mem_atou(s);
+        if(unit == 'k' || unit == 'K')
+            size *= KB;
+        else if(unit == 'm' || unit == 'M')
+            size *= MB;
+        else
+            size *= GB;
+    }
+    else {
+        size = mem_atou(v);
+    }
     return size;
 }
 
@@ -70,6 +101,10 @@ static void load_kernel_config_file() {
     v = sconf_get(sconf, "kmalloc_size");
     if(v[0] != 0)
         _kernel_config.kmalloc_size = mem_size(v);
+
+    v = sconf_get(sconf, "dma_base");
+    if(v[0] != 0)
+        _kernel_config.dma_base = mem_size(v);
 
     v = sconf_get(sconf, "dma_size");
     if(v[0] != 0)

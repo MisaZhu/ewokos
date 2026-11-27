@@ -18,7 +18,11 @@ typedef struct {
 } mem_info_t;
 
 typedef struct {
-	uint32_t size;
+	/* ewokos_addr_t (not uint32_t): the sys_dma range may span >4GB of
+	   general RAM. Byte layout is unchanged - on 64-bit the old uint32_t
+	   already occupied an 8-byte-aligned slot before phy_base, and on
+	   32-bit ewokos_addr_t == uint32_t - so the user-space ABI is preserved. */
+	ewokos_addr_t size;
 	ewokos_addr_t phy_base;
 	ewokos_addr_t v_base;
 } dma_info_t;
@@ -45,6 +49,12 @@ typedef struct {
 	ewokos_addr_t  allocable_phy_mem_base;
 
 	mmio_info_t    mmio;
+	/* DMA-reachable physical address range [phy_base, phy_base+size),
+	   page-aligned. NOT a reserved carve-out: these pages stay general
+	   allocable RAM and dma_alloc draws contiguous runs from them (with
+	   page_move compaction). v_base is the identity DMA window base used
+	   by dma_v_addr()/dma_phy_addr(); the range only constrains where DMA
+	   buffers may land so limited DMA masters can reach them. */
 	dma_info_t     sys_dma;
 	/* reserved physically-contiguous slab backing IPC_CONTIG segments.
 	   size == 0 means the slab is not configured (contig shm fails) */

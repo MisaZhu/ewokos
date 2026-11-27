@@ -188,6 +188,12 @@ int32_t arch_retarget_ptes(page_dir_entry_t *vm, ewokos_addr_t phy_from,
  * Returns the number of retargeted PTEs, or -1 (nothing changed). */
 int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to);
 
+/* Rewrite the memory attribute of the kernel direct-map alias P2V(paddr) of
+ * one physical page (address/permissions preserved). Arch hook: aarch64
+ * overrides it; the weak default is a no-op for arches whose DMA attribute
+ * equals WRBACK. Caller owes dcache maintenance + flush_tlb around the flip. */
+void arch_set_direct_map_attr(ewokos_addr_t paddr, uint32_t pte_attr);
+
 void free_page_tables(page_dir_entry_t *vm);
 ewokos_addr_t resolve_kernel_address(page_dir_entry_t *vm, ewokos_addr_t virtual);
 

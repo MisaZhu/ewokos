@@ -1,6 +1,7 @@
 #include <mm/mmu.h>
 #include <mm/kmalloc.h>
 #include <mm/kalloc.h>
+#include <mm/dma.h>
 #include <kstring.h>
 #include <kprintf.h>
 #include <stddef.h>
@@ -104,6 +105,13 @@ __attribute__((weak)) int32_t arch_retarget_ptes(page_dir_entry_t* vm,
     return -1;
 }
 
+/* Weak no-op: arches whose PTE_ATTR_SYS_DMA equals WRBACK (or that lack a
+ * per-page direct-map attribute hook) need no flip. aarch64 overrides it. */
+__attribute__((weak)) void arch_set_direct_map_attr(ewokos_addr_t paddr,
+        uint32_t pte_attr) {
+    (void)paddr; (void)pte_attr;
+}
+
 /* Walk the kernel vm plus every process address space. Threads share their
  * owner's space, so visiting TASK_TYPE_PROC entries only covers each space
  * exactly once. */
@@ -141,9 +149,9 @@ static int32_t page_move_walk(ewokos_addr_t phy_from, ewokos_addr_t phy_to,
  * Caller contract: kernel lock held and the page quiescent - until the final
  * flush_tlb() completes, another core may still translate through a stale
  * TLB entry for phy_from, so concurrent stores to the page would be lost.
- * Pages inside the reserved sys_dma / shm_contig pools are refused: their
- * physical runs are tracked by the pool allocators (and may be DMA-pinned),
- * which a PTE retarget alone cannot update.
+ * DMA-owned/pinned pages and the reserved shm_contig slab are refused: their
+ * physical runs are tracked by the DMA/slab allocators, which a PTE retarget
+ * alone cannot update.
  */
 int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to) {
     if((phy_from & (PAGE_SIZE - 1)) != 0 || (phy_to & (PAGE_SIZE - 1)) != 0)
@@ -154,8 +162,8 @@ int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to) {
     uint32_t ti = page_ref_index(phy_to);
     if(fi >= _pages_ref.max || ti >= _pages_ref.max)
         return -1;
-    if(phy_from >= _sys_info.sys_dma.phy_base &&
-            phy_from < _sys_info.sys_dma.phy_base + _sys_info.sys_dma.size)
+    /* DMA-owned or device-pinned storage cannot be retargeted by PTE alone */
+    if(!dma_page_movable(phy_from))
         return -1;
     if(_sys_info.shm_contig.size > 0 &&
             phy_from >= _sys_info.shm_contig.phy_base &&

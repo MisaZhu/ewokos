@@ -456,10 +456,10 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
     }
 
     /*
-     * The sys_dma pool is reserved driver memory carved out below the
-     * allocable heap. dma_alloc() maps its buffer only into the caller,
+     * The sys_dma range is DMA-reachable general RAM (not a reserved
+     * carve-out). dma_alloc() maps its buffer only into the caller,
      * so another root daemon (g2dd attaching a client's dma canvas) must
-     * be able to map the same physical range into itself. Same NOCACHE
+     * be able to map the same physical range into itself. Same SYS_DMA
      * attribute as sys_dma_alloc() to avoid cache aliasing between the
      * two mappings.
      */
@@ -813,14 +813,10 @@ static int32_t sys_dma_sync(ewokos_addr_t vaddr, uint32_t size, uint32_t op) {
             chunk = (uint32_t)(stop - cur);
         ewokos_addr_t phy = resolve_phy_address(cproc->space->vm, cur);
         if(phy != 0) {
-            /* The sys_dma pool is identity-mapped (VA==phy) and excluded from
-               the P2V allocable direct map, so P2V(phy) would be unmapped. */
-            ewokos_addr_t kva;
-            if(phy >= _sys_info.sys_dma.phy_base &&
-                    phy < (_sys_info.sys_dma.phy_base + _sys_info.sys_dma.size))
-                kva = phy;
-            else
-                kva = P2V(phy);
+            /* sys_dma pages are general RAM reached through the P2V direct
+               map (its attribute is flipped to SYS_DMA while DMA-owned); the
+               legacy low identity window no longer exists. */
+            ewokos_addr_t kva = P2V(phy);
             if(op == 1)
                 dcache_inval_range((const void*)kva, chunk);
             else

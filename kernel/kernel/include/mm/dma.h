@@ -14,6 +14,11 @@ uint32_t      dma_size(int32_t dma_block_id, int32_t pid, ewokos_addr_t phy_addr
 int32_t       dma_set(int32_t pid, ewokos_addr_t phy_base, ewokos_addr_t v_base, uint32_t size, bool shared);
 void          dma_release(int32_t pid);
 
+/* Whether page_move compaction may relocate a physical page: 0 when it lies
+ * inside any DMA allocation node (live or device-pinned), 1 otherwise. Used
+ * by the contiguous allocator's compaction path and by page_move itself. */
+int32_t       dma_page_movable(ewokos_addr_t paddr);
+
 /* Device references to a live allocation (exact base, nonzero extent).
  * free/release revoke ownership immediately, but pinned physical storage is
  * excluded from allocation/coalescing until the final unpin. Kernel callers

@@ -79,11 +79,11 @@ static void reset_kernel_vm(void) {
 
 
 static int32_t map_allocable_pages(page_dir_entry_t* vm) {
-    //map kernel dma memory
-    if(map_pages_size(vm, _sys_info.sys_dma.phy_base,
-                _sys_info.sys_dma.phy_base, _sys_info.sys_dma.size,
-                AP_RW_D, PTE_ATTR_SYS_DMA) != 0)
-        return -1;
+    /* sys_dma is now a DMA-reachable range constraint over general RAM, not
+     * a reserved carve-out: its pages are direct-mapped WRBACK like all
+     * allocable RAM and flipped to PTE_ATTR_SYS_DMA per-page only while a DMA
+     * allocation owns them (see dma.c). The identity DMA window is mapped on
+     * demand by sys_dma_alloc(), so no whole-range mapping is needed here. */
     //direct-map the reserved contiguous shm slab so the kernel can zero it
     //(the shm window itself lives in the private user half and is not
     //accessible from kernel/syscall context)
@@ -93,28 +93,21 @@ static int32_t map_allocable_pages(page_dir_entry_t* vm) {
                 _sys_info.shm_contig.size, AP_RW_D,
                 PTE_ATTR_NOCACHE) != 0)
         return -1;
-    /* A BSP may reserve pools inside the allocable span. Keep their direct
-     * mappings separate: remapping SHM as WB would disagree with its user
-     * mappings, and DMA must not acquire a cached alias. */
-    ewokos_addr_t pool_base[2] = {_sys_info.sys_dma.phy_base,
-            _sys_info.shm_contig.phy_base};
-    ewokos_addr_t pool_top[2] = {pool_base[0] + _sys_info.sys_dma.size,
-            pool_base[1] + _sys_info.shm_contig.size};
-    if(pool_base[0] > pool_base[1]) {
-        ewokos_addr_t tmp = pool_base[0];
-        pool_base[0] = pool_base[1]; pool_base[1] = tmp;
-        tmp = pool_top[0]; pool_top[0] = pool_top[1]; pool_top[1] = tmp;
-    }
+    /* A BSP may reserve the shm_contig slab inside the allocable span. Keep
+     * its direct mapping separate: remapping SHM as WB would disagree with
+     * its NOCACHE user mappings. */
     ewokos_addr_t cur = _sys_info.allocable_phy_mem_base;
     ewokos_addr_t top = _sys_info.allocable_phy_mem_top;
-    for(uint32_t i = 0; i < 2; i++) {
-        if(pool_top[i] <= cur || pool_base[i] >= top)
-            continue;
-        if(pool_base[i] > cur && map_pages(vm, P2V(cur), cur,
-                pool_base[i], AP_RW_D, PTE_ATTR_WRBACK) != 0)
-            return -1;
-        if(pool_top[i] > cur)
-            cur = pool_top[i];
+    if(_sys_info.shm_contig.size > 0) {
+        ewokos_addr_t pool_base = _sys_info.shm_contig.phy_base;
+        ewokos_addr_t pool_top = pool_base + _sys_info.shm_contig.size;
+        if(pool_base < top && pool_top > cur) {
+            if(pool_base > cur && map_pages(vm, P2V(cur), cur,
+                    pool_base, AP_RW_D, PTE_ATTR_WRBACK) != 0)
+                return -1;
+            if(pool_top > cur)
+                cur = pool_top;
+        }
     }
     if(cur < top && map_pages(vm, P2V(cur), cur, top,
             AP_RW_D, PTE_ATTR_WRBACK) != 0)
@@ -176,6 +169,9 @@ static void init_allocable_mem(void) {
     _pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));	
     _pages_ref.phy_base = _sys_info.allocable_phy_mem_base;
     memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
+    /* occupancy bitmap mirroring the free list, for contiguous DMA allocation
+     * and page_move compaction (all allocable pages start free) */
+    kalloc_busy_init(_pages_ref.max);
 }
 
 #ifdef KERNEL_SMP

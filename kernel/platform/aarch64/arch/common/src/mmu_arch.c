@@ -281,6 +281,24 @@ int32_t arch_retarget_ptes(page_dir_entry_t* vm, ewokos_addr_t phy_from,
     return count;
 }
 
+/*
+ * Rewrite the memory attribute of the kernel direct-map alias (P2V(paddr))
+ * of a single physical page, keeping its output address and permissions.
+ * Used by the DMA layer to flip a page between WRBACK (general RAM) and
+ * PTE_ATTR_SYS_DMA (NOCACHE on non-coherent boards) when it enters/leaves a
+ * DMA allocation, so a DMA-owned page never keeps a cached alias. The caller
+ * owes dcache_flush_range() before the WRBACK->NOCACHE transition (write back
+ * stale dirty lines) and a flush_tlb() afterwards. Block descriptors covering
+ * the page are left alone (the allocable direct map is built from leaf PTEs).
+ */
+void arch_set_direct_map_attr(ewokos_addr_t paddr, uint32_t pte_attr) {
+    page_table_entry_t* pte =
+        get_page_table_entry(_kernel_info.kernel_vm, P2V(paddr));
+    if(pte == NULL || pte->EntryType != TYPE_PAGE)
+        return;
+    set_pte_flags(pte, pte_attr);
+}
+
 void free_page_tables(page_dir_entry_t *vm) {
 #ifdef PAGE_SIZE_64K
     page_table_entry_t *l3_table = 0;
