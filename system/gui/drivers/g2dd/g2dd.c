@@ -1933,14 +1933,35 @@ static int g2dd_prog_owner_alive(const g2dd_prog_owner_t* o) {
 	return pi.state != UNUSED && pi.state != ZOMBIE;
 }
 
+/* The Adreno back end keeps CL compute and PGL geometry programs in ONE
+   shared slot table (both bsp_cl_program and bsp_g3d_program call
+   adreno_3d_program_load), so the two owner tables index the SAME backend
+   slots even though they are tracked separately here.  A sweep in one space
+   must therefore never release a slot that a live program in the other space
+   still occupies: a stale PGL owner entry left by an exited client would
+   otherwise free the slot a running client's CL compute program now holds,
+   the next PGL upload reuses it as a geometry kernel, and every later CL
+   dispatch on that handle declines (is_geom) into a catastrophic native-res
+   CPU fallback.  Forward declaration of the CL owner table for the cross-check
+   in g2dd_prog_sweep (defined below alongside the CL handlers). */
+static g2dd_prog_owner_t _g2dd_cl_prog_owner[G2DD_PROG_OWNERS];
+
 /* release every program whose owning client has exited (caller holds
    _g2dd_prog_lock) */
 static void g2dd_prog_sweep(void) {
 	int h;
 	for(h = 0; h < G2DD_PROG_OWNERS; h++) {
 		g2dd_prog_owner_t* o = &_g2dd_prog_owner[h];
+		g2dd_prog_owner_t* c;
 		if(!o->used || g2dd_prog_owner_alive(o))
 			continue;
+		/* Shared backend slot: if a live CL program claims this slot, drop
+		   only the stale PGL claim and keep the slot (do NOT free it). */
+		c = &_g2dd_cl_prog_owner[h];
+		if(c->used && g2dd_prog_owner_alive(c)) {
+			memset(o, 0, sizeof(*o));
+			continue;
+		}
 		slog("g2dd: pgl_program %d owner pid %d gone, freed (%d)\n",
 			h, o->pid, bsp_g3d_program_free(h));
 		memset(o, 0, sizeof(*o));
@@ -2011,10 +2032,11 @@ static int32_t g2dd_handle_pgl_program(proto_t* in, int from_pid, int* handle_ou
    compiled-shader path exactly: the blob is the same g2d_pgl_program_blob_t
    wire format (compute stage only), the handle rides the reply's second int,
    and handles are recorded against the uploading pid and swept when it exits.
-   CL programs live in a SEPARATE handle space from pgl programs (bsp_cl vs
-   bsp_g3d), so they get their own owner table and lock; the alive-probe is
-   generic and shared. */
-static g2dd_prog_owner_t _g2dd_cl_prog_owner[G2DD_PROG_OWNERS];
+   CL gets its own owner table and lock for the upload/dispatch serialisation,
+   but NOTE the Adreno back end stores CL and PGL programs in one shared slot
+   table, so both sweeps cross-check the other owner table before freeing a
+   slot (see g2dd_prog_sweep); the alive-probe is generic and shared.  The CL
+   owner table itself is forward-declared above g2dd_prog_sweep. */
 static pthread_mutex_t _g2dd_cl_prog_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* release every CL program whose owning client has exited (caller holds
@@ -2023,8 +2045,16 @@ static void g2dd_cl_prog_sweep(void) {
 	int h;
 	for(h = 0; h < G2DD_PROG_OWNERS; h++) {
 		g2dd_prog_owner_t* o = &_g2dd_cl_prog_owner[h];
+		g2dd_prog_owner_t* p;
 		if(!o->used || g2dd_prog_owner_alive(o))
 			continue;
+		/* Shared backend slot: if a live PGL program claims this slot, drop
+		   only the stale CL claim and keep the slot (do NOT free it). */
+		p = &_g2dd_prog_owner[h];
+		if(p->used && g2dd_prog_owner_alive(p)) {
+			memset(o, 0, sizeof(*o));
+			continue;
+		}
 		slog("g2dd: cl_program %d owner pid %d gone, freed (%d)\n",
 			h, o->pid, bsp_cl_program_free(h));
 		memset(o, 0, sizeof(*o));
