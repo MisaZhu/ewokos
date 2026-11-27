@@ -133,9 +133,10 @@ enum {
 	SYS_SEMAPHORE_ENTER_TIMEOUT,
 	SYS_SEMAPHORE_ALLOC_COUNT,
 	SYS_SEMAPHORE_GET_COUNT,
-	/* drop a cross-proc dma mapping installed by SYS_MEM_MAP on a sys_dma
-	   range (peer-side voluntary unmap; see dma_peer_unmap) */
-	SYS_DMA_UNMAP,
+	/* Reserved slot (former SYS_DMA_UNMAP, removed: sys_mem_map no longer
+	   tracks dma peer mappings; peers drop them with SYS_MEM_UNMAP). Kept
+	   so later syscall numbers do not shift; reusable by a future call. */
+	SYS_RESERVED1,
 
 	//capability management (see cap.h)
 	SYS_CAP_MINT,
@@ -173,7 +174,7 @@ enum {
 	   Non-Cacheable, so user cache maintenance has no meaning). The number
 	   stays reserved so later syscall numbers and the svc_counter ABI do
 	   not shift for existing rootfs binaries; reusable by a future call. */
-	SYS_RESERVED,
+	SYS_RESERVED0,
 
 	/* Fixed-number syscalls beyond the counted range: values sit above
 	 * SYS_CALL_NUM so sys_state_t's svc_counter[SYS_CALL_NUM] ABI is

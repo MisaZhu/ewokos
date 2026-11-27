@@ -397,21 +397,6 @@ static void sys_dma_free(int32_t dma_block_id, ewokos_addr_t vaddr) {
     flush_tlb();
 }
 
-/*
- * Peer-side voluntary unmap of a cross-proc dma mapping installed by
- * SYS_MEM_MAP on a sys_dma range. This is the protocol half of the
- * dma peer-map tracking: a well-behaved peer (g2dd) drops the mapping
- * when it is done with a client's canvas, so the client's dma_release
- * never has to force-revoke it mid-use. Returns 0 when a tracked mapping
- * was dropped, -1 when the caller had no such mapping.
- */
-static int32_t sys_dma_unmap(ewokos_addr_t vaddr) {
-    proc_t* cproc = proc_get_proc(get_current_proc());
-    if(cproc == NULL)
-        return -1;
-    return dma_peer_unmap(cproc->info.pid, vaddr);
-}
-
 static int32_t sys_dma_set(ewokos_addr_t phy_base, uint32_t size, bool shared) {
     proc_t* cproc = get_current_proc();
     if(cproc == NULL)
@@ -432,7 +417,6 @@ static ewokos_addr_t sys_shm_contig_phy(int32_t shm_id, ewokos_addr_t vaddr) {
 static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size) {
     proc_t* cproc = proc_get_proc(get_current_proc());
     uint32_t attr;
-    int32_t is_normal_ram;
     if(size == 0)
         return 0;
 
@@ -444,7 +428,7 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
      * What it must never do is overlap the kernel's private core: the image,
      * vsyscall page, page directories, allocable dirs and kmalloc arena, which
      * are contiguous in [KERNEL_BASE, KMALLOC_END). Remapping over those would
-     * let a CAP_FRAME/CAP_DMA holder rewrite kernel text or page tables. The
+     * let a CAP_FRAME holder rewrite kernel text or page tables. The
      * device windows and any user VA both fall outside that range and pass.
      */
     {
@@ -455,63 +439,21 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
             return 0; /* range overlaps the kernel core */
     }
 
-    /*
-     * The sys_dma range is DMA-reachable general RAM (not a reserved
-     * carve-out). dma_alloc() maps its buffer only into the caller,
-     * so another root daemon (g2dd attaching a client's dma canvas) must
-     * be able to map the same physical range into itself. Same SYS_DMA
-     * attribute as sys_dma_alloc() to avoid cache aliasing between the
-     * two mappings.
-     */
-    if(paddr >= _sys_info.sys_dma.phy_base &&
-            (paddr + size) <= (_sys_info.sys_dma.phy_base + _sys_info.sys_dma.size)) {
-        /* peer mappings into the sys_dma pool are DMA authority */
-        if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
-            return 0;
-        size = ALIGN_UP(size, PAGE_SIZE);
-        /* same NOCACHE DMA attribute as the owner's dma_alloc mapping: two
-           aliases of the same run must never disagree on cacheability */
-        map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW,
-                PTE_ATTR_SYS_DMA);
-        flush_tlb();
-        /*
-         * Record the cross-proc mapping so the owner's dma_release() can
-         * revoke it when the owner dies; without this the physical range
-         * becomes reusable while this peer still has it mapped (g2dd
-         * attaching a client's dma canvas). -2 means the tracking table is
-         * full: refuse and roll back rather than leave an unrevocable
-         * mapping. -1 (range not inside a live allocation) is allowed and
-         * simply untracked - there is no owner to attribute it to.
-         */
-        if(dma_peer_map_by_paddr(cproc->info.pid, vaddr, paddr, size) == -2) {
-            unmap_pages(cproc->space->vm, vaddr, size / PAGE_SIZE);
-            flush_tlb();
-            return 0;
-        }
-        return vaddr;
-    }
-
-    /*allocatable memory can only mapped by kernel,
-    userspace can map upper address such as MMIO/FRAMEBUFFER... */
-    if(check_mem_map_arch(paddr, size) != 0) {
-        return 0;
-    }
-    /* MMIO/framebuffer mappings need a covering CAP_FRAME cap with CAP_W
-       (CAP_ROOT bypasses, keeping every root driver working) */
+    /* The only gate is the capability check: a covering CAP_FRAME cap with
+       CAP_W (CAP_ROOT bypasses, keeping every root driver working). */
     if(!proc_cap_check_frame(cproc, paddr, size, CAP_W))
         return 0;
     size = ALIGN_UP(size, PAGE_SIZE);
 
     /*
-     * RAM (framebuffer) -> Normal Non-Cacheable: writes bypass cache
-     * so the HVS DMA sees them in DRAM; unlike Device-nGnRE the CPU
+     * RAM (framebuffer, dma buffers) -> Normal Non-Cacheable: writes bypass
+     * cache so the device sees them in DRAM; unlike Device-nGnRE the CPU
      * may combine consecutive stores into burst transactions.
      * MMIO / reserved carveouts -> Device-nGnRE: strict ordering for
      * register or firmware-owned regions.
      */
     attr = PTE_ATTR_DEV;
-    is_normal_ram = mem_map_is_normal_ram_arch(paddr, size);
-    if(is_normal_ram)
+    if(mem_map_is_normal_ram_arch(paddr, size))
         attr = PTE_ATTR_NOCACHE;
     map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);
     flush_tlb();
@@ -970,9 +912,6 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_DMA_PHY_ADDR:
         ctx->gpr[0] = sys_dma_phy(arg0, (ewokos_addr_t)arg1);
-        return;
-    case SYS_DMA_UNMAP:
-        ctx->gpr[0] = sys_dma_unmap((ewokos_addr_t)arg0);
         return;
     case SYS_CAP_MINT:
         ctx->gpr[0] = proc_cap_mint((uint32_t)arg0, (uint32_t)arg1, (cap_mint_arg_t*)arg2);

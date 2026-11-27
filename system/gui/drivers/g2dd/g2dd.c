@@ -74,7 +74,7 @@ static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
    the phases that have nothing to do with each other:
 
    - _g2d_map_lock guards the shm attach-cache table, every
-     shmdt/SYS_MEM_MAP/SYS_DMA_UNMAP the driver issues, and the
+     shmdt/SYS_MEM_MAP/SYS_MEM_UNMAP the driver issues, and the
      placeholder protocol that serializes concurrent shmats of the
      SAME id. The kernel's shm_proc_map returns the existing address
      WITHOUT bumping it->refs on a repeat attach (kernel/kernel/src/
@@ -85,13 +85,13 @@ static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
      id; others wait. Workers attaching DIFFERENT ids release the lock
      before their shmat and run in parallel. dma canvases still hold
      map_lock across their attach/use/detach triple so no in-flight
-     blit shares a SYS_DMA_UNMAP'd mapping (see g2d_detach).
+     blit shares a SYS_MEM_UNMAP'd mapping (see g2d_detach).
 
    - _g2d_prng_lock guards rand() in g2d_tmp_shm_key (rotated blit's
      temp surface alloc); rand() is not thread-safe.
 
    - _g2d_dma_lock serializes dma canvas attach/use/detach (SYS_MEM_MAP
-     + SYS_DMA_UNMAP) independently of the shm cache, so a dma blit
+     + SYS_MEM_UNMAP) independently of the shm cache, so a dma blit
      never blocks a shm cache lookup and vice versa.
 
    - _g2d_tmp_lock guards the rotated blit's scratch surface pool
@@ -178,6 +178,7 @@ typedef struct {
 	uint32_t* buffer;
 	uint32_t width;
 	uint32_t height;
+	uint32_t size; /* mapped byte size of a dma canvas (for SYS_MEM_UNMAP) */
 	uint8_t dma; /* dma canvas: buffer is a dma address, no shmdt */
 	uint8_t contig; /* backing memory physically contiguous */
 	uint8_t cached; /* mapping is owned by the attach cache: detach only
@@ -452,13 +453,14 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 			return G2D_ERR_FAILED;
 		}
 		if(!g2d_addr_aligned(at->phy)) {
-			syscall1(SYS_DMA_UNMAP, (ewokos_addr_t)canvas->addr);
+			syscall2(SYS_MEM_UNMAP, (ewokos_addr_t)canvas->addr, canvas->size);
 			g2d_dma_unlock();
 			return G2D_ERR_FAILED;
 		}
 		at->buffer = (uint32_t*)(uintptr_t)canvas->addr;
 		at->width = canvas->w;
 		at->height = canvas->h;
+		at->size = canvas->size;
 		at->dma = 1;
 		at->contig = canvas->contig;
 		g2d_dma_unlock();
@@ -634,17 +636,13 @@ static void g2d_detach(const g2d_attached_t* at) {
 	if(at->dma != 0) {
 		/*
 		 * dma canvas: drop the cross-proc mapping g2d_dma_map() installed
-		 * via SYS_MEM_MAP. The kernel tracks that mapping against the
-		 * client's dma allocation; leaving it pinned here would keep the
-		 * client's physical range unreclaimable after the client dies, and
-		 * the kernel would then have to force-revoke it under us (the next
-		 * touch would fault). Voluntary unmap keeps the stateless protocol
-		 * clean: every dma attach is paired with a detach, mirroring the
-		 * shmdt path below. Serialized by _g2d_dma_lock so no in-flight
-		 * blit shares this mapping.
+		 * via SYS_MEM_MAP. Every dma attach is paired with a detach,
+		 * mirroring the shmdt path below, so the mapping never outlives
+		 * its use. Serialized by _g2d_dma_lock so no in-flight blit
+		 * shares this mapping.
 		 */
 		g2d_dma_lock();
-		syscall1(SYS_DMA_UNMAP, (ewokos_addr_t)at->buffer);
+		syscall2(SYS_MEM_UNMAP, (ewokos_addr_t)at->buffer, at->size);
 		g2d_dma_unlock();
 		return;
 	}
