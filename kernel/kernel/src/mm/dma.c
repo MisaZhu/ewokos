@@ -12,6 +12,7 @@ typedef struct st_dma {
     uint32_t pins;
     uint32_t size;
     ewokos_addr_t base;
+    uint32_t attr;  /* mapping attribute granted at dma_alloc (cache flag) */
     struct st_dma* next;
     struct st_dma* prev;
 } dma_t;
@@ -73,6 +74,7 @@ static dma_t* dma_new(ewokos_addr_t base, uint32_t size) {
     dma_t* ret = (dma_t*)kcalloc(1, sizeof(dma_t));
     ret->size = size;
     ret->base = base;
+    ret->attr = PTE_ATTR_SYS_DMA;
     return ret;
 }
 
@@ -133,11 +135,23 @@ static bool dma_reusable(const dma_t* d) {
     return d != NULL && d->pid == 0 && d->pins == 0;
 }
 
+/* A static-block node granted cacheable (WRBACK) must return to the platform
+ * DMA attribute once reusable, so the next owner of the carve-out never
+ * inherits a cached alias it did not ask for. Dynamic nodes need no reset:
+ * dma_dynamic_release_node flips the whole run back to general-RAM WRBACK. */
+static void dma_static_node_reset(dma_t* d) {
+    if(d->attr != PTE_ATTR_SYS_DMA) {
+        dma_pages_set_attr(d->base, d->size / PAGE_SIZE, PTE_ATTR_SYS_DMA);
+        d->attr = PTE_ATTR_SYS_DMA;
+    }
+}
+
 /* Caller must not keep a node pointer across this operation. A free request
  * may remove its CPU/owner lifetime while a device still holds a reference. */
 static void dma_coalesce(dma_t* d) {
     if(!dma_reusable(d))
         return;
+    dma_static_node_reset(d);
     if(dma_reusable(d->prev)) {
         dma_t* prev = d->prev;
         prev->size += d->size;
@@ -302,12 +316,16 @@ void dma_release(int32_t pid) {
             /* only merge FREE nodes; merging a live allocation into a free
              * prev would mark it reusable and hand the same physical range
              * to the next dma_alloc caller (scan-out/XHCI corruption). */
-            else if(dma_reusable(d) && dma_reusable(d->prev)) { //merge
-                d->prev->next = next; 
-                if(next != NULL)
-                next->prev = d->prev;
-                d->prev->size += d->size;
-                kfree(d);
+            else {
+                if(dma_reusable(d))
+                    dma_static_node_reset(d);
+                if(dma_reusable(d) && dma_reusable(d->prev)) { //merge
+                    d->prev->next = next; 
+                    if(next != NULL)
+                    next->prev = d->prev;
+                    d->prev->size += d->size;
+                    kfree(d);
+                }
             }
             d = next;
         }
@@ -429,11 +447,15 @@ int32_t dma_peer_unmap(int32_t peer_pid, ewokos_addr_t peer_vaddr) {
     return -1;
 }
 
-ewokos_addr_t dma_alloc(int32_t dma_block_id, int32_t pid, uint32_t size) {
+ewokos_addr_t dma_alloc(int32_t dma_block_id, int32_t pid, uint32_t size, bool cache) {
     if(dma_block_id < 0 || dma_block_id >= (int32_t)_dma_block_count)
         return 0;
 
     size = ALIGN_UP(size, PAGE_SIZE);
+    /* cache=false keeps the platform DMA attribute (NOCACHE on non-coherent
+     * boards); cache=true grants a WRBACK alias and the caller owns the
+     * cache maintenance around device access. */
+    uint32_t attr = cache ? PTE_ATTR_WRBACK : PTE_ATTR_SYS_DMA;
 
     if(_dma_blocks[dma_block_id].dynamic) {
         /* Draw a physically-contiguous run from general RAM inside the DMA
@@ -445,10 +467,16 @@ ewokos_addr_t dma_alloc(int32_t dma_block_id, int32_t pid, uint32_t size) {
         if(base == NULL)
             return 0;
         ewokos_addr_t paddr = V2P((ewokos_addr_t)base);
-        /* No cached alias may survive while DMA owns the run. */
-        dma_pages_set_attr(paddr, npages, PTE_ATTR_SYS_DMA);
+        if(cache) {
+            /* drop the previous owner's dirty/clean lines before establishing
+             * the cached alias, so they cannot evict over DMA-written data */
+            dcache_flush_range((const void*)P2V(paddr), size);
+        }
+        /* No cached alias may survive while DMA owns the run uncached. */
+        dma_pages_set_attr(paddr, npages, attr);
         dma_t* n = dma_new(paddr, size);
         n->pid = pid;
+        n->attr = attr;
         n->next = _dma_blocks[dma_block_id].head;
         if(_dma_blocks[dma_block_id].head != NULL)
             _dma_blocks[dma_block_id].head->prev = n;
@@ -473,9 +501,26 @@ ewokos_addr_t dma_alloc(int32_t dma_block_id, int32_t pid, uint32_t size) {
                 d->next->prev = n;
             d->next = n;
         }
+        if(cache) {
+            /* static carve-out granted cacheable: flip just this run; the
+             * free path (dma_static_node_reset) flips it back on release */
+            dcache_flush_range((const void*)P2V(d->base), size);
+            dma_pages_set_attr(d->base, size / PAGE_SIZE, attr);
+        }
+        d->attr = attr;
         return d->base;
     }
     return 0;
+}
+
+uint32_t dma_alloc_attr(ewokos_addr_t paddr) {
+    for(uint32_t i = 0; i < _dma_block_count; i++) {
+        for(dma_t* d = _dma_blocks[i].head; d != NULL; d = d->next) {
+            if(d->base <= paddr && paddr < d->base + d->size)
+                return d->attr;
+        }
+    }
+    return PTE_ATTR_SYS_DMA;
 }
 
 ewokos_addr_t dma_phy_addr(int32_t dma_block_id, ewokos_addr_t vaddr) {

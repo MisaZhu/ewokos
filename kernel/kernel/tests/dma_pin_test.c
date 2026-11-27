@@ -46,9 +46,9 @@ void arch_set_direct_map_attr(ewokos_addr_t paddr, uint32_t pte_attr) {
 void dcache_flush_range(const void* start, uint32_t size) { (void)start; (void)size; }
 
 static void test_free_and_last_reference(void) {
-    ewokos_addr_t a = dma_alloc(POOL, 11, PAGE_SIZE);
-    ewokos_addr_t pinned = dma_alloc(POOL, 11, PAGE_SIZE);
-    ewokos_addr_t c = dma_alloc(POOL, 11, PAGE_SIZE);
+    ewokos_addr_t a = dma_alloc(POOL, 11, PAGE_SIZE, false);
+    ewokos_addr_t pinned = dma_alloc(POOL, 11, PAGE_SIZE, false);
+    ewokos_addr_t c = dma_alloc(POOL, 11, PAGE_SIZE, false);
     assert(a == BASE && pinned == BASE + PAGE_SIZE && c == BASE + 2*PAGE_SIZE);
     assert(dma_pin(POOL, 11, pinned, PAGE_SIZE) == 0);
     assert(dma_pin(POOL, 11, pinned, 1) == 0);
@@ -66,20 +66,20 @@ static void test_free_and_last_reference(void) {
     dma_release(11);
     ewokos_addr_t used[PAGES]; unsigned count = 0;
     for (;;) {
-        ewokos_addr_t pa = dma_alloc(POOL, 22, PAGE_SIZE);
+        ewokos_addr_t pa = dma_alloc(POOL, 22, PAGE_SIZE, false);
         if (!pa) break;
         assert(count < PAGES && pa != pinned);
         used[count++] = pa;
     }
     assert(count == PAGES - 1);
     assert(dma_unpin(POOL, pinned) == 0);
-    assert(dma_alloc(POOL, 33, PAGE_SIZE) == 0); /* second device still owns it */
+    assert(dma_alloc(POOL, 33, PAGE_SIZE, false) == 0); /* second device still owns it */
     dma_release(22);
-    assert(dma_alloc(POOL, 33, PAGES * PAGE_SIZE) == 0);
+    assert(dma_alloc(POOL, 33, PAGES * PAGE_SIZE, false) == 0);
     assert(dma_unpin(POOL, pinned) == 0);
     assert(dma_unpin(POOL, pinned) == -1);
     assert(dma_pin_query(POOL, pinned, &owner, &pins) == -1);
-    assert(dma_alloc(POOL, 33, PAGES * PAGE_SIZE) == BASE);
+    assert(dma_alloc(POOL, 33, PAGES * PAGE_SIZE, false) == BASE);
     dma_release(33);
     (void)used;
     assert(nodes == 1);
@@ -87,8 +87,8 @@ static void test_free_and_last_reference(void) {
 }
 
 static void test_exit_pid_reuse_and_peers(void) {
-    ewokos_addr_t target = dma_alloc(POOL, 11, PAGE_SIZE);
-    ewokos_addr_t rest = dma_alloc(POOL, 22, (PAGES-1)*PAGE_SIZE);
+    ewokos_addr_t target = dma_alloc(POOL, 11, PAGE_SIZE, false);
+    ewokos_addr_t rest = dma_alloc(POOL, 22, (PAGES-1)*PAGE_SIZE, false);
     assert(target == BASE && rest == BASE+PAGE_SIZE);
     assert(dma_pin(POOL, 11, target, PAGE_SIZE) == 0);
     assert(dma_pin(POOL, 11, target, PAGE_SIZE) == 0);
@@ -98,23 +98,23 @@ static void test_exit_pid_reuse_and_peers(void) {
     dma_release(11);
     assert(revokes == 1 && flushes == 1);
     assert(dma_size(POOL, 11, target) == 0);
-    assert(dma_alloc(POOL, 11, PAGE_SIZE) == 0); /* PID reuse is not ownership */
+    assert(dma_alloc(POOL, 11, PAGE_SIZE, false) == 0); /* PID reuse is not ownership */
     dma_release(11);
     assert(revokes == 1 && flushes == 1);
     assert(dma_unpin(POOL, target) == 0);
-    assert(dma_alloc(POOL, 11, PAGE_SIZE) == 0);
+    assert(dma_alloc(POOL, 11, PAGE_SIZE, false) == 0);
     assert(dma_unpin(POOL, target) == 0);
-    assert(dma_alloc(POOL, 11, PAGE_SIZE) == target);
+    assert(dma_alloc(POOL, 11, PAGE_SIZE, false) == target);
     assert(dma_size(POOL, 22, rest) == (PAGES-1)*PAGE_SIZE);
     dma_release(11); dma_release(22);
-    assert(dma_alloc(POOL, 33, PAGES*PAGE_SIZE) == BASE);
+    assert(dma_alloc(POOL, 33, PAGES*PAGE_SIZE, false) == BASE);
     dma_free(POOL, 33, BASE);
     assert(nodes == 1);
     puts("PASS: owner exit revokes CPU peers but retains device storage across PID reuse and repeated release");
 }
 
 static void test_validation_and_live_owner(void) {
-    ewokos_addr_t target = dma_alloc(POOL, 11, PAGE_SIZE);
+    ewokos_addr_t target = dma_alloc(POOL, 11, PAGE_SIZE, false);
     assert(dma_pin(-1,11,target,1) == -1);
     assert(dma_pin(16,11,target,1) == -1);
     assert(dma_pin(POOL,0,target,1) == -1);
@@ -128,10 +128,10 @@ static void test_validation_and_live_owner(void) {
     assert(dma_unpin(POOL,target+1) == -1);
     assert(dma_unpin(POOL,target) == 0);
     assert(dma_size(POOL,11,target) == PAGE_SIZE);
-    assert(dma_alloc(POOL,22,(PAGES-1)*PAGE_SIZE) == target+PAGE_SIZE);
-    assert(dma_alloc(POOL,33,PAGE_SIZE) == 0); /* final unpin must not free live owner */
+    assert(dma_alloc(POOL,22,(PAGES-1)*PAGE_SIZE, false) == target+PAGE_SIZE);
+    assert(dma_alloc(POOL,33,PAGE_SIZE, false) == 0); /* final unpin must not free live owner */
     dma_free(POOL,11,target); dma_release(22);
-    assert(dma_alloc(POOL,33,PAGES*PAGE_SIZE) == BASE);
+    assert(dma_alloc(POOL,33,PAGES*PAGE_SIZE, false) == BASE);
     dma_release(33);
     puts("PASS: pin validation rejects foreign, freed, partial-base and oversized ranges; unpin preserves live owner");
 }
@@ -140,14 +140,14 @@ static void test_registered_block_reclaim(void) {
     const ewokos_addr_t base = BASE + 16*PAGE_SIZE;
     int32_t block = dma_set(44,base,base,2*PAGE_SIZE,false);
     assert(block == POOL + 1);
-    ewokos_addr_t target = dma_alloc(block,33,PAGE_SIZE);
+    ewokos_addr_t target = dma_alloc(block,33,PAGE_SIZE, false);
     assert(target == base && dma_pin(block,33,target,PAGE_SIZE) == 0);
     dma_release(33); procs[44].info.state = UNUSED;
     assert(dma_set(55,base,base,2*PAGE_SIZE,false) == -1);
-    assert(dma_alloc(block,55,2*PAGE_SIZE) == 0);
+    assert(dma_alloc(block,55,2*PAGE_SIZE, false) == 0);
     assert(dma_unpin(block,target) == 0);
     assert(dma_set(55,base,base,2*PAGE_SIZE,false) == block);
-    assert(dma_alloc(block,55,2*PAGE_SIZE) == base);
+    assert(dma_alloc(block,55,2*PAGE_SIZE, false) == base);
     dma_release(55);
     assert(nodes == 2);
     puts("PASS: dead block registration cannot discard device pins; reclaim works after final unpin");
@@ -171,7 +171,7 @@ static void test_lifetime_sequences(void) {
         if (action == 0) {
             uint32_t size = (1 + random_word() % 3)*PAGE_SIZE;
             int32_t owner = owners[random_word() % 4];
-            ewokos_addr_t pa = dma_alloc(POOL, owner, size);
+            ewokos_addr_t pa = dma_alloc(POOL, owner, size, false);
             if (pa) {
                 unsigned slot;
                 assert(pa >= BASE && pa + size <= BASE + PAGES*PAGE_SIZE);
@@ -210,7 +210,7 @@ static void test_lifetime_sequences(void) {
             assert(dma_unpin(POOL,held[j].pa) == 0); held[j].pins--;
         }
     for (unsigned j=0;j<4;j++) dma_release(owners[j]);
-    assert(dma_alloc(POOL,11,PAGES*PAGE_SIZE) == BASE);
+    assert(dma_alloc(POOL,11,PAGES*PAGE_SIZE, false) == BASE);
     dma_free(POOL,11,BASE);
     printf("PASS: 10000 lifetime operations; allocations=%u pins=%u frees=%u exits=%u unpins=%u; no live/pinned physical overlap\n",
         allocs,pins,frees,exits,unpins);

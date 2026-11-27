@@ -365,19 +365,20 @@ static int32_t sys_shm_ctrl(int32_t id, int32_t cmd) {
     return shm_ctrl(id, cmd);
 }
         
-static ewokos_addr_t sys_dma_alloc(int32_t dma_block_id, uint32_t size) {
+static ewokos_addr_t sys_dma_alloc(int32_t dma_block_id, uint32_t size, uint32_t cache) {
     proc_t* cproc = proc_get_proc(get_current_proc());
     if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
         return 0;
 
-    ewokos_addr_t paddr = dma_alloc(dma_block_id, cproc->info.pid, size);
+    ewokos_addr_t paddr = dma_alloc(dma_block_id, cproc->info.pid, size, cache != 0);
     if(paddr == 0)
         return 0;
     ewokos_addr_t vaddr = dma_v_addr(dma_block_id, paddr);
     if(vaddr == 0)
         return 0;
 
-    map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_SYS_DMA);
+    uint32_t attr = cache ? PTE_ATTR_WRBACK : PTE_ATTR_SYS_DMA;
+    map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);
     flush_tlb();
     return vaddr;
 }
@@ -469,7 +470,10 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
         if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
             return 0;
         size = ALIGN_UP(size, PAGE_SIZE);
-        map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_SYS_DMA);
+        /* match the owner's grant (cache flag): two aliases of the same run
+           must never disagree on cacheability */
+        map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW,
+                dma_alloc_attr(paddr));
         flush_tlb();
         /*
          * Record the cross-proc mapping so the owner's dma_release() can
@@ -1005,7 +1009,9 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         ctx->gpr[0] = sys_mem_unmap(arg0, (uint32_t)arg1);
         return;
     case SYS_DMA_ALLOC:
-        ctx->gpr[0] = sys_dma_alloc(arg0, (uint32_t)arg1);
+        /* arg2 = cache flag; legacy syscall2 callers zero-fill it, so old
+           binaries keep the non-cacheable default */
+        ctx->gpr[0] = sys_dma_alloc(arg0, (uint32_t)arg1, (uint32_t)arg2);
         return;
     case SYS_DMA_FREE:
         sys_dma_free(arg0, arg1);

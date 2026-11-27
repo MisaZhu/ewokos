@@ -6,7 +6,16 @@
 #include <ewokos_config.h>
 
 void          dma_init(void);
-ewokos_addr_t dma_alloc(int32_t dma_block_id, int32_t pid, uint32_t size);
+/* cache=false (the default for every caller): the run is mapped with the
+ * platform DMA attribute PTE_ATTR_SYS_DMA (NOCACHE on non-coherent boards,
+ * WRBACK on coherent ones such as QEMU virt). cache=true opts into a WRBACK
+ * (cacheable) mapping for CPU-heavy use; the caller must then bracket device
+ * access with explicit cache maintenance (sys_dma_sync from user space). */
+ewokos_addr_t dma_alloc(int32_t dma_block_id, int32_t pid, uint32_t size, bool cache);
+/* Mapping attribute of the live/pinned allocation containing paddr, or
+ * PTE_ATTR_SYS_DMA when none. Peer mappings (sys_mem_map) must reuse it so
+ * two aliases of the same run never disagree on cacheability. */
+uint32_t      dma_alloc_attr(ewokos_addr_t paddr);
 void          dma_free(int32_t dma_block_id, int32_t pid, ewokos_addr_t phy_addr);
 ewokos_addr_t dma_phy_addr(int32_t dma_block_id, ewokos_addr_t vaddr);
 ewokos_addr_t dma_v_addr(int32_t dma_block_id, ewokos_addr_t phy_addr);

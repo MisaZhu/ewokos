@@ -82,6 +82,10 @@
             {"type":"dma", "block":0, "rights":"rw"}
         ]},
 
+        { "cmd": "/bin/dmatest", "desc": "big-block dma allocation test (3.7GB single run)", "caps": [
+            {"type":"dma", "block":0, "rights":"rw"}
+        ]},
+
         { "cmd": "/bin/login", "desc": "setuid boundary: switches uid/gid after auth (setuid-root equivalent)", "caps": [
             {"type":"root", "rights":"rwxg"}
         ]},
