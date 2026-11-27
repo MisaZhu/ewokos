@@ -403,6 +403,108 @@ static ewokos_addr_t sys_dma_phy(ewokos_addr_t vaddr) {
     return dma_phy_addr(vaddr);
 }
 
+/* Raw physically-contiguous runs handed out by SYS_ALLOC_PHY_CONTIG. The page
+ * allocator marks a run busy but records no length, and adjacent runs make a
+ * forward bitmap scan ambiguous, so free-by-physical-base needs its own
+ * base->size registry. Mirrors the DMA node list (mm/dma.c); nodes live in the
+ * kernel heap. All access runs under the kernel lock (svc path). */
+typedef struct st_phy_contig {
+    ewokos_addr_t base;
+    uint32_t size;
+    int32_t pid;
+    struct st_phy_contig* next;
+    struct st_phy_contig* prev;
+} phy_contig_t;
+static phy_contig_t* _phy_contig_head = NULL;
+
+/* Claim a physically-contiguous run inside [phy_base, phy_base + phy_size)
+ * (phy_size == 0 = open upper end) and return its physical base, or 0. Same
+ * contiguous-physical primitive dma_alloc uses, but with a caller-specified
+ * range and no DMA-node tracking / user mapping: the caller owns the run and
+ * releases it with SYS_FREE_PHY_CONTIG (or it is reclaimed on process exit). */
+static ewokos_addr_t sys_alloc_phy_contig(uint32_t size, ewokos_addr_t phy_base,
+        ewokos_addr_t phy_size) {
+    proc_t* cproc = proc_get_proc(get_current_proc());
+    if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
+        return 0;
+    ewokos_addr_t base = mm_alloc_contig(size, phy_base, phy_size);
+    if(base == 0)
+        return 0;
+
+    /* Record the extent and owner so SYS_FREE_PHY_CONTIG can recover the run
+     * from the base alone and proc_funeral can reclaim it on exit. If the
+     * registry node cannot be allocated, hand the run straight back rather
+     * than leaking an untrackable allocation. */
+    phy_contig_t* n = (phy_contig_t*)kcalloc(1, sizeof(phy_contig_t));
+    if(n == NULL) {
+        kfree_contig((void*)P2V(base), ALIGN_UP(size, PAGE_SIZE) / PAGE_SIZE);
+        return 0;
+    }
+    n->base = base;
+    n->size = ALIGN_UP(size, PAGE_SIZE);
+    n->pid = cproc->info.pid;
+    n->next = _phy_contig_head;
+    if(_phy_contig_head != NULL)
+        _phy_contig_head->prev = n;
+    _phy_contig_head = n;
+    return base;
+}
+
+/* Release a run claimed by SYS_ALLOC_PHY_CONTIG by its physical base. Returns
+ * 0 on success, -1 if the base is unknown, the caller lacks CAP_DMA, or a
+ * block mapping still covers the run (cannot be revoked page-exactly). */
+static int32_t sys_free_phy_contig(ewokos_addr_t phy_base) {
+    proc_t* cproc = proc_get_proc(get_current_proc());
+    if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
+        return -1;
+    for(phy_contig_t* n = _phy_contig_head; n != NULL; n = n->next) {
+        if(n->base != phy_base)
+            continue;
+        /* Revoke any user mapping the caller built over the run (e.g. via
+         * SYS_MEM_MAP) BEFORE the pages return to the allocator, so no stale
+         * PTE can resolve to a recycled page. -1 means a block descriptor
+         * covers the run and cannot be split here: refuse the free. */
+        int32_t revoked = arch_unmap_ptes_phy(cproc->space->vm, n->base, n->size);
+        if(revoked < 0)
+            return -1;
+        if(revoked > 0)
+            flush_tlb();
+        kfree_contig((void*)P2V(n->base), n->size / PAGE_SIZE);
+        if(n->prev != NULL)
+            n->prev->next = n->next;
+        else
+            _phy_contig_head = n->next;
+        if(n->next != NULL)
+            n->next->prev = n->prev;
+        kfree(n);
+        return 0;
+    }
+    return -1;
+}
+
+/* Reclaim every raw contig run owned by a dying process (proc_funeral,
+ * TASK_TYPE_PROC branch). The process's page tables are torn down by
+ * free_page_tables() right after, so its user mappings of these runs die with
+ * the space - only the physical runs and registry nodes need explicit release
+ * here, mirroring dma_release()/shm_release_orphans(). Kernel lock held. */
+void phy_contig_release_owner(int32_t pid) {
+    phy_contig_t* n = _phy_contig_head;
+    while(n != NULL) {
+        phy_contig_t* next = n->next;
+        if(n->pid == pid) {
+            kfree_contig((void*)P2V(n->base), n->size / PAGE_SIZE);
+            if(n->prev != NULL)
+                n->prev->next = n->next;
+            else
+                _phy_contig_head = n->next;
+            if(n->next != NULL)
+                n->next->prev = n->prev;
+            kfree(n);
+        }
+        n = next;
+    }
+}
+
 static ewokos_addr_t sys_shm_phy(int32_t shm_id, ewokos_addr_t vaddr) {
     return shm_phy_addr(shm_id, vaddr);
 }
@@ -902,6 +1004,12 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_DMA_PHY_ADDR:
         ctx->gpr[0] = sys_dma_phy(arg0);
+        return;
+    case SYS_ALLOC_PHY_CONTIG:
+        ctx->gpr[0] = sys_alloc_phy_contig((uint32_t)arg0, arg1, arg2);
+        return;
+    case SYS_FREE_PHY_CONTIG:
+        ctx->gpr[0] = (ewokos_addr_t)sys_free_phy_contig(arg0);
         return;
     case SYS_CAP_MINT:
         ctx->gpr[0] = proc_cap_mint((uint32_t)arg0, (uint32_t)arg1, (cap_mint_arg_t*)arg2);

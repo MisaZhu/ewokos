@@ -8,6 +8,7 @@
 #include <mm/kmalloc_vm.h>
 #include <mm/dma.h>
 #include <mm/shm.h>
+#include <kernel/svc.h>
 #include <kernel/kevqueue.h>
 #include <kernel/semaphore.h>
 #include <kstring.h>
@@ -1637,6 +1638,15 @@ void proc_funeral(proc_t* proc) {
          * whose refs just dropped to zero have already been freed.
          */
         shm_release_orphans(proc->info.pid);
+
+        /*
+         * Reclaim raw physically-contiguous runs this proc claimed via
+         * SYS_ALLOC_PHY_CONTIG but never freed. The page allocator records no
+         * owner, so without this sweep the runs (and their registry nodes)
+         * would leak until reboot. The user mappings of them die with the
+         * space when free_page_tables() runs below.
+         */
+        phy_contig_release_owner(proc->info.pid);
 
         proc_space_activate(cproc->space);
         /*

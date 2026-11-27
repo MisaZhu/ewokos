@@ -137,6 +137,10 @@ static inline const char* svc_name(int32_t code) {
         return "dma_free";
     case SYS_DMA_PHY_ADDR:
         return "dma_phy_addr";
+    case SYS_ALLOC_PHY_CONTIG:
+        return "alloc_phy_contig";
+    case SYS_FREE_PHY_CONTIG:
+        return "free_phy_contig";
     case SYS_RESERVED2:
         return "reserved2";
     case SYS_MMIO_RW:

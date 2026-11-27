@@ -106,6 +106,16 @@ __attribute__((weak)) int32_t arch_retarget_ptes(page_dir_entry_t* vm,
     return -1;
 }
 
+/* Weak no-op: arches without a leaf-PTE revoke walk report "nothing revoked"
+ * (0), so SYS_FREE_PHY_CONTIG still returns the run but the caller must drop
+ * its own SYS_MEM_MAP mapping first. aarch64 overrides it to invalidate user
+ * PTEs by physical range. */
+__attribute__((weak)) int32_t arch_unmap_ptes_phy(page_dir_entry_t* vm,
+        ewokos_addr_t phy_base, ewokos_addr_t phy_size) {
+    (void)vm; (void)phy_base; (void)phy_size;
+    return 0;
+}
+
 /* Weak no-op: arches whose PTE_ATTR_SYS_DMA equals WRBACK (or that lack a
  * per-page direct-map attribute hook) need no flip. aarch64 overrides it. */
 __attribute__((weak)) void arch_set_direct_map_attr(ewokos_addr_t paddr,

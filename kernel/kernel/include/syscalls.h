@@ -193,6 +193,24 @@ enum {
 	 * (copy_on_write in irq.c) refaults them as zero pages on reuse.
 	 * Returns pages released, or -1. */
 	SYS_MALLOC_RELEASE,
+
+	/* Allocate a physically-contiguous run from general RAM (thin wrapper
+	 * over mm_alloc_contig: kalloc_contig + page_move compaction).
+	 * arg0 = byte size, arg1 = physical range base, arg2 = physical range
+	 * size (0 = no upper limit). Returns the page-aligned physical base of
+	 * the run, or 0 on failure / lack of CAP_DMA. The run is claimed from
+	 * the page allocator (busy, refs==0) so compaction will not evacuate it;
+	 * release it with SYS_FREE_PHY_CONTIG. */
+	SYS_ALLOC_PHY_CONTIG,
+
+	/* Release a run claimed by SYS_ALLOC_PHY_CONTIG: arg0 = the physical
+	 * base it returned. The page allocator records no run length, so the
+	 * kernel keeps a base->size registry (mirrors the DMA node list) to
+	 * recover the extent, and revokes the caller's user mappings of the run
+	 * before recycling its pages. Returns 0 on success, -1 if the base is
+	 * unknown, the caller lacks CAP_DMA, or a block mapping covers the run.
+	 * Runs left unfreed at process exit are reclaimed by proc_funeral. */
+	SYS_FREE_PHY_CONTIG,
 	SYS_CALL_NUM
 };
 

@@ -166,6 +166,18 @@ void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr);
  */
 int32_t arch_retarget_ptes(page_dir_entry_t *vm, ewokos_addr_t phy_from,
 	ewokos_addr_t phy_to, int apply);
+/*
+ * Revoke user mappings of a physical run. Arch hook: walk the leaf PTEs of vm
+ * and invalidate (EntryType = 0) every one whose output address falls inside
+ * [phy_base, phy_base + phy_size), leaving identity / direct-map aliases alone.
+ * Returns the number of invalidated PTEs, or -1 when a block descriptor covers
+ * part of the run (cannot be revoked page-exactly) or the arch has no
+ * implementation (weak no-op default in mm/mmu.c returns 0). The caller owes a
+ * flush_tlb() before the pages are recycled. Used by SYS_FREE_PHY_CONTIG to
+ * drop a caller's SYS_MEM_MAP mapping before its run returns to the allocator.
+ */
+int32_t arch_unmap_ptes_phy(page_dir_entry_t *vm, ewokos_addr_t phy_base,
+	ewokos_addr_t phy_size);
 /* Move page content phy_from -> phy_to and retarget every PTE of every
  * address space accordingly; phy_from is returned to the page allocator.
  * Returns the number of retargeted PTEs, or -1 (nothing changed). */

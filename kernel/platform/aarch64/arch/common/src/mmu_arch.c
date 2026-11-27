@@ -282,6 +282,93 @@ int32_t arch_retarget_ptes(page_dir_entry_t* vm, ewokos_addr_t phy_from,
 }
 
 /*
+ * Strong override of the weak hook in mm/mmu.c (see its contract there):
+ * invalidate every user leaf PTE whose output address falls inside the
+ * physical run [phy_base, phy_base + phy_size). Only EntryType is cleared (the
+ * same primitive unmap_page uses); the caller owes a flush_tlb() before the
+ * pages are recycled. A block descriptor covering part of the run cannot be
+ * revoked page-exactly, so the walk refuses (-1) rather than leave a stale
+ * mapping over recycled pages. Identity / direct-map aliases are skipped.
+ */
+static int32_t unmap_leaf_pte_phy(page_table_entry_t* pte, ewokos_addr_t va,
+        ewokos_addr_t phy_base, ewokos_addr_t phy_size) {
+    if(pte->EntryType != TYPE_PAGE)
+        return 0;
+    ewokos_addr_t pa = pte_get_address(pte) << PAGE_SHIFT;
+    if(pa < phy_base || pa >= phy_base + phy_size)
+        return 0;
+    if(va == pa || va == P2V(pa))
+        return 0;
+    pte->EntryType = 0;
+    return 1;
+}
+
+static int block_overlaps_range(const page_table_entry_t* pte,
+        ewokos_addr_t block_shift, ewokos_addr_t phy_base,
+        ewokos_addr_t phy_size) {
+    ewokos_addr_t base = pte_get_address(pte) << PAGE_SHIFT;
+    ewokos_addr_t size = (ewokos_addr_t)1 << block_shift;
+    return phy_base < base + size && base < phy_base + phy_size;
+}
+
+int32_t arch_unmap_ptes_phy(page_dir_entry_t* vm, ewokos_addr_t phy_base,
+        ewokos_addr_t phy_size) {
+    int32_t count = 0;
+    /* Same root bound as arch_retarget_ptes: a process space shares the kernel
+     * high-half root entries, so only its private user half is walked here. */
+    uint32_t root_end = (vm == _kernel_info.kernel_vm) ?
+            PAGE_DIR_NUM : PAGE_ROOT_INDEX(KERNEL_BASE);
+#ifdef PAGE_SIZE_64K
+    for(uint32_t i = 0; i < root_end; i++) {
+        if(vm[i].EntryType == 0)
+            continue;
+        if(vm[i].EntryType == TYPE_BLOCK) {
+            if(block_overlaps_range(&vm[i], PAGE_ROOT_SHIFT + PAGE_LEVEL_BITS, phy_base, phy_size))
+                return -1;
+            continue;
+        }
+        page_table_entry_t* l3_table =
+            (page_table_entry_t*)P2V(pte_get_address(&vm[i]) << PAGE_SHIFT);
+        for(uint32_t k = 0; k < PAGE_DIR_NUM; k++) {
+            ewokos_addr_t va = ((ewokos_addr_t)i << PAGE_ROOT_SHIFT) +
+                ((ewokos_addr_t)k << PAGE_L3_SHIFT);
+            count += unmap_leaf_pte_phy(&l3_table[k], va, phy_base, phy_size);
+        }
+    }
+#else
+    for(uint32_t i = 0; i < root_end; i++) {
+        if(vm[i].EntryType == 0)
+            continue;
+        if(vm[i].EntryType == TYPE_BLOCK) {
+            if(block_overlaps_range(&vm[i], PAGE_L1_SHIFT + PAGE_LEVEL_BITS, phy_base, phy_size))
+                return -1;
+            continue;
+        }
+        page_table_entry_t* l2_table =
+            (page_table_entry_t*)P2V(pte_get_address(&vm[i]) << PAGE_SHIFT);
+        for(uint32_t j = 0; j < PAGE_DIR_NUM; j++) {
+            if(l2_table[j].EntryType == 0)
+                continue;
+            if(l2_table[j].EntryType == TYPE_BLOCK) {
+                if(block_overlaps_range(&l2_table[j], PAGE_BLOCK_SHIFT, phy_base, phy_size))
+                    return -1;
+                continue;
+            }
+            page_table_entry_t* l3_table =
+                (page_table_entry_t*)P2V(pte_get_address(&l2_table[j]) << PAGE_SHIFT);
+            for(uint32_t k = 0; k < PAGE_DIR_NUM; k++) {
+                ewokos_addr_t va = ((ewokos_addr_t)i << PAGE_L1_SHIFT) +
+                    ((ewokos_addr_t)j << PAGE_L2_SHIFT) +
+                    ((ewokos_addr_t)k << PAGE_L3_SHIFT);
+                count += unmap_leaf_pte_phy(&l3_table[k], va, phy_base, phy_size);
+            }
+        }
+    }
+#endif
+    return count;
+}
+
+/*
  * Rewrite the memory attribute of the kernel direct-map alias (P2V(paddr))
  * of a single physical page, keeping its output address and permissions.
  * Used by the DMA layer to flip a page between WRBACK (general RAM) and
