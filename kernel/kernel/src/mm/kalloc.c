@@ -42,7 +42,7 @@ void kalloc_busy_init(uint32_t max_pages) {
     _page_busy_max = max_pages;
     _page_busy = (uint8_t*)kmalloc((max_pages + 7) / 8);
     if(_page_busy != NULL)
-        memset(_page_busy, 0, (max_pages + 7) / 8);
+        memset(_page_busy, 0xFF, (max_pages + 7) / 8);
 }
 
 static inline uint32_t busy_index(void* page) {

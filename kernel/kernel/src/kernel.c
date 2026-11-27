@@ -162,16 +162,18 @@ static void init_allocable_mem(void) {
         kout_str("kernel: allocable page-table pool exhausted\n");
         halt();
     }
-    
-    //_pages_ref.max = kalloc_append(P2V(_sys_info.allocable_phy_mem_base), P2V(_sys_info.allocable_phy_mem_top));
-    kalloc_arch();
-    _pages_ref.max = (_sys_info.allocable_phy_mem_top - _sys_info.allocable_phy_mem_base) / PAGE_SIZE;
-    _pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));	
+
+    /* The occupancy bitmap must mirror the free list exactly: start every
+     * allocable page busy, and let kalloc_append (via kalloc_arch) clear the
+     * bit for each page it actually links.  Initializing all-free instead
+     * claims pages the BSP never appended (UEFI reserved holes inside the
+     * allocable span), and kalloc_contig then unlinks garbage list nodes. */
     _pages_ref.phy_base = _sys_info.allocable_phy_mem_base;
-    memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
-    /* occupancy bitmap mirroring the free list, for contiguous DMA allocation
-     * and page_move compaction (all allocable pages start free) */
+    _pages_ref.max = (_sys_info.allocable_phy_mem_top - _sys_info.allocable_phy_mem_base) / PAGE_SIZE;
     kalloc_busy_init(_pages_ref.max);
+    kalloc_arch();
+    _pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));
+    memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
 }
 
 #ifdef KERNEL_SMP
