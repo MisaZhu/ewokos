@@ -80,16 +80,17 @@
 #define USER_STACK_MAX                (64*MB)
 #define USER_STACK_BOTTOM             (USER_STACK_TOP - USER_STACK_MAX)
 
-/* Scattered (kalloc-backed) shm virtual window. ONLY non-contig segments draw
-   addresses from here, so it is fully independent of the contig slab window
-   below. Boards without a g2d engine (QCOM8GEN3/GOP) put every canvas here: the
+/* Shm virtual window. EVERY segment is backed by a dynamically claimed
+   physically-contiguous run of general RAM (the dma_alloc mechanism) and
+   mapped NOCACHE, so any of them can serve as a g2d/DMA canvas. Boards
+   without a g2d engine (QCOM8GEN3/GOP) put every canvas here too: the
    display keeps two full frames (scan-out shm + libdisplay's cache_g back
    buffer) and every window keeps ws_g, ws_g2 (fps_async), frame_g and often a
    frosted backdrop. A 3840x2160 canvas is 31.6MB, so 4K needs ~66MB just for
    the display and ~130MB for one full-screen window - the old 128MB window
    overflowed and graph_new_shm() returned NULL, leaving xwin_open() to fail
    while the app kept running with no window. Real 1080p sessions measure
-   ~57MB of scattered shm, i.e. ~230MB scaled to 4K, so 64-bit kernels get
+   ~57MB of shm, i.e. ~230MB scaled to 4K, so 64-bit kernels get
    256MB (~2x the 4K baseline); 32-bit ones keep 128MB. */
 #ifdef __aarch64__
 #define SHM_MAX_SIZE                  (256*MB)
@@ -98,26 +99,8 @@
 #endif
 #define SHM_BASE                      (USER_STACK_BOTTOM - SHM_MAX_SIZE)
 
-/* Contiguous shm gets its OWN virtual window, separate from the scattered one,
-   so kernel.conf shm_contig_size is actually usable. Every IPC_CONTIG segment
-   maps a run of the reserved physical slab [shm_contig.phy_base, phy_base+size)
-   into this window, and the runtime bound in shm_alloc is exactly that slab
-   size - contig capacity is therefore governed by shm_contig_size alone, never
-   by SHM_MAX_SIZE. (Before this split both drew from one 128MB window, so at
-   1920x1080 a few full-screen canvases exhausted it and shmget failed even with
-   a 256MB slab reserved; clients then tore down xinfo and crashed reading it in
-   xwin_repaint.) SHM_CONTIG_VA_MAX is the STATIC reservation that anchors
-   KMALLOC_VM below the largest slab a board may configure; sys_info_config caps
-   shm_contig.size to it so the physical carve and this window always agree. */
-#ifdef __aarch64__
-#define SHM_CONTIG_VA_MAX             (512*MB)
-#else
-#define SHM_CONTIG_VA_MAX             (256*MB)
-#endif
-#define SHM_CONTIG_BASE               (SHM_BASE - SHM_CONTIG_VA_MAX)
-
 #define KMALLOC_VM_SIZE               (64*MB)
-#define KMALLOC_VM_BASE               (SHM_CONTIG_BASE - KMALLOC_VM_SIZE)
+#define KMALLOC_VM_BASE               (SHM_BASE - KMALLOC_VM_SIZE)
 
 /* Anonymous user-mapping window: the backing store for SYS_MMAP_ANON and where
    a dynamic loader's objects live. Enabled on EVERY architecture - it is the
@@ -187,6 +170,18 @@ int32_t arch_retarget_ptes(page_dir_entry_t *vm, ewokos_addr_t phy_from,
  * address space accordingly; phy_from is returned to the page allocator.
  * Returns the number of retargeted PTEs, or -1 (nothing changed). */
 int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to);
+
+/*
+ * Allocate size bytes of physically-contiguous memory inside the physical
+ * range [phy_base, phy_base + phy_size); phy_size == 0 means no range limit.
+ * size is rounded up to PAGE_SIZE, phy_base up to a page boundary, and the
+ * returned physical address is page-aligned. When no free run exists, movable
+ * user pages inside the range are compacted via page_move (same contract as
+ * dma_alloc: caller holds the kernel lock with pages quiescent). Returns the
+ * physical base of the run, or 0 on failure. Release with kfree_contig().
+ */
+ewokos_addr_t mm_alloc_contig(uint32_t size, ewokos_addr_t phy_base,
+	ewokos_addr_t phy_size);
 
 /* Rewrite the memory attribute of the kernel direct-map alias P2V(paddr) of
  * one physical page (address/permissions preserved). Arch hook: aarch64

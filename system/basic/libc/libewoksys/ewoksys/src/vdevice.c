@@ -679,13 +679,12 @@ static void do_shm(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void
 
     int shm_id = -1;	
     int size = 0;
-    uint8_t contig = 0;
     if(dev != NULL && dev->shm != NULL) {
         fsinfo_t finfo;
         if(dev_fetch_file(fd, from_pid, node, &finfo) == 0)
-            shm_id = dev->shm(dev, fd, from_pid, &finfo, &contig, &size, p);
+            shm_id = dev->shm(dev, fd, from_pid, &finfo, &size, p);
     }
-    PF->addi(out, shm_id)->addi(out, contig)->addi(out, size);
+    PF->addi(out, shm_id)->addi(out, size);
 }
 
 static void do_fcntl(vdevice_t* dev, int from_pid, proto_t *in, proto_t* out, void* p) {

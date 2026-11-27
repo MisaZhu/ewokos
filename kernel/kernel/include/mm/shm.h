@@ -16,6 +16,12 @@ int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it);
 int32_t shm_ctrl(int32_t id, int32_t cmd);
 int32_t shm_set_owner(uint32_t id, int32_t pid);
 void    shm_release_orphans(int32_t owner_pid);
-ewokos_addr_t shm_contig_phy_addr(int32_t id, ewokos_addr_t vaddr);
+/* Physical address of vaddr inside a segment: every shm segment is backed
+   by one dynamically claimed contiguous physical run. */
+ewokos_addr_t shm_phy_addr(int32_t id, ewokos_addr_t vaddr);
+/* Whether page_move compaction may relocate a physical page: 0 when it lies
+   inside a live segment's run (devices hold the physical address, which a
+   PTE retarget alone cannot update), 1 otherwise. */
+int32_t shm_page_movable(ewokos_addr_t paddr);
 
 #endif

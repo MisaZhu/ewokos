@@ -26,10 +26,10 @@ static __attribute__((__aligned__(1024))) page_list_t *_free_list1k = 0;
 static ewokos_addr_t _free_mem_size_page = 0;
 
 /*
- * Physical-page occupancy bitmap mirroring the _free_list_page free list,
+ * Physical-page occupancy bitmap mirroring the page free list,
  * indexed exactly like _pages_ref (page_ref_index over the allocable span).
  * bit == 1 means the page is handed out (or split for 1k chunks), or was
- * never added to the free list at all (reserved slabs / firmware holes);
+ * never added to the free list at all (reserved pools / firmware holes);
  * bit == 0 means it sits in the free list. The free list stays the source of
  * truth for kalloc_page()/kfree_page(); the bitmap only exists so contiguous-
  * run scans (kalloc_contig) and compaction can reason about physical
@@ -45,7 +45,7 @@ void kalloc_busy_init(uint32_t max_pages) {
     _page_busy = (uint8_t*)kmalloc((max_pages + 7) / 8);
     /* Start ALL-BUSY: only pages actually appended to the free list
      * (kalloc_append/kfree_page clear their bit) may be claimed by contiguous
-     * scans. Reserved slabs and firmware holes inside the span are never
+     * scans. Reserved pools and firmware holes inside the span are never
      * appended, so they must stay invisible to kalloc_contig - a zero-init
      * bitmap would advertise them as free runs and the unlink pass would
      * splice non-member pages, corrupting the free list. */
@@ -260,7 +260,7 @@ uint32_t kalloc_append(ewokos_addr_t start, ewokos_addr_t end) {
     if(start_address >= end_address)
         return 0;
 
-    /* add each of the pages to the free list */
+    /* add each of the pages to the LIFO free list head */
     for (current_page = start_address; current_page < end_address;
             current_page += PAGE_SIZE) {
         _free_list_page = page_list_prepend(_free_list_page, current_page);
@@ -279,6 +279,8 @@ inline void* kalloc_page() {
         _free_list_page = _free_list_page->next;
         if(_free_list_page != NULL)
             _free_list_page->prev = NULL;
+    }
+    if(result != 0) {
         _free_mem_size_page -= PAGE_SIZE;
         busy_mark(result, 1);
     }
@@ -358,34 +360,55 @@ ewokos_addr_t get_free_mem_size(void) {
     return _free_mem_size_page;
 }
 
+/* Free bytes held in split-page 1K chunks. A page split for kalloc1k() leaves
+ * the whole-page free list (so get_free_mem_size() no longer sees it), but its
+ * unallocated chunks are still usable memory. Sum free_count over the split
+ * metadata so a reporter can compute the exact total free capacity as
+ * get_free_mem_size() + get_free_1k_size(). */
+ewokos_addr_t get_free_1k_size(void) {
+    ewokos_addr_t ret = 0;
+    for(uint32_t i = 0; i < KALLOC_1K_META_BUCKETS; i++) {
+        for(split_page_meta_t* meta = _split_page_meta_buckets[i];
+                meta != NULL; meta = meta->next)
+            ret += (ewokos_addr_t)meta->free_count * KALLOC_1K_CHUNK_SIZE;
+    }
+    return ret;
+}
+
 /* ------------------------------------------------------------------ */
 /* physically-contiguous page allocation (DMA backing)                  */
 /* ------------------------------------------------------------------ */
 
 /*
- * Claim npages physically-contiguous free pages below phy_limit (absolute
- * physical address). Scans the occupancy bitmap for a free run, then unlinks
- * exactly those pages from the LIFO free list in one pass. Returns the kernel
- * direct-map VA of the run base, or NULL when no run exists. The caller owns
- * the pages (bitmap marked busy); release them with kfree_contig().
+ * Claim npages physically-contiguous free pages inside [phy_lo, phy_hi)
+ * (absolute physical addresses; phy_hi == 0 means no upper bound). Scans the
+ * occupancy bitmap for a free run, then unlinks exactly those pages from the
+ * LIFO free list in one pass. Returns the kernel direct-map VA of the run
+ * base, or NULL when no run exists. The caller owns the pages (bitmap marked
+ * busy); release them with kfree_contig().
  */
-void* kalloc_contig(uint32_t npages, ewokos_addr_t phy_limit) {
+void* kalloc_contig(uint32_t npages, ewokos_addr_t phy_lo, ewokos_addr_t phy_hi) {
     if(npages == 0 || _page_busy == NULL || _pages_ref.refs == NULL)
         return NULL;
     ewokos_addr_t base = _pages_ref.phy_base;
     ewokos_addr_t top = base + (ewokos_addr_t)_page_busy_max * PAGE_SIZE;
-    if(phy_limit < top)
-        top = phy_limit;
+    if(phy_hi != 0 && phy_hi < top)
+        top = phy_hi;
+    /* round the lower bound UP so a run can never start below it */
+    phy_lo = (phy_lo + PAGE_SIZE - 1) & ~((ewokos_addr_t)PAGE_SIZE - 1);
+    if(phy_lo > base)
+        base = phy_lo;
     if(top <= base)
         return NULL;
-    uint32_t limit_idx = (uint32_t)((top - base) / PAGE_SIZE);
-    if(limit_idx < npages)
+    uint32_t start_idx = (uint32_t)((base - _pages_ref.phy_base) / PAGE_SIZE);
+    uint32_t limit_idx = (uint32_t)((top - _pages_ref.phy_base) / PAGE_SIZE);
+    if(limit_idx < start_idx || limit_idx - start_idx < npages)
         return NULL;
 
     uint32_t run = 0;
     uint32_t start = 0;
     int found = 0;
-    for(uint32_t i = 0; i < limit_idx; i++) {
+    for(uint32_t i = start_idx; i < limit_idx; i++) {
         if(busy_test(i)) {
             run = 0;
         }
@@ -401,7 +424,11 @@ void* kalloc_contig(uint32_t npages, ewokos_addr_t phy_limit) {
     if(!found)
         return NULL;
 
-    ewokos_addr_t base_pa = base + (ewokos_addr_t)start * PAGE_SIZE;
+    /* 'start' is an ABSOLUTE page index from _pages_ref.phy_base (the bitmap
+     * origin), not from the raised 'base': reconstruct the run from the ref
+     * origin or a phy_lo above it double-counts the offset and yields a wild
+     * P2V. */
+    ewokos_addr_t base_pa = _pages_ref.phy_base + (ewokos_addr_t)start * PAGE_SIZE;
     char* base_va = (char*)P2V(base_pa);
 
     /* Unlink the run in O(npages): the bitmap guarantees every page in the
@@ -466,37 +493,43 @@ static void* kalloc_page_outside(ewokos_addr_t lo, ewokos_addr_t hi) {
 }
 
 /*
- * Contiguous allocation with compaction fallback. First try a direct free
- * run; if none exists, slide a npages-wide window over the range and evacuate
- * every occupied page that is a movable user leaf (refcount > 0 and not a
- * live DMA allocation / pinned) via page_move(), then claim the freed run.
- * Windows holding unmovable pages (page tables, slab, kernel structures,
- * DMA-owned storage) are skipped. Caller must hold the kernel lock with the
- * page quiescent (page_move contract). Returns the run base VA or NULL.
+ * Contiguous allocation with compaction fallback inside [phy_lo, phy_hi)
+ * (phy_hi == 0 means no upper bound). First try a direct free run; if none
+ * exists, slide a npages-wide window over the range and evacuate every
+ * occupied page that is a movable user leaf (refcount > 0 and not a live
+ * DMA allocation / pinned) via page_move(), then claim the freed run.
+ * Windows holding unmovable pages (page tables, shm runs, kernel
+ * structures, DMA-owned storage) are skipped. Caller must hold the kernel
+ * lock with the page quiescent (page_move contract). Returns the run base
+ * VA or NULL.
  */
-void* kalloc_contig_compact(uint32_t npages, ewokos_addr_t phy_limit) {
-    void* p = kalloc_contig(npages, phy_limit);
+void* kalloc_contig_compact(uint32_t npages, ewokos_addr_t phy_lo, ewokos_addr_t phy_hi) {
+    void* p = kalloc_contig(npages, phy_lo, phy_hi);
     if(p != NULL)
         return p;
     if(npages == 0 || _page_busy == NULL || _pages_ref.refs == NULL)
         return NULL;
     ewokos_addr_t base = _pages_ref.phy_base;
     ewokos_addr_t top = base + (ewokos_addr_t)_page_busy_max * PAGE_SIZE;
-    if(phy_limit < top)
-        top = phy_limit;
+    if(phy_hi != 0 && phy_hi < top)
+        top = phy_hi;
+    phy_lo = (phy_lo + PAGE_SIZE - 1) & ~((ewokos_addr_t)PAGE_SIZE - 1);
+    if(phy_lo > base)
+        base = phy_lo;
     if(top <= base)
         return NULL;
-    uint32_t limit_idx = (uint32_t)((top - base) / PAGE_SIZE);
-    if(limit_idx < npages)
+    uint32_t start_idx = (uint32_t)((base - _pages_ref.phy_base) / PAGE_SIZE);
+    uint32_t limit_idx = (uint32_t)((top - _pages_ref.phy_base) / PAGE_SIZE);
+    if(limit_idx < start_idx || limit_idx - start_idx < npages)
         return NULL;
 
-    for(uint32_t start = 0; start + npages <= limit_idx; start++) {
+    for(uint32_t start = start_idx; start + npages <= limit_idx; start++) {
         int ok = 1;
         for(uint32_t j = 0; j < npages; j++) {
             uint32_t i = start + j;
             if(!busy_test(i))
                 continue;
-            ewokos_addr_t pa = base + (ewokos_addr_t)i * PAGE_SIZE;
+            ewokos_addr_t pa = _pages_ref.phy_base + (ewokos_addr_t)i * PAGE_SIZE;
             if(_pages_ref.refs[i] == 0 || !dma_page_movable(pa)) {
                 ok = 0;
                 break;
@@ -505,14 +538,16 @@ void* kalloc_contig_compact(uint32_t npages, ewokos_addr_t phy_limit) {
         if(!ok)
             continue;
 
-        ewokos_addr_t win_lo = base + (ewokos_addr_t)start * PAGE_SIZE;
+        /* indices are absolute from _pages_ref.phy_base (bitmap origin); the
+         * raised 'base' is only a scan bound, never the address origin. */
+        ewokos_addr_t win_lo = _pages_ref.phy_base + (ewokos_addr_t)start * PAGE_SIZE;
         ewokos_addr_t win_hi = win_lo + (ewokos_addr_t)npages * PAGE_SIZE;
         int fail = 0;
         for(uint32_t j = 0; j < npages; j++) {
             uint32_t i = start + j;
             if(!busy_test(i))
                 continue;
-            ewokos_addr_t pa = base + (ewokos_addr_t)i * PAGE_SIZE;
+            ewokos_addr_t pa = _pages_ref.phy_base + (ewokos_addr_t)i * PAGE_SIZE;
             void* pb = kalloc_page_outside(win_lo, win_hi);
             if(pb == NULL) {
                 fail = 1;
@@ -526,7 +561,7 @@ void* kalloc_contig_compact(uint32_t npages, ewokos_addr_t phy_limit) {
         }
         if(fail)
             continue;
-        p = kalloc_contig(npages, phy_limit);
+        p = kalloc_contig(npages, phy_lo, phy_hi);
         if(p != NULL)
             return p;
     }

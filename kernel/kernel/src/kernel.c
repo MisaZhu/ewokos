@@ -79,36 +79,14 @@ static void reset_kernel_vm(void) {
 
 
 static int32_t map_allocable_pages(page_dir_entry_t* vm) {
-    /* sys_dma is now a DMA-reachable range constraint over general RAM, not
-     * a reserved carve-out: its pages are direct-mapped WRBACK like all
-     * allocable RAM and flipped to PTE_ATTR_SYS_DMA per-page only while a DMA
-     * allocation owns them (see dma.c). The identity DMA window is mapped on
-     * demand by sys_dma_alloc(), so no whole-range mapping is needed here. */
-    //direct-map the reserved contiguous shm slab so the kernel can zero it
-    //(the shm window itself lives in the private user half and is not
-    //accessible from kernel/syscall context)
-    if(_sys_info.shm_contig.size > 0 &&
-            map_pages_size(vm, P2V(_sys_info.shm_contig.phy_base),
-                _sys_info.shm_contig.phy_base,
-                _sys_info.shm_contig.size, AP_RW_D,
-                PTE_ATTR_NOCACHE) != 0)
-        return -1;
-    /* A BSP may reserve the shm_contig slab inside the allocable span. Keep
-     * its direct mapping separate: remapping SHM as WB would disagree with
-     * its NOCACHE user mappings. */
+    /* sys_dma is a DMA-reachable range constraint over general RAM, not a
+     * reserved carve-out: its pages are direct-mapped WRBACK like all
+     * allocable RAM and flipped to a non-cacheable attribute per-page only
+     * while a DMA allocation / shm segment owns them (see dma.c and
+     * mm/shm.c). The identity DMA window is mapped on demand by
+     * sys_dma_alloc(), so no whole-range mapping is needed here. */
     ewokos_addr_t cur = _sys_info.allocable_phy_mem_base;
     ewokos_addr_t top = _sys_info.allocable_phy_mem_top;
-    if(_sys_info.shm_contig.size > 0) {
-        ewokos_addr_t pool_base = _sys_info.shm_contig.phy_base;
-        ewokos_addr_t pool_top = pool_base + _sys_info.shm_contig.size;
-        if(pool_base < top && pool_top > cur) {
-            if(pool_base > cur && map_pages(vm, P2V(cur), cur,
-                    pool_base, AP_RW_D, PTE_ATTR_WRBACK) != 0)
-                return -1;
-            if(pool_top > cur)
-                cur = pool_top;
-        }
-    }
     if(cur < top && map_pages(vm, P2V(cur), cur, top,
             AP_RW_D, PTE_ATTR_WRBACK) != 0)
         return -1;
@@ -171,7 +149,7 @@ static void init_allocable_mem(void) {
     /* occupancy bitmap mirroring the free list, for contiguous DMA allocation
      * and page_move compaction. Must exist BEFORE kalloc_arch(): it starts
      * all-busy and only kalloc_append() of real free pages clears bits, so
-     * reserved slabs / firmware holes never look like free contiguous runs. */
+     * reserved pools / firmware holes never look like free contiguous runs. */
     kalloc_busy_init(_pages_ref.max);
     kalloc_arch();
 }

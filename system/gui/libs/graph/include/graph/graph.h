@@ -45,7 +45,6 @@ typedef struct {
 	bool need_free;
 
 	int32_t shm_id;
-	bool shm_contig;
 } graph_t;
 
 

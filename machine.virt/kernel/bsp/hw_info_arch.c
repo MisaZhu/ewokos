@@ -65,10 +65,10 @@ void arch_vm(page_dir_entry_t* vm) {
 }
 
 int32_t arch_relocate_dma_high(void) {
-    /* QEMU virt: every DMA user is 64-bit clean, so the sys_dma/shm_contig
-       windows can sit at the top of RAM, freeing one contiguous >4GB user
-       heap. Real boards keep the legacy low layout (32-bit DMA controllers,
-       32-bit firmware mailbox bus addresses). */
+    /* QEMU virt: every DMA user is 64-bit clean, so shm runs (GPU/accelerator
+       exchange buffers) can sit above 4GB when RAM is well above it, freeing
+       one contiguous >4GB user heap. Real boards keep the legacy low layout
+       (32-bit DMA controllers, 32-bit firmware mailbox bus addresses). */
     return 1;
 }
 

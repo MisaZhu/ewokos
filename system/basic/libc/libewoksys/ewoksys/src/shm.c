@@ -14,8 +14,8 @@ int shm_dma_unpin(int32_t shm_id) {
     return shmctl(shm_id, IPC_DMA_UNPIN, NULL) == 0 ? 0 : -1;
 }
 
-ewokos_addr_t shm_contig_phy_addr(int32_t shm_id, ewokos_addr_t vaddr) {
-    return syscall2(SYS_SHM_CONTIG_PHY_ADDR, shm_id, vaddr);
+ewokos_addr_t shm_phy_addr(int32_t shm_id, ewokos_addr_t vaddr) {
+    return syscall2(SYS_SHM_PHY_ADDR, shm_id, vaddr);
 }
 
 

@@ -142,13 +142,12 @@ typedef struct {
    the driver: the client writes pixels in, the driver attaches to the
    same segment and operates on it in place. the driver owns no canvas
    of its own, every request carries the canvases it works on.
-   contig != 0 tells the driver the shm backing is physically
-   contiguous (allocated with IPC_CONTIG), needed by hardware 2d paths
-   that work on physical addresses; phy may carry the resolved physical
-   base of the segment, or 0 (the usual case) to let the driver resolve
-   it with shm_contig_phy_addr when it first attaches the segment - the
-   driver caches the attach, so a client-side translation would be a
-   syscall per canvas per request for nothing.
+   every shm segment is physically contiguous (device-reachable), so
+   hardware 2d paths can always work on its physical addresses; phy may
+   carry the resolved physical base of the segment, or 0 (the usual case)
+   to let the driver resolve it with shm_phy_addr when it first attaches
+   the segment - the driver caches the attach, so a client-side
+   translation would be a syscall per canvas per request for nothing.
    when dma != 0 the canvas lives in dma memory instead: addr is the
    buffer address returned by dma_alloc() (a vaddr in the sys_dma v
    window, mapped only into the allocator; the g2d driver mem-maps it
@@ -156,13 +155,12 @@ typedef struct {
 typedef struct {
 	int32_t shm_id;
 	uint8_t dma;      /* 0: shm canvas (shm_id), !=0: dma canvas (addr) */
-	uint8_t contig;   /* shm backing physically contiguous (IPC_CONTIG) */
-	uint8_t reserved[2];
+	uint8_t reserved[3];
 	uint32_t size;  /* segment size in bytes, must be >= w*h*4 */
 	uint32_t w;
 	uint32_t h;
 	ewokos_addr_t addr; /* dma address of the buffer when dma != 0 */
-	ewokos_addr_t phy;  /* physical base of the buffer when contig != 0 */
+	ewokos_addr_t phy;  /* physical base of the buffer (0 = driver resolves) */
 } g2d_canvas_t;
 
 typedef struct {
@@ -326,17 +324,15 @@ typedef struct g2d_pgl_ext_s {
    (mirrors g2d_pgl_ext_t so the six stub bsp layers only forward-declare the
    tag and ignore the pointer; the raspi5 back end fills its
    vc_pgl3d_draw_req_t tex fields verbatim).  tex_phy is the resolved physical
-   base of the linear RGBA8 texture image (contig or dma); uv_phy is the
+   base of the linear RGBA8 texture image (shm or dma); uv_phy is the
    resolved physical base of the per-vertex uv float3 attribute array.  Both
    must be non-zero for a TEX_MOD draw or the back end declines. */
 typedef struct g2d_pgl_tex_s {
 	ewokos_addr_t tex_phy;    /* linear RGBA8 texture image (row pitch tex_stride) */
-	uint8_t       tex_contig;
 	uint32_t      tex_stride; /* texture row pitch, bytes (0 -> derive w*4) */
 	uint32_t      tex_w;      /* texture width, texels */
 	uint32_t      tex_h;      /* texture height, texels */
 	ewokos_addr_t uv_phy;     /* per-vertex uv float3 attribute (stride 12) */
-	uint8_t       uv_contig;
 } g2d_pgl_tex_t;
 
 /* WS4 compiled-shader sampler-binding state passed to bsp_g3d_draw as an
@@ -349,7 +345,7 @@ typedef struct g2d_pgl_tex_s {
    TMU config - safe black for shaders that never sample it).  The images
    are RGBA8 in the V3D texture memory layout named by ctex_tiling[i]
    (enum v3d_tex_tiling: 0 raster, 1 LT, 2/3 UBLINEAR, 4/5 UIF no-xor/xor,
-   with ctex_ub_pad[i] the UIF level_0_ub_pad), contig or dma so the GPU
+   with ctex_ub_pad[i] the UIF level_0_ub_pad), shm or dma so the GPU
    can address them by physical base; ctex_stride[i] is the allocated row
    pitch of the (padded) image, 0 lets the driver derive ctex_w[i]*4.
    ctex_ub_pad[i] carries the UIF level_0_ub_pad in its low nibble
@@ -379,7 +375,6 @@ typedef struct g2d_pgl_tex_s {
 	           ((mip) ? G2D_PGL_CTEX_SAMPLER_MIP_LINEAR : 0u)))
 typedef struct g2d_pgl_ctex_s {
 	ewokos_addr_t ctex_phy[G2D_PGL_MAX_TEX_UNITS];
-	uint8_t       ctex_contig[G2D_PGL_MAX_TEX_UNITS];
 	uint32_t      ctex_stride[G2D_PGL_MAX_TEX_UNITS];
 	uint32_t      ctex_w[G2D_PGL_MAX_TEX_UNITS];
 	uint32_t      ctex_h[G2D_PGL_MAX_TEX_UNITS];
@@ -399,7 +394,7 @@ typedef struct g2d_pgl_ctex_s {
 } g2d_pgl_ctex_t;
 
 /* portablegl GPU offload request, used by BOTH PGL_CLEAR and PGL_DRAW.
-   dst is the render target (an RGBA8/BGR565 contig-shm or dma canvas;
+   dst is the render target (an RGBA8/BGR565 shm or dma canvas;
    modelled w x h so the driver's size >= w*h*4 attach check holds for
    RGBA8).  PGL_CLEAR uses only dst/fmt/color/stride/rb_swap.  PGL_DRAW
    also carries the CPU-computed post-vertex-shader data as two further
@@ -408,8 +403,8 @@ typedef struct g2d_pgl_ctex_s {
            w=nverts h=3 canvas (nverts*3*4 == nverts*12);
      col - byte4 RGBA8 per vertex, nverts*4 bytes, modelled as a
            w=nverts h=1 canvas (nverts*1*4 == nverts*4).
-   Both must be contig so the GPU can address them by physical base; a
-   non-contig vertex buffer is declined.  nverts <= G2D_PGL_MAX_VERTS.
+   The GPU addresses them by physical base (every shm segment is
+   contiguous).  nverts <= G2D_PGL_MAX_VERTS.
    The state subset (depth_func/depth_mask/blend_en/cull_en) is carried for
    the protocol; the raspi5 back end renders depth test/write (tile-local Z)
    and back-face cull for the built-in solid/gouraud shaders and declines
@@ -436,7 +431,7 @@ typedef struct {
 	uint8_t first_frame; /* non-zero: first dispatch of the frame (clear) */
 	g2d_pgl_ext_t ext;   /* Phase B2c scissor / polygon-offset / colour-mask */
 	/* Phase D texture state (fs_id == G2D_PGL_FS_TEX_MOD only).  tex is a
-	   linear RGBA8 texture image (contig or dma canvas; size >= tex_stride *
+	   linear RGBA8 texture image (shm or dma canvas; size >= tex_stride *
 	   tex_h so the driver's attach check holds); uv is a per-vertex uv float3
 	   canvas (nverts * 12 bytes, modelled w=nverts h=3, mirroring pos).
 	   tex_w/tex_h/tex_stride describe the image (tex_stride == 0 lets the
@@ -454,7 +449,7 @@ typedef struct {
 	   cached prog_data and dispatches the compiled VS/FS QPU); the default -1
 	   keeps the historical fixed-function path (fs_id SOLID/GOURAUD/TEX_MOD),
 	   so every existing caller is unaffected.  When prog_handle >= 0, `unif`
-	   is a contig-shm canvas carrying the per-draw GL uniform storage - an
+	   is a shm canvas carrying the per-draw GL uniform storage - an
 	   array of num_uniforms u32 values that the daemon's QUNIFORM interpreter
 	   indexes for QUNIFORM_UNIFORM slots (iGlobalTime / iResolution / ...);
 	   it is modelled w=num_uniforms h=1 (num_uniforms*4 == size) so the
@@ -477,7 +472,7 @@ typedef struct {
 	   the TMU config (safe black for shaders that never sample it).
 	   The images are RGBA8 in the V3D texture memory layout named by
 	   ctex_tiling (enum v3d_tex_tiling; the TMU cannot sample a raster 2D
-	   image, so the client tiles them with v3d_tex_store_2d) and contig or
+	   image, so the client tiles them with v3d_tex_store_2d) and shm or
 	   dma so the GPU can address them by physical base; ctex_stride is the
 	   allocated (padded) row pitch, 0 lets the driver derive tex_w * 4.
 	   Only meaningful when prog_handle >= 0.  The fixed-function TEX_MOD
@@ -510,7 +505,7 @@ typedef struct {
    the integer handle this command returns, so the QPU is never re-sent per
    frame.
 
-   The program travels as ONE serialized blob inside a contig-shm canvas (the
+   The program travels as ONE serialized blob inside a shm canvas (the
    same zero-copy model as the pos/col vertex canvases): a fixed
    g2d_pgl_program_blob_t header followed immediately by the variable payload.
    All fields are little-endian / naturally aligned; the payload is u32-aligned
@@ -664,7 +659,7 @@ typedef struct {
 	/* variable payload follows immediately after this header */
 } g2d_pgl_program_blob_t;
 
-/* Upload request: `blob` is a contig-shm canvas whose first sizeof(header)
+/* Upload request: `blob` is a shm canvas whose first sizeof(header)
    bytes are a g2d_pgl_program_blob_t and whose remaining bytes are the
    payload; blob.size must be >= sizeof(header) + payload_bytes.  The back end
    copies the QPU into GPU dma and answers with a non-negative program handle
@@ -685,7 +680,7 @@ typedef struct {
    later CL_DISPATCH references the uploaded program by the integer handle
    CL_PROGRAM returns, so the QPU is never re-sent per launch.
 
-   CL_PROGRAM travels the blob inside a contig-shm canvas exactly like
+   CL_PROGRAM travels the blob inside a shm canvas exactly like
    g2d_pgl_program_req_t.blob (blob.size >= sizeof(header) + payload_bytes).
    It answers a non-negative program handle on the reply's second int (the
    same two-int pattern g2d_pgl_program uses) or a negative G2D_ERR_* code
@@ -696,7 +691,7 @@ typedef struct {
 } g2d_cl_program_req_t;
 
 /* Maximum __global buffer arguments one CL_DISPATCH carries as SSBO bindings.
-   Each arg is a contig-shm or dma canvas so the GPU addresses it by physical
+   Each arg is a shm or dma canvas so the GPU addresses it by physical
    base with zero copy (the same model as the pgl pos/col/unif canvases); the
    back end resolves each canvas' physical base into the compiled program's
    QUNIFORM_SSBO_OFFSET slots in binding order.  Kernels with more buffer args
@@ -711,7 +706,7 @@ typedef struct {
    args[] are the __global buffer SSBOs in binding order (args[i].size == 0
    marks an unused trailing slot); num_uniforms / unif carry the packed
    scalar + __constant kernel arguments as an array of num_uniforms u32
-   values in a contig-shm canvas modelled w=num_uniforms h=1 (so the
+   values in a shm canvas modelled w=num_uniforms h=1 (so the
    driver's size >= w*h*4 attach check holds, exactly like the pgl unif
    canvas), which the back end's QUNIFORM interpreter indexes for the
    non-SSBO uniform slots.  unif.size == 0 (num_uniforms == 0) is valid for
@@ -743,13 +738,13 @@ static inline g2d_rect_t g2d_rect(int32_t x, int32_t y, int32_t w, int32_t h) {
 	return rect;
 }
 
-static inline g2d_canvas_t g2d_canvas(int32_t shm_id, uint32_t size, uint32_t w, uint32_t h, uint8_t contig) {
+static inline g2d_canvas_t g2d_canvas(int32_t shm_id, uint32_t size, uint32_t w, uint32_t h) {
 	g2d_canvas_t canvas;
 	canvas.shm_id = shm_id;
 	canvas.dma = 0;
-	canvas.contig = contig;
 	canvas.reserved[0] = 0;
 	canvas.reserved[1] = 0;
+	canvas.reserved[2] = 0;
 	canvas.size = size;
 	canvas.w = w;
 	canvas.h = h;
@@ -762,9 +757,9 @@ static inline g2d_canvas_t g2d_canvas_dma(ewokos_addr_t addr, uint32_t size, uin
 	g2d_canvas_t canvas;
 	canvas.shm_id = 0;
 	canvas.dma = 1;
-	canvas.contig = 1; /* dma window memory is physically contiguous */
 	canvas.reserved[0] = 0;
 	canvas.reserved[1] = 0;
+	canvas.reserved[2] = 0;
 	canvas.size = size;
 	canvas.w = w;
 	canvas.h = h;
@@ -775,19 +770,19 @@ static inline g2d_canvas_t g2d_canvas_dma(ewokos_addr_t addr, uint32_t size, uin
 
 /* Bind an on-device-compiled program (uploaded via g2d_pgl_program) to a draw
    request, together with its per-draw GL uniform storage.  `unif_shm` is the
-   contig-shm segment holding num_uniforms u32 uniform values (or 0/0 when the
+   shm segment holding num_uniforms u32 uniform values (or 0/0 when the
    program needs no per-draw uniforms).  A negative `handle` restores the
    fixed-function path (prog_handle defaults to -1 via the request init). */
 static inline void g2d_pgl_draw_req_set_shader(g2d_pgl_req_t* req, int32_t handle,
-		int32_t unif_shm, uint32_t num_uniforms, uint8_t contig) {
+		int32_t unif_shm, uint32_t num_uniforms) {
 	if(req == NULL)
 		return;
 	req->prog_handle = handle;
 	req->num_uniforms = num_uniforms;
 	if(num_uniforms > 0)
-		req->unif = g2d_canvas(unif_shm, num_uniforms * 4u, num_uniforms, 1u, contig);
+		req->unif = g2d_canvas(unif_shm, num_uniforms * 4u, num_uniforms, 1u);
 	else
-		req->unif = g2d_canvas(0, 0, 0, 0, 0);
+		req->unif = g2d_canvas(0, 0, 0, 0);
 }
 
 static inline void g2d_fill_req_init(g2d_fill_req_t* req, g2d_canvas_t dst, g2d_rect_t rect, uint32_t color) {
@@ -1000,7 +995,7 @@ static inline void g2d_pgl_draw_req_set_tex(g2d_pgl_req_t* req,
 	req->uv = uv;
 }
 
-/* Fill a compiled-program upload request.  blob is a contig-shm canvas holding
+/* Fill a compiled-program upload request.  blob is a shm canvas holding
    a serialized g2d_pgl_program_blob_t header + payload (see the struct
    comment); blob.size must cover both.  Call g2d_pgl_program() to upload. */
 static inline void g2d_pgl_program_req_init(g2d_pgl_program_req_t* req,
@@ -1011,7 +1006,7 @@ static inline void g2d_pgl_program_req_init(g2d_pgl_program_req_t* req,
 	req->blob = blob;
 }
 
-/* Fill a CL program upload request.  blob is a contig-shm canvas holding a
+/* Fill a CL program upload request.  blob is a shm canvas holding a
    serialized g2d_pgl_program_blob_t header + compute-stage payload (see the
    struct comment); blob.size must cover both.  Call g2d_cl_program() to
    upload; it answers the program handle. */

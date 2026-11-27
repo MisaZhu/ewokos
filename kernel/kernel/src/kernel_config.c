@@ -110,10 +110,6 @@ static void load_kernel_config_file() {
     if(v[0] != 0)
         _kernel_config.dma_size = mem_size(v);
 
-    v = sconf_get(sconf, "shm_contig_size");
-    if(v[0] != 0)
-        _kernel_config.shm_contig_size = mem_size(v);
-
     sconf_free(sconf);
 }
 

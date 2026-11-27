@@ -137,14 +137,14 @@ static inline const char* svc_name(int32_t code) {
         return "dma_free";
     case SYS_DMA_PHY_ADDR:
         return "dma_phy_addr";
-    case SYS_DMA_SET:
-        return "dma_set";
+    case SYS_RESERVED2:
+        return "reserved2";
     case SYS_MMIO_RW:
         return "mmio_rw";
     case SYS_PROC_PRIORITY:
         return "proc_priority";
-    case SYS_SHM_CONTIG_PHY_ADDR:
-        return "shm_contig_phy_addr";
+    case SYS_SHM_PHY_ADDR:
+        return "shm_phy_addr";
     case SYS_BLOCK_TIMEOUT:
         return "block_timeout";
     case SYS_SEMAPHORE_ENTER_TIMEOUT:

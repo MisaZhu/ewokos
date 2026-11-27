@@ -41,7 +41,6 @@ typedef struct {
 	   ewokos_addr_t: the range may span >4GB on 64-bit boards. */
 	ewokos_addr_t dma_base;
 	ewokos_addr_t dma_size;
-	uint32_t shm_contig_size;
 } kernel_conf_t;
 
 extern kernel_conf_t _kernel_config;

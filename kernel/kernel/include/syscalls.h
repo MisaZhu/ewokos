@@ -122,12 +122,15 @@ enum {
 	SYS_DMA_ALLOC,
 	SYS_DMA_FREE,
 	SYS_DMA_PHY_ADDR,
-	SYS_DMA_SET,
+	/* Reserved slot (former SYS_DMA_SET, removed: static DMA carve-out
+	   registration had no users; block 0 (the dynamic sys_dma range) is
+	   the only block). Kept so later syscall numbers do not shift. */
+	SYS_RESERVED2,
 
 	SYS_MMIO_RW,
 	SYS_PROC_PRIORITY,
 
-	SYS_SHM_CONTIG_PHY_ADDR,
+	SYS_SHM_PHY_ADDR,
 	SYS_PROC_SHM_CTRL,
 	SYS_BLOCK_TIMEOUT,
 	SYS_SEMAPHORE_ENTER_TIMEOUT,

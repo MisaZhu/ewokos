@@ -222,13 +222,13 @@ static uint32_t xhci_pick_page_size(ewokos_addr_t op_base) {
 
 int xhci_dma_init(void) {
     /* over-allocate one boundary so the pool can start on a 64KB line */
-    ewokos_addr_t raw = dma_alloc(0, XHCI_DMA_POOL_SIZE + XHCI_RING_BOUNDARY);
+    ewokos_addr_t raw = dma_alloc(XHCI_DMA_POOL_SIZE + XHCI_RING_BOUNDARY);
     if (raw == 0) {
         slog("xhci: dma pool alloc failed (%u bytes)\n",
                 XHCI_DMA_POOL_SIZE + XHCI_RING_BOUNDARY);
         return -1;
     }
-    ewokos_addr_t phy = dma_phy_addr(0, raw);
+    ewokos_addr_t phy = dma_phy_addr(raw);
     if (phy == 0) {
         slog("xhci: dma pool phy addr failed\n");
         return -1;

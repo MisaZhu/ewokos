@@ -11,7 +11,7 @@
    off and keeps its own built-in CPU/NEON rasterizer.
 
    fmt/mode/fs_id/depth_func use the G2D_PGL_* values (see g2dclient.h);
-   *_phy are resolved contig physical bases the GPU works on directly.
+   *_phy are resolved physical bases the GPU works on directly.
    ext/tex are opaque pointers to the caller's g2d_pgl_ext_t /
    g2d_pgl_tex_t (NULL leaves the matching state at its memset default).
    Both ops return the g2d result codes: G2D_OK (0), G2D_ERR_FAILED (-1,
@@ -23,9 +23,8 @@
    unsupported platform simply declines every op. */
 int32_t bsp_g3d_init(void);
 
-/* full-frame clear of the w x h render target backed by fb_phy/contig. */
-int32_t bsp_g3d_clear(uint32_t* fb, ewokos_addr_t fb_phy, uint8_t contig,
-			int32_t w, int32_t h, uint32_t stride, uint32_t fmt,
+/* full-frame clear of the w x h render target backed by fb_phy. */
+int32_t bsp_g3d_clear(uint32_t* fb, ewokos_addr_t fb_phy, int32_t w, int32_t h, uint32_t stride, uint32_t fmt,
 			uint32_t color, int32_t rb_swap);
 
 /* draw nverts post-vertex-shader primitives into the render target.
@@ -38,16 +37,12 @@ int32_t bsp_g3d_clear(uint32_t* fb, ewokos_addr_t fb_phy, uint8_t contig,
    prog_handle < 0 keeps the fixed-function fs_id path and ctex is ignored.
    Only the raspi5 back end honours the compiled path; the six stubs ignore
    all four new arguments and decline with -2. */
-int32_t bsp_g3d_draw(ewokos_addr_t fb_phy, uint8_t fb_contig,
-			int32_t w, int32_t h, uint32_t stride, uint32_t fmt,
+int32_t bsp_g3d_draw(ewokos_addr_t fb_phy, int32_t w, int32_t h, uint32_t stride, uint32_t fmt,
 			uint32_t mode, uint32_t nverts,
-		ewokos_addr_t pos_phy, uint8_t pos_contig,
-		ewokos_addr_t col_phy, uint8_t col_contig,
-			uint32_t fs_id, uint32_t color, int32_t rb_swap,
+		ewokos_addr_t pos_phy, ewokos_addr_t col_phy, uint32_t fs_id, uint32_t color, int32_t rb_swap,
 			uint32_t depth_func, int32_t depth_mask,
 			int32_t blend_en, int32_t cull_en,
-		ewokos_addr_t z_phy, uint8_t z_contig,
-			uint32_t z_stride, uint8_t first_frame,
+		ewokos_addr_t z_phy, uint32_t z_stride, uint8_t first_frame,
 			uint32_t clear_rgba, float clear_z, const void* ext, const void* tex,
 			int32_t prog_handle, const void* unif, uint32_t num_uniforms,
 			const void* ctex);

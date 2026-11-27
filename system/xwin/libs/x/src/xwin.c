@@ -342,7 +342,6 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
       ws_g -> ws_g2 inside xwin_repaint (see there), so ws_g2 is the handoff
       buffer the server snapshots while the client keeps painting ws_g.*/
     int32_t shm_id = xwin->xinfo->ws_g_shm_id;
-    bool contig = xwin->xinfo->ws_g_shm_contig;
     void** cache = &xwin->ws_g_shm;
     int32_t* cache_id = &xwin->ws_g_shm_id;
     if(shm_id == -1)
@@ -369,11 +368,10 @@ static graph_t* x_get_graph(xwin_t* xwin, graph_t* g) {
     g->buffer = *cache;
     g->w = xwin->xinfo->wsr.w;
     g->h = xwin->xinfo->wsr.h;
-    /*carry the canvas identity + backing type so g2d ops can engage on this
+    /*carry the canvas identity so g2d ops can engage on this
       graph; need_free stays false, the shm is owned by the server and the
       detach above, graph_free must not touch it*/
     g->shm_id = shm_id;
-    g->shm_contig = contig;
     g->need_free = false;
     return g;
 }
@@ -406,7 +404,6 @@ static graph_t* x_get_flip_graph(xwin_t* xwin, graph_t* g) {
     g->w = xwin->xinfo->wsr.w;
     g->h = xwin->xinfo->wsr.h;
     g->shm_id = shm_id;
-    g->shm_contig = xwin->xinfo->ws_g2_shm_contig;
     g->need_free = false;
     return g;
 }

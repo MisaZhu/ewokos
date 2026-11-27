@@ -10,11 +10,12 @@ extern "C" {
 #endif
 
 /* DMA buffers are always Non-Cacheable: CPU writes land straight in DRAM
- * and the device sees them without any cache maintenance. */
-ewokos_addr_t dma_alloc(int32_t dma_block_id, uint32_t size);
-void     dma_free(int32_t dma_block_id, ewokos_addr_t vaddr);
-ewokos_addr_t dma_phy_addr(int32_t dma_block_id, ewokos_addr_t vaddr);
-int32_t  dma_set(ewokos_addr_t phy_base, uint32_t size, bool shared);
+ * and the device sees them without any cache maintenance. Allocations come
+ * from the single dynamic sys_dma pool. */
+ewokos_addr_t dma_alloc(uint32_t size);
+void     dma_free(ewokos_addr_t vaddr);
+ewokos_addr_t dma_phy_addr(ewokos_addr_t vaddr);
+
 
 #ifdef __cplusplus
 }

@@ -22,9 +22,6 @@ inline int graph_g2d_avaliable(graph_t* g) {
    Only FAILED / NOT_SUPPORTED permit CPU fallback. Submitted timeouts and
    faults quiesce the caller, preserving buffers until reboot, since the
    current protocol cannot prove that DMA has stopped.
-   So a canvas that lost its contig backing degrades silently into a
-   full-frame cpu copy with no error and no log anywhere - the counters
-   below are the only way to see it happen.
 
    G2D_ERR_NOT_SUPPORTED is the one answer that gets remembered: the
    driver is saying the op itself is not there, so it is marked per op
@@ -62,26 +59,20 @@ static int g2d_op_result(int cap, int ret) {
 }
 
 static uint32_t _g2d_reject_num = 0;
-static uint32_t _g2d_reject_noncontig = 0;
 static uint32_t _g2d_reject_small = 0;
 static uint64_t _g2d_reject_px = 0;
 
-void graph_g2d_reject_stats(uint32_t* num, uint32_t* noncontig,
-		uint32_t* small, uint64_t* pixels) {
+void graph_g2d_reject_stats(uint32_t* num, uint32_t* small, uint64_t* pixels) {
 	if(num != NULL)
 		*num = _g2d_reject_num;
-	if(noncontig != NULL)
-		*noncontig = _g2d_reject_noncontig;
 	if(small != NULL)
 		*small = _g2d_reject_small;
 	if(pixels != NULL)
 		*pixels = _g2d_reject_px;
 }
 
-/* record a turned-down request and split the reason: a shm-backed canvas
-   without contig backing is the interesting one (graph_new_shm falls back
-   to a plain segment when shmget(IPC_CONTIG) cannot be satisfied), a
-   below-G2D_MIN_SIZE canvas is expected and cheap. */
+/* record a turned-down request: a below-G2D_MIN_SIZE canvas is expected
+   and cheap, everything else is a canvas the device path cannot use. */
 /* gaussian-blur routing counters: the blur has fallback reasons the
    generic reject stats cannot see (per-call scratch allocation, the
    driver refusing an otherwise-eligible request), and xwm blurs whole
@@ -90,7 +81,7 @@ void graph_g2d_reject_stats(uint32_t* num, uint32_t* noncontig,
    optional. */
 static uint32_t _g2d_blur_gpu = 0;      /* dispatched to /dev/g2d */
 static uint32_t _g2d_blur_fb_notsup = 0;  /* op marked unsupported */
-static uint32_t _g2d_blur_fb_canvas = 0;  /* non-shm/contig/too-small */
+static uint32_t _g2d_blur_fb_canvas = 0;  /* non-shm/too-small */
 static uint32_t _g2d_blur_fb_rect = 0;    /* partial rect (by design) */
 static uint32_t _g2d_blur_fb_tmp = 0;     /* scratch alloc failed */
 static uint32_t _g2d_blur_fb_drv = 0;     /* driver answered non-zero */
@@ -110,12 +101,23 @@ static int g2d_reject(const graph_t* a, const graph_t* b, int32_t w, int32_t h) 
 	_g2d_reject_num++;
 	if(w > 0 && h > 0)
 		_g2d_reject_px += (uint64_t)w * (uint64_t)h;
-	if((a != NULL && a->shm_id > 0 && !a->shm_contig) ||
-			(b != NULL && b->shm_id > 0 && !b->shm_contig))
-		_g2d_reject_noncontig++;
-	else
-		_g2d_reject_small++;
+	_g2d_reject_small++;
 	return G2D_ERR_FAILED;
+}
+
+/* QCOM8GEN3 A2D requires a 64-byte row pitch; V3D handles arbitrary widths.
+   Query once so normal dispatches do not add an IPC round trip. A failed
+   query keeps the conservative gate and is retried by the next call. */
+static int g2d_needs_aligned_pitch(void) {
+	static int required = -1;
+	uint32_t version = 0;
+
+	if(required < 0) {
+		if(g2d_get_version(&version) != 0)
+			return 1;
+		required = (version == 690) ? 1 : 0;
+	}
+	return required;
 }
 
 /* w/h describe the rect the operation actually touches: offloading is
@@ -126,7 +128,11 @@ static int g2d_reject(const graph_t* a, const graph_t* b, int32_t w, int32_t h) 
 static int g2d_check_graph(const graph_t* g, int32_t w, int32_t h) {
 	if(g == NULL || g->buffer == NULL)
 		return 0;
-	if(g->shm_id <= 0 || !g->shm_contig)
+	if(g->shm_id <= 0)
+		return 0;
+	/* every shm canvas is contiguous; the one hardware geometry limit
+	   left is the A2D 64-byte row pitch (QCOM8GEN3) */
+	if(((uint32_t)g->w * 4u) % 64u != 0 && g2d_needs_aligned_pitch())
 		return 0;
 	if(w <= 0)
 		w = g->w;
@@ -141,15 +147,14 @@ static int g2d_check_graph(const graph_t* g, int32_t w, int32_t h) {
 }
 
 /* phy is left 0 on purpose: the driver resolves it itself with
-   shm_contig_phy_addr() when it first attaches the segment and keeps it
+   shm_phy_addr() when it first attaches the segment and keeps it
    in its attach cache, so a client-side translation here would be one
    syscall per canvas per request that the driver ignores on every cache
    hit (the common case for a compositor's full-frame canvases). */
 static g2d_canvas_t g2d_graph_canvas(const graph_t* g) {
 	return g2d_canvas(g->shm_id,
 			(uint32_t)g->w * (uint32_t)g->h * sizeof(uint32_t),
-			(uint32_t)g->w, (uint32_t)g->h,
-			g->shm_contig ? 1 : 0);
+			(uint32_t)g->w, (uint32_t)g->h);
 }
 
 int graph_fill_g2d(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
@@ -331,9 +336,9 @@ int graph_rotate_to_g2d(graph_t* g, graph_t* ret, int rot) {
    segment for the life of the process with no owner to release it. */
 /* the blur scratch is an inter-pass working surface the driver never
    reads after the dispatch: cache one per process and grow it on demand
-   instead of allocating and freeing a w*h*4 contig segment per frame -
+   instead of allocating and freeing a w*h*4 shm segment per frame -
    the per-call shm round trip is pure cpu overhead in the compositor's
-   frame path and fragmentation-prone on the contig pool. */
+   frame path and fragmentation-prone on the contiguous-run allocator. */
 static int _blur_tmp_shm_id = -1;
 static uint32_t* _blur_tmp_pixels = NULL;
 static uint32_t _blur_tmp_size = 0;
@@ -383,13 +388,12 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 		return G2D_ERR_FAILED;
 
 	if(!g2d_check_graph(g, w*2, h*2)) {
-		/* a shm/contig canvas whose rect is below G2D_MIN_SIZE/4 is the
+		/* a shm canvas whose rect is below G2D_MIN_SIZE/4 is the
 		   by-design cheap case (graph_shadow_round blurs two thin
 		   strips of its mask per window geometry): count it with the
 		   partial-rect refusals and stay quiet. only a canvas that
-		   really lost its shm/contig backing is worth a log line. */
-		if(g != NULL && g->buffer != NULL && g->shm_id > 0 &&
-				g->shm_contig) {
+		   really lost its shm backing is worth a log line. */
+		if(g != NULL && g->buffer != NULL && g->shm_id > 0) {
 			_g2d_blur_fb_rect++;
 			return g2d_reject(g, NULL, w, h);
 		}
@@ -431,7 +435,7 @@ int graph_gaussian_blur_g2d(graph_t* g, int x, int y, int w, int h, int r) {
 	   even though the scratch provably holds every row the kernels
 	   read or write */
 	tmp = g2d_canvas(tmp_shm_id, _blur_tmp_size, (uint32_t)w,
-			(uint32_t)h, 1);
+			(uint32_t)h);
 	tmp.phy = tmp_phy;
 
 	g2d_gaussian_blur_req_init(&req, g2d_graph_canvas(g), tmp,

@@ -141,9 +141,10 @@ static uint32_t _graph_shm_seq = 0;
    process-unique keyed shm segment so it can be shared with the g2d
    device process with zero copy. a new key is tried on every loop
    iteration (pid + sequence counter) because IPC_EXCL makes shmget()
-   fail when the key already exists. `contig` requests a physically
-   contiguous segment (needed by some g2d hardware paths). */
-static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
+   fail when the key already exists. every shm segment is physically
+   contiguous and device-reachable, so any canvas can ride the hardware
+   g2d paths. */
+static graph_t* graph_new_shm_row(int32_t w, int32_t h) {
     graph_t* ret;
     uint32_t* pixels = NULL;
     int shm_id = -1;
@@ -179,11 +180,7 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
         key_t key = (key_t)(0x47525030u + (((uint32_t)getpid() & 0xffffu) << 16) +
                 (_graph_shm_seq & 0xffffu));
         _graph_shm_seq++;
-        if(contig) {
-            shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
-        }
-        else
-            shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL);
+        shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL);
     }
 
     if(shm_id <= 0) {
@@ -213,44 +210,16 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h, bool contig) {
 
     graph_init(ret, pixels, w, h);
     ret->shm_id = shm_id;
-    ret->shm_contig = contig;
     ret->need_free = true; /* graph_free owns the shm canvas */
     return ret;
 }
 
-/* QCOM8GEN3 A2D requires a 64-byte row pitch; V3D handles arbitrary widths.
-   Query once, and only for an unaligned canvas, so normal allocations do
-   not add an IPC round trip. A failed query keeps the conservative gate
-   for that allocation and is retried by the next unaligned one. */
-static bool graph_shm_needs_aligned_pitch(void) {
-    static int required = -1;
-    uint32_t version = 0;
-
-    if(required < 0) {
-        if(g2d_get_version(&version) != 0)
-            return true;
-        required = (version == 690) ? 1 : 0;
-    }
-    return required != 0;
-}
-
 /* create a w x h graph backed by a shared-memory canvas (zero-copy
-   capable for g2d operations). prefers a physically contiguous segment
-   for hardware g2d and falls back to a non-contiguous one when the
-   contig allocation is not available. */
+   capable for g2d operations). every shm segment is physically
+   contiguous, so the canvas is always hardware-eligible; whether an
+   op actually offloads is decided per request in graph_g2d.c. */
 graph_t* graph_new_shm(int32_t w, int32_t h) {
-    graph_t* g = NULL;
-    uint64_t pixels;
-    uint64_t pitch = (uint64_t)(uint32_t)w * sizeof(uint32_t);
-
-    pixels = (uint64_t)(uint32_t)w * (uint32_t)h;
-    if(has_g2d() == 0 && pixels >= G2D_MIN_SIZE &&
-            (pitch % GRAPH_SHM_ALIGN == 0 || !graph_shm_needs_aligned_pitch()))
-        g = graph_new_shm_row(w, h, true);
-
-    if(g == NULL)
-        g = graph_new_shm_row(w, h, false);
-    return g;
+    return graph_new_shm_row(w, h);
 }
 
 graph_t* graph_dup(graph_t* g) {

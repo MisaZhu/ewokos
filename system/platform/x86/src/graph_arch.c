@@ -18,7 +18,7 @@ extern "C" {
    for the alpha-mask blit, an inline SSE2 kernel just as aarch64 inlines its
    NEON mask). There are no cpu fallbacks: ARCH_BOOST is unconditional on x86
    and the *_cpu references are reached only through the non-BOOST dispatch in
-   libgraph, never from here. The engines ignore phy/contig (x86 works on the
+   libgraph, never from here. The engines ignore phy (x86 works on the
    virtual buffer), so 0,0 is passed for those. */
 
 int graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {

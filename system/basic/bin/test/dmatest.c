@@ -6,7 +6,7 @@
 
 /*
  * Big-block DMA test for the dynamic sys_dma architecture: one dma_alloc()
- * from block 0 must return a single physically-contiguous run inside the
+ * must return a single physically-contiguous run inside the
  * DMA-reachable range (kernel draws it from general RAM via
  * kalloc_contig_compact, not from a fixed carve-out). Verify the physical
  * placement, write a position-dependent pattern over every word, read it
@@ -32,10 +32,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    /* optional argv[1] = request size in MB; default 128MB. Rounded down to
+    /* optional argv[1] = request size in MB; default 2MB. Rounded down to
        whole kernel pages (4K/16K/64K builds) so the request matches the
        grant exactly. 4095MB is the uint32_t syscall size cap. */
-    uint64_t bytes = 128ull * 1024 * 1024;
+    uint64_t bytes = 2ull * 1024 * 1024;
     if(argc > 1) {
         int mb = atoi(argv[1]);
         if(mb <= 0 || mb > 4095) {
@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
     }
     uint32_t psize = info.page_size;
     uint32_t size = (uint32_t)(bytes / psize) * psize;
-    printf("dmatest: requesting %u bytes (%.2f GB) from dma block 0\n",
+    printf("dmatest: requesting %u bytes (%.2f GB) from the dma pool\n",
             size, size / (double)GB);
 
     printf("dmatest: sys_dma range [0x%llx, 0x%llx)\n",
@@ -57,12 +57,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    ewokos_addr_t vaddr = dma_alloc(0, size);
+    ewokos_addr_t vaddr = dma_alloc(size);
     if(vaddr == 0) {
         printf("dmatest: FAIL dma_alloc(%u) returned 0\n", size);
         return 1;
     }
-    ewokos_addr_t paddr = dma_phy_addr(0, vaddr);
+    ewokos_addr_t paddr = dma_phy_addr(vaddr);
     printf("dmatest: vaddr=0x%llx paddr=0x%llx\n",
             (unsigned long long)vaddr, (unsigned long long)paddr);
     if(paddr == 0 || (paddr & (psize - 1)) != 0) {
@@ -99,9 +99,9 @@ int main(int argc, char* argv[]) {
                     (uint32_t)((uint64_t)i * 4 / (1024 * 1024)));
     }
 
-    dma_free(0, vaddr);
+    dma_free(vaddr);
     printf("dmatest: freed, re-allocating 1MB to prove release...\n");
-    ewokos_addr_t v2 = dma_alloc(0, 1024 * 1024);
+    ewokos_addr_t v2 = dma_alloc(1024 * 1024);
     if(v2 == 0) {
         printf("dmatest: FAIL re-alloc after free returned 0\n");
         return 1;
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     }
-    dma_free(0, v2);
+    dma_free(v2);
 
     printf("dmatest: PASS (%u bytes alloc, placed, verified, freed)\n", size);
     return 0;

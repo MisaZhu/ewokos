@@ -14,8 +14,7 @@ static void add_g(str_t* str, const char* tag, const graph_t* g) {
     else if(g->shm_id <= 0)
         snprintf(item, sizeof(item), "%s=%dx%d/heap ", tag, g->w, g->h);
     else
-        snprintf(item, sizeof(item), "%s=%dx%d/%s ", tag, g->w, g->h,
-                g->shm_contig ? "contig" : "NOCONTIG");
+        snprintf(item, sizeof(item), "%s=%dx%d/shm ", tag, g->w, g->h);
     str_add(str, item);
 }
 
@@ -63,21 +62,21 @@ char* xserver_dev_cmd(vdevice_t* dev, int from_pid, int argc, char** argv, void*
     }
 
     /*graph_blt falls back to a full cpu pass in THIS process whenever a
-      canvas is not contig backed, with no error and no log anywhere - one
-      segment that lost its IPC_CONTIG allocation quietly turns the
-      compositor into a software blitter. This makes that visible: the
-      per-canvas flags say which segments degraded, and the reject counters
-      say how many pixels the cpu had to move because of it.*/
+      canvas cannot ride the engine, with no error and no log anywhere -
+      one ineligible segment quietly turns the compositor into a software
+      blitter. This makes that visible: the per-canvas flags say which
+      segments are shm-backed, and the reject counters say how many pixels
+      the cpu had to move because of it.*/
     if(strcmp(argv[0], "bufs") == 0) {
-        uint32_t rj_num = 0, rj_noncontig = 0, rj_small = 0;
+        uint32_t rj_num = 0, rj_small = 0;
         uint64_t rj_px = 0;
-        graph_g2d_reject_stats(&rj_num, &rj_noncontig, &rj_small, &rj_px);
+        graph_g2d_reject_stats(&rj_num, &rj_small, &rj_px);
 
         str_t* str = str_new("");
         char item[160];
         snprintf(item, sizeof(item),
-                "g2d rejects: %u (noncontig %u, small %u), cpu-moved: %uK px\n",
-                rj_num, rj_noncontig, rj_small, (uint32_t)(rj_px / 1024));
+                "g2d rejects: %u (small %u), cpu-moved: %uK px\n",
+                rj_num, rj_small, (uint32_t)(rj_px / 1024));
         {
             uint32_t b_gpu = 0, b_notsup = 0, b_canvas = 0, b_rect = 0;
             uint32_t b_tmp = 0, b_drv = 0;

@@ -1,6 +1,7 @@
 #include <mm/shm.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
+#include <mm/dma.h>
 #include <mm/mmu.h>
 #include <mm/mmudef.h>
 #include <kernel/kernel.h>
@@ -15,15 +16,7 @@
 #define 	IPC_CREAT   00001000 /* create if key is nonexistent */
 #define 	IPC_EXCL    00002000 /* fail if key exists */
 #define 	IPC_RMID    0 /* remove resource (mirror of sys/ipc.h) */
-/* ewok-specific shmctl cmd (mirror of sys/ipc.h): query contig backing */
-#define 	IPC_SHM_IS_CONTIG 0x01000001
-/* ewokos-specific (mirror of sys/ipc.h): back the new segment from the
-   reserved contiguous slab (_sys_info.shm_contig) instead of scattered
-   kalloc pages, so the physical memory is contiguous and usable by dma
-   hardware. only affects creation; fails (never silently falls back) when
-   the slab is unconfigured or full */
-#define 	IPC_CONTIG  0x01000000
-/* DMA pin hold: prevents the contig physical run from being freed while a
+/* DMA pin hold: prevents the physical run from being freed while a
    device (e.g. GPI) may still read/write it.  pin must be balanced by an
    unpin from the same DMA owner before segment teardown. */
 #define 	IPC_DMA_PIN   4
@@ -35,7 +28,6 @@ extern void mcore_unlock(int32_t* v);
 #endif
 
 static ewokos_addr_t shmem_tail = 0;
-static ewokos_addr_t shmem_contig_tail = 0;
 static int32_t id_counter = 1;
 static int32_t _shm_spin = 0;
 
@@ -49,8 +41,7 @@ typedef struct share_mem {
     int32_t owner_pid; //process id which alloced this shm
     int32_t refs;
     uint32_t pins;   // DMA-pinned while hardware may still reference it
-    uint8_t contig; //backed by the contiguous slab instead of kalloc pages
-    ewokos_addr_t phy_base; //slab physical base, valid when contig
+    ewokos_addr_t phy_base; //contiguous run physical base, 0 while free
     struct share_mem* next;
     struct share_mem* prev;
 } share_mem_t;
@@ -58,97 +49,64 @@ typedef struct share_mem {
 static share_mem_t* _shm_head = NULL;
 static share_mem_t* _shm_tail = NULL;
 
-/* contiguous slab sub-allocator: best-fit with split and merge, managing
-   physical page runs inside _sys_info.shm_contig. entries are never
-   compacted (released ones turn into empty slots, paddr == 0), so no
-   overlapping copies are needed. always called with the shm lock held.
+/* Every shm segment is backed by a dynamically claimed physically-contiguous
+   run of GENERAL RAM (mm_alloc_contig with page_move compaction, the same
+   mechanism dma_alloc uses), so any segment can be handed to dma hardware
+   through shm_phy_addr(). There is no reserved carve-out: while no segment
+   owns them the pages stay in the page allocator and any process can reuse
+   them. Total live shm is bounded by the SHM_MAX_SIZE virtual window.
 
-   Best-fit (smallest sufficient free run) instead of first-fit: a large
-   request - e.g. the full-screen framebuffer+depth pair a opengl app needs
-   the moment its window is maximized - is far more likely to find one
-   contiguous run when small allocations do not carve up the biggest free
-   runs front-to-back.  The entry table is sized generously, and a split with
-   no free slot for its remainder grants the whole run rather than failing, so
-   a request that physically fits is never refused just because the table
-   momentarily filled - the old first-fit + hard 64-entry cap did exactly
-   that, which the opengl GPU path latched into a permanent CPU fallback on
-   window resize even with hundreds of MB of slab free. */
-#define SHM_POOL_MAX 128
-typedef struct {
-    ewokos_addr_t paddr; //0 means empty slot
-    uint32_t pages;
-    uint8_t used;
-} shm_pool_item_t;
+   Runs are drawn from [shm_phy_base, shm_phy_base+shm_phy_size), fixed at
+   shm_init: the arch_dma_range() hardware limit (every segment may be a
+   GPU/accelerator buffer, so its pages MUST be device-reachable), raised
+   above 4GB when the BSP opts in via arch_relocate_dma_high() and RAM is
+   well above it - that keeps the low 4GB free for one contiguous user heap.
+   always called with the shm lock held. */
+static ewokos_addr_t shm_phy_base = 0;
+static ewokos_addr_t shm_phy_size = 0;
 
-static shm_pool_item_t _shm_pool[SHM_POOL_MAX];
-static uint32_t _shm_pool_count = 0;
-
-/* find a free entry slot: reuse an emptied one (paddr == 0) or extend the
-   live count; -1 when the table is completely full. */
-static int32_t shm_pool_slot(void) {
-    for(uint32_t j = 0; j < _shm_pool_count; j++) {
-        if(_shm_pool[j].paddr == 0)
-            return (int32_t)j;
-    }
-    if(_shm_pool_count >= SHM_POOL_MAX)
-        return -1;
-    return (int32_t)_shm_pool_count++;
-}
-
-static ewokos_addr_t shm_pool_alloc(uint32_t pages) {
-    /* best-fit: pick the smallest free run that satisfies the request, so the
-       large contiguous runs a full-screen GPU target needs survive small
-       allocations instead of being chopped up front-to-back. */
-    int32_t best = -1;
-    for(uint32_t i = 0; i < _shm_pool_count; i++) {
-        shm_pool_item_t* it = &_shm_pool[i];
-        if(it->paddr == 0 || it->used || it->pages < pages)
-            continue;
-        if(best < 0 || it->pages < _shm_pool[best].pages)
-            best = (int32_t)i;
-    }
-    if(best < 0)
+/* Claim a contiguous physical run for a segment. The run is zeroed through
+   the cacheable kernel direct map (P2V - the shm window VA is unmapped in
+   kernel/syscall context) and then flipped to NOCACHE: dma_pages_set_attr
+   cleans the zeroing to DRAM before the flip, so no cached alias survives
+   while a device may read/write it - the same enter/leave protocol
+   dma_alloc/dma_release use. Returns the physical base, or 0 when no
+   contiguous run can be obtained. */
+static ewokos_addr_t shm_phys_alloc(uint32_t pages) {
+    if(shm_phy_size == 0)
         return 0;
-
-    shm_pool_item_t* it = &_shm_pool[best];
-    if(it->pages > pages) { //split the remainder into a free entry
-        int32_t slot = shm_pool_slot();
-        if(slot >= 0) {
-            _shm_pool[slot].paddr = it->paddr + pages * PAGE_SIZE;
-            _shm_pool[slot].pages = it->pages - pages;
-            _shm_pool[slot].used = 0;
-            it->pages = pages;
-        }
-        /* slot < 0 (table full): grant the whole run instead of failing; the
-           unused tail is never mapped and returns to the pool on free. */
-    }
-    it->used = 1;
-    return it->paddr;
+    ewokos_addr_t paddr = mm_alloc_contig(pages * PAGE_SIZE,
+            shm_phy_base, shm_phy_size);
+    if(paddr == 0)
+        return 0;
+    memset((void*)P2V(paddr), 0, (ewokos_addr_t)pages * PAGE_SIZE);
+    dma_pages_set_attr(paddr, pages, PTE_ATTR_NOCACHE);
+    return paddr;
 }
 
-static void shm_pool_free(ewokos_addr_t paddr) {
-    for(uint32_t i = 0; i < _shm_pool_count; i++) {
-        shm_pool_item_t* it = &_shm_pool[i];
-        if(it->paddr != paddr || !it->used)
-            continue;
-        it->used = 0;
-        //merge with physically adjacent free neighbours
-        for(uint32_t j = 0; j < _shm_pool_count; j++) {
-            shm_pool_item_t* nb = &_shm_pool[j];
-            if(j == i || nb->paddr == 0 || nb->used)
-                continue;
-            if(it->paddr + it->pages * PAGE_SIZE == nb->paddr) { //nb is right
-                it->pages += nb->pages;
-                nb->paddr = 0;
-            }
-            else if(nb->paddr + nb->pages * PAGE_SIZE == it->paddr) { //nb is left
-                it->paddr = nb->paddr;
-                it->pages += nb->pages;
-                nb->paddr = 0;
-            }
-        }
+/* Return a run to general RAM: restore the WRBACK direct-map alias and hand
+   the pages back to kalloc so processes can reuse them. The caller must have
+   unmapped every window/process PTE of the run first (a stale NOCACHE alias
+   of a recycled WRBACK page is a mismatched-attribute alias). */
+static void shm_phys_free(ewokos_addr_t paddr, uint32_t pages) {
+    if(paddr == 0)
         return;
+    dma_pages_set_attr(paddr, pages, PTE_ATTR_WRBACK);
+    kfree_contig((void*)P2V(paddr), pages);
+}
+
+/* Whether page_move compaction may relocate a physical page: pages owned by
+   a live segment are tracked by physical base here (devices hold the
+   physical address), which a PTE retarget alone cannot update. Free blocks
+   have already returned their runs, so only used segments are checked. */
+int32_t shm_page_movable(ewokos_addr_t paddr) {
+    for(share_mem_t* it = _shm_head; it != NULL; it = it->next) {
+        if(it->used && it->phy_base != 0 &&
+                paddr >= it->phy_base &&
+                paddr < it->phy_base + (ewokos_addr_t)it->pages * PAGE_SIZE)
+            return 0;
     }
+    return 1;
 }
 
 static inline void shm_lock(void) {
@@ -166,20 +124,29 @@ static inline void shm_unlock(void) {
 void shm_init() {
     //share memory base address at virtual address 1GB
     shmem_tail = ALIGN_UP(SHM_BASE, PAGE_SIZE);
-    //the contig slab is mapped through its OWN window below the scattered one
-    shmem_contig_tail = ALIGN_UP(SHM_CONTIG_BASE, PAGE_SIZE);
     _shm_head = NULL;
     _shm_tail = NULL;
     id_counter = 1;
 
-    //seed the contiguous slab pool when kernel.conf reserved one
-    _shm_pool_count = 0;
-    if(_sys_info.shm_contig.size > 0) {
-        _shm_pool[0].paddr = _sys_info.shm_contig.phy_base;
-        _shm_pool[0].pages = _sys_info.shm_contig.size / PAGE_SIZE;
-        _shm_pool[0].used = 0;
-        _shm_pool_count = 1;
+    /* Fix the physical allocation range (runs after sys_info_config, so
+       arch_dma_range sees the final allocable layout). The hardware limit
+       is a hard constraint - GPU/accelerators must reach every shm page.
+       arch_relocate_dma_high() only picks placement INSIDE that limit:
+       with 64-bit-clean masters and RAM well above 4GB, draw runs from
+       above 4GB so the low 4GB stays one contiguous user heap. The >6GB
+       threshold guarantees the high span is at least 2GB - far more than
+       the SHM_MAX_SIZE window can ever hold. */
+    ewokos_addr_t base, top;
+    arch_dma_range(&base, &top);
+    base = ALIGN_UP(base, PAGE_SIZE);
+    top = ALIGN_DOWN(top, PAGE_SIZE);
+    if(arch_relocate_dma_high() && top > (6ull*GB)) {
+        ewokos_addr_t hi = ALIGN_UP((ewokos_addr_t)(4ull*GB), PAGE_SIZE);
+        if(hi > base)
+            base = hi;
     }
+    shm_phy_base = base;
+    shm_phy_size = (top > base) ? (top - base) : 0;
 }
 
 static share_mem_t* shm_new(void) {
@@ -192,54 +159,14 @@ static share_mem_t* shm_new(void) {
     return ret;
 }
 
-static void shm_unmap_pages(ewokos_addr_t addr, uint32_t pages) {
+/* map a run of already claimed contiguous physical pages into the shm
+   window. The run was zeroed through the kernel direct map (P2V) and its
+   direct-map alias flipped to NOCACHE by shm_phys_alloc; here only the
+   window PTEs are installed, NOCACHE as well - shm segments are shared
+   with non-coherent hardware (g2d/V3D, dma engines) and every alias must
+   agree (see shm_proc_map). */
+static int32_t shm_map_pages(ewokos_addr_t addr, ewokos_addr_t paddr, uint32_t pages) {
     uint32_t i;
-    for (i = 0; i < pages; i++) {
-        ewokos_addr_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
-
-        //get the kernel address for kalloc/kfree
-        ewokos_addr_t kernel_addr = P2V(physical_addr);
-        kfree_page((void *) kernel_addr);
-        unmap_page(_kernel_info.kernel_vm, addr);
-        flush_tlb_addr(addr); /* scope invalidation to just this page */
-        addr += PAGE_SIZE;
-    }
-}
-
-static int32_t shm_map_pages(ewokos_addr_t addr, uint32_t pages) {
-    ewokos_addr_t old_addr = addr;
-    uint32_t i;
-    for (i = 0; i < pages; i++) {
-        char *page = kalloc_page();
-        if(page == NULL) {
-            shm_unmap_pages(old_addr, i);
-            return 0;
-        }
-        memset(page, 0, PAGE_SIZE);
-
-        map_page(_kernel_info.kernel_vm,
-                addr,
-                V2P(page),
-                AP_RW_D, PTE_ATTR_WRBACK);
-        flush_tlb_addr(addr); /* scope invalidation to just this page */
-        addr += PAGE_SIZE;
-    }
-    return 1;
-}
-
-/* map a run of already reserved contiguous physical pages into the shm
-   window. zeroing must go through the kernel direct map (P2V, set up in
-   map_allocable_pages), NOT the window VA: the window sits in the private
-   user half of the address space and is unmapped in kernel/syscall context.
-   contig segments are shared with non-coherent hardware (g2d/V3D, dma
-   engines) and are mapped NOCACHE everywhere - see shm_proc_map */
-static int32_t shm_map_pages_contig(ewokos_addr_t addr, ewokos_addr_t paddr, uint32_t pages) {
-    uint32_t i;
-    memset((void*)P2V(paddr), 0, pages * PAGE_SIZE);
-    /* the zeroing went through the cacheable direct map; push it to DRAM
-       and drop the lines, or a later eviction would overwrite what the
-       GPU/CPU write through the NOCACHE alias below */
-    dcache_flush_range((void*)P2V(paddr), pages * PAGE_SIZE);
     for (i = 0; i < pages; i++) {
         map_page(_kernel_info.kernel_vm,
                 addr,
@@ -252,33 +179,23 @@ static int32_t shm_map_pages_contig(ewokos_addr_t addr, ewokos_addr_t paddr, uin
     return 1;
 }
 
-static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t contig) {
+static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
     size = ALIGN_UP(size, 32);
-    /* contig and scattered draw virtual addresses from SEPARATE windows: contig
-       from its own slab-sized window (SHM_CONTIG_BASE), scattered from
-       SHM_BASE. Sharing one tail/window is what stranded the contig slab. */
-    ewokos_addr_t addr = contig ? shmem_contig_tail : shmem_tail;
+    ewokos_addr_t addr = shmem_tail;
     uint32_t pages = (size / PAGE_SIZE);
     if((size % PAGE_SIZE) != 0)
         pages++;
 
-    /* grab the contiguous physical run up front; strict failure when the
-       slab is unconfigured or exhausted (never fall back to scattered
-       pages, hardware would silently get a non-contiguous buffer) */
-    ewokos_addr_t pool_paddr = 0;
-    if(contig) {
-        pool_paddr = shm_pool_alloc(pages);
-        if(pool_paddr == 0) {
-            return -1;
-        }
-    }
+    /* grab the contiguous physical run up front; strict failure when no
+       contiguous run can be obtained (never fall back to scattered pages,
+       hardware would silently get a non-contiguous buffer) */
+    ewokos_addr_t paddr = shm_phys_alloc(pages);
+    if(paddr == 0)
+        return -1;
 
-    
     share_mem_t* i = _shm_head;
     while(i != NULL) { //search for available memory block
-        /* free blocks keep their backing type: a slab run cannot back a
-           scattered request and vice versa */
-        if(!i->used && i->pages >= pages && i->contig == contig)
+        if(!i->used && i->pages >= pages)
             break;
         i = i->next;
     }
@@ -291,7 +208,6 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t conti
             if(tmp != NULL) {
                 tmp->pages = i->pages -  pages;
                 tmp->addr = i->addr + (pages * PAGE_SIZE);
-                tmp->contig = i->contig; //free remainder keeps the backing type
                 i->pages = pages;
                 tmp->next = i->next;
                 tmp->prev = i;
@@ -304,22 +220,14 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t conti
         }
     }
     else { // not found, need to expand pages for new block.
-        /* bound each backing type by its OWN window: a contig segment is capped
-           by the reserved slab (shm_contig.size), never by the scattered window,
-           so kernel.conf shm_contig_size is what actually limits contig shm. */
-        ewokos_addr_t win_top = contig ?
-                (SHM_CONTIG_BASE + _sys_info.shm_contig.size) :
-                (SHM_BASE + SHM_MAX_SIZE);
-        if((addr + size) >= win_top) {
-            if(contig)
-                shm_pool_free(pool_paddr);
+        if((addr + size) >= (SHM_BASE + SHM_MAX_SIZE)) {
+            shm_phys_free(paddr, pages);
             return -1;
         }
 
         i = shm_new();
         if(i == NULL) {
-            if(contig)
-                shm_pool_free(pool_paddr);
+            shm_phys_free(paddr, pages);
             return -1;
         }
         i->addr = addr;
@@ -333,38 +241,23 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag, uint8_t conti
         }
     }		
 
-    /* map pages for a fresh block; a REUSED free contig block must also be
-       remapped: free_item returned its physical run to the slab pool, so the
-       window PTEs still point at a run somebody else may own now. Retargeting
-       them at pool_paddr is mandatory or two segments alias the same memory
-       (scattered blocks are different: their kalloc pages stay with the block) */
-    if(i->pages == 0 || contig) {
-        int32_t ok;
-        if(contig)
-            ok = shm_map_pages_contig(addr, pool_paddr, pages);
-        else
-            ok = shm_map_pages(addr, pages);
-        if(!ok) {
-            if(contig)
-                shm_pool_free(pool_paddr);
-            return -1;
-        }
-        i->pages = pages;
-    }	
+    /* map pages for a fresh OR reused block: free_item returned the physical
+       run to the page allocator and dropped the window PTEs, so a reused
+       block has no backing left and must always be remapped onto paddr -
+       mapping is mandatory or the segment has no backing at all. */
+    if(shm_map_pages(addr, paddr, pages) == 0) {
+        shm_phys_free(paddr, pages);
+        return -1;
+    }
+    i->pages = pages;
 
-    if(contig) {
-        if(addr == shmem_contig_tail)
-            shmem_contig_tail += pages * PAGE_SIZE;
-    }
-    else if(addr == shmem_tail) {
+    if(addr == shmem_tail)
         shmem_tail += pages * PAGE_SIZE;
-    }
 
     i->used = 1;
     i->key = key;
     i->id = id_counter++;
-    i->contig = contig;
-    i->phy_base = pool_paddr;
+    i->phy_base = paddr;
     proc_t* current_proc = get_current_proc();
     i->owner_pid = current_proc ? current_proc->info.pid : -1;
     i->flag = flag;
@@ -403,7 +296,7 @@ int32_t shm_get(int32_t key, uint32_t size, int32_t flag) {
         flag = 0666;
     }
 
-    int32_t ret = shm_alloc(key, size, (flag & 0666), (flag & IPC_CONTIG) != 0);
+    int32_t ret = shm_alloc(key, size, (flag & 0666));
     shm_unlock();
     return ret;
 }
@@ -443,16 +336,19 @@ uint32_t shm_alloced_size(void) {
 }
 
 static share_mem_t* free_item(share_mem_t* it) {
-    if(it->contig) {
-        /* hand the physical run back to the slab pool right away; the window
-           block itself stays free and is still merged with neighbours below
-           (the merge is contig-type guarded, and reuse always remaps the
-           window PTEs onto a fresh pool run, so stale PTEs are harmless) */
-        shm_pool_free(it->phy_base);
+    if(it->phy_base != 0) {
+        /* drop the window PTEs BEFORE the pages recycle: they are NOCACHE and
+           would otherwise alias a page another owner now maps WRBACK. Then
+           hand the physical run back to general RAM (the flip inside
+           shm_phys_free ends with a global flush_tlb, publishing the unmap).
+           The window block itself stays free and is still merged with
+           neighbours below; reuse always remaps the window onto a fresh run. */
+        unmap_pages(_kernel_info.kernel_vm, it->addr, it->pages);
+        shm_phys_free(it->phy_base, it->pages);
+        it->phy_base = 0;
     }
-    //shm_unmap_pages(it->addr, it->pages);
     it->used = 0;
-    if(it->next != NULL && !it->next->used && it->next->contig == it->contig) { //merge right free items
+    if(it->next != NULL && !it->next->used) { //merge right free items
         share_mem_t* p = it->next;
         it->next = p->next;
         if(p->next != NULL)
@@ -463,7 +359,7 @@ static share_mem_t* free_item(share_mem_t* it) {
         kfree(p);
     }
 
-    if(it->prev != NULL && !it->prev->used && it->prev->contig == it->contig) { //merge left free items
+    if(it->prev != NULL && !it->prev->used) { //merge left free items
         share_mem_t* p = it->prev;
         p->next = it->next;
         if(it->next != NULL)
@@ -561,21 +457,19 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
         access = AP_RW_R;
 
     /*
-     * A contig segment is the CPU<->accelerator exchange buffer (g2d canvas,
+     * A shm segment is the CPU<->accelerator exchange buffer (g2d canvas,
      * dma target). The hardware drivers rely on it being Non-Cacheable in
      * every process and do no cache maintenance by VA, so the process view
-     * MUST be NOCACHE too. Ordinary shm is CPU-only and stays write-back.
-     * (Before ASID switching, flush_tlb() cleaned the whole D-cache on every
-     * context switch and hid a cacheable contig mapping; it no longer does.)
+     * MUST be NOCACHE too - every shm segment is physically contiguous and
+     * may be handed to a device.
      */
-    uint32_t attr = it->contig ? PTE_ATTR_NOCACHE : PTE_ATTR_WRBACK;
     ewokos_addr_t addr = it->addr;
     for (i = 0; i < it->pages; i++) {
         ewokos_addr_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
         if(map_page(proc->space->vm,
                 addr,
                 physical_addr,
-                access, attr) != 0) {
+                access, PTE_ATTR_NOCACHE) != 0) {
             /* Do not publish a partial attachment on page-table OOM. */
             uint32_t mapped = i;
             for(uint32_t j = 0; j < mapped; j++)
@@ -659,11 +553,11 @@ int32_t shm_proc_unmap_by_id(proc_t* proc, uint32_t id, bool free_it) {
  * (refs <= 0). proc_unmap_shms walks only the ATTACHED set
  * (proc->space->shms[]), so a segment created via shm_get(IPC_CREAT)
  * but never shmat'd would otherwise linger forever, holding a VA
- * window slot and - for contig segments - a slab pool run.
+ * window slot and a live contiguous run.
  *
  * Called from proc_funeral for TASK_TYPE_PROC right after
- * proc_unmap_shms, so segments whose refs dropped to zero during the
- * attached sweep have already been freed by shm_proc_unmap_it and
+ * proc_unmap_shms, so segments whose refs dropped to zero during
+ * the attached sweep have already been freed by shm_proc_unmap_it and
  * are not double-processed here.
  *
  * Safe with surviving threads of a dying owner: refs == 0 means no
@@ -698,9 +592,7 @@ void shm_release_orphans(int32_t owner_pid) {
    (refs == 0). An unattached segment is invisible to every process, so
    destroying it cannot affect anyone; a still-attached one is left
    untouched and the call fails. Lets a creator back out cleanly when a
-   follow-up step (e.g. its own shmat) fails right after shmget.
-   IPC_SHM_IS_CONTIG: return 1 when the segment is backed by the
-   physically-contiguous slab, 0 for scattered kalloc pages. */
+   follow-up step (e.g. its own shmat) fails right after shmget. */
 int32_t shm_ctrl(int32_t id, int32_t cmd) {
     shm_lock();
     share_mem_t* it = shm_item_by_id(id);
@@ -715,11 +607,8 @@ int32_t shm_ctrl(int32_t id, int32_t cmd) {
             ret = 0;
         }
     }
-    else if(cmd == IPC_SHM_IS_CONTIG) {
-        ret = it->contig ? 1 : 0;
-    }
     else if(cmd == IPC_DMA_PIN) {
-        if(it->contig && it->phy_base != 0 && it->pins != 0xffffffffu) {
+        if(it->phy_base != 0 && it->pins != 0xffffffffu) {
             it->pins++;
             ret = 0;
         }
@@ -746,14 +635,13 @@ int32_t shm_set_owner(uint32_t id, int32_t pid) {
     return 0;
 }
 
-/* resolve the physical address of vaddr inside a contig-backed shm segment
-   (for dma hardware). fails (returns 0) for scattered kalloc-backed
-   segments: their pages are not physically contiguous, and returning an
-   address would let hardware walk into unrelated memory */
-ewokos_addr_t shm_contig_phy_addr(int32_t id, ewokos_addr_t vaddr) {
+/* resolve the physical address of vaddr inside a shm segment (for dma
+   hardware). every segment is backed by one contiguous physical run, so
+   the translation is a simple offset from the run base. */
+ewokos_addr_t shm_phy_addr(int32_t id, ewokos_addr_t vaddr) {
     shm_lock();
     share_mem_t* it = shm_item_by_id(id);
-    if(it == NULL || !it->contig || it->phy_base == 0) {
+    if(it == NULL || it->phy_base == 0) {
         shm_unlock();
         return 0;
     }

@@ -16,10 +16,10 @@ extern "C" {
 
 #define MIN(a, b) (((a) > (b))?(b):(a))
 
-/* physical base of a contig shm graph buffer, 0 otherwise; consumed by
+/* physical base of a shm graph buffer, 0 otherwise; consumed by
    hardware g2d engines that work on physical addresses */
 static inline ewokos_addr_t graph_g2d_phy(const graph_t* g) {
-    return g->shm_contig ? shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer) : 0;
+    return g->shm_id > 0 ? shm_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer) : 0;
 }
 
 int graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
@@ -35,7 +35,7 @@ int graph_fill_arch(graph_t* g, int32_t x, int32_t y, int32_t w, int32_t h, uint
 
     /* opaque fill: handled by the g2d engine (memset / NEON row stores) */
     if(color_a(color) == 0xff) {
-        arch_g2d_fill(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, r.x, r.y, r.w, r.h, color);
+        arch_g2d_fill(g->buffer, graph_g2d_phy(g), g->w, g->h, r.x, r.y, r.w, r.h, color);
         return 0;
     }
 
@@ -60,8 +60,7 @@ int graph_fill_triangle_arch(graph_t* g, int32_t x1, int32_t y1, int32_t x2, int
         cx = g->clip.x; cy = g->clip.y; cw = g->clip.w; ch = g->clip.h;
     }
 
-    arch_g2d_fill_triangle(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0,
-            g->w, g->h, x1, y1, x2, y2, x3, y3, cx, cy, cw, ch, color);
+    arch_g2d_fill_triangle(g->buffer, graph_g2d_phy(g), g->w, g->h, x1, y1, x2, y2, x3, y3, cx, cy, cw, ch, color);
     return 0;
 }
 
@@ -101,8 +100,7 @@ inline int graph_blt_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw, int3
 
     /* 1:1 copy of the clipped region; the g2d engine keeps overlapping
        copies within one buffer safe (memmove ordering) */
-    arch_g2d_blt(src->buffer, graph_g2d_phy(src), src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
-            dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h);
+    arch_g2d_blt(src->buffer, graph_g2d_phy(src), src->w, src->h, sr.x, sr.y, sr.w, sr.h, dst->buffer, graph_g2d_phy(dst), dst->w, dst->h, dr.x, dr.y, sr.w, sr.h);
     return 0;
 }
 
@@ -131,8 +129,7 @@ inline int graph_blt_alpha_arch(graph_t* src, int32_t sx, int32_t sy, int32_t sw
 
     /* 1:1 blend of the clipped region; the g2d engine applies the same
        per-block transparent/opaque fast paths and div255 blend math */
-    arch_g2d_blt_alpha(src->buffer, graph_g2d_phy(src), src->shm_contig ? 1 : 0, src->w, src->h, sr.x, sr.y, sr.w, sr.h,
-            dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h, dr.x, dr.y, sr.w, sr.h, alpha);
+    arch_g2d_blt_alpha(src->buffer, graph_g2d_phy(src), src->w, src->h, sr.x, sr.y, sr.w, sr.h, dst->buffer, graph_g2d_phy(dst), dst->w, dst->h, dr.x, dr.y, sr.w, sr.h, alpha);
     return 0;
 }
 
@@ -279,7 +276,7 @@ static int graph_gaussian_neon(graph_t* g, int x, int y, int w, int h, int r) {
     w = ir.w;
     h = ir.h;
 
-    arch_g2d_gaussian(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, x, y, w, h, r);
+    arch_g2d_gaussian(g->buffer, graph_g2d_phy(g), g->w, g->h, x, y, w, h, r);
     return 0;
 }
 
@@ -295,7 +292,7 @@ int graph_scale_tof_arch(graph_t* g, graph_t* dst, double scale) {
 
     /* whole-surface scale: handled by the g2d engine (bilinear with
        integer-decimation and separable-upscale fast paths) */
-    arch_g2d_scale_to(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h);
+    arch_g2d_scale_to(g->buffer, graph_g2d_phy(g), g->w, g->h, dst->buffer, graph_g2d_phy(dst), dst->w, dst->h);
     return 0;
 }
 
@@ -305,7 +302,7 @@ int graph_scale_tof_fast_arch(graph_t* g, graph_t* dst, double scale) {
             dst->h < (int)(g->h*scale))
         return -1;
 
-    arch_g2d_scale_to(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, dst->buffer, graph_g2d_phy(dst), dst->shm_contig ? 1 : 0, dst->w, dst->h);
+    arch_g2d_scale_to(g->buffer, graph_g2d_phy(g), g->w, g->h, dst->buffer, graph_g2d_phy(dst), dst->w, dst->h);
     return 0;
 }
 
@@ -755,7 +752,7 @@ int graph_rotate_to_arch(graph_t* g, graph_t* ret, int rot) {
 
     /* quadrant rotations are implemented by the g2d engine (rot codes map
        1:1 to clockwise degrees) */
-    arch_g2d_rotate(g->buffer, graph_g2d_phy(g), g->shm_contig ? 1 : 0, g->w, g->h, ret->buffer, graph_g2d_phy(ret), ret->shm_contig ? 1 : 0, ret->w, ret->h, rot * 90);
+    arch_g2d_rotate(g->buffer, graph_g2d_phy(g), g->w, g->h, ret->buffer, graph_g2d_phy(ret), ret->w, ret->h, rot * 90);
     return 0;
 }
 

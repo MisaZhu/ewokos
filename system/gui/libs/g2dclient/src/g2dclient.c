@@ -115,10 +115,10 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
                 (_g2d_shm_seq & 0xffffu));
         _g2d_shm_seq++;
 
-        /* GPU canvases must come from the physically-contiguous IPC slab;
-           ordinary scattered shm cannot be represented by one VC4 address. */
+        /* every shm segment is physically contiguous and device-reachable,
+           so any canvas can be represented by one physical base. */
         id = shmget(key, (int)alloc64,
-                0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
+                0666 | IPC_CREAT | IPC_EXCL);
         if(id > 0)
             break;
     }
@@ -137,7 +137,7 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
     *shm_id = id;
     *pixels = (uint32_t*)addr;
     if(phy != NULL) {
-        *phy = shm_contig_phy_addr(id, (ewokos_addr_t)addr);
+        *phy = shm_phy_addr(id, (ewokos_addr_t)addr);
         if(*phy == 0 || ((*phy) & (G2D_SHM_ALIGN - 1u)) != 0) {
             shmdt(addr);
             shmctl(id, IPC_RMID, NULL);

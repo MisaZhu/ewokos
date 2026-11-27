@@ -706,14 +706,13 @@ static int32_t proc_expand_mem(proc_t *proc, int32_t page_num) {
         return 0;
 
     /*
-     * Bound the sbrk heap only when the identity-mapped sys_dma window was
-     * relocated to the top of RAM (arch_relocate_dma_high, see
-     * sys_info_config): the heap then grows toward it and must stop at it.
-     * On the legacy low layout the window sits right above the kernel image
-     * - a few MB on boards that load low (e.g. raspix) - dead in the middle
-     * of the natural heap range, so no VA bound applies there; heaps that
-     * grow past it just overlay the (per-process, user-half) identity
-     * mapping in their own address space, as they always have. Real
+     * Bound the sbrk heap only when the DMA-reachable range starts above 4GB
+     * (a BSP may place it at the top of RAM): the heap then grows toward it
+     * and must stop at it. On the legacy low layout the range sits right
+     * above the kernel image - a few MB on boards that load low (e.g. raspix)
+     * - dead in the middle of the natural heap range, so no VA bound applies
+     * there; heaps that grow past it just overlay the (per-process, user-half)
+     * identity mapping in their own address space, as they always have. Real
      * exhaustion is still caught below by kalloc_page().
      */
     if(_sys_info.sys_dma.phy_base > (4ull*GB) &&
@@ -1633,8 +1632,8 @@ void proc_funeral(proc_t* proc) {
          * Reap shm segments this proc created via shm_get(IPC_CREAT) but
          * never attached: proc_unmap_shms only walks space->shms[], so an
          * unattached segment with refs==0 is invisible to that sweep and
-         * would otherwise leak a VA window slot and (for contig) a slab
-         * pool run until reboot. Runs after the attached sweep so segments
+         * would otherwise leak a VA window slot and its
+         * physical run until reboot. Runs after the attached sweep so segments
          * whose refs just dropped to zero have already been freed.
          */
         shm_release_orphans(proc->info.pid);
@@ -1690,8 +1689,8 @@ void proc_funeral(proc_t* proc) {
          * never attached (refs <= 0). Such an orphan is invisible to the
          * owner proc's proc_unmap_shms / shm_release_orphans sweep, which is
          * keyed on the PROC's pid - not the thread's - so without this a
-         * thread-owned orphan leaks its VA window slot and (for contig) its
-         * slab pool run until reboot. Symmetric with the TASK_TYPE_PROC path
+         * thread-owned orphan leaks its VA window slot and its
+         * physical run until reboot. Symmetric with the TASK_TYPE_PROC path
          * above and safe: refs <= 0 means no vm maps the segment.
          */
         shm_release_orphans(proc->info.pid);

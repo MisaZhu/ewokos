@@ -309,13 +309,9 @@ void x_del_win(x_t* x, xwin_t* win) {
     }
     if(win->xinfo != NULL) {
         win->xinfo->ws_g_shm_id = -1;
-        win->xinfo->ws_g_shm_contig = false;
         win->xinfo->ws_g2_shm_id = -1;
-        win->xinfo->ws_g2_shm_contig = false;
         win->xinfo->ws_g_buffer_shm_id = -1;
-        win->xinfo->ws_g_buffer_shm_contig = false;
         win->xinfo->frame_g_shm_id = -1;
-        win->xinfo->frame_g_shm_contig = false;
     }
     
     shmdt(win->xinfo);
@@ -574,7 +570,6 @@ static void x_accept_update(x_t* x, xwin_t* win) {
           republish the id whenever the source moves (fps_async flips it onto
           the handoff buffer on the first present after a rebuild)*/
         win->xinfo->ws_g_buffer_shm_id = src->shm_id;
-        win->xinfo->ws_g_buffer_shm_contig = src->shm_contig;
     }
 
     win->ready = true;

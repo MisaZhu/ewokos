@@ -2,6 +2,7 @@
 #include <mm/kmalloc.h>
 #include <mm/kalloc.h>
 #include <mm/dma.h>
+#include <mm/shm.h>
 #include <kstring.h>
 #include <kprintf.h>
 #include <stddef.h>
@@ -149,8 +150,8 @@ static int32_t page_move_walk(ewokos_addr_t phy_from, ewokos_addr_t phy_to,
  * Caller contract: kernel lock held and the page quiescent - until the final
  * flush_tlb() completes, another core may still translate through a stale
  * TLB entry for phy_from, so concurrent stores to the page would be lost.
- * DMA-owned/pinned pages and the reserved shm_contig slab are refused: their
- * physical runs are tracked by the DMA/slab allocators, which a PTE retarget
+ * DMA-owned/pinned pages and live shm runs are refused: their
+ * physical runs are tracked by the DMA/shm allocators, which a PTE retarget
  * alone cannot update.
  */
 int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to) {
@@ -165,9 +166,8 @@ int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to) {
     /* DMA-owned or device-pinned storage cannot be retargeted by PTE alone */
     if(!dma_page_movable(phy_from))
         return -1;
-    if(_sys_info.shm_contig.size > 0 &&
-            phy_from >= _sys_info.shm_contig.phy_base &&
-            phy_from < _sys_info.shm_contig.phy_base + _sys_info.shm_contig.size)
+    /* nor can a run backing a live shm segment */
+    if(!shm_page_movable(phy_from))
         return -1;
 
     /* Validate every address space before touching a single PTE so a refusal
@@ -192,6 +192,35 @@ int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to) {
     flush_tlb();
     kfree_page((void*)P2V(phy_from));
     return total;
+}
+
+/* ------------------------------------------------------------------ */
+/* physically-contiguous allocation with compaction (mm_alloc_contig)   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Contiguous physical run inside [phy_base, phy_base + phy_size), with a
+ * page_move compaction fallback when no free run exists (the same organizing
+ * dma_alloc uses). phy_size == 0 leaves the upper end open. All page-aligned:
+ * size rounds up, phy_base rounds up, the grant is a whole-page run. Returns
+ * the physical base, or 0. Caller holds the kernel lock, pages quiescent.
+ */
+ewokos_addr_t mm_alloc_contig(uint32_t size, ewokos_addr_t phy_base,
+        ewokos_addr_t phy_size) {
+    size = ALIGN_UP(size, PAGE_SIZE);
+    if(size == 0)
+        return 0;
+    phy_base = ALIGN_UP(phy_base, PAGE_SIZE);
+    ewokos_addr_t phy_hi = 0;
+    if(phy_size != 0) {
+        phy_hi = phy_base + phy_size;
+        if(phy_hi < phy_base) /* wrap-around */
+            return 0;
+    }
+    void* base = kalloc_contig_compact(size / PAGE_SIZE, phy_base, phy_hi);
+    if(base == NULL)
+        return 0;
+    return V2P((ewokos_addr_t)base);
 }
 
 /* ------------------------------------------------------------------ */

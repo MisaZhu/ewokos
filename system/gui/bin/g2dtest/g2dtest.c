@@ -120,8 +120,8 @@ static int gauss_fast_check(graph_t* image, graph_t* tmp) {
         g2d_gaussian_blur_req_t req;
         /* img_canvas is declared later; construct the same descriptor. */
         g2d_gaussian_blur_req_init(&req,
-            g2d_canvas(image->shm_id,n*4,image->w,image->h,image->shm_contig),
-            g2d_canvas(tmp->shm_id,tmp->w*tmp->h*4,tmp->w,tmp->h,tmp->shm_contig),
+            g2d_canvas(image->shm_id,n*4,image->w,image->h),
+            g2d_canvas(tmp->shm_id,tmp->w*tmp->h*4,tmp->w,tmp->h),
             g2d_rect(0,0,image->w,image->h),radii[ri]);
         for(unsigned ci=0;ci<sizeof(colors)/sizeof(colors[0]);ci++) {
             for(unsigned i=0;i<n;i++) image->buffer[i]=colors[ci];
@@ -177,7 +177,7 @@ static void canvas_free(graph_t* g) {
 
 static g2d_canvas_t img_canvas(const graph_t* g) {
     return g2d_canvas(g->shm_id, (uint32_t)g->w * (uint32_t)g->h * 4u,
-            (uint32_t)g->w, (uint32_t)g->h, g->shm_contig ? 1 : 0);
+            (uint32_t)g->w, (uint32_t)g->h);
 }
 
 static uint32_t make_color(uint8_t a, uint8_t r, uint8_t g, uint8_t b) {
@@ -1433,15 +1433,11 @@ int main(int argc, char** argv) {
        in place through its back end; the expected image comes from a
        scalar two-pass reference with the same fixed Q16 weights, so the
        comparison is bit-exact.  the canvases are created early in main
-       (while the contiguous shm slab is fresh): the GPU back end cannot
-       run a non-contiguous canvas, and late in the suite the big rotate
-       canvases may have exhausted it - such a run reports SKIP. */
+       every shm canvas is a contiguous device-reachable run, so the
+       GPU back end can always take it. */
     if(gblur == NULL || gtmp == NULL) {
         printf("FAIL %-22s create canvases failed\n", "gaussian_blur");
         failures++;
-    }
-    else if(gblur->shm_contig == 0 || gtmp->shm_contig == 0) {
-        printf("SKIP %-22s canvas not GPU-visible\n", "gaussian_blur");
     }
     else if(g_gauss_fast) {
         printf("QCOM8GEN3 fast blur: effect/DC/alpha acceptance; GPU/CPU timings use different kernels\n");

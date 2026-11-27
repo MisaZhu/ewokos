@@ -271,7 +271,6 @@ graph_t* display_fetch_graph(display_t* display) {
 
     int w, h, bpp;
     int32_t shm_id;
-    uint8_t contig;
     uint8_t* shm;
     graph_t* g;
 
@@ -293,7 +292,7 @@ graph_t* display_fetch_graph(display_t* display) {
         display->cache_g = NULL;
     }
 
-    shm_id = vfs_shm(display->fd, &contig, NULL);
+    shm_id = vfs_shm(display->fd, NULL);
     if(shm_id == -1) 
         return NULL;
     
@@ -305,14 +304,13 @@ graph_t* display_fetch_graph(display_t* display) {
     
     g = graph_new((uint32_t*)shm, w, h);
     g->shm_id = shm_id;
-    g->shm_contig = (contig != 0);
     display->shm = shm;
     display->shm_id = shm_id;
     display->g = g;
 
     /*off-screen back buffer: every fill/alpha/blt of a frame lands here and is
       synced to the framebuffer once per flush, so a partially-composited frame
-      is never scanned out. contig when a g2d device is present so the sync blit
+      is never scanned out. shm-backed so the sync blit
       is hardware-accelerated. On allocation failure fall back to drawing
       straight into the framebuffer (today's behavior, no regression).*/
     display->cache_g = graph_new_shm(w, h);

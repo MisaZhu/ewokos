@@ -56,9 +56,6 @@ typedef struct {
 	   by dma_v_addr()/dma_phy_addr(); the range only constrains where DMA
 	   buffers may land so limited DMA masters can reach them. */
 	dma_info_t     sys_dma;
-	/* reserved physically-contiguous slab backing IPC_CONTIG segments.
-	   size == 0 means the slab is not configured (contig shm fails) */
-	dma_info_t     shm_contig;
 	uint32_t       cores;
 	uint32_t       core_idles[MAX_CORE_NUM];
 	uint32_t       core_procs[MAX_CORE_NUM];
@@ -77,6 +74,20 @@ typedef struct {
 	uint64_t kernel_usec;
 	uint32_t svc_total;
 	uint32_t svc_counter[SYS_CALL_NUM];
+	/*
+	 * Appended last on purpose (same rule as vsyscall_info_t.fine): existing
+	 * offsets stay stable for partially-rebuilt trees. Precise occupancy
+	 * breakdown for memory reporting:
+	 * - dma_used: bytes held by DMA allocations (live + device-pinned).
+	 *   sys_dma is a range over general RAM, NOT a carve-out; only these
+	 *   bytes are actually occupied by the DMA layer.
+	 * - free_1k: free bytes in split-page 1K chunks, invisible to mem.free
+	 *   (whole-page list). Exact free capacity = mem.free + free_1k + mem.kfree.
+	 * Shm occupancy is mem.shared: every segment is a live contiguous run
+	 * of general RAM, and free blocks hold no pages.
+	 */
+	ewokos_addr_t dma_used;
+	ewokos_addr_t free_1k;
 } sys_state_t;
 
 typedef struct {

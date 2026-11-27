@@ -28,7 +28,7 @@
 #define BSP_CL_MAX_ARGS 16
 
 /* Resolved dispatch parameters g2dd hands the back end.  The __global buffer
-   arguments arrive as already-resolved contig physical bases in SSBO binding
+   arguments arrive as already-resolved physical bases in SSBO binding
    order (the GPU addresses them directly, zero copy), arg_size[i] giving each
    buffer's byte length (a 0 phy/size marks an unused trailing slot); `unif`
    points to num_uniforms u32 packed scalar + __constant argument values the

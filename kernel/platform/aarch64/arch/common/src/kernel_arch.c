@@ -4,9 +4,8 @@
  * Strong override of the weak default in the common kernel/kernel/src/kernel.c
  * (declared in <kernel/kernel.h>). It reproduces the `__aarch64__` branch that
  * used to live inline in the common show_config(): aarch64 addresses are
- * 64-bit, so each is printed as a hi/lo word pair, and the extra
- * sys_shm_contig_base line is shown. Keeping it here lets the common kernel.c
- * stay free of architecture #if macros.
+ * 64-bit, so each is printed as a hi/lo word pair. Keeping it here lets the
+ * common kernel.c stay free of architecture #if macros.
  */
 #include <mm/mmu.h>
 #include <mm/kalloc.h>
@@ -35,7 +34,6 @@ void arch_show_config(void) {
           "  allocable page dir   Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
           "  kmalloc              Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
           "  sys_dma_base         Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
-          "  sys_shm_contig_base  Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
           "  allocable mem info   Phy:0x%08x%08x ~ 0x%08x%08x (%d MB)\n"
           "  max proc num         %d\n"
           "  max task total       %d\n"
@@ -55,7 +53,6 @@ void arch_show_config(void) {
             SPLIT_ADDR(V2P(ALLOCABLE_PAGE_DIR_BASE)), SPLIT_ADDR(V2P(ALLOCABLE_PAGE_DIR_END)), ALLOCABLE_PAGE_DIR_SIZE / (1*MB),
             SPLIT_ADDR(V2P(KMALLOC_BASE)), SPLIT_ADDR(V2P(KMALLOC_END)), _sys_info.kmalloc_size / (1*MB),
             SPLIT_ADDR(_sys_info.sys_dma.phy_base), SPLIT_ADDR(_sys_info.sys_dma.phy_base+_sys_info.sys_dma.size), _sys_info.sys_dma.size/(1*MB),
-            SPLIT_ADDR(_sys_info.shm_contig.phy_base), SPLIT_ADDR(_sys_info.shm_contig.phy_base+_sys_info.shm_contig.size), _sys_info.shm_contig.size/(1*MB),
             SPLIT_ADDR(_sys_info.allocable_phy_mem_base), SPLIT_ADDR(_sys_info.allocable_phy_mem_top), (uint32_t)(get_free_mem_size() / (1*MB)),
             _kernel_config.max_proc_num,
             _kernel_config.max_task_num,

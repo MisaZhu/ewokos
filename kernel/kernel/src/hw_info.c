@@ -3,12 +3,14 @@
 sys_info_t _sys_info;
 
 /*
- * BSP hook: opt in to carving the reserved shm_contig slab from the top of
- * RAM instead of right after the kernel image. That frees the low 4GB for
- * one contiguous user heap (apps can malloc >4GB). sys_dma is not carved
- * here anymore - it is a range constraint over general RAM (arch_dma_range
- * keeps DMA buffers inside their masters' address reach regardless of how
- * far the heap grows). Weak default: keep the legacy low layout.
+ * BSP hook: opt in to placing DMA-shared contiguous runs (shm segments,
+ * which the GPU/accelerators read and write) in the HIGH part of RAM on
+ * boards well above 4GB, keeping the low 4GB free for one contiguous user
+ * heap (apps can malloc >4GB). Only BSPs whose DMA masters are 64-bit clean
+ * may return nonzero; the weak default keeps the legacy low layout (32-bit
+ * DMA controllers / firmware mailbox bus addresses). The hard reachability
+ * limit is always arch_dma_range() - this hook only picks placement inside
+ * that range (see shm_init).
  */
 __attribute__((weak))
 int32_t arch_relocate_dma_high(void) {
@@ -71,21 +73,6 @@ static uint32_t get_kmalloc_size(void) {
     return ret;
 }
 
-static uint32_t get_shm_contig_size(void) {
-    uint32_t ret = _kernel_config.shm_contig_size;
-
-    /*if(_kernel_config.shm_contig_size == 0) {
-        if(_sys_info.total_phy_mem_size >= 8ull*GB)
-            ret = 64*MB;
-        else if(_sys_info.total_phy_mem_size >= 4ull*GB)
-            ret = 16*MB;
-        else if(_sys_info.total_phy_mem_size >= 2ull*GB)
-            ret = 8*MB;
-    }
-    */
-    return ret;
-}
-
 void sys_info_init(void) {
     sys_info_init_arch();
 
@@ -108,14 +95,29 @@ void sys_info_init(void) {
  * contiguous runs from inside the range (compacting via page_move when
  * fragmented) so limited DMA masters can reach its buffers.
  *
- * The BSP arch_dma_range() gives the hardware limit. kernel.conf may narrow
- * it: dma_base raises the range start, dma_size caps the extent (0 = whole
- * arch range). The configured range is intersected with the hardware limit,
- * never widened beyond it, and the floor never drops below the allocable
- * heap base (kernel-core pages must not become DMA targets). Reserved slabs
- * inside the range (shm_contig etc.) are already kept out of the free list
- * by kalloc_arch, so contiguous scans skip them naturally.
+ * The BSP arch_dma_range() gives the hardware limit. kernel.conf may set the
+ * extent: dma_base raises the range start, dma_size sets the span (intersected
+ * with the hardware limit, never widened beyond it). With dma_size unset the
+ * span defaults to a bounded window (get_dma_default_size): arch_set_proc_vm()
+ * identity-maps the WHOLE sys_dma range into every process's user half, so an
+ * unbounded "whole RAM" range would build megabytes of NOCACHE page tables per
+ * fork and exhaust the page-table pool. The floor never drops below the
+ * allocable heap base (kernel-core pages must not become DMA targets).
+ * Reserved firmware/GPU pools inside the range are already kept out of the
+ * free list by kalloc_arch, so contiguous scans skip them naturally.
  */
+static uint32_t get_dma_default_size(void) {
+    if(_sys_info.total_phy_mem_size >= 8ull*GB)
+        return 64*MB;
+    if(_sys_info.total_phy_mem_size >= 4ull*GB)
+        return 32*MB;
+    if(_sys_info.total_phy_mem_size >= 2ull*GB)
+        return 16*MB;
+    if(_sys_info.total_phy_mem_size >= 512*MB)
+        return 8*MB;
+    return 4*MB;
+}
+
 static void publish_sys_dma_range(void) {
     ewokos_addr_t db, dt;
     arch_dma_range(&db, &dt);
@@ -131,12 +133,11 @@ static void publish_sys_dma_range(void) {
         base = ALIGN_UP(_sys_info.allocable_phy_mem_base, PAGE_SIZE);
     if(top < base)
         top = base;
-    if(_kernel_config.dma_size != 0) {
-        ewokos_addr_t ct = base +
-            ALIGN_DOWN(_kernel_config.dma_size, PAGE_SIZE);
-        if(ct < top)
-            top = ct;
-    }
+    ewokos_addr_t span = (_kernel_config.dma_size != 0) ?
+        _kernel_config.dma_size : get_dma_default_size();
+    ewokos_addr_t ct = base + ALIGN_DOWN(span, PAGE_SIZE);
+    if(ct < top)
+        top = ct;
 
     _sys_info.sys_dma.phy_base = base;
     _sys_info.sys_dma.size = top - base;
@@ -152,54 +153,16 @@ void sys_info_config(void) {
     _sys_info.kmalloc_size = get_kmalloc_size();
     _sys_info.allocable_phy_mem_base = V2P(KMALLOC_END);
 
-    if(_sys_info.shm_contig.size == 0)
-        _sys_info.shm_contig.size = get_shm_contig_size();
-    /* the contig shm VA window (SHM_CONTIG_BASE..SHM_BASE) is a static
-       reservation that also anchors KMALLOC_VM below it; a slab larger than
-       that window could never be fully mapped, so cap it here to keep the
-       physical carve and the virtual window consistent. */
-    if(_sys_info.shm_contig.size > SHM_CONTIG_VA_MAX)
-        _sys_info.shm_contig.size = SHM_CONTIG_VA_MAX;
-
     _sys_info.sys_dma.v_base = DMA_V_BASE;
 
     if(arch_reserve_memory_pools()) {
-        /* BSP fully manages the physical layout (reserved shm_contig / GPU
+        /* BSP fully manages the physical layout (reserved GPU / firmware
            pools) and sets allocable_phy_mem_top itself. sys_dma is still a
            range constraint, not a carve-out: derive it from arch_dma_range
            (narrowed by kernel.conf) unless the BSP already published one. */
         if(_sys_info.sys_dma.size == 0)
             publish_sys_dma_range();
         return;
-    }
-
-    /*
-     * On boards with RAM well above 4GB, optionally carve the reserved
-     * shm-contig slab from the TOP of RAM instead of right after the kernel
-     * image. The user sbrk heap then grows contiguously from the end of the
-     * ELF across the 4GB mark (apps can malloc >4GB). BSPs opt in through the
-     * weak arch_relocate_dma_high() hook (default 0 keeps the legacy low
-     * layout). sys_dma is no longer carved here - it is a range constraint
-     * over general RAM established below.
-     */
-    if(arch_relocate_dma_high() &&
-            (_sys_info.phy_offset + _sys_info.total_usable_mem_size) >
-            (6ull*GB + _sys_info.shm_contig.size)) {
-        ewokos_addr_t ram_top = _sys_info.phy_offset +
-            _sys_info.total_usable_mem_size;
-        _sys_info.shm_contig.phy_base = ram_top - _sys_info.shm_contig.size;
-        _sys_info.shm_contig.v_base = 0; //unused.
-        /*the whole region between the kernel image and the high carve-out
-          stays allocatable*/
-        _sys_info.allocable_phy_mem_top = _sys_info.shm_contig.phy_base;
-    }
-    else {
-        /* physically-contiguous slab for IPC_CONTIG shm segments, carved
-           right after the kernel image. kernel.conf "shm_contig_size"
-           re-carves it. */
-        _sys_info.shm_contig.phy_base = _sys_info.allocable_phy_mem_base;
-        _sys_info.shm_contig.v_base = 0; //unused.
-        _sys_info.allocable_phy_mem_base += _sys_info.shm_contig.size;
     }
 
     /*

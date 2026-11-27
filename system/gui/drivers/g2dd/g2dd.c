@@ -180,11 +180,10 @@ typedef struct {
 	uint32_t height;
 	uint32_t size; /* mapped byte size of a dma canvas (for SYS_MEM_UNMAP) */
 	uint8_t dma; /* dma canvas: buffer is a dma address, no shmdt */
-	uint8_t contig; /* backing memory physically contiguous */
 	uint8_t cached; /* mapping is owned by the attach cache: detach only
 	                   drops the cache reference, never shmdt()s */
 	int32_t shm_id; /* segment a cached mapping is bound to */
-	ewokos_addr_t phy; /* physical base of the buffer when contig */
+	ewokos_addr_t phy; /* physical base of the buffer (device-reachable) */
 } g2d_attached_t;
 
 static int32_t g2d_norm_degree(int32_t degree) {
@@ -235,8 +234,8 @@ static int32_t g2d_dma_map(ewokos_addr_t addr, uint32_t size, ewokos_addr_t* pad
      gated on refs <= 0), and the entry's own shmat IS one of those
      attaches. So while an entry stands, the id it names is alive and
      its window address still belongs to that segment; no per-hit
-     revalidation (an earlier shmctl(IPC_SHM_IS_CONTIG) syscall per
-     canvas per request) is needed. Ids grow monotonically on top of
+     revalidation (an earlier per-canvas shmctl syscall per request) is
+     needed. Ids grow monotonically on top of
      that, so a freed id is never handed out again either.
    - entries are dropped again (idle TTL, plus LRU eviction when the
      table is full). graph_free() only shmdt()s and the kernel frees a
@@ -254,7 +253,6 @@ static int32_t g2d_dma_map(ewokos_addr_t addr, uint32_t size, ewokos_addr_t* pad
 typedef struct {
 	int32_t shm_id;
 	uint32_t* buffer;
-	uint8_t contig;
 	ewokos_addr_t phy;
 	uint32_t bytes; /* segment size: the cache budgets what it pins */
 	uint32_t refs; /* in-flight attaches; >0 pins the entry */
@@ -269,7 +267,7 @@ static uint64_t _g2d_attach_sweep_ms = 0;
 /* ON by default: a compositor hands the very same handful of full-frame
    canvases to every request, so nearly every attach is a table hit and
    the per-request page walk disappears. What keeps the pinning honest is
-   g2d_cache_budget() below (a quarter of the contig slab), the idle TTL
+   g2d_cache_budget() below (a quarter of the DMA range), the idle TTL
    sweep and LRU eviction.
 
    `devcmd /dev/g2d cache 0` still drops back to the plain shmat/shmdt
@@ -291,20 +289,18 @@ static uint64_t _g2d_cache_bytes = 0;
 static uint64_t _g2d_cache_swept = 0;
 
 /* the cache's shmat is a kernel reference, so every entry pins its
-   segment (and its physically contiguous slab pages) even after the
-   owner released it. an unbounded pin set starves fresh
-   graph_new_shm(IPC_CONTIG) allocations: the fallback non-contig graphs
-   are refused by g2d_check_graph and drop the compositor onto cpu
-   copies over the non-cacheable shm window, which misses frame
-   deadlines and leaves windows undrawn. cap the pinning at a quarter of
-   the slab, resolved once from sysinfo. */
+   segment (and its contiguous physical run) even after the owner
+   released it. an unbounded pin set starves fresh graph_new_shm()
+   allocations: shm runs are drawn from the same DMA-reachable range as
+   dma_alloc, and pinned pages cannot be compacted away. cap the pinning
+   at a quarter of that range, resolved once from sysinfo. */
 static uint64_t g2d_cache_budget(void) {
 	static uint64_t budget = 0;
 	sys_info_t si;
 
 	if(budget == 0) {
 		sys_get_sys_info(&si);
-		budget = si.shm_contig.size / 4;
+		budget = si.sys_dma.size / 4;
 		if(budget == 0)
 			budget = 4 * 1024 * 1024;
 	}
@@ -462,7 +458,6 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		at->height = canvas->h;
 		at->size = canvas->size;
 		at->dma = 1;
-		at->contig = canvas->contig;
 		g2d_dma_unlock();
 		return 0;
 	}
@@ -485,12 +480,11 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		at->width = canvas->w;
 		at->height = canvas->h;
 		at->dma = 0;
-		at->contig = canvas->contig;
 		at->phy = canvas->phy;
-		if(at->contig != 0 && at->phy == 0)
-			at->phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
+		if(at->phy == 0)
+			at->phy = shm_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
 		if(!g2d_addr_aligned((ewokos_addr_t)p) ||
-				(at->contig != 0 && !g2d_addr_aligned(at->phy))) {
+				!g2d_addr_aligned(at->phy)) {
 			shmdt(p);
 			return G2D_ERR_FAILED;
 		}
@@ -510,7 +504,6 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		at->width = canvas->w;
 		at->height = canvas->h;
 		at->dma = 0;
-		at->contig = e->contig;
 		at->phy = e->phy;
 		at->cached = 1;
 		at->shm_id = canvas->shm_id;
@@ -552,7 +545,6 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		/* reserve the placeholder under the lock */
 		e->shm_id = canvas->shm_id;
 		e->buffer = NULL;
-		e->contig = canvas->contig;
 		e->phy = 0;
 		e->bytes = canvas->size;
 		e->refs = 1;
@@ -566,8 +558,8 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		   workers attaching different ids run in parallel */
 		p = shmat(canvas->shm_id, 0, 0);
 		ewokos_addr_t phy = canvas->phy;
-		if(p != (void*)-1 && canvas->contig != 0 && phy == 0)
-			phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
+		if(p != (void*)-1 && phy == 0)
+			phy = shm_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
 
 		g2d_map_lock();
 		if(p == (void*)-1) {
@@ -580,7 +572,7 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 			return G2D_ERR_FAILED;
 		}
 		if(!g2d_addr_aligned((ewokos_addr_t)p) ||
-				(canvas->contig != 0 && !g2d_addr_aligned(phy))) {
+				!g2d_addr_aligned(phy)) {
 			shmdt(p);
 			e->used = 0;
 			e->filling = 0;
@@ -597,7 +589,6 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		at->width = canvas->w;
 		at->height = canvas->h;
 		at->dma = 0;
-		at->contig = e->contig;
 		at->phy = phy;
 		at->cached = 1;
 		at->shm_id = canvas->shm_id;
@@ -616,12 +607,11 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 	at->width = canvas->w;
 	at->height = canvas->h;
 	at->dma = 0;
-	at->contig = canvas->contig;
 	at->phy = canvas->phy;
-	if(at->contig != 0 && at->phy == 0)
-		at->phy = shm_contig_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
+	if(at->phy == 0)
+		at->phy = shm_phy_addr(canvas->shm_id, (ewokos_addr_t)p);
 	if(!g2d_addr_aligned((ewokos_addr_t)p) ||
-			(at->contig != 0 && !g2d_addr_aligned(at->phy))) {
+			!g2d_addr_aligned(at->phy)) {
 		shmdt(p);
 		return G2D_ERR_FAILED;
 	}
@@ -736,7 +726,6 @@ static key_t g2d_tmp_shm_key(void) {
 static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	uint32_t size;
 	int32_t shm_id = -1;
-	uint8_t contig = 0;
 	void* p;
 
 	if(surf == NULL || w <= 0 || h <= 0)
@@ -744,21 +733,12 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	memset(surf, 0, sizeof(*surf));
 
 	size = (uint32_t)w * (uint32_t)h * sizeof(uint32_t);
-	/* a fresh random key per attempt: IPC_EXCL fails on key collisions */
+	/* a fresh random key per attempt: IPC_EXCL fails on key collisions.
+	   every shm segment is physically contiguous, so the back end always
+	   gets a resolved physical base for hardware 2d paths. */
 	for(int32_t i = 0; i < 4 && shm_id <= 0; i++) {
 		shm_id = shmget(g2d_tmp_shm_key(), (int)size,
-				0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
-	}
-	if(shm_id > 0) {
-		contig = 1;
-	}
-	else {
-		/* contig slab unconfigured or exhausted: fall back to a plain
-		   segment; the back end then works on the virtual pointer */
-		for(int32_t i = 0; i < 4 && shm_id <= 0; i++) {
-			shm_id = shmget(g2d_tmp_shm_key(), (int)size,
-					0666 | IPC_CREAT | IPC_EXCL);
-		}
+				0666 | IPC_CREAT | IPC_EXCL);
 	}
 	if(shm_id <= 0)
 		return G2D_ERR_FAILED;
@@ -774,12 +754,10 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	surf->width = (uint32_t)w;
 	surf->height = (uint32_t)h;
 	surf->dma = 0;
-	surf->contig = contig;
 	surf->shm_id = shm_id;
-	if(contig != 0)
-		surf->phy = shm_contig_phy_addr(shm_id, (ewokos_addr_t)p);
+	surf->phy = shm_phy_addr(shm_id, (ewokos_addr_t)p);
 	if(!g2d_addr_aligned((ewokos_addr_t)p) ||
-			(contig != 0 && !g2d_addr_aligned(surf->phy))) {
+			!g2d_addr_aligned(surf->phy)) {
 		shmdt(p);
 		shmctl(shm_id, IPC_RMID, NULL);
 		return G2D_ERR_FAILED;
@@ -791,7 +769,7 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
    and its rotation) and a compositor issues the same rotated blit every
    frame at the same size. Allocating them per request is two shmget +
    two shmat + two shmdt - each a per-page kernel walk (see the attach
-   cache comment) plus a contig slab alloc/free - for canvases that are
+   cache comment) plus a contiguous-run alloc/free - for canvases that are
    then thrown away. The pool keeps a handful of released scratch
    segments mapped and hands them out again by capacity (grow-only
    fit: a wider surface serves any smaller request, the row pitch is the
@@ -918,7 +896,7 @@ static void g2d_tmp_release(const g2d_attached_t* surf) {
 /* cpu fallback for widths below G2D_PITCH_ALIGN: dispatches to the
    platform arch engine's 1:1 blit (arch_g2d_blt / arch_g2d_blt_alpha,
    shipped in libgraph.a on every target). the software engine works on
-   the virtual pointers and ignores phy/contig (passed 0 here), and its
+   the virtual pointers and ignores phy (passed 0 here), and its
    NEON blocks + scalar/padded tail handle any width, same blend math as
    the simd paths. the back end clips the rect against both canvas
    bounds. */
@@ -927,10 +905,10 @@ static int32_t g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
 		const uint32_t* src_buf, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, uint8_t use_alpha, uint8_t alpha) {
 	if(use_alpha != 0)
-		return arch_g2d_blt_alpha((uint32_t*)src_buf, 0, 0, src_w, src_h, sx, sy, w, h,
-				dst_buf, 0, 0, dst_w, dst_h, dx, dy, w, h, alpha);
-	return arch_g2d_blt((uint32_t*)src_buf, 0, 0, src_w, src_h, sx, sy, w, h,
-			dst_buf, 0, 0, dst_w, dst_h, dx, dy, w, h);
+		return arch_g2d_blt_alpha((uint32_t*)src_buf, 0, src_w, src_h, sx, sy, w, h,
+				dst_buf, 0, dst_w, dst_h, dx, dy, w, h, alpha);
+	return arch_g2d_blt((uint32_t*)src_buf, 0, src_w, src_h, sx, sy, w, h,
+			dst_buf, 0, dst_w, dst_h, dx, dy, w, h);
 }
 
 /* pitch alignment rule for 1:1 copies: the width is split into an
@@ -938,7 +916,7 @@ static int32_t g2d_cpu_blt(uint32_t* dst_buf, int32_t dst_w, int32_t dst_h,
    end and a sub-alignment tail done on the cpu; copies narrower than
    G2D_PITCH_ALIGN never reach the back end at all (aw == 0). */
 static int32_t g2d_blt_split(const g2d_attached_t* dst,
-		uint32_t* src_buf, ewokos_addr_t src_phy, uint8_t src_contig,
+		uint32_t* src_buf, ewokos_addr_t src_phy,
 		int32_t src_w, int32_t src_h, int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		int32_t dx, int32_t dy, uint8_t use_alpha, uint8_t alpha) {
 	int32_t aw;
@@ -950,14 +928,10 @@ static int32_t g2d_blt_split(const g2d_attached_t* dst,
 	aw = sw - sw % G2D_PITCH_ALIGN_PX;
 	if(aw > 0) {
 		if(use_alpha != 0) {
-			ret = bsp_g2d_blt_alpha(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, aw, sh,
-					dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
-					dx, dy, aw, sh, alpha);
+			ret = bsp_g2d_blt_alpha(src_buf, src_phy, src_w, src_h, sx, sy, aw, sh, dst->buffer, dst->phy, (int32_t)dst->width, (int32_t)dst->height, dx, dy, aw, sh, alpha);
 		}
 		else {
-			ret = bsp_g2d_blt(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, aw, sh,
-					dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
-					dx, dy, aw, sh);
+			ret = bsp_g2d_blt(src_buf, src_phy, src_w, src_h, sx, sy, aw, sh, dst->buffer, dst->phy, (int32_t)dst->width, (int32_t)dst->height, dx, dy, aw, sh);
 		}
 		if(ret != 0) {
 			/* A wedged/failed GPU must not leave the destination stale. */
@@ -996,16 +970,14 @@ static int32_t g2dd_handle_fill_rect(proto_t* in, int* slot) {
 		return 0; /* fully clipped: nothing to fill */
 	}
 
-	G2DD_LOG("g2d_fill rect dst: %d x %d, color: 0x%08X, dst:contig: %d:(0x%08X)\n", dst.width, dst.height, req.color, dst.contig, dst.phy);
+	G2DD_LOG("g2d_fill rect dst: %d x %d, color: 0x%08X, dst phy: 0x%08X\n", dst.width, dst.height, req.color, dst.phy);
 
 	if(((req.color >> 24) & 0xff) == 0xff) {
-		ret = bsp_g2d_fill(dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height,
-				req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
+		ret = bsp_g2d_fill(dst.buffer, dst.phy, (int32_t)dst.width, (int32_t)dst.height, req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	else {
 		*slot = G2DD_STAT_FILL_ALPHA;
-		ret = bsp_g2d_fill_alpha(dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height,
-			req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
+		ret = bsp_g2d_fill_alpha(dst.buffer, dst.phy, (int32_t)dst.width, (int32_t)dst.height, req.rect.x, req.rect.y, req.rect.w, req.rect.h, req.color);
 	}
 	g2d_detach(&dst);
 	return ret;
@@ -1053,9 +1025,7 @@ static int32_t g2dd_handle_fill_triangle(proto_t* in, int* slot) {
 	if(((req.color >> 24) & 0xff) != 0xff)
 		*slot = G2DD_STAT_FILL_ALPHA;
 
-	ret = bsp_g2d_fill_triangle(dst.buffer, dst.phy, dst.contig,
-			(int32_t)dst.width, (int32_t)dst.height,
-			req.x1, req.y1, req.x2, req.y2, req.x3, req.y3, req.color);
+	ret = bsp_g2d_fill_triangle(dst.buffer, dst.phy, (int32_t)dst.width, (int32_t)dst.height, req.x1, req.y1, req.x2, req.y2, req.x3, req.y3, req.color);
 	g2d_detach(&dst);
 	return ret;
 }
@@ -1063,7 +1033,7 @@ static int32_t g2dd_handle_fill_triangle(proto_t* in, int* slot) {
 /* Render one clipped src->dst blit; picks between the 1:1 pitch-split
    path and the scaled bsp dispatch. */
 static int32_t g2d_blit_render(const g2d_attached_t* dst,
-		uint32_t* src_buf, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+		uint32_t* src_buf, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
 		const g2d_blit_req_t* req, uint8_t use_alpha) {
 	int32_t dx;
@@ -1087,26 +1057,22 @@ static int32_t g2d_blit_render(const g2d_attached_t* dst,
 			&sx, &sy, &sw, &sh, &dx, &dy, &dw, &dh))
 		return 0; /* fully clipped: nothing to draw */
 
-	G2DD_LOG("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d, src:contig: %d:(0x%08X), dst:contig: %d:(0x%08X)\n", 
-            src_w, src_h, dst->width, dst->height, use_alpha, src_contig, src_phy, dst->contig, dst->phy);
+	G2DD_LOG("g2d_blit_render src:%d x %d, dst: %d x %d, alpha: %d, src phy: 0x%08X, dst phy: 0x%08X\n",
+            src_w, src_h, dst->width, dst->height, use_alpha, src_phy, dst->phy);
 
 	/* 1:1 copies go through the pitch-aligned split (aligned part to the
 	   NEON back end, sub-alignment tail on the cpu); scaled blits are
 	   scalar inside the back end and need no split */
 	if(sw == dw && sh == dh) {
-		return g2d_blt_split(dst, src_buf, src_phy, src_contig, src_w, src_h,
+		return g2d_blt_split(dst, src_buf, src_phy, src_w, src_h,
 				sx, sy, sw, sh, dx, dy, use_alpha, req->alpha);
 	}
 
 	if(use_alpha != 0) {
-		return bsp_g2d_blt_alpha(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, sw, sh,
-				dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
-				dx, dy, dw, dh, req->alpha);
+		return bsp_g2d_blt_alpha(src_buf, src_phy, src_w, src_h, sx, sy, sw, sh, dst->buffer, dst->phy, (int32_t)dst->width, (int32_t)dst->height, dx, dy, dw, dh, req->alpha);
 	}
 
-	return bsp_g2d_blt(src_buf, src_phy, src_contig, src_w, src_h, sx, sy, sw, sh,
-			dst->buffer, dst->phy, dst->contig, (int32_t)dst->width, (int32_t)dst->height,
-			dx, dy, dw, dh);
+	return bsp_g2d_blt(src_buf, src_phy, src_w, src_h, sx, sy, sw, sh, dst->buffer, dst->phy, (int32_t)dst->width, (int32_t)dst->height, dx, dy, dw, dh);
 }
 
 /* blit src crop into the dst canvas; with rotation the crop goes into
@@ -1169,18 +1135,18 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 
 	/* no rotation: blt scales and clips the crop rect directly */
 	if(degree == 0) {
-		ret = g2d_blit_render(&dst, src.buffer, src.phy, src.contig,
+		ret = g2d_blit_render(&dst, src.buffer, src.phy,
 				(int32_t)src.width, (int32_t)src.height,
 				req.sx, req.sy, req.sw, req.sh, &req, use_alpha);
 		goto done;
 	}
 
 	/* rotated path: crop into a temp surface, then rotate into another;
-	   the temp surfaces are shm-backed so they carry phy/contig to the
+	   the temp surfaces are shm-backed so they carry phy to the
 	   back end like any client canvas, and pooled across requests. */
 	if(g2d_tmp_acquire(req.sw, req.sh, &cropped) != 0)
 		goto done;
-	ret = g2d_blt_split(&cropped, src.buffer, src.phy, src.contig,
+	ret = g2d_blt_split(&cropped, src.buffer, src.phy,
 			(int32_t)src.width, (int32_t)src.height,
 			req.sx, req.sy, req.sw, req.sh, 0, 0, 0, 0xff);
 	if(ret != 0) {
@@ -1198,15 +1164,14 @@ static int32_t g2dd_handle_blit(proto_t* in, uint8_t use_alpha) {
 		g2d_tmp_release(&cropped);
 		goto done;
 	}
-	ret = bsp_g2d_rotate(cropped.buffer, cropped.phy, cropped.contig, req.sw, req.sh,
-			rotated.buffer, rotated.phy, rotated.contig, rw, rh, degree);
+	ret = bsp_g2d_rotate(cropped.buffer, cropped.phy, req.sw, req.sh, rotated.buffer, rotated.phy, rw, rh, degree);
 	g2d_tmp_release(&cropped);
 	if(ret != 0) {
 		g2d_tmp_release(&rotated);
 		goto done;
 	}
 
-	ret = g2d_blit_render(&dst, rotated.buffer, rotated.phy, rotated.contig, rw, rh,
+	ret = g2d_blit_render(&dst, rotated.buffer, rotated.phy, rw, rh,
 			0, 0, rw, rh, &req, use_alpha);
 	g2d_tmp_release(&rotated);
 
@@ -1247,8 +1212,7 @@ static int32_t g2dd_handle_rotate(proto_t* in) {
 	bsp_g2d_rotated_size((int32_t)src.width, (int32_t)src.height,
 			degree, &rw, &rh);
 	if(rw == (int32_t)dst.width && rh == (int32_t)dst.height) {
-		ret = bsp_g2d_rotate(src.buffer, src.phy, src.contig, (int32_t)src.width, (int32_t)src.height,
-				dst.buffer, dst.phy, dst.contig, rw, rh, degree);
+		ret = bsp_g2d_rotate(src.buffer, src.phy, (int32_t)src.width, (int32_t)src.height, dst.buffer, dst.phy, rw, rh, degree);
 	}
 
 	g2d_detach(&src);
@@ -1274,18 +1238,17 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 		return G2D_ERR_FAILED;
 	}
 
-	G2DD_LOG("g2dd_handle_scale_to %d x %d, src:contig: %d:(0x%08X), dst:contig: %d:(0x%08X)\n", src.width, src.height, src.contig, src.phy, dst.contig, dst.phy);
+	G2DD_LOG("g2dd_handle_scale_to %d x %d, src phy: 0x%08X, dst phy: 0x%08X\n", src.width, src.height, src.phy, dst.phy);
 
 	/* same-size scale_to is a plain 1:1 copy: route it through the pitch
 	   split instead of the scaler's internal full-buffer row copy */
 	if(src.width == dst.width && src.height == dst.height) {
-		ret = g2d_blt_split(&dst, src.buffer, src.phy, src.contig,
+		ret = g2d_blt_split(&dst, src.buffer, src.phy,
 				(int32_t)src.width, (int32_t)src.height,
 				0, 0, (int32_t)src.width, (int32_t)src.height, 0, 0, 0, 0xff);
 	}
 	else {
-		ret = bsp_g2d_scale_to(src.buffer, src.phy, src.contig, (int32_t)src.width, (int32_t)src.height,
-				dst.buffer, dst.phy, dst.contig, (int32_t)dst.width, (int32_t)dst.height);
+		ret = bsp_g2d_scale_to(src.buffer, src.phy, (int32_t)src.width, (int32_t)src.height, dst.buffer, dst.phy, (int32_t)dst.width, (int32_t)dst.height);
 	}
 
 	g2d_detach(&src);
@@ -1295,7 +1258,7 @@ static int32_t g2dd_handle_scale_to(proto_t* in) {
 
 /* blit a src crop into a raw physical destination (scan-out buffer):
    no dst canvas to attach, the back end writes the physical range
-   directly. the src must be a contig shm canvas (the only kind the
+   directly. the src must be a shm canvas with a resolved phy (the only kind the
    hardware 2d can read); the dst range is validated against the
    declared geometry and size here, and against the ram windows inside
    the back end. supports both 1:1 copy and scaled (sw!=dw) blits;
@@ -1320,7 +1283,7 @@ static int32_t g2dd_handle_blit_to_phy(proto_t* in) {
 
 	if(g2d_attach(&req.src, &src) != 0)
 		return G2D_ERR_FAILED;
-	if(src.contig == 0 || src.phy == 0)
+	if(src.phy == 0)
 		goto done;
 
 	/* clip the src rect to the src canvas, proportionally adjusting the
@@ -1339,11 +1302,8 @@ static int32_t g2dd_handle_blit_to_phy(proto_t* in) {
 			(uint64_t)(dx + dw) * 4u > req.dst_size)
 		goto done;
 
-	G2DD_LOG("g2dd_handle_blit_to_phy %d x %d, src:contig: %d:(0x%08X), dst: 0x%08X sz:%d\n", src.width, src.height, src.contig, src.phy, req.dst_phy, req.dst_size);
-	ret = bsp_g2d_blt_phy(src.buffer, src.phy, src.contig,
-			(int32_t)src.width, (int32_t)src.height, sx, sy, sw, sh,
-			req.dst_phy, req.dst_size, req.dst_w, req.dst_h, req.pitch,
-			dx, dy, dw, dh);
+	G2DD_LOG("g2dd_handle_blit_to_phy %d x %d, src phy: 0x%08X, dst: 0x%08X sz:%d\n", src.width, src.height, src.phy, req.dst_phy, req.dst_size);
+	ret = bsp_g2d_blt_phy(src.buffer, src.phy, (int32_t)src.width, (int32_t)src.height, sx, sy, sw, sh, req.dst_phy, req.dst_size, req.dst_w, req.dst_h, req.pitch, dx, dy, dw, dh);
 done:
 	g2d_detach(&src);
 	return ret;
@@ -1379,7 +1339,7 @@ static int32_t g2dd_handle_rotate_to_phy(proto_t* in) {
 
 	if(g2d_attach(&req.src, &src) != 0)
 		return G2D_ERR_FAILED;
-	if(src.contig == 0 || src.phy == 0)
+	if(src.phy == 0)
 		goto done;
 	if(req.sx > (int32_t)src.width - req.sw || req.sy > (int32_t)src.height - req.sh)
 		goto done;
@@ -1394,10 +1354,7 @@ static int32_t g2dd_handle_rotate_to_phy(proto_t* in) {
 
 	G2DD_LOG("g2dd_handle_rotate_to_phy %d x %d crop %d,%d %dx%d rot %d -> 0x%08X +%d,%d\n",
 			src.width, src.height, req.sx, req.sy, req.sw, req.sh, degree, req.dst_phy, req.dx, req.dy);
-	ret = bsp_g2d_rotate_phy(src.buffer, src.phy, src.contig,
-			(int32_t)src.width, (int32_t)src.height, req.sx, req.sy, req.sw, req.sh,
-			req.dst_phy, req.dst_size, req.dst_w, req.dst_h, req.pitch,
-			req.dx, req.dy, degree);
+	ret = bsp_g2d_rotate_phy(src.buffer, src.phy, (int32_t)src.width, (int32_t)src.height, req.sx, req.sy, req.sw, req.sh, req.dst_phy, req.dst_size, req.dst_w, req.dst_h, req.pitch, req.dx, req.dy, degree);
 done:
 	g2d_detach(&src);
 	return ret;
@@ -1611,10 +1568,7 @@ static int32_t g2dd_handle_gaussian_blur(proto_t* in) {
 			g2d_detach(&dst);
 			return G2D_ERR_FAILED;
 		}
-		ret = bsp_g2d_gaussian_blur(dst.buffer, dst.phy, dst.contig,
-				tmp.buffer, tmp.phy, tmp.contig,
-				(int32_t)dst.width, (int32_t)dst.height,
-				x, y, w, h, req.radius);
+		ret = bsp_g2d_gaussian_blur(dst.buffer, dst.phy, tmp.buffer, tmp.phy, (int32_t)dst.width, (int32_t)dst.height, x, y, w, h, req.radius);
 		g2d_detach(&tmp);
 		g2d_detach(&dst);
 		return ret; /* 0 = G2D_OK, -1 = G2D_ERR_FAILED */
@@ -1644,23 +1598,21 @@ static int32_t g2dd_handle_pgl_clear(proto_t* in) {
 
 	if(g2d_attach(&req.dst, &dst) != 0)
 		return G2D_ERR_FAILED;
-	if(dst.contig == 0 || dst.phy == 0) {
+	if(dst.phy == 0) {
 		g2d_detach(&dst);
 		return G2D_ERR_NOT_SUPPORTED;
 	}
 
 	stride = req.stride ? req.stride : dst.width * 4u;
-	ret = bsp_g3d_clear(dst.buffer, dst.phy, dst.contig,
-			(int32_t)dst.width, (int32_t)dst.height,
-			stride, req.fmt, req.color, req.rb_swap);
+	ret = bsp_g3d_clear(dst.buffer, dst.phy, (int32_t)dst.width, (int32_t)dst.height, stride, req.fmt, req.color, req.rb_swap);
 	g2d_detach(&dst);
 	return ret;
 }
 
 /* portablegl GPU primitive draw: attach the render target plus the two
    CPU-computed vertex canvases (pos float3, col byte4) and hand their
-   physical bases to the back end zero-copy.  All three must be contig
-   (GPU-addressable); a non-contig buffer or a machine with no 3D path
+   physical bases to the back end zero-copy.  All three must be
+   GPU-addressable (resolved phy); an unresolvable buffer or a machine with no 3D path
    answers G2D_ERR_NOT_SUPPORTED.  The back end applies its own state /
    geometry gate and declines (G2D_ERR_NOT_SUPPORTED) anything outside the
    supported subset, never drawing it incorrectly. */
@@ -1678,7 +1630,6 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 	const void* unif_ptr = NULL;
 	int have_unif = 0;
 	ewokos_addr_t z_phy = 0;
-	uint8_t z_contig = 0;
 	int have_z = 0;
 	int have_tex = 0;
 	int have_uv = 0;
@@ -1720,7 +1671,7 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 
 	if(g2d_attach(&req.dst, &dst) != 0)
 		return G2D_ERR_FAILED;
-	if(dst.contig == 0 || dst.phy == 0) {
+	if(dst.phy == 0) {
 		g2d_detach(&dst);
 		return G2D_ERR_NOT_SUPPORTED;
 	}
@@ -1740,13 +1691,13 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 	} else {
 		memset(&col, 0, sizeof(col));
 	}
-	if(pos.contig == 0 || pos.phy == 0 ||
-	   (!col_absent && (col.contig == 0 || col.phy == 0))) {
+	if(pos.phy == 0 ||
+	   (!col_absent && (col.phy == 0))) {
 		ret = G2D_ERR_NOT_SUPPORTED;
 		goto done;
 	}
 	/* the persistent Z32F depth surface is optional (z.size == 0 -> the back
-	   end keeps tile-local Z).  When present it must be contig and
+	   end keeps tile-local Z).  When present it must have a resolved phy and
 	   GPU-addressable like the render target; a Z canvas that cannot be
 	   attached declines (NOT_SUPPORTED) rather than rendering against a
 	   stale or absent depth buffer. */
@@ -1756,12 +1707,11 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 			goto done;
 		}
 		have_z = 1;
-		if(z.contig == 0 || z.phy == 0) {
+		if(z.phy == 0) {
 			ret = G2D_ERR_NOT_SUPPORTED;
 			goto done;
 		}
 		z_phy = z.phy;
-		z_contig = z.contig;
 	}
 	/* Phase D: the TEX_MOD path resolves two additional canvases (linear
 	   RGBA8 texture image + per-vertex uv float3 attribute) into a filled
@@ -1779,18 +1729,16 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 			goto done;
 		}
 		have_uv = 1;
-		if(tex.contig == 0 || tex.phy == 0 ||
-		   uv.contig == 0 || uv.phy == 0) {
+		if(tex.phy == 0 ||
+		   uv.phy == 0) {
 			ret = G2D_ERR_NOT_SUPPORTED;
 			goto done;
 		}
 		texreq.tex_phy    = tex.phy;
-		texreq.tex_contig = tex.contig;
 		texreq.tex_stride = req.tex_stride;
 		texreq.tex_w      = req.tex_w;
 		texreq.tex_h      = req.tex_h;
 		texreq.uv_phy     = uv.phy;
-		texreq.uv_contig  = uv.contig;
 		use_tex = 1;
 	}
 
@@ -1824,8 +1772,8 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 	   unbound (ctex_phy[i] = 0), which is safe for programs whose FS
 	   never samples that unit.  A fixed-function draw (prog_handle < 0)
 	   skips this block entirely, so use_ctex stays 0 and NULL is passed
-	   to bsp_g3d_draw.  Each attached canvas must be contig + GPU-visible
-	   (like the TEX_MOD tex image); a non-contig ctex declines the whole
+	   to bsp_g3d_draw.  Each attached canvas must be GPU-visible
+	   (like the TEX_MOD tex image); an unresolvable ctex declines the whole
 	   draw rather than partially binding (the FS may sample any unit). */
 	memset(&ctexreq, 0, sizeof(ctexreq));
 	memset(have_ctex, 0, sizeof(have_ctex));
@@ -1839,12 +1787,11 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 				goto done;
 			}
 			have_ctex[i] = 1;
-			if(ctex[i].contig == 0 || ctex[i].phy == 0) {
+			if(ctex[i].phy == 0) {
 				ret = G2D_ERR_NOT_SUPPORTED;
 				goto done;
 			}
 			ctexreq.ctex_phy[i]    = ctex[i].phy;
-			ctexreq.ctex_contig[i] = ctex[i].contig;
 			ctexreq.ctex_stride[i] = req.ctex_stride[i];
 			ctexreq.ctex_w[i]      = req.ctex_w[i];
 			ctexreq.ctex_h[i]      = req.ctex_h[i];
@@ -1859,17 +1806,7 @@ static int32_t g2dd_handle_pgl_draw(proto_t* in) {
 	}
 
 	stride = req.stride ? req.stride : dst.width * 4u;
-	ret = bsp_g3d_draw(dst.phy, dst.contig,
-			(int32_t)dst.width, (int32_t)dst.height, stride, req.fmt,
-			req.mode, req.nverts,
-			pos.phy, pos.contig, col.phy, col.contig,
-			req.fs_id, req.color, req.rb_swap,
-			req.depth_func, req.depth_mask, req.blend_en, req.cull_en,
-			z_phy, z_contig, req.z_stride, req.first_frame,
-			req.clear_rgba, req.clear_z, &req.ext,
-			use_tex ? &texreq : NULL,
-			req.prog_handle, unif_ptr, req.num_uniforms,
-			use_ctex ? &ctexreq : NULL);
+	ret = bsp_g3d_draw(dst.phy, (int32_t)dst.width, (int32_t)dst.height, stride, req.fmt, req.mode, req.nverts, pos.phy, col.phy, req.fs_id, req.color, req.rb_swap, req.depth_func, req.depth_mask, req.blend_en, req.cull_en, z_phy, req.z_stride, req.first_frame, req.clear_rgba, req.clear_z, &req.ext, use_tex ? &texreq : NULL, req.prog_handle, unif_ptr, req.num_uniforms, use_ctex ? &ctexreq : NULL);
 done:
 	{
 		uint32_t i;
@@ -1895,7 +1832,7 @@ done:
 /* portablegl compiled-shader program upload: attach the CPU-side blob canvas
    (a serialized g2d_pgl_program_blob_t header + QPU/uniform payload) and hand
    it to the back end, which parses it and copies the QPU into GPU dma.  The
-   blob needs only a readable mapping (no contig/phy requirement): bsp_g3d
+   blob needs only a readable mapping (no phy requirement): bsp_g3d
    reads it on the CPU.  On success the non-negative program handle is returned
    via *handle_out and this returns G2D_OK, so the handle rides the reply
    payload (never the status int) because dev_cntl_by_pid normalises a positive
@@ -2118,10 +2055,10 @@ static int32_t g2dd_handle_cl_program(proto_t* in, int from_pid, int* handle_out
 	return h; /* negative G2D_ERR_* passes through verbatim */
 }
 
-/* Resolve each __global buffer argument canvas to its contig physical base
+/* Resolve each __global buffer argument canvas to its physical base
    (zero copy, exactly like the pgl sampler-unit ctex canvases) and the packed
    uniform canvas to a CPU buffer, then hand the lot to bsp_cl_dispatch.  A
-   non-contig / unresolvable argument is a per-launch staging problem, not a
+   unresolvable argument is a per-launch staging problem, not a
    platform capability gap, so it answers the transient G2D_ERR_FAILED (the
    client replays that launch on its CPU device) rather than the sticky
    G2D_ERR_NOT_SUPPORTED that would latch the whole GPU device off. */
@@ -2165,7 +2102,7 @@ static int32_t g2dd_handle_cl_dispatch(proto_t* in) {
 			goto done;
 		}
 		have[i] = 1;
-		if(at[i].contig == 0 || at[i].phy == 0) {
+		if(at[i].phy == 0) {
 			ret = G2D_ERR_FAILED;
 			goto done;
 		}

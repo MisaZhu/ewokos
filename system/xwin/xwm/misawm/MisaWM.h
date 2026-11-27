@@ -10,7 +10,7 @@ using namespace Ewok;
 /*how many windows can hold a cached frost at once. A misawm desktop rarely
   frames more than a handful; the rest are handled by LRU eviction (an evicted
   window simply re-allocates its slot the next time it is drawn). Kept modest so
-  the contig shm pool is never exhausted by cached frost canvases.*/
+  the shm pool is never exhausted by cached frost canvases.*/
 #define MISA_FROST_SLOTS 8
 
 /*MisaWM is ewokwm with a frosted-glass border: the frame edge and the title
@@ -46,9 +46,9 @@ class MisaWM : public XWM {
 	  on a full-screen rebuild - which a translucent window forces on nearly
 	  every present - xserverd issues DRAW_FRAME for every window in turn, each
 	  with a different winr; the shared (frostX,frostY) reuse key never matched
-	  the next window, and ensureFrost freed and re-allocated two contig shm
+	  the next window, and ensureFrost freed and re-allocated two shm
 	  canvases (graph_new_shm) plus re-blurred the whole window for EVERY window
-	  EVERY frame. That contig alloc/free churn - not the memcpy - was the WM cpu
+	  EVERY frame. That shm alloc/free churn - not the memcpy - was the WM cpu
 	  hog, and it defeated the backdrop_unchanged/memcmp skip because the shared
 	  sharp copy always belonged to a different window. Keying the cache by
 	  xinfo_t.win gives each window a stable slot: allocate once, reuse across

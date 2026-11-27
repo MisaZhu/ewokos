@@ -13,14 +13,12 @@ int   graph_g2d_avaliable(graph_t* g);
 
 /* diagnostic counters for requests the device path turned down, and the
    pixels the caller then had to move itself. num = total rejects,
-   noncontig = a shm canvas without contig backing (the silent-degradation
-   case), small = below G2D_MIN_SIZE (expected). All pointers optional. */
-void  graph_g2d_reject_stats(uint32_t* num, uint32_t* noncontig,
-					uint32_t* small, uint64_t* pixels);
+   small = below G2D_MIN_SIZE (expected). All pointers optional. */
+void  graph_g2d_reject_stats(uint32_t* num, uint32_t* small, uint64_t* pixels);
 
 /* gaussian-blur routing counters: gpu = dispatched to /dev/g2d,
    fb_* = fell back to the caller's cpu pass with the reason:
-   notsup (op marked unsupported), canvas (non-shm/contig canvas),
+   notsup (op marked unsupported), canvas (non-shm canvas),
    rect (partial or below-G2D_MIN_SIZE rect, refused by design),
    tmp (scratch alloc failed),
    drv (driver refused an otherwise-eligible request). all optional. */

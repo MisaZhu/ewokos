@@ -82,7 +82,7 @@ int32_t arch_g2d_init(void) {
 	return 0;
 }
 
-int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	if(argb == NULL || argb_w <= 0 || argb_h <= 0 || w <= 0 || h <= 0)
 		return 0;
@@ -437,9 +437,9 @@ static int g2d_blt_clip(int32_t src_w, int32_t src_h,
 	return (*sw > 0 && *sh > 0 && *dw > 0 && *dh > 0);
 }
 
-int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
 	if(argb_src == NULL || argb_dst == NULL ||
 			src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0 ||
@@ -700,9 +700,9 @@ static inline void g2d_alpha16_scaled_checked(uint32_t *dp, const uint32_t *sp,
 /* alpha blit: 1:1 goes through simd blocks with per-block transparent/
    opaque checks and a zero-padded scalar tail; scaled blits gather
    nearest-neighbor and blend per pixel with g2d_blend_argb_scalar. */
-int32_t arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
 	if(argb_src == NULL || argb_dst == NULL ||
 			src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0 ||
@@ -1095,8 +1095,8 @@ static inline uint8x8_t g2d_scale_lerp8(uint8x8_t a, uint8x8_t b, uint8x8_t w1) 
 	return vadd_u8(a, vreinterpret_u8_s8(vrshrn_n_s16(acc, 8)));
 }
 
-int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
-		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h) {
+int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, int32_t dst_w, int32_t dst_h) {
 	if(argb_src == NULL || argb_dst == NULL ||
 			src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0)
 		return 0;
@@ -1562,8 +1562,8 @@ static inline void g2d_rotate_180_neon(const uint32_t* src, uint32_t* dst, int w
    angles other than 0/90/180/270 pixels outside the rotated content
    become transparent.
    in-place (argb_src == argb_dst) is only valid for 0/180. */
-int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
-		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) {
+int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, int32_t dst_w, int32_t dst_h, int32_t degree) {
 	int32_t bw;
 	int32_t bh;
 	int32_t c;
@@ -1973,12 +1973,11 @@ static void gaussian_blur_neon(uint32_t* pixels, int width, int height,
 }
 
 /* in-place gaussian blur of a sub-rect. The software engine works on the
-   virtual pointer and ignores phy/contig; the core clamps the rect to the
+   virtual pointer and ignores phy; the core clamps the rect to the
    buffer bounds. radius <= 0 or an empty/fully clipped rect is a no-op. */
-int32_t arch_g2d_gaussian(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_gaussian(uint32_t* argb, ewokos_addr_t argb_phy, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius) {
-	(void)argb_phy; (void)contig;
-	if(argb == NULL || argb_w <= 0 || argb_h <= 0 || radius <= 0)
+	(void)argb_phy;	if(argb == NULL || argb_w <= 0 || argb_h <= 0 || radius <= 0)
 		return 0;
 	gaussian_blur_neon(argb, argb_w, argb_h, x, y, w, h, radius);
 	return 0;
@@ -1990,7 +1989,7 @@ int32_t arch_g2d_init(void) {
 	return 0;
 }
 
-int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
 	if(argb == NULL || argb_w <= 0 || argb_h <= 0 || w <= 0 || h <= 0)
 		return 0;
@@ -2010,39 +2009,39 @@ int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, in
 	return 0;
 }
 
-int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt(uint32_t* argb_src, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh) {
-	(void)argb_src; (void)src_phy; (void)src_contig; (void)src_w; (void)src_h;
+	(void)argb_src; (void)src_phy;(void)src_w; (void)src_h;
 	(void)sx; (void)sy; (void)sw; (void)sh;
-	(void)argb_dst; (void)dst_phy; (void)dst_contig; (void)dst_w; (void)dst_h;
+	(void)argb_dst; (void)dst_phy;(void)dst_w; (void)dst_h;
 	(void)dx; (void)dy; (void)dw; (void)dh;
 	return 0;
 }
 
-int32_t arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
+int32_t arch_g2d_blt_alpha(uint32_t* argb_src, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
 		int32_t sx, int32_t sy, int32_t sw, int32_t sh,
-		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, int32_t dst_w, int32_t dst_h,
 		int32_t dx, int32_t dy, int32_t dw, int32_t dh, uint8_t alpha) {
-	(void)argb_src; (void)src_phy; (void)src_contig; (void)src_w; (void)src_h;
+	(void)argb_src; (void)src_phy;(void)src_w; (void)src_h;
 	(void)sx; (void)sy; (void)sw; (void)sh;
-	(void)argb_dst; (void)dst_phy; (void)dst_contig; (void)dst_w; (void)dst_h;
+	(void)argb_dst; (void)dst_phy;(void)dst_w; (void)dst_h;
 	(void)dx; (void)dy; (void)dw; (void)dh; (void)alpha;
 	return 0;
 }
 
-int32_t arch_g2d_gaussian(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_gaussian(uint32_t* argb, ewokos_addr_t argb_phy, int32_t argb_w, int32_t argb_h,
 		int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius) {
-	(void)argb; (void)argb_phy; (void)contig; (void)argb_w; (void)argb_h;
+	(void)argb; (void)argb_phy;(void)argb_w; (void)argb_h;
 	(void)x; (void)y; (void)w; (void)h; (void)radius;
 	return 0;
 }
 
-int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
-		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h) {
-	(void)argb_src; (void)src_phy; (void)src_contig; (void)src_w; (void)src_h;
-	(void)argb_dst; (void)dst_phy; (void)dst_contig; (void)dst_w; (void)dst_h;
+int32_t arch_g2d_scale_to(uint32_t* argb_src, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, int32_t dst_w, int32_t dst_h) {
+	(void)argb_src; (void)src_phy;(void)src_w; (void)src_h;
+	(void)argb_dst; (void)dst_phy;(void)dst_w; (void)dst_h;
 	return 0;
 }
 
@@ -2053,10 +2052,10 @@ int32_t arch_g2d_rotated_size(int32_t src_w, int32_t src_h, int32_t degree,
 	return 0;
 }
 
-int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, uint8_t src_contig, int32_t src_w, int32_t src_h,
-		uint32_t* argb_dst, ewokos_addr_t dst_phy, uint8_t dst_contig, int32_t dst_w, int32_t dst_h, int32_t degree) {
-	(void)argb_src; (void)src_phy; (void)src_contig; (void)src_w; (void)src_h;
-	(void)argb_dst; (void)dst_phy; (void)dst_contig; (void)dst_w; (void)dst_h; (void)degree;
+int32_t arch_g2d_rotate(uint32_t* argb_src, ewokos_addr_t src_phy, int32_t src_w, int32_t src_h,
+		uint32_t* argb_dst, ewokos_addr_t dst_phy, int32_t dst_w, int32_t dst_h, int32_t degree) {
+	(void)argb_src; (void)src_phy;(void)src_w; (void)src_h;
+	(void)argb_dst; (void)dst_phy;(void)dst_w; (void)dst_h; (void)degree;
 	return 0;
 }
 
@@ -2105,7 +2104,7 @@ int32_t arch_g2d_fill_alpha(uint32_t* argb, int32_t argb_w, int32_t argb_h,
    clip window (clip_w/clip_h <= 0 = whole canvas) and to the buffer
    bounds, then fill it. a fully transparent color or a flat (zero-height)
    triangle is a no-op. */
-int32_t arch_g2d_fill_triangle(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t contig, int32_t argb_w, int32_t argb_h,
+int32_t arch_g2d_fill_triangle(uint32_t* argb, ewokos_addr_t argb_phy, int32_t argb_w, int32_t argb_h,
 		int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3,
 		int32_t clip_x, int32_t clip_y, int32_t clip_w, int32_t clip_h, uint32_t color) {
 	int32_t x0i = x1, y0i = y1, x1i = x2, y1i = y2, x2i = x3, y2i = y3;
@@ -2170,7 +2169,7 @@ int32_t arch_g2d_fill_triangle(uint32_t* argb, ewokos_addr_t argb_phy, uint8_t c
 			continue;
 
 		if(opaque)
-			arch_g2d_fill(argb, argb_phy, contig, argb_w, argb_h, xs, y, w, 1, color);
+			arch_g2d_fill(argb, argb_phy, argb_w, argb_h, xs, y, w, 1, color);
 		else
 			arch_g2d_fill_alpha(argb, argb_w, argb_h, xs, y, w, 1, color);
 	}

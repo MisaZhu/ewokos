@@ -86,7 +86,7 @@ MisaWM::FrostSlot* MisaWM::frostSlotFor(ewokos_addr_t win) {
 	FrostSlot* slot = findFrost(win);
 	if(slot == NULL) {
 		/*claim an empty slot, else evict (and free) the least-recently-used one
-		  so a busy desktop cannot pin more than MISA_FROST_SLOTS contig pairs*/
+		  so a busy desktop cannot pin more than MISA_FROST_SLOTS shm pairs*/
 		for(int i = 0; i < MISA_FROST_SLOTS; i++) {
 			if(frostSlots[i].win == 0) { slot = &frostSlots[i]; break; }
 		}
@@ -139,7 +139,7 @@ void MisaWM::ensureFrost(graph_t* desktop_g, xinfo_t* info) {
 	}
 
 	/*this window's own frost slot: stable across frames, so a full-screen
-	  rebuild no longer frees/re-allocates the contig canvases per window*/
+	  rebuild no longer frees/re-allocates the shm canvases per window*/
 	FrostSlot* slot = frostSlotFor(info->win);
 	if(slot == NULL)
 		return;

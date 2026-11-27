@@ -185,7 +185,6 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
     /*publishes -1 right away: an id pointing at freed memory is worse than
       no id*/
     win->xinfo->frame_g_shm_id = -1;
-    win->xinfo->frame_g_shm_contig = false;
 
     /*graph_new_shm allocates its own keyed shm canvas: the buffer and the
       shm id both travel inside frame_g, no window-level mirrors*/
@@ -194,10 +193,9 @@ void xwin_revalidate_geometry(x_t* x, xwin_t* win) {
         return; //retried on the next step
     win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
     /*xwm reads this off the published id to decide whether it may drive g2d
-      on the frame canvas. Leaving the freed buffer's flag behind would either
-      cost the acceleration or, worse, point g2d at memory that is not
-      physically contiguous - garbled decorations over a correct frame.*/
-    win->xinfo->frame_g_shm_contig = win->frame_g->shm_contig;
+      on the frame canvas. Leaving a freed buffer's id behind would point
+      g2d at memory that no longer backs the frame - garbled decorations
+      over a correct frame.*/
     win->frame_dirty = true;
     win->frame_full = true; //fresh frame_g canvas: the whole ring must be drawn
     win->shadow_valid = false;
@@ -454,24 +452,20 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             win->ws_g = NULL;
         }
         win->xinfo->ws_g_shm_id = -1;
-        win->xinfo->ws_g_shm_contig = false;
 
         if(win->ws_g2 != NULL) {
             x_free_canvas(x, win->ws_g2);
             win->ws_g2 = NULL;
         }
         win->xinfo->ws_g2_shm_id = -1;
-        win->xinfo->ws_g2_shm_contig = false;
 
         win->xinfo->ws_g_buffer_shm_id = -1;
-        win->xinfo->ws_g_buffer_shm_contig = false;
 
         if(win->frame_g != NULL) {
             x_free_canvas(x, win->frame_g);
             win->frame_g = NULL;
         }
         win->xinfo->frame_g_shm_id = -1;
-        win->xinfo->frame_g_shm_contig = false;
 
         win->frame_dirty = true;
         win->frame_full = true; //rebuilt canvases: the whole ring must be drawn
@@ -497,8 +491,7 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
         }
         win->xinfo->ws_g_shm_id = win->ws_g->shm_id;
         /*publish the backing type with the id: clients mark their workspace
-          graph with it, and g2d only engages on contig-backed canvases*/
-        win->xinfo->ws_g_shm_contig = win->ws_g->shm_contig;
+          graph with it, and g2d only engages on shm-backed canvases*/
         graph_clear(win->ws_g, 0x0);
 
         /*fps_async double-buffering: allocate the handoff buffer ws_g2 and
@@ -522,11 +515,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
                         win->xinfo->wsr.w, win->xinfo->wsr.h);
                 win->xinfo->fps_async = false;
                 win->xinfo->ws_g2_shm_id = -1;
-                win->xinfo->ws_g2_shm_contig = false;
             }
             else {
                 win->xinfo->ws_g2_shm_id = win->ws_g2->shm_id;
-                win->xinfo->ws_g2_shm_contig = win->ws_g2->shm_contig;
                 graph_clear(win->ws_g2, 0x0);
             }
         }
@@ -545,10 +536,9 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
           x_accept_update republishes it whenever the source moves. xwm is only
           ever handed it from inside draw_win, which win_src_stable gates on the
           client's painting flag, so it still never samples a half-drawn frame.
-          Not allocating the snapshot also frees a whole wsr-sized contig
+          Not allocating the snapshot also frees a whole wsr-sized shm
           segment per window.*/
         win->xinfo->ws_g_buffer_shm_id = win->ws_g->shm_id;
-        win->xinfo->ws_g_buffer_shm_contig = win->ws_g->shm_contig;
 
 		/*A fullscreen/no-decoration client has no frame ring.  Keeping a
 		 *second display-sized canvas here wastes the exact memory needed by
@@ -556,7 +546,6 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
 		if (decoration_less) {
 			win->frame_g = NULL;
 			win->xinfo->frame_g_shm_id = -1;
-			win->xinfo->frame_g_shm_contig = false;
 		} else {
 		win->frame_g = graph_new_shm(win->xinfo->winr.w, win->xinfo->winr.h);
 		if(win->frame_g == NULL) {
@@ -566,20 +555,16 @@ int xwin_update_info(int fd, int from_pid, proto_t* in, proto_t* out, x_t* x) {
             x_free_canvas(x, win->ws_g);
             win->ws_g = NULL;
             win->xinfo->ws_g_shm_id = -1;
-            win->xinfo->ws_g_shm_contig = false;
             if(win->ws_g2 != NULL) {
                 x_free_canvas(x, win->ws_g2);
                 win->ws_g2 = NULL;
                 win->xinfo->ws_g2_shm_id = -1;
-                win->xinfo->ws_g2_shm_contig = false;
             }
             win->xinfo->fps_async = false;
             win->xinfo->ws_g_buffer_shm_id = -1;
-            win->xinfo->ws_g_buffer_shm_contig = false;
 			return -1;
         }
         win->xinfo->frame_g_shm_id = win->frame_g->shm_id;
-        win->xinfo->frame_g_shm_contig = win->frame_g->shm_contig;
 		}
     }
     x_update_frame_areas(x, win);

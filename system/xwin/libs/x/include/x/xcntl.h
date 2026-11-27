@@ -93,13 +93,6 @@ typedef struct {
 	bool alpha;
 	bool focused;
 	bool hide_cursor;
-	bool ws_g_shm_contig; /* ws_g shm backing is physically contiguous
-	                           (IPC_CONTIG); published by the server together
-	                           with ws_g_shm_id so clients can mark their
-	                           workspace graph g2d-capable */
-	bool frame_g_shm_contig; /* same as ws_g_shm_contig, for the frame
-	                           graph published via frame_g_shm_id (xwm draws
-	                           window frames through g2d on it) */
 	grect_t wsr; //workspace rect
 	grect_t winr; //window rect
 	char title[XWIN_TITLE_MAX];
@@ -142,7 +135,6 @@ typedef struct {
 	  they are launched alongside the desktop or an xterm.*/
 	bool fps_async_force_sync;
 	int32_t ws_g2_shm_id;
-	bool ws_g2_shm_contig;
 	volatile uint32_t back_index;
 	volatile uint32_t front_index;
 
@@ -156,7 +148,6 @@ typedef struct {
 	  the client is parked or idle (see painting), so it still never samples a
 	  half-drawn frame.*/
 	int32_t ws_g_buffer_shm_id;
-	bool ws_g_buffer_shm_contig;
 
 	/*"the client may be writing into the buffer the compositor reads". The
 	  compositor no longer keeps a private snapshot: it composites straight out

@@ -19,7 +19,6 @@ typedef struct {
     uint32_t size;
     uint8_t* shm;
     int32_t  shm_id;
-    uint8_t  shm_contig;
     display_ctrl_t* ctrl; //independent shm segment for the control block
     int32_t  ctrl_id;
 } disp_shm_t;
@@ -152,7 +151,7 @@ static uint32_t disp_pitch32(const disp_info_t* fbi) {
     return pitch;
 }
 
-/*common gate for the g2d scan-out pushes: the src must be a contig shm
+/*common gate for the g2d scan-out pushes: the src must be a shm
   canvas (so the no-mmu engine can address it physically) and the fb must
   expose a physical base. fills *off with the byte offset of the visible
   origin inside the fb segment and *phy with the canvas base. */
@@ -160,7 +159,7 @@ static int g2d_scanout_ok(const disp_info_t* fbinfo, const graph_t* g,
         uint32_t* off, ewokos_addr_t* phy) {
     if(has_g2d() != 0)
         return 0;
-    if(g == NULL || g->buffer == NULL || g->shm_id <= 0 || !g->shm_contig)
+    if(g == NULL || g->buffer == NULL || g->shm_id <= 0)
         return 0;
     if(fbinfo == NULL || fbinfo->pointer == 0 || fbinfo->depth != 32 ||
             fbinfo->phy_base == 0 || fbinfo->size == 0)
@@ -169,7 +168,7 @@ static int g2d_scanout_ok(const disp_info_t* fbinfo, const graph_t* g,
     uint32_t o = (uint32_t)(fbinfo->yoffset * pitch + fbinfo->xoffset * 4);
     if(o >= fbinfo->size)
         return 0;
-    ewokos_addr_t p = shm_contig_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer);
+    ewokos_addr_t p = shm_phy_addr(g->shm_id, (ewokos_addr_t)g->buffer);
     if(p == 0)
         return 0;
     *off = o;
@@ -180,12 +179,12 @@ static int g2d_scanout_ok(const disp_info_t* fbinfo, const graph_t* g,
 static g2d_canvas_t g2d_scanout_canvas(const graph_t* g, ewokos_addr_t phy) {
     g2d_canvas_t canvas = g2d_canvas(g->shm_id,
             (uint32_t)g->w * (uint32_t)g->h * 4u,
-            (uint32_t)g->w, (uint32_t)g->h, 1);
+            (uint32_t)g->w, (uint32_t)g->h);
     canvas.phy = phy;
     return canvas;
 }
 
-/*1:1 push of the client rect (sx,sy,w,h) of a contig shm canvas to panel
+/*1:1 push of the client rect (sx,sy,w,h) of a shm canvas to panel
   position (dx,dy) via g2d blit-to-phy. Returns the bytes written, or 0 to
   fall back to the cpu - permanently, once the driver has declined the op
   as unsupported.*/
@@ -213,7 +212,7 @@ static uint32_t blit_g2d_rect(const disp_info_t* fbinfo, const graph_t* g,
     return (uint32_t)w * (uint32_t)h * 4u;
 }
 
-/*rotate the client rect (sx,sy,w,h) of a contig shm canvas by rotate and
+/*rotate the client rect (sx,sy,w,h) of a shm canvas by rotate and
   land it with its top-left at panel (dx,dy), in ONE g2d dispatch straight
   into the scan-out: no intermediate canvas, no cpu touch of NC memory.
   Returns the bytes of the source rect, or 0 when the driver declined
@@ -287,14 +286,14 @@ uint32_t fbdisplayd_rotate_to(const disp_info_t* fbinfo, const graph_t* g, int r
      * packed path) writes through 4 strided WC streams which is far
      * slower than a cache-backed rotation + graph_blt (NEON streaming copy).
      * graph_rotate_to itself goes through g2d when both canvases are
-     * contig shm (the _rotate_g cache is allocated that way).
+     * shm (the _rotate_g cache is allocated that way).
      */
     graph_t* tmp = ensure_graph(&_rotate_g, dw, dh);
     if (tmp == NULL)
         return 0;
     graph_rotate_to((graph_t*)g, tmp, rotate);
 
-    /*the copy-out prefers the engine too: tmp is a contig shm canvas, the
+    /*the copy-out prefers the engine too: tmp is a shm canvas, the
       fb is physical, so blit-to-phy moves it without the cpu ever touching
       NC memory; the arch memcpy stays as the fallback */
     res = blit_g2d_rect(fbinfo, tmp, 0, 0, dw, dh, 0, 0);
@@ -438,7 +437,7 @@ static uint32_t fbdisplayd_rotate_rect_to(const disp_info_t* fbi, const graph_t*
       boundaries so the rotate kernels' strip geometry fits; the driver
       declines (not sticky) anything it still cannot take. only worth the
       ipc round trip for a rect the engine would accept anyway. */
-    if(!_g2d_rot_phy_unsupported && g->shm_id > 0 && g->shm_contig &&
+    if(!_g2d_rot_phy_unsupported && g->shm_id > 0 &&
             (int64_t)(rx1 - rx0) * (ry1 - ry0) >= G2D_MIN_SIZE) {
         int32_t ax0 = rx0, ax1 = rx1, ay0 = ry0, ay1 = ry1;
         align_span16(&ax0, &ax1, sw);
@@ -471,7 +470,7 @@ static uint32_t fbdisplayd_rotate_rect_to(const disp_info_t* fbi, const graph_t*
         return 0;
 
     /*extract the damaged rect into a packed graph; both legs route through
-      g2d on their own when g and the caches are contig shm */
+      g2d on their own when g and the caches are shm-backed */
     graph_blt((graph_t*)g, rx0, ry0, rw, rh, src_cache, 0, 0, rw, rh);
     graph_rotate_to(src_cache, rot_cache, rotate);
 
@@ -505,9 +504,9 @@ static inline int is_zoomed(void) {
     return (_zoom > 0.0 && _zoom != 8.0 && _zoom != 1.0);
 }
 
-/*full-frame push of a contig shm canvas straight into the scan-out via
+/*full-frame push of a shm canvas straight into the scan-out via
   g2d: replaces the driver's CPU blt when both ends can be addressed
-  physically (src: contig shm segment, dst: the fb's physical base).
+  physically (src: shm segment, dst: the fb's physical base).
   The scan-out is a single contiguous block (firmware allocation or the
   sys_dma pool), so the no-mmu g2d engine can write it directly.
   Returns the bytes written, or 0 to fall back to the driver flush -
@@ -522,7 +521,7 @@ static uint32_t flush_g2d(const disp_info_t* fbinfo, const graph_t* g) {
 
 /*GPU-accelerated zoom: scale the source canvas directly into the physical
   scan-out in one g2d dispatch, bypassing the CPU bilinear scale and the
-  intermediate _zoom_g buffer entirely.  Requires contig shm src + phy_base
+  intermediate _zoom_g buffer entirely.  Requires shm src + phy_base
   dst + 32bpp.  Returns bytes written, or 0 to fall back to the CPU path.*/
 static uint32_t flush_g2d_zoom(const disp_info_t* fbinfo, const graph_t* g) {
     uint32_t off;
@@ -564,7 +563,6 @@ static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rota
       g2d scan-out push below can route it through /dev/g2d instead of
       falling back to the cpu */
     g.shm_id = shm->shm_id;
-    g.shm_contig = shm->shm_contig;
 
     /* fast path: driver-side rotation via fbdisplayd_rotate_to(), which
      * rotates into a cacheable intermediate and copies to the NC scan-out
@@ -601,7 +599,7 @@ static uint32_t flush(const disp_info_t* fbinfo, const disp_shm_t* shm, int rota
         }
     }
 
-    /*try the g2d scan-out push first (contig shm src + physical fb);
+    /*try the g2d scan-out push first (shm src + physical fb);
       the driver flush stays as the universal fallback */
     uint32_t res = 0;
     if(has_g2d() == 0)
@@ -619,7 +617,6 @@ static void init_graph(disp_shm_t* shm) {
         graph_init(&g, (const uint32_t*)shm->shm, _zwidth, _zheight);
 
     g.shm_id = shm->shm_id;
-    g.shm_contig = shm->shm_contig;
 
     if(_fbdisplayd->splash != NULL)
         _fbdisplayd->splash(&g, _logo);
@@ -639,14 +636,11 @@ static uint32_t _disp_shm_seq = 1;
   opens never collide with a still-attached segment; IPC_EXCL makes shmget
   fail on reuse, and the loop retries with the next sequence value. Keys of
   0 / IPC_PRIVATE are forced to a non-private value.
-  IPC_CONTIG is an EwokOS-specific flag: the segment is backed by the
-  kernel's reserved physically-contiguous slab instead of scattered pages,
-  because display hardware (and DMA) needs a single contiguous physical
-  buffer; creation fails strictly if the slab is unconfigured or exhausted.
-  The kernel maps a contig segment Non-Cacheable in every process (the g2d
-  hardware reads/writes it without snooping the CPU caches), so it is only
-  worth asking for when a g2d device is actually present - see disp_shm_init.*/
-static int32_t shm_new_segment(uint32_t tag, uint32_t sz, bool contig) {
+  Every shm segment is backed by a dynamically claimed physically-
+  contiguous run (display hardware and DMA need a single contiguous
+  physical buffer) and mapped Non-Cacheable in every process, since the
+  g2d hardware reads/writes it without snooping the CPU caches.*/
+static int32_t shm_new_segment(uint32_t tag, uint32_t sz) {
     for(uint32_t i = 0; i < 4; i++) {
         uint32_t seq = _disp_shm_seq++;
         key_t key = (key_t)(0x47525030u + (((uint32_t)getpid() & 0xffffu) << 16) +
@@ -654,11 +648,7 @@ static int32_t shm_new_segment(uint32_t tag, uint32_t sz, bool contig) {
         if(key == 0 || key == IPC_PRIVATE)
             key = (key_t)(seq | 1u);
 
-        int32_t id = -1;
-        if(contig)
-            id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL | IPC_CONTIG);
-        else
-            id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL);
+        int32_t id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL);
         if(id != -1)
             return id;
     }
@@ -669,21 +659,10 @@ static int disp_shm_init(disp_shm_t* shm) {
     memset(shm, 0, sizeof(disp_shm_t));
     uint32_t sz = _zwidth * _zheight * 4;
 
-    /*the only consumer of a contig canvas is the g2d engine (flush_g2d and
-      the zero-copy ops xserverd routes through /dev/g2d). Without one the
-      canvas is purely CPU-side: xserverd blends into it and the driver's
-      flush() reads it back every frame, and a Non-Cacheable mapping turns
-      those reads into uncached DRAM traffic (tens of MB/s on BCM2711) -
-      the whole UI, and with it mouse/keyboard response, crawls. Same rule
-      graph_new_shm() applies: contig only when g2d is there to use it.*/
-    bool contig = false;
-    shm->shm_id = -1;
-    if(has_g2d() == 0)
-        shm->shm_id = shm_new_segment(0x4642444d, sz, true); //pixels only
-    if(shm->shm_id > 0)
-        contig = true;
-    else
-        shm->shm_id = shm_new_segment(0x4642444d, sz, false); //pixels only
+    /*the pixel canvas is shm-backed: every segment is a contiguous
+      physical run the g2d engine (flush_g2d and the zero-copy ops
+      xserverd routes through /dev/g2d) can address directly. */
+    shm->shm_id = shm_new_segment(0x4642444d, sz); //pixels only
 
     if(shm->shm_id <= 0)
         return -1;
@@ -695,12 +674,11 @@ static int disp_shm_init(disp_shm_t* shm) {
         shm->shm = NULL;
         return -1;
     }
-    shm->shm_contig = contig;
     memset(shm->shm, 0, sz);
 
     /*the ctrl block lives in its own small segment so the pixel shm stays
       exactly one framebuffer; clients get the id via DISPLAY_CNTL_GET_CTRL.*/
-    shm->ctrl_id = shm_new_segment(0x46424443, sizeof(display_ctrl_t), false);
+    shm->ctrl_id = shm_new_segment(0x46424443, sizeof(display_ctrl_t));
     if(shm->ctrl_id == -1) {
         /* attached by us only: shmdt drops refs to 0 and the kernel
            frees the pixel segment */
@@ -838,7 +816,6 @@ static int32_t flush_dirty(disp_shm_t* shm, const grect_t* rects, uint32_t num) 
       every rect leg (extract, rotate, scan-out push) is a cpu pass over
       uncached memory instead of a g2d dispatch */
     g.shm_id = shm->shm_id;
-    g.shm_contig = shm->shm_contig;
 
     /*clip to the frame first, then coalesce into at most DISPLAY_DIRTY_MAX
       dispatches (do_flush already guarantees num <= DISPLAY_DIRTY_MAX) */
@@ -951,14 +928,13 @@ int fbdisplayd_refresh(void) {
     return res > 0 ? 0 : -1;
 }
 
-static int32_t disp_shm(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, uint8_t* contig, int* size, void* p) {
+static int32_t disp_shm(vdevice_t* dev, int fd, int from_pid, fsinfo_t* info, int* size, void* p) {
     (void)dev;
     (void)fd;
     (void)from_pid;
     (void)info;
     disp_shm_t* shm = (disp_shm_t*)p;
     *size = shm->size;
-    *contig = shm->shm_contig;
     return shm->shm_id;
 }
 
