@@ -190,6 +190,97 @@ page_table_entry_t* get_page_table_entry(page_dir_entry_t *vm, ewokos_addr_t vir
 }
 
 
+/*
+ * Strong override of the weak hook in mm/mmu.c (see its contract there):
+ * walk the live page tables and retarget every leaf PTE mapping phy_from to
+ * phy_to. Only the output address field is rewritten (pte_set_address keeps
+ * every attribute bit), so permissions, memory type, nG and XN all survive.
+ * The caller owes a TLB broadcast before the source page is recycled; this
+ * walk itself does no cache maintenance - PTEs are inner-shareable cacheable
+ * and the table walker snoops the D-cache.
+ */
+static int32_t retarget_leaf_pte(page_table_entry_t* pte, ewokos_addr_t va,
+        ewokos_addr_t phy_from, ewokos_addr_t phy_to, int apply) {
+    if(pte->EntryType != TYPE_PAGE)
+        return 0;
+    if((pte_get_address(pte) << PAGE_SHIFT) != phy_from)
+        return 0;
+    /* identity / direct-map aliases are physical windows, not references */
+    if(va == phy_from || va == P2V(phy_from))
+        return 0;
+    if(apply)
+        pte_set_address(pte, phy_to >> PAGE_SHIFT);
+    return 1;
+}
+
+/* A block descriptor maps a whole run; a single page inside it cannot be
+ * retargeted without splitting the block, so refuse the migration. */
+static int block_covers_page(const page_table_entry_t* pte,
+        ewokos_addr_t block_shift, ewokos_addr_t phy) {
+    ewokos_addr_t base = pte_get_address(pte) << PAGE_SHIFT;
+    ewokos_addr_t size = (ewokos_addr_t)1 << block_shift;
+    return phy >= base && phy < base + size;
+}
+
+int32_t arch_retarget_ptes(page_dir_entry_t* vm, ewokos_addr_t phy_from,
+        ewokos_addr_t phy_to, int apply) {
+    int32_t count = 0;
+    /* Process spaces share the kernel high-half root entries with kernel_vm
+     * (arch_set_proc_vm); those tables are already walked there, so only the
+     * private user half is walked per process instead of re-walking the whole
+     * direct map. kernel_vm itself walks every root entry. */
+    uint32_t root_end = (vm == _kernel_info.kernel_vm) ?
+            PAGE_DIR_NUM : PAGE_ROOT_INDEX(KERNEL_BASE);
+#ifdef PAGE_SIZE_64K
+    for(uint32_t i = 0; i < root_end; i++) {
+        if(vm[i].EntryType == 0)
+            continue;
+        if(vm[i].EntryType == TYPE_BLOCK) {
+            if(block_covers_page(&vm[i], PAGE_ROOT_SHIFT + PAGE_LEVEL_BITS, phy_from))
+                return -1;
+            continue;
+        }
+        page_table_entry_t* l3_table =
+            (page_table_entry_t*)P2V(pte_get_address(&vm[i]) << PAGE_SHIFT);
+        for(uint32_t k = 0; k < PAGE_DIR_NUM; k++) {
+            ewokos_addr_t va = ((ewokos_addr_t)i << PAGE_ROOT_SHIFT) +
+                ((ewokos_addr_t)k << PAGE_L3_SHIFT);
+            count += retarget_leaf_pte(&l3_table[k], va, phy_from, phy_to, apply);
+        }
+    }
+#else
+    for(uint32_t i = 0; i < root_end; i++) {
+        if(vm[i].EntryType == 0)
+            continue;
+        if(vm[i].EntryType == TYPE_BLOCK) {
+            if(block_covers_page(&vm[i], PAGE_L1_SHIFT + PAGE_LEVEL_BITS, phy_from))
+                return -1;
+            continue;
+        }
+        page_table_entry_t* l2_table =
+            (page_table_entry_t*)P2V(pte_get_address(&vm[i]) << PAGE_SHIFT);
+        for(uint32_t j = 0; j < PAGE_DIR_NUM; j++) {
+            if(l2_table[j].EntryType == 0)
+                continue;
+            if(l2_table[j].EntryType == TYPE_BLOCK) {
+                if(block_covers_page(&l2_table[j], PAGE_BLOCK_SHIFT, phy_from))
+                    return -1;
+                continue;
+            }
+            page_table_entry_t* l3_table =
+                (page_table_entry_t*)P2V(pte_get_address(&l2_table[j]) << PAGE_SHIFT);
+            for(uint32_t k = 0; k < PAGE_DIR_NUM; k++) {
+                ewokos_addr_t va = ((ewokos_addr_t)i << PAGE_L1_SHIFT) +
+                    ((ewokos_addr_t)j << PAGE_L2_SHIFT) +
+                    ((ewokos_addr_t)k << PAGE_L3_SHIFT);
+                count += retarget_leaf_pte(&l3_table[k], va, phy_from, phy_to, apply);
+            }
+        }
+    }
+#endif
+    return count;
+}
+
 void free_page_tables(page_dir_entry_t *vm) {
 #ifdef PAGE_SIZE_64K
     page_table_entry_t *l3_table = 0;

@@ -174,6 +174,20 @@ void unmap_pages(page_dir_entry_t *vm, ewokos_addr_t virtual_addr, uint32_t page
 int32_t map_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t permissions, uint32_t pte_attr);
 void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t vaddr);
 
+/*
+ * Physical page migration. Arch hook: walk every leaf PTE of vm, count the
+ * ones mapping phy_from and, when apply != 0, retarget them to phy_to with
+ * the virtual address and all attribute bits unchanged. Returns the count,
+ * or -1 when a mapping cannot be retargeted page-exactly (block descriptor)
+ * or the arch has no implementation (weak default in mm/mmu.c).
+ */
+int32_t arch_retarget_ptes(page_dir_entry_t *vm, ewokos_addr_t phy_from,
+	ewokos_addr_t phy_to, int apply);
+/* Move page content phy_from -> phy_to and retarget every PTE of every
+ * address space accordingly; phy_from is returned to the page allocator.
+ * Returns the number of retargeted PTEs, or -1 (nothing changed). */
+int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to);
+
 void free_page_tables(page_dir_entry_t *vm);
 ewokos_addr_t resolve_kernel_address(page_dir_entry_t *vm, ewokos_addr_t virtual);
 

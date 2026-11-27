@@ -2,11 +2,13 @@
 #include <mm/kmalloc.h>
 #include <mm/kalloc.h>
 #include <kstring.h>
+#include <kprintf.h>
 #include <stddef.h>
 #include <kernel/proc.h>
 #include <kernel/system.h>
 #include <kernel/hw_info.h>
 #include <kernel/kernel.h>
+#include <sysinfo.h>
 
 /*
  * map_pages adds the given virtual to physical memory mapping to the given
@@ -76,6 +78,112 @@ inline void unmap_page_ref(page_dir_entry_t *vm, ewokos_addr_t virtual_addr) {
             kfree_page((void*)P2V(paddr));
     }
     unmap_page(vm, virtual_addr);
+}
+
+/* ------------------------------------------------------------------ */
+/* physical page migration (page_move)                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Arch hook: walk every leaf PTE of vm and count the ones mapping phy_from;
+ * with apply != 0 also retarget them to phy_to, keeping the virtual address
+ * and every attribute bit intact. Two classes of mapping are deliberately
+ * left alone because they are physical-address windows, not references to
+ * the page's content:
+ *   - identity mappings (VA == phy_from), e.g. the low sys_dma window;
+ *   - the kernel direct-map alias (VA == P2V(phy_from)), which must keep
+ *     resolving to phy_from so P2V() stays a fixed physical window after
+ *     the source page is recycled.
+ * Returns the number of matching leaf PTEs, or -1 when a mapping cannot be
+ * retargeted page-exactly (a block descriptor covering phy_from). The weak
+ * default means "arch unsupported"; aarch64 overrides it in mmu_arch.c.
+ */
+__attribute__((weak)) int32_t arch_retarget_ptes(page_dir_entry_t* vm,
+        ewokos_addr_t phy_from, ewokos_addr_t phy_to, int apply) {
+    (void)vm; (void)phy_from; (void)phy_to; (void)apply;
+    return -1;
+}
+
+/* Walk the kernel vm plus every process address space. Threads share their
+ * owner's space, so visiting TASK_TYPE_PROC entries only covers each space
+ * exactly once. */
+static int32_t page_move_walk(ewokos_addr_t phy_from, ewokos_addr_t phy_to,
+        int apply) {
+    int32_t total = arch_retarget_ptes(_kernel_info.kernel_vm,
+            phy_from, phy_to, apply);
+    if(total < 0)
+        return -1;
+    for(int32_t pid = 0; pid < (int32_t)_kernel_config.max_task_num; pid++) {
+        proc_t* p = proc_get(pid);
+        if(p == NULL || p->info.type != TASK_TYPE_PROC ||
+                p->space == NULL || p->space->vm == NULL ||
+                p->space->vm == _kernel_info.kernel_vm)
+            continue;
+        int32_t n = arch_retarget_ptes(p->space->vm, phy_from, phy_to, apply);
+        if(n < 0)
+            return -1;
+        total += n;
+    }
+    return total;
+}
+
+/*
+ * Move one physical page from phy_from to phy_to:
+ *   1. copy the content through the kernel direct map;
+ *   2. retarget EVERY PTE mapping phy_from (kernel vm plus every process
+ *      address space) to phy_to - all virtual addresses stay unchanged;
+ *   3. transfer the page refcount and return phy_from to the allocator.
+ * phy_to must be a fresh page the caller owns (e.g. kalloc_page()); it is
+ * consumed by this call. Returns the number of retargeted PTEs (>= 0), or
+ * -1 on bad arguments / unsupported arch, in which case nothing is changed
+ * and both pages stay with the caller.
+ *
+ * Caller contract: kernel lock held and the page quiescent - until the final
+ * flush_tlb() completes, another core may still translate through a stale
+ * TLB entry for phy_from, so concurrent stores to the page would be lost.
+ * Pages inside the reserved sys_dma / shm_contig pools are refused: their
+ * physical runs are tracked by the pool allocators (and may be DMA-pinned),
+ * which a PTE retarget alone cannot update.
+ */
+int32_t page_move(ewokos_addr_t phy_from, ewokos_addr_t phy_to) {
+    if((phy_from & (PAGE_SIZE - 1)) != 0 || (phy_to & (PAGE_SIZE - 1)) != 0)
+        return -1;
+    if(phy_from == phy_to || _pages_ref.refs == NULL)
+        return -1;
+    uint32_t fi = page_ref_index(phy_from);
+    uint32_t ti = page_ref_index(phy_to);
+    if(fi >= _pages_ref.max || ti >= _pages_ref.max)
+        return -1;
+    if(phy_from >= _sys_info.sys_dma.phy_base &&
+            phy_from < _sys_info.sys_dma.phy_base + _sys_info.sys_dma.size)
+        return -1;
+    if(_sys_info.shm_contig.size > 0 &&
+            phy_from >= _sys_info.shm_contig.phy_base &&
+            phy_from < _sys_info.shm_contig.phy_base + _sys_info.shm_contig.size)
+        return -1;
+
+    /* Validate every address space before touching a single PTE so a refusal
+       can never leave half the mappings retargeted. */
+    int32_t total = page_move_walk(phy_from, phy_to, 0);
+    if(total < 0)
+        return -1;
+
+    memcpy((void*)P2V(phy_to), (void*)P2V(phy_from), PAGE_SIZE);
+
+    /* Apply pass: the validation above ran under the same kernel lock with
+       no mapping changes in between, so it cannot fail here. */
+    page_move_walk(phy_from, phy_to, 1);
+
+    /* The mappings now reference phy_to: move the refcount with them. */
+    _pages_ref.refs[ti] += _pages_ref.refs[fi];
+    _pages_ref.refs[fi] = 0;
+
+    /* Publish to every core before phy_from can be recycled. User-half
+       entries are ASID-tagged, so an address-space switch alone would not
+       drop the stale translations. */
+    flush_tlb();
+    kfree_page((void*)P2V(phy_from));
+    return total;
 }
 
 /* ------------------------------------------------------------------ */
