@@ -1,16 +1,20 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <ewoksys/dma.h>
 #include <ewoksys/sys.h>
 
 /*
- * Big-block DMA test for the dynamic sys_dma architecture: one 3.7GB
- * dma_alloc() from block 0 must return a single physically-contiguous run
- * inside the DMA-reachable range (kernel draws it from general RAM via
+ * Big-block DMA test for the dynamic sys_dma architecture: one dma_alloc()
+ * from block 0 must return a single physically-contiguous run inside the
+ * DMA-reachable range (kernel draws it from general RAM via
  * kalloc_contig_compact, not from a fixed carve-out). Verify the physical
  * placement, write a position-dependent pattern over every word, read it
  * all back, then free and re-allocate to prove the run went back to the
  * allocator.
+ *
+ * Usage: dmatest [MB]  - request size in MB (1..4095, the uint32_t syscall
+ * cap); no argument defaults to 128MB.
  */
 
 #define GB (1024ull * 1024ull * 1024ull)
@@ -28,10 +32,20 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    /* 3.7GB rounded down to whole kernel pages (4K/16K/64K builds) so the
-       request matches the grant exactly */
+    /* optional argv[1] = request size in MB; default 128MB. Rounded down to
+       whole kernel pages (4K/16K/64K builds) so the request matches the
+       grant exactly. 4095MB is the uint32_t syscall size cap. */
+    uint64_t bytes = 128ull * 1024 * 1024;
+    if(argc > 1) {
+        int mb = atoi(argv[1]);
+        if(mb <= 0 || mb > 4095) {
+            printf("dmatest: FAIL bad size '%s' (want 1..4095 MB)\n", argv[1]);
+            return 1;
+        }
+        bytes = (uint64_t)mb * 1024 * 1024;
+    }
     uint32_t psize = info.page_size;
-    uint32_t size = (uint32_t)((3.7 * GB) / psize) * psize;
+    uint32_t size = (uint32_t)(bytes / psize) * psize;
     printf("dmatest: requesting %u bytes (%.2f GB) from dma block 0\n",
             size, size / (double)GB);
 
