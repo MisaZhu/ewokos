@@ -29,12 +29,6 @@ int sys_cache_sync(void* vaddr, unsigned int size) {
     return (int)syscall2(SYS_CACHE_SYNC, (ewokos_addr_t)vaddr, (ewokos_addr_t)size);
 }
 
-int sys_dma_sync(void* vaddr, unsigned int size, int op) {
-    if(vaddr == NULL || size == 0)
-        return -1;
-    return (int)syscall3(SYS_DMA_SYNC, (ewokos_addr_t)vaddr, (ewokos_addr_t)size, (ewokos_addr_t)op);
-}
-
 /* Round up to the window's allocation granularity so an alloc and the matching
    free cover exactly the same slots. The kernel rounds its own allocation up to
    EWOK_MMAP_ANON_ALIGN but returns only the address, so the free must repeat

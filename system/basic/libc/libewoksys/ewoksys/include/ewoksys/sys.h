@@ -19,11 +19,6 @@ extern vsyscall_info_t* _vsyscall_info;
  */
 int sys_cache_sync(void* vaddr, unsigned int size);
 
-/* DMA cache coherency: op0 clean+invalidate (publish CPU writes before the
-   device reads), op1 invalidate-only (drop stale CPU lines after the device
-   wrote). Returns 0 on success, -1 on a rejected range. */
-int sys_dma_sync(void* vaddr, unsigned int size, int op);
-
 /*
  * Anonymous per-page-permission mappings drawn from the kernel's dedicated
  * user-mapping window (SYS_MMAP_ANON / SYS_MPROTECT / SYS_MUNMAP; see

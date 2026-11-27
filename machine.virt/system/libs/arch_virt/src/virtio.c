@@ -1234,14 +1234,6 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
         mem_barrier();
         virtq->avail.idx++;
         mem_barrier();
-        /* Publish CPU-written rings/payload to PoC and drop stale CPU lines
-           for the whole virtq (a cacheable DMA alias is not snooped by the
-           emulator under KVM). Invalidating the device-written used/status
-           suffix BEFORE the device writes ensures the post-completion read
-           misses the CPU cache and fetches the device's bytes. */
-        sys_dma_sync(virtq, sizeof(struct virtq_t), 0);
-        if (isWrite)
-            sys_dma_sync(buf, bytes, 0);
         /* Clear any leftover interrupt so a stale ISR bit cannot be mistaken
            for this request's completion (which would run avail.idx ahead of
            the device and make QEMU pop a zeroed descriptor). */
@@ -1252,9 +1244,8 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
          * used.idx is the completion source of truth; the MMIO interrupt is
          * only a wake hint. Poll the used ring in memory: reading
          * INTERRUPT_STATUS every iteration traps to the hypervisor under
-         * KVM (a vmexit per poll) and dominated small-I/O latency. The
-         * pre-notify dma_sync already invalidated the used/status lines,
-         * so these reads fetch the device's bytes directly.
+         * KVM (a vmexit per poll) and dominated small-I/O latency. The ring
+         * is Non-Cacheable, so these reads fetch the device's bytes directly.
          */
         uint8_t completed = 0;
         uint32_t isr = 0;
@@ -1277,12 +1268,6 @@ int virtio_blk_transfer(virtio_dev_t dev, uint64_t sector, void *buffer, uint32_
         isr = get32(base + VIRTIO_MMIO_INTERRUPT_STATUS);
         if (isr & 0x1)
             put32(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
-
-        /* Drop stale CPU lines (no writeback) so status/payload reads fetch
-           the bytes the device wrote, not the CPU's cached sentinels. */
-        sys_dma_sync(virtq, sizeof(struct virtq_t), 1);
-        if (!isWrite)
-            sys_dma_sync(buf, bytes, 1);
 
         if (!completed)
         {
@@ -1354,7 +1339,6 @@ int virtio_blk_flush(virtio_dev_t dev)
     mem_barrier();
     virtq->avail.idx++;
     mem_barrier();
-    sys_dma_sync(virtq, sizeof(struct virtq_t), 0);
     virtio_ack_interrupt(base, 0x1);
     put32(base + VIRTIO_MMIO_QUEUE_NOTIFY, 0);
 
@@ -1377,7 +1361,6 @@ int virtio_blk_flush(virtio_dev_t dev)
     if (isr & 0x1)
         put32(base + VIRTIO_MMIO_INTERRUPT_ACK, 0x1);
 
-    sys_dma_sync(virtq, sizeof(struct virtq_t), 1);
     memset(&virtq->desc[0], 0, sizeof(struct virtq_desc) * 2);
     if (!completed || *status != VIRTIO_BLK_OK)
     {

@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    ewokos_addr_t vaddr = dma_alloc(0, size, false);
+    ewokos_addr_t vaddr = dma_alloc(0, size);
     if(vaddr == 0) {
         printf("dmatest: FAIL dma_alloc(%u) returned 0\n", size);
         return 1;
@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
 
     dma_free(0, vaddr);
     printf("dmatest: freed, re-allocating 1MB to prove release...\n");
-    ewokos_addr_t v2 = dma_alloc(0, 1024 * 1024, false);
+    ewokos_addr_t v2 = dma_alloc(0, 1024 * 1024);
     if(v2 == 0) {
         printf("dmatest: FAIL re-alloc after free returned 0\n");
         return 1;

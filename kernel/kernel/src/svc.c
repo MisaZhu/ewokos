@@ -365,20 +365,19 @@ static int32_t sys_shm_ctrl(int32_t id, int32_t cmd) {
     return shm_ctrl(id, cmd);
 }
         
-static ewokos_addr_t sys_dma_alloc(int32_t dma_block_id, uint32_t size, uint32_t cache) {
+static ewokos_addr_t sys_dma_alloc(int32_t dma_block_id, uint32_t size) {
     proc_t* cproc = proc_get_proc(get_current_proc());
     if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
         return 0;
 
-    ewokos_addr_t paddr = dma_alloc(dma_block_id, cproc->info.pid, size, cache != 0);
+    ewokos_addr_t paddr = dma_alloc(dma_block_id, cproc->info.pid, size);
     if(paddr == 0)
         return 0;
     ewokos_addr_t vaddr = dma_v_addr(dma_block_id, paddr);
     if(vaddr == 0)
         return 0;
 
-    uint32_t attr = cache ? PTE_ATTR_WRBACK : PTE_ATTR_SYS_DMA;
-    map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);
+    map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, PTE_ATTR_SYS_DMA);
     flush_tlb();
     return vaddr;
 }
@@ -470,10 +469,10 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
         if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
             return 0;
         size = ALIGN_UP(size, PAGE_SIZE);
-        /* match the owner's grant (cache flag): two aliases of the same run
-           must never disagree on cacheability */
+        /* same NOCACHE DMA attribute as the owner's dma_alloc mapping: two
+           aliases of the same run must never disagree on cacheability */
         map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW,
-                dma_alloc_attr(paddr));
+                PTE_ATTR_SYS_DMA);
         flush_tlb();
         /*
          * Record the cross-proc mapping so the owner's dma_release() can
@@ -784,54 +783,6 @@ static int32_t sys_cache_sync(ewokos_addr_t vaddr, uint32_t size) {
 }
 
 /*
- * SYS_DMA_SYNC: cache coherency for a user DMA range, walked through the
- * kernel alias (the caller's mapping may be Device/NC). op0 clean+invalidate
- * publishes CPU-written bytes to PoC before the device reads them; op1
- * invalidate-only drops stale CPU lines after the device wrote so the next
- * read fetches device data (a clean here would write the CPU's old bytes back
- * over the device's). EL0 cannot execute DC CVAC/IVAC itself.
- */
-static int32_t sys_dma_sync(ewokos_addr_t vaddr, uint32_t size, uint32_t op) {
-    proc_t* cproc = get_current_proc();
-    if(cproc == NULL || cproc->space == NULL)
-        return -1;
-    if(size == 0)
-        return 0;
-    if(!proc_cap_has(cproc, CAP_DMA, CAP_W))
-        return -1;
-    /* The sys_dma window lives in kernel-half VA but is mapped AP_RW_RW for
-       DMA-authorized procs, so user_ptr_ok() (which rejects kernel VA) cannot
-       validate it. Restrict the sync to that window instead. */
-    ewokos_addr_t end = vaddr + size;
-    if(end < vaddr)
-        return -1;
-    if(vaddr < _sys_info.sys_dma.v_base ||
-            end > (_sys_info.sys_dma.v_base + _sys_info.sys_dma.size))
-        return -1;
-
-    ewokos_addr_t cur = vaddr;
-    ewokos_addr_t stop = vaddr + size;
-    while(cur < stop) {
-        uint32_t chunk = (uint32_t)(PAGE_SIZE - (cur & (PAGE_SIZE - 1)));
-        if((ewokos_addr_t)chunk > stop - cur)
-            chunk = (uint32_t)(stop - cur);
-        ewokos_addr_t phy = resolve_phy_address(cproc->space->vm, cur);
-        if(phy != 0) {
-            /* sys_dma pages are general RAM reached through the P2V direct
-               map (its attribute is flipped to SYS_DMA while DMA-owned); the
-               legacy low identity window no longer exists. */
-            ewokos_addr_t kva = P2V(phy);
-            if(op == 1)
-                dcache_inval_range((const void*)kva, chunk);
-            else
-                dcache_flush_range((const void*)kva, chunk);
-        }
-        cur += chunk;
-    }
-    return 0;
-}
-
-/*
  * SYS_MMAP_ANON / SYS_MPROTECT / SYS_MUNMAP: the anonymous user-mapping window.
  *
  * These give a dynamic loader memory that is NOT the sbrk heap and that has
@@ -1009,9 +960,7 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         ctx->gpr[0] = sys_mem_unmap(arg0, (uint32_t)arg1);
         return;
     case SYS_DMA_ALLOC:
-        /* arg2 = cache flag; legacy syscall2 callers zero-fill it, so old
-           binaries keep the non-cacheable default */
-        ctx->gpr[0] = sys_dma_alloc(arg0, (uint32_t)arg1, (uint32_t)arg2);
+        ctx->gpr[0] = sys_dma_alloc(arg0, (uint32_t)arg1);
         return;
     case SYS_DMA_FREE:
         sys_dma_free(arg0, arg1);
@@ -1135,9 +1084,6 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         return;
     case SYS_CACHE_SYNC:
         ctx->gpr[0] = sys_cache_sync(arg0, (uint32_t)arg1);
-        return;
-    case SYS_DMA_SYNC:
-        ctx->gpr[0] = sys_dma_sync(arg0, (uint32_t)arg1, (uint32_t)arg2);
         return;
     case SYS_MMAP_ANON:
         ctx->gpr[0] = sys_mmap_anon((uint32_t)arg0, (uint32_t)arg1);

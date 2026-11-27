@@ -169,13 +169,11 @@ enum {
 	SYS_MPROTECT,
 	SYS_MUNMAP,
 
-	/* DMA cache coherency for a user range (arg0=vaddr, arg1=size, arg2=op):
-	   op0 = clean+invalidate to PoC (publish CPU-written descriptors/buffers
-	   before notifying the device); op1 = invalidate-only to PoC (drop stale
-	   CPU lines after the device wrote, WITHOUT writing back the CPU's old
-	   bytes). Needed because EL0 cannot run DC CVAC/IVAC and a cacheable DMA
-	   alias is not kept coherent with the emulator's host writes under KVM. */
-	SYS_DMA_SYNC,
+	/* Reserved slot (former SYS_DMA_SYNC, removed: DMA memory is always
+	   Non-Cacheable, so user cache maintenance has no meaning). The number
+	   stays reserved so later syscall numbers and the svc_counter ABI do
+	   not shift for existing rootfs binaries; reusable by a future call. */
+	SYS_RESERVED,
 
 	/* Fixed-number syscalls beyond the counted range: values sit above
 	 * SYS_CALL_NUM so sys_state_t's svc_counter[SYS_CALL_NUM] ABI is

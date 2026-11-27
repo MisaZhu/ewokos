@@ -6,8 +6,8 @@
 extern "C" {
 #endif
 
-ewokos_addr_t dma_alloc(int32_t dma_block_id, uint32_t size, bool cache) {
-    return syscall3(SYS_DMA_ALLOC, dma_block_id, size, cache ? 1 : 0);
+ewokos_addr_t dma_alloc(int32_t dma_block_id, uint32_t size) {
+    return syscall2(SYS_DMA_ALLOC, dma_block_id, size);
 }
 
 void dma_free(int32_t dma_block_id, ewokos_addr_t vaddr) {
