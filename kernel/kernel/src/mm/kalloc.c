@@ -28,12 +28,14 @@ static ewokos_addr_t _free_mem_size_page = 0;
 /*
  * Physical-page occupancy bitmap mirroring the _free_list_page free list,
  * indexed exactly like _pages_ref (page_ref_index over the allocable span).
- * bit == 1 means the page is handed out (or split for 1k chunks); bit == 0
- * means it sits in the free list. The free list stays the source of truth
- * for kalloc_page()/kfree_page(); the bitmap only exists so contiguous-run
- * scans (kalloc_contig) and compaction can reason about physical adjacency,
- * which the unordered LIFO free list cannot express. Pages outside the
- * allocable span (kernel page-table pool, kmalloc) are not tracked.
+ * bit == 1 means the page is handed out (or split for 1k chunks), or was
+ * never added to the free list at all (reserved slabs / firmware holes);
+ * bit == 0 means it sits in the free list. The free list stays the source of
+ * truth for kalloc_page()/kfree_page(); the bitmap only exists so contiguous-
+ * run scans (kalloc_contig) and compaction can reason about physical
+ * adjacency, which the unordered LIFO free list cannot express. Pages
+ * outside the allocable span (kernel page-table pool, kmalloc) are not
+ * tracked.
  */
 static uint8_t* _page_busy = 0;
 static uint32_t _page_busy_max = 0;
@@ -41,8 +43,14 @@ static uint32_t _page_busy_max = 0;
 void kalloc_busy_init(uint32_t max_pages) {
     _page_busy_max = max_pages;
     _page_busy = (uint8_t*)kmalloc((max_pages + 7) / 8);
+    /* Start ALL-BUSY: only pages actually appended to the free list
+     * (kalloc_append/kfree_page clear their bit) may be claimed by contiguous
+     * scans. Reserved slabs and firmware holes inside the span are never
+     * appended, so they must stay invisible to kalloc_contig - a zero-init
+     * bitmap would advertise them as free runs and the unlink pass would
+     * splice non-member pages, corrupting the free list. */
     if(_page_busy != NULL)
-        memset(_page_busy, 0, (max_pages + 7) / 8);
+        memset(_page_busy, 0xff, (max_pages + 7) / 8);
 }
 
 static inline uint32_t busy_index(void* page) {

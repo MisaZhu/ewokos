@@ -164,14 +164,16 @@ static void init_allocable_mem(void) {
     }
     
     //_pages_ref.max = kalloc_append(P2V(_sys_info.allocable_phy_mem_base), P2V(_sys_info.allocable_phy_mem_top));
-    kalloc_arch();
     _pages_ref.max = (_sys_info.allocable_phy_mem_top - _sys_info.allocable_phy_mem_base) / PAGE_SIZE;
-    _pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));	
+    _pages_ref.refs = kmalloc(_pages_ref.max * sizeof(page_ref_t));
     _pages_ref.phy_base = _sys_info.allocable_phy_mem_base;
     memset(_pages_ref.refs, 0, _pages_ref.max * sizeof(page_ref_t));
     /* occupancy bitmap mirroring the free list, for contiguous DMA allocation
-     * and page_move compaction (all allocable pages start free) */
+     * and page_move compaction. Must exist BEFORE kalloc_arch(): it starts
+     * all-busy and only kalloc_append() of real free pages clears bits, so
+     * reserved slabs / firmware holes never look like free contiguous runs. */
     kalloc_busy_init(_pages_ref.max);
+    kalloc_arch();
 }
 
 #ifdef KERNEL_SMP
