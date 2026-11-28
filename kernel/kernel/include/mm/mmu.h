@@ -174,7 +174,7 @@ int32_t arch_retarget_ptes(page_dir_entry_t *vm, ewokos_addr_t phy_from,
  * part of the run (cannot be revoked page-exactly) or the arch has no
  * implementation (weak no-op default in mm/mmu.c returns 0). The caller owes a
  * flush_tlb() before the pages are recycled. Used by SYS_FREE_PHY_CONTIG to
- * drop a caller's SYS_MEM_MAP mapping before its run returns to the allocator.
+ * drop a caller's SYS_MEM_MAP_NOCACHE mapping before its run returns to the allocator.
  */
 int32_t arch_unmap_ptes_phy(page_dir_entry_t *vm, ewokos_addr_t phy_base,
 	ewokos_addr_t phy_size);

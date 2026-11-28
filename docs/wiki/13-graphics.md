@@ -23,7 +23,7 @@ into a hardware mailbox register, and after processing, the GPU writes a
 ```
 CPU: "give me a 1024x768, 32-bit-color framebuffer"  → write the MAILBOX register
 GPU: allocates VRAM, replies "base=0x3E9F0000, width 1024, height 768"
-CPU: maps that physical address into its own memory (SYS_MEM_MAP) and starts writing pixels
+CPU: maps that physical address into its own memory (SYS_MEM_MAP_NOCACHE) and starts writing pixels
 ```
 
 The mailbox protocol is implemented in

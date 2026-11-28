@@ -74,7 +74,7 @@ static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
    the phases that have nothing to do with each other:
 
    - _g2d_map_lock guards the shm attach-cache table, every
-     shmdt/SYS_MEM_MAP/SYS_MEM_UNMAP the driver issues, and the
+     shmdt/SYS_MEM_MAP_NOCACHE/SYS_MEM_UNMAP the driver issues, and the
      placeholder protocol that serializes concurrent shmats of the
      SAME id. The kernel's shm_proc_map returns the existing address
      WITHOUT bumping it->refs on a repeat attach (kernel/kernel/src/
@@ -90,7 +90,7 @@ static const char* const _g2dd_stat_name[G2DD_STAT_CMDS] = {
    - _g2d_prng_lock guards rand() in g2d_tmp_shm_key (rotated blit's
      temp surface alloc); rand() is not thread-safe.
 
-   - _g2d_dma_lock serializes dma canvas attach/use/detach (SYS_MEM_MAP
+   - _g2d_dma_lock serializes dma canvas attach/use/detach (SYS_MEM_MAP_NOCACHE
      + SYS_MEM_UNMAP) independently of the shm cache, so a dma blit
      never blocks a shm cache lookup and vice versa.
 
@@ -211,7 +211,7 @@ static int32_t g2d_dma_map(ewokos_addr_t addr, uint32_t size, ewokos_addr_t* pad
 	else
 		return G2D_ERR_FAILED;
 
-	if(syscall3(SYS_MEM_MAP, addr, *paddr, size) != addr)
+	if(syscall3(SYS_MEM_MAP_NOCACHE, addr, *paddr, size) != addr)
 		return G2D_ERR_FAILED;
 	return 0;
 }
@@ -626,7 +626,7 @@ static void g2d_detach(const g2d_attached_t* at) {
 	if(at->dma != 0) {
 		/*
 		 * dma canvas: drop the cross-proc mapping g2d_dma_map() installed
-		 * via SYS_MEM_MAP. Every dma attach is paired with a detach,
+		 * via SYS_MEM_MAP_NOCACHE. Every dma attach is paired with a detach,
 		 * mirroring the shmdt path below, so the mapping never outlives
 		 * its use. Serialized by _g2d_dma_lock so no in-flight blit
 		 * shares this mapping.

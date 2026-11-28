@@ -50,7 +50,7 @@ extern void* read_fs(const char* fname, off_t* size);
 
 /*
  * Load a program from the rootfs.  This runs in the forked child, which has
- * its own address space: SYS_MEM_MAP windows (SD controller / RAM disk) are
+ * its own address space: SYS_MEM_MAP_NOCACHE windows (SD controller / RAM disk) are
  * not inherited across fork, so the backing store must be (re)established in
  * THIS process before read_fs().  That is the BSP's job: bsp_sd_init() both
  * registers the libsd callbacks and maps the windows.  On qcom8gen3 it re-maps the

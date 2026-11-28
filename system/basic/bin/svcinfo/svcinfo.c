@@ -85,6 +85,8 @@ static inline const char* svc_name(int32_t code) {
         return "get_procs";
     case SYS_MEM_MAP:
         return "mem_map";
+    case SYS_MEM_MAP_NOCACHE:
+        return "mem_map_nocache";
     case SYS_V2P:
         return "v2p";
     case SYS_P2V:
@@ -155,6 +157,34 @@ static inline const char* svc_name(int32_t code) {
         return "semaphore_enter_timeout";
     case SYS_SEMAPHORE_ALLOC_COUNT:
         return "semaphore_alloc_count";
+    case SYS_SEMAPHORE_GET_COUNT:
+        return "semaphore_get_count";
+    case SYS_RESERVED1:
+        return "reserved1";
+    case SYS_CAP_MINT:
+        return "cap_mint";
+    case SYS_CAP_REVOKE:
+        return "cap_revoke";
+    case SYS_CAP_GRANT:
+        return "cap_grant";
+    case SYS_CAP_GET:
+        return "cap_get";
+    case SYS_CAP_POLICY_ADD:
+        return "cap_policy_add";
+    case SYS_CACHE_SYNC:
+        return "cache_sync";
+    case SYS_MMAP_ANON:
+        return "mmap_anon";
+    case SYS_MPROTECT:
+        return "mprotect";
+    case SYS_MUNMAP:
+        return "munmap";
+    case SYS_RESERVED0:
+        return "reserved0";
+    case SYS_PLATFORM_CTL:
+        return "platform_ctl";
+    case SYS_MEM_UNMAP:
+        return "mem_unmap";
     }
     return "unknown";
 }

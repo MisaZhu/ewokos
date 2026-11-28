@@ -135,7 +135,7 @@ EFI Makefile 检查已有产物，缺失时提示先编译 kernel/system。
    GOT，而 GOT 可能在 ±4GB 之外；改为 `bsp/early_vectors.S` 的 `ldr =symbol`
    绝对字面量。
 3. UEFI `AllocatePages` 只保证 4KB 对齐，16KB 页内核映射 `INITRAMFS.IMG` 时必须
-   把缓冲区向上圆整到 16KB，否则 `SYS_MEM_MAP` 解析出的物理地址会比 bootinfo
+   把缓冲区向上圆整到 16KB，否则 `SYS_MEM_MAP_NOCACHE` 解析出的物理地址会比 bootinfo
    低 0x0-0x3FFF，用户态读到错误数据。
 4. RAM disk 必须在 `load_kernel_config()` 之前映射（`arch_vm()` 里做），不能等
    `init_allocable_mem()`。

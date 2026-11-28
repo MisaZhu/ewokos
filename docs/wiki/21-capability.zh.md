@@ -13,7 +13,7 @@
 
 ## 21.1 为什么需要 capability：从 root 通吃说起
 
-第 08 章的思考题问过：`SYS_MEM_MAP`（映射设备内存）只应给受信任的驱动进程，
+第 08 章的思考题问过：`SYS_MEM_MAP_NOCACHE`（映射设备内存）只应给受信任的驱动进程，
 内核该怎么区分？当时的答案是看 `proc->info.uid`——uid 为 0（root）就放行。
 
 这个答案能工作，但太粗糙了：
@@ -78,7 +78,7 @@ capability（能力）就是解法：**不问"你是谁"，只问"你手里有�
 #define CAP_GRANT   (1U << 3)   /* 可转发 */
 ```
 
-- frame 的 `W`：允许把这段物理地址 `SYS_MEM_MAP` 进自己的地址空间；
+- frame 的 `W`：允许把这段物理地址 `SYS_MEM_MAP_NOCACHE` 进自己的地址空间；
 - irq 的 `W`：允许注册这个中断号；`X`：允许发送软中断；
 - ep 的 `X`：允许向这个服务发起 IPC 调用；
 - `CAP_GRANT`：允许把这张票转发给别的进程（21.6 节）。
@@ -90,7 +90,7 @@ capability（能力）就是解法：**不问"你是谁"，只问"你手里有�
 
 | 系统调用 | 需要的票 | 检查方式 |
 |---|---|---|
-| `SYS_MEM_MAP`（mmio_map） | `CAP_FRAME` + W | 目标区间必须被某张 frame 票完整覆盖 |
+| `SYS_MEM_MAP_NOCACHE`（mmio_map） | `CAP_FRAME` + W | 目标区间必须被某张 frame 票完整覆盖 |
 | `SYS_INT_SETUP`（注册中断） | `CAP_IRQ` + W | 中断号逐号匹配 |
 | `SYS_SOFT_INT`（发软中断） | `CAP_IRQ` + X | 有任意 irq 票的 X 位即可 |
 | `SYS_DMA_*`（DMA 申请/映射） | `CAP_DMA` + W | 块号匹配 |
@@ -99,7 +99,7 @@ capability（能力）就是解法：**不问"你是谁"，只问"你手里有�
 | `SYS_CORE_PROC_READY` | `CAP_ROOT` | 只有 core 进程该调 |
 | IPC 调用（服务开启 `IPC_CAP_CHECK` 时） | `CAP_EP` + X | 按服务 pid 匹配（[ipc.c](../../kernel/kernel/src/ipc.c)） |
 
-以 `SYS_MEM_MAP` 为例，检查简化后就是"在 cnode 里找一张盖得住的票"：
+以 `SYS_MEM_MAP_NOCACHE` 为例，检查简化后就是"在 cnode 里找一张盖得住的票"：
 
 ```c
 /* 进程想映射 [paddr, paddr+size)：遍历 cnode，

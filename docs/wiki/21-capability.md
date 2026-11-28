@@ -15,7 +15,7 @@
 
 ## 21.1 Why Capabilities: Starting from root Takes All
 
-Ch. 08's food-for-thought asked: `SYS_MEM_MAP` (mapping device memory)
+Ch. 08's food-for-thought asked: `SYS_MEM_MAP_NOCACHE` (mapping device memory)
 should only be given to trusted driver processes — how should the kernel
 tell them apart? The answer back then was to check `proc->info.uid` — uid 0
 (root) gets through.
@@ -89,7 +89,7 @@ There are only 4 rights bits; their semantics depend on the type:
 #define CAP_GRANT   (1U << 3)   /* grantable */
 ```
 
-- A frame's `W`: allows `SYS_MEM_MAP`ing that physical range into one's own
+- A frame's `W`: allows `SYS_MEM_MAP_NOCACHE`ing that physical range into one's own
   address space;
 - An irq's `W`: allows registering that interrupt number; `X`: allows
   sending soft interrupts;
@@ -103,7 +103,7 @@ Ticket checking happens at the syscall entrances
 
 | Syscall | Ticket required | How it's checked |
 |---|---|---|
-| `SYS_MEM_MAP` (mmio_map) | `CAP_FRAME` + W | the target range must be completely covered by some frame ticket |
+| `SYS_MEM_MAP_NOCACHE` (mmio_map) | `CAP_FRAME` + W | the target range must be completely covered by some frame ticket |
 | `SYS_INT_SETUP` (register an interrupt) | `CAP_IRQ` + W | interrupt numbers matched one by one |
 | `SYS_SOFT_INT` (send a soft interrupt) | `CAP_IRQ` + X | the X bit of any irq ticket suffices |
 | `SYS_DMA_*` (DMA alloc/map) | `CAP_DMA` + W | block number matched |
@@ -112,7 +112,7 @@ Ticket checking happens at the syscall entrances
 | `SYS_CORE_PROC_READY` | `CAP_ROOT` | only the core process should call it |
 | IPC calls (when the service enables `IPC_CAP_CHECK`) | `CAP_EP` + X | matched by the service's pid ([ipc.c](../../kernel/kernel/src/ipc.c)) |
 
-Take `SYS_MEM_MAP`: the check, simplified, is "find a ticket in the cnode
+Take `SYS_MEM_MAP_NOCACHE`: the check, simplified, is "find a ticket in the cnode
 that covers the target":
 
 ```c

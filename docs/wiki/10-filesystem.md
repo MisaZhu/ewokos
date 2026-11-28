@@ -53,7 +53,7 @@ int32_t sd_write(uint32_t block, const void* buf, uint32_t buf_size);
 > Microkernel tidbit: in early boot the kernel must read the SD card itself
 > (to read the config and init), so the kernel carries an SD driver; once
 > the system is up, the userland `sdfsd` maps the SD controller's registers
-> into its own memory via `SYS_MEM_MAP` and implements a userland driver.
+> into its own memory via `SYS_MEM_MAP_NOCACHE` and implements a userland driver.
 > Two codebases serving two different stages.
 
 ## 10.3 ext2: How Files Are Organized on Top of Sectors

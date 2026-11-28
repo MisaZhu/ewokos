@@ -238,7 +238,7 @@ if(fd < 0) {
 2. Count how many system calls happened behind the boot log line
    `init: /sbin/core [ok]` (hint: `fork`, `SYS_EXEC_ELF`, `SYS_IPC_*`…);
 3. Food for thought: why may `SYS_KPRINT` be callable by any process, while
-   `SYS_MEM_MAP` (mapping device memory) should only be given to trusted
+   `SYS_MEM_MAP_NOCACHE` (mapping device memory) should only be given to trusted
    driver processes? How should the kernel tell them apart? (Hint: look at
    the `proc->info.uid` checks in `svc.c`.)
 

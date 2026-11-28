@@ -53,7 +53,7 @@ static int bootfs_map(void) {
             (pd->rd.flags & QCOM8GEN3_RD_FLAG_BOOT_ONLY) == 0) {
         return -1;
     }
-    ewokos_addr_t map_ret = syscall3(SYS_MEM_MAP, (ewokos_addr_t)QCOM8GEN3_BOOTFS_VA,
+    ewokos_addr_t map_ret = syscall3(SYS_MEM_MAP_NOCACHE, (ewokos_addr_t)QCOM8GEN3_BOOTFS_VA,
             (ewokos_addr_t)pd->rd.phy_base, (ewokos_addr_t)pd->rd.size);
     if (map_ret != (ewokos_addr_t)QCOM8GEN3_BOOTFS_VA) {
         klog("init: bootfs map failed ret=0x%llx\n",

@@ -44,7 +44,7 @@ int32_t sd_write(uint32_t block, const void* buf, uint32_t buf_size);
 
 > 微内核趣闻：启动早期内核需要亲自读 SD 卡（读配置、读 init），
 > 所以内核里有一份 SD 驱动；系统跑起来后，用户态的 `sdfsd`
-> 通过 `SYS_MEM_MAP` 把 SD 控制器寄存器映射进自己的内存，
+> 通过 `SYS_MEM_MAP_NOCACHE` 把 SD 控制器寄存器映射进自己的内存，
 > 再实现一份用户态驱动。两套代码服务不同阶段。
 
 ## 10.3 ext2：扇区之上如何组织文件

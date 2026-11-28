@@ -461,7 +461,7 @@ static int32_t sys_free_phy_contig(ewokos_addr_t phy_base) {
         if(n->base != phy_base)
             continue;
         /* Revoke any user mapping the caller built over the run (e.g. via
-         * SYS_MEM_MAP) BEFORE the pages return to the allocator, so no stale
+         * SYS_MEM_MAP_NOCACHE) BEFORE the pages return to the allocator, so no stale
          * PTE can resolve to a recycled page. -1 means a block descriptor
          * covers the run and cannot be split here: refuse the free. */
         int32_t revoked = arch_unmap_ptes_phy(cproc->space->vm, n->base, n->size);
@@ -509,7 +509,7 @@ static ewokos_addr_t sys_shm_phy(int32_t shm_id, ewokos_addr_t vaddr) {
     return shm_phy_addr(shm_id, vaddr);
 }
 
-static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size) {
+static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint32_t size, bool cache) {
     proc_t* cproc = proc_get_proc(get_current_proc());
     uint32_t attr;
     if(size == 0)
@@ -547,8 +547,9 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
      * MMIO / reserved carveouts -> Device-nGnRE: strict ordering for
      * register or firmware-owned regions.
      */
-    attr = PTE_ATTR_DEV;
-    if(mem_map_is_normal_ram_arch(paddr, size))
+    if(cache)
+        attr = PTE_ATTR_WRBACK;
+    else
         attr = PTE_ATTR_NOCACHE;
     map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);
     flush_tlb();
@@ -556,7 +557,7 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
 }
 
 /*
- * SYS_MEM_MAP deliberately has no kernel-side allocation object: device and
+ * SYS_MEM_MAP_NOCACHE deliberately has no kernel-side allocation object: device and
  * firmware-owned ranges can be mapped at caller-selected virtual addresses.
  * Provide the matching voluntary teardown so a short-lived bootstrap mapping
  * cannot survive exec and pin firmware-owned RAM forever.  This only removes
@@ -991,7 +992,10 @@ static inline void _svc_handler(int32_t code, ewokos_addr_t arg0, ewokos_addr_t 
         sys_kprint((const char*)arg0, arg1);
         return;
     case SYS_MEM_MAP:
-        ctx->gpr[0] = sys_mem_map(arg0, arg1, (uint32_t)arg2);
+        ctx->gpr[0] = sys_mem_map(arg0, arg1, (uint32_t)arg2, true);
+        return;
+    case SYS_MEM_MAP_NOCACHE:
+        ctx->gpr[0] = sys_mem_map(arg0, arg1, (uint32_t)arg2, false);
         return;
     case SYS_MEM_UNMAP:
         ctx->gpr[0] = sys_mem_unmap(arg0, (uint32_t)arg1);

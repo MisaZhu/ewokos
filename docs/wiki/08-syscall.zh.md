@@ -201,7 +201,7 @@ if(fd < 0) {
    对照 `syscalls.h` 查出它是什么；
 2. 数一数启动日志中 `init: /sbin/core [ok]` 背后发生了多少次系统调用
    （提示：`fork`、`SYS_EXEC_ELF`、`SYS_IPC_*`……）；
-3. 思考题：为什么 `SYS_KPRINT` 允许任何进程调用，但 `SYS_MEM_MAP`
+3. 思考题：为什么 `SYS_KPRINT` 允许任何进程调用，但 `SYS_MEM_MAP_NOCACHE`
    （映射设备内存）只应给受信任的驱动进程？内核该如何区分？
    （提示：看 `svc.c` 中对 `proc->info.uid` 的检查。）
 

@@ -87,8 +87,8 @@ enum {
 	SYS_GET_PROCS_NUM,
 	SYS_GET_PROCS,
 
-	//map mmio memory for userspace access
 	SYS_MEM_MAP,
+	SYS_MEM_MAP_NOCACHE,
 	SYS_V2P,
 	SYS_P2V,
 
@@ -185,7 +185,7 @@ enum {
 
 	/* Architecture-specific, privileged controls. */
 	SYS_PLATFORM_CTL,
-	/* Drop a caller-owned SYS_MEM_MAP window: arg0=VA, arg1=byte size. */
+	/* Drop a caller-owned SYS_MEM_MAP_NOCACHE window: arg0=VA, arg1=byte size. */
 	SYS_MEM_UNMAP,
 	/* madvise(DONTNEED)-style release of fully-free interior heap pages:
 	 * arg0=VA, arg1=byte size. Unmaps whole pages inside [malloc_base,

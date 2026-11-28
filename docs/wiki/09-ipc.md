@@ -336,7 +336,7 @@ app: open("/etc/passwd")
   → libc: ipc_call(vfsd_pid, VFS_CMD_OPEN, ...)      【IPC hop 1】
   → vfsd: consults the mount table, finds "/" is served by sdfsd
   → vfsd: ipc_call(sdfsd_pid, FS_CMD_OPEN, ...)      【IPC hop 2】
-  → sdfsd: accesses the SD card controller via SYS_MEM_MAP to read sectors,
+  → sdfsd: accesses the SD card controller via SYS_MEM_MAP_NOCACHE to read sectors,
            parses the ext2 directories, finds the inode
   → the result returns along the same path; the app gets a file handle
 ```

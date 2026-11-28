@@ -177,7 +177,7 @@ int32_t arch_g2d_fill(uint32_t* argb, ewokos_addr_t argb_phy, int32_t argb_w, in
    intrinsics and struct asm operands don't print register lists, so pin the
    d-registers and clobber them. VLD1/VST1 without alignment qualifiers
    tolerate unaligned addresses in Normal memory, but NOT in Device memory
-   (the framebuffer may be Device-mapped by SYS_MEM_MAP) — callers must
+   (the framebuffer may be Device-mapped by SYS_MEM_MAP_NOCACHE) — callers must
    only pass aligned pointers (see g2d_row_copy_neon). */
 static inline void g2d_copy_16_neon(uint32_t *dp, const uint32_t *sp) {
     __asm__ volatile(

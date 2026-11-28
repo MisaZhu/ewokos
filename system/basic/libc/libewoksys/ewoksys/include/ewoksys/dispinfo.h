@@ -10,7 +10,7 @@ typedef struct  {
 	uint32_t pitch; /* byte count in a row */
 	uint32_t depth; /* bits per pixel */
 	uint32_t xoffset, yoffset;
-	ewokos_addr_t pointer; /* virtual address mapped into the caller (SYS_MEM_MAP) */
+	ewokos_addr_t pointer; /* virtual address mapped into the caller (SYS_MEM_MAP_NOCACHE) */
 	uint32_t size, size_max;
 	int32_t  dma_id;
 	ewokos_addr_t phy_base; /* CPU physical address of the framebuffer */

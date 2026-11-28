@@ -2,7 +2,7 @@
  * pci.c: ECAM config-space enumeration for the QEMU virt PCIe host.
  *
  * Both windows are mapped once at fixed offsets above the shared mmio
- * virtual base: SYS_MEM_MAP accepts any phy_base (the virt kernel's
+ * virtual base: SYS_MEM_MAP_NOCACHE accepts any phy_base (the virt kernel's
  * whitelist only bounds the size), so the mapping does not depend on
  * the 64MB mmio window declared in hw_info_arch.c.
  */
@@ -42,14 +42,14 @@ int virt_pci_init(void) {
     _ecam_base = sysinfo.mmio.v_base + PCI_ECAM_VOFF;
     _win_base = sysinfo.mmio.v_base + PCI_WIN_VOFF;
 
-    if (syscall3(SYS_MEM_MAP, _ecam_base, VIRT_PCI_ECAM_PHY,
+    if (syscall3(SYS_MEM_MAP_NOCACHE, _ecam_base, VIRT_PCI_ECAM_PHY,
             VIRT_PCI_ECAM_SIZE) != _ecam_base) {
         slog("virt_pci: ecam map failed\n");
         _ecam_base = 0;
         _win_base = 0;
         return -1;
     }
-    if (syscall3(SYS_MEM_MAP, _win_base, VIRT_PCI_WIN_PHY,
+    if (syscall3(SYS_MEM_MAP_NOCACHE, _win_base, VIRT_PCI_WIN_PHY,
             VIRT_PCI_WIN_SIZE) != _win_base) {
         slog("virt_pci: mmio window map failed\n");
         _ecam_base = 0;

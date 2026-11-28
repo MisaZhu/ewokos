@@ -293,7 +293,7 @@ libc 会在被唤醒后自动重发这次调用。这是微内核里最常见的
   → libc: ipc_call(vfsd_pid, VFS_CMD_OPEN, ...)      【IPC 第 1 跳】
   → vfsd: 查挂载表，发现 "/" 由 sdfsd 提供
   → vfsd: ipc_call(sdfsd_pid, FS_CMD_OPEN, ...)      【IPC 第 2 跳】
-  → sdfsd: 通过 SYS_MEM_MAP 访问 SD 卡控制器读扇区，
+  → sdfsd: 通过 SYS_MEM_MAP_NOCACHE 访问 SD 卡控制器读扇区，
            解析 ext2 目录，找到 inode
   → 结果原路返回，应用拿到一个文件句柄
 ```

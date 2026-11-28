@@ -17,7 +17,7 @@ ewokos_addr_t mmio_map_offset(uint32_t offset, uint32_t size) {
         return 0;
 
     _mmio_base = sysinfo.mmio.v_base;
-    if (syscall3(SYS_MEM_MAP,
+    if (syscall3(SYS_MEM_MAP_NOCACHE,
             (ewokos_addr_t)sysinfo.mmio.v_base+offset,
             (ewokos_addr_t)sysinfo.mmio.phy_base+offset,
             (ewokos_addr_t)size) != sysinfo.mmio.v_base + offset)
