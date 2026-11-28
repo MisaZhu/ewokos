@@ -738,7 +738,7 @@ static int32_t g2d_alloc_surface(int32_t w, int32_t h, g2d_attached_t* surf) {
 	   gets a resolved physical base for hardware 2d paths. */
 	for(int32_t i = 0; i < 4 && shm_id <= 0; i++) {
 		shm_id = shmget(g2d_tmp_shm_key(), (int)size,
-				0666 | IPC_CREAT | IPC_EXCL);
+				0666 | IPC_CREAT | IPC_EXCL | SHM_NOCACHE);
 	}
 	if(shm_id <= 0)
 		return G2D_ERR_FAILED;

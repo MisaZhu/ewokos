@@ -177,6 +177,9 @@ static int32_t pipe_shm_alloc(void) {
         key_t key = (key_t)(PIPE_SHM_KEY_FP |
                 (((uint32_t)getpid() & 0xffu) << 16) | (_key_seq & 0xffffu));
         _key_seq++;
+        /* The ring is a CPU-only data plane (libc reads/writes it directly,
+           never a device): the default cacheable backing keeps pipe memcpy
+           cached instead of uncached NOCACHE DRAM. */
         int32_t id = shmget(key, SHM_PIPE_PAGE_SIZE, IPC_CREAT | IPC_EXCL | 0666);
         if(id > 0)
             return id;

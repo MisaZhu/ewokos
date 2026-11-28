@@ -648,7 +648,8 @@ static int32_t shm_new_segment(uint32_t tag, uint32_t sz) {
         if(key == 0 || key == IPC_PRIVATE)
             key = (key_t)(seq | 1u);
 
-        int32_t id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL);
+        /* display framebuffer: HVS/g2d scan it out physically, NOCACHE */
+        int32_t id = shmget(key, sz, 0666 | IPC_CREAT | IPC_EXCL | SHM_NOCACHE);
         if(id != -1)
             return id;
     }

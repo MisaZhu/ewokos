@@ -118,7 +118,7 @@ int g2d_shm_alloc_phy(uint32_t size, int* shm_id, uint32_t** pixels,
         /* every shm segment is physically contiguous and device-reachable,
            so any canvas can be represented by one physical base. */
         id = shmget(key, (int)alloc64,
-                0666 | IPC_CREAT | IPC_EXCL);
+                0666 | IPC_CREAT | IPC_EXCL | SHM_NOCACHE);
         if(id > 0)
             break;
     }

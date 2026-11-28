@@ -180,7 +180,8 @@ static graph_t* graph_new_shm_row(int32_t w, int32_t h) {
         key_t key = (key_t)(0x47525030u + (((uint32_t)getpid() & 0xffffu) << 16) +
                 (_graph_shm_seq & 0xffffu));
         _graph_shm_seq++;
-        shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL);
+        /* device-backed canvas: g2d/HVS may address it physically, NOCACHE */
+        shm_id = shmget(key, (int)size, 0666 | IPC_CREAT | IPC_EXCL | SHM_NOCACHE);
     }
 
     if(shm_id <= 0) {

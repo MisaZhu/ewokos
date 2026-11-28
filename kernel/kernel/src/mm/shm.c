@@ -15,6 +15,14 @@
 #define 	IPC_PRIVATE 0
 #define 	IPC_CREAT   00001000 /* create if key is nonexistent */
 #define 	IPC_EXCL    00002000 /* fail if key exists */
+/* Opt-in Non-Cacheable backing for device-backed segments (g2d canvas,
+   display framebuffer, dma target). Such a segment is handed to hardware
+   that does no cache maintenance by VA, so every alias (direct map, shm
+   window, process) must be NOCACHE. Default (no flag) is cacheable WRBACK:
+   most segments are CPU-only (piped rings, devcmd IO buffers, xinfo) and
+   cached CPU memcpy through them is far faster. Mirror of ewoksys/ipc.h
+   SHM_NOCACHE. */
+#define 	SHM_NOCACHE 0x10000000
 #define 	IPC_RMID    0 /* remove resource (mirror of sys/ipc.h) */
 /* DMA pin hold: prevents the physical run from being freed while a
    device (e.g. GPI) may still read/write it.  pin must be balanced by an
@@ -41,6 +49,7 @@ typedef struct share_mem {
     int32_t owner_pid; //process id which alloced this shm
     int32_t refs;
     uint32_t pins;   // DMA-pinned while hardware may still reference it
+    uint32_t nocache; // device-backed segment: NOCACHE aliases; 0 = cacheable CPU-only
     ewokos_addr_t phy_base; //contiguous run physical base, 0 while free
     struct share_mem* next;
     struct share_mem* prev;
@@ -67,12 +76,15 @@ static ewokos_addr_t shm_phy_size = 0;
 
 /* Claim a contiguous physical run for a segment. The run is zeroed through
    the cacheable kernel direct map (P2V - the shm window VA is unmapped in
-   kernel/syscall context) and then flipped to NOCACHE: dma_pages_set_attr
-   cleans the zeroing to DRAM before the flip, so no cached alias survives
-   while a device may read/write it - the same enter/leave protocol
-   dma_alloc/dma_release use. Returns the physical base, or 0 when no
-   contiguous run can be obtained. */
-static ewokos_addr_t shm_phys_alloc(uint32_t pages) {
+   kernel/syscall context). A device-backed (nocache) segment is then flipped
+   to NOCACHE: dma_pages_set_attr cleans the zeroing to DRAM before the flip,
+   so no cached alias survives while a device may read/write it - the same
+   enter/leave protocol dma_alloc/dma_release use. A default cacheable
+   (CPU-only) segment keeps the WRBACK direct map: its window/process aliases
+   are WRBACK too, so the zeroing stays coherent through the cache with no
+   flip/flush. Returns the physical base, or 0 when no contiguous run can be
+   obtained. */
+static ewokos_addr_t shm_phys_alloc(uint32_t pages, uint32_t nocache) {
     if(shm_phy_size == 0)
         return 0;
     ewokos_addr_t paddr = mm_alloc_contig(pages * PAGE_SIZE,
@@ -80,18 +92,24 @@ static ewokos_addr_t shm_phys_alloc(uint32_t pages) {
     if(paddr == 0)
         return 0;
     memset((void*)P2V(paddr), 0, (ewokos_addr_t)pages * PAGE_SIZE);
-    dma_pages_set_attr(paddr, pages, PTE_ATTR_NOCACHE);
+    if(nocache)
+        dma_pages_set_attr(paddr, pages, PTE_ATTR_NOCACHE);
     return paddr;
 }
 
-/* Return a run to general RAM: restore the WRBACK direct-map alias and hand
-   the pages back to kalloc so processes can reuse them. The caller must have
-   unmapped every window/process PTE of the run first (a stale NOCACHE alias
-   of a recycled WRBACK page is a mismatched-attribute alias). */
-static void shm_phys_free(ewokos_addr_t paddr, uint32_t pages) {
+/* Return a run to general RAM. A device-backed segment restores the WRBACK
+   direct-map alias (dma_pages_set_attr ends with a global flush_tlb that also
+   publishes the window unmap); a cacheable segment is already WRBACK, so only
+   the TLB flush is needed. The caller must have unmapped every window/process
+   PTE of the run first (a stale NOCACHE alias of a recycled WRBACK page is a
+   mismatched-attribute alias). */
+static void shm_phys_free(ewokos_addr_t paddr, uint32_t pages, uint32_t nocache) {
     if(paddr == 0)
         return;
-    dma_pages_set_attr(paddr, pages, PTE_ATTR_WRBACK);
+    if(nocache)
+        dma_pages_set_attr(paddr, pages, PTE_ATTR_WRBACK);
+    else
+        flush_tlb();
     kfree_contig((void*)P2V(paddr), pages);
 }
 
@@ -160,18 +178,20 @@ static share_mem_t* shm_new(void) {
 }
 
 /* map a run of already claimed contiguous physical pages into the shm
-   window. The run was zeroed through the kernel direct map (P2V) and its
-   direct-map alias flipped to NOCACHE by shm_phys_alloc; here only the
-   window PTEs are installed, NOCACHE as well - shm segments are shared
-   with non-coherent hardware (g2d/V3D, dma engines) and every alias must
-   agree (see shm_proc_map). */
-static int32_t shm_map_pages(ewokos_addr_t addr, ewokos_addr_t paddr, uint32_t pages) {
+   window. The run was zeroed through the kernel direct map (P2V); a
+   device-backed (nocache) segment had its direct-map alias flipped to
+   NOCACHE by shm_phys_alloc and is mapped NOCACHE here too (shared with
+   non-coherent hardware - g2d/V3D, dma engines - every alias must agree, see
+   shm_proc_map). A default cacheable CPU-only segment keeps WRBACK on every
+   alias. */
+static int32_t shm_map_pages(ewokos_addr_t addr, ewokos_addr_t paddr, uint32_t pages, uint32_t nocache) {
+    uint32_t attr = nocache ? PTE_ATTR_NOCACHE : PTE_ATTR_WRBACK;
     uint32_t i;
     for (i = 0; i < pages; i++) {
         map_page(_kernel_info.kernel_vm,
                 addr,
                 paddr,
-                AP_RW_D, PTE_ATTR_NOCACHE);
+                AP_RW_D, attr);
         flush_tlb_addr(addr);
         addr += PAGE_SIZE;
         paddr += PAGE_SIZE;
@@ -180,6 +200,7 @@ static int32_t shm_map_pages(ewokos_addr_t addr, ewokos_addr_t paddr, uint32_t p
 }
 
 static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
+    uint32_t nocache = (flag & SHM_NOCACHE) != 0;
     size = ALIGN_UP(size, 32);
     ewokos_addr_t addr = shmem_tail;
     uint32_t pages = (size / PAGE_SIZE);
@@ -189,7 +210,7 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
     /* grab the contiguous physical run up front; strict failure when no
        contiguous run can be obtained (never fall back to scattered pages,
        hardware would silently get a non-contiguous buffer) */
-    ewokos_addr_t paddr = shm_phys_alloc(pages);
+    ewokos_addr_t paddr = shm_phys_alloc(pages, nocache);
     if(paddr == 0)
         return -1;
 
@@ -221,13 +242,13 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
     }
     else { // not found, need to expand pages for new block.
         if((addr + size) >= (SHM_BASE + SHM_MAX_SIZE)) {
-            shm_phys_free(paddr, pages);
+            shm_phys_free(paddr, pages, nocache);
             return -1;
         }
 
         i = shm_new();
         if(i == NULL) {
-            shm_phys_free(paddr, pages);
+            shm_phys_free(paddr, pages, nocache);
             return -1;
         }
         i->addr = addr;
@@ -245,8 +266,8 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
        run to the page allocator and dropped the window PTEs, so a reused
        block has no backing left and must always be remapped onto paddr -
        mapping is mandatory or the segment has no backing at all. */
-    if(shm_map_pages(addr, paddr, pages) == 0) {
-        shm_phys_free(paddr, pages);
+    if(shm_map_pages(addr, paddr, pages, nocache) == 0) {
+        shm_phys_free(paddr, pages, nocache);
         return -1;
     }
     i->pages = pages;
@@ -260,7 +281,8 @@ static int32_t shm_alloc(int32_t key, uint32_t size, int32_t flag) {
     i->phy_base = paddr;
     proc_t* current_proc = get_current_proc();
     i->owner_pid = current_proc ? current_proc->info.pid : -1;
-    i->flag = flag;
+    i->flag = flag & 0666;
+    i->nocache = nocache;
 
     return i->id;
 }
@@ -293,10 +315,10 @@ int32_t shm_get(int32_t key, uint32_t size, int32_t flag) {
         }
     }
     else {
-        flag = 0666;
+        flag = 0666 | (flag & SHM_NOCACHE);
     }
 
-    int32_t ret = shm_alloc(key, size, (flag & 0666));
+    int32_t ret = shm_alloc(key, size, (flag & 0666) | (flag & SHM_NOCACHE));
     shm_unlock();
     return ret;
 }
@@ -344,7 +366,7 @@ static share_mem_t* free_item(share_mem_t* it) {
            The window block itself stays free and is still merged with
            neighbours below; reuse always remaps the window onto a fresh run. */
         unmap_pages(_kernel_info.kernel_vm, it->addr, it->pages);
-        shm_phys_free(it->phy_base, it->pages);
+        shm_phys_free(it->phy_base, it->pages, it->nocache);
         it->phy_base = 0;
     }
     it->used = 0;
@@ -457,19 +479,22 @@ void* shm_proc_map(proc_t* proc, int32_t id) {
         access = AP_RW_R;
 
     /*
-     * A shm segment is the CPU<->accelerator exchange buffer (g2d canvas,
-     * dma target). The hardware drivers rely on it being Non-Cacheable in
-     * every process and do no cache maintenance by VA, so the process view
-     * MUST be NOCACHE too - every shm segment is physically contiguous and
-     * may be handed to a device.
+     * A device-backed (SHM_NOCACHE) shm segment is the CPU<->accelerator
+     * exchange buffer (g2d canvas, display framebuffer, dma target). The
+     * hardware drivers rely on it being Non-Cacheable in every process and do
+     * no cache maintenance by VA, so the process view MUST be NOCACHE too -
+     * every alias must agree. A default cacheable segment is CPU-only (piped
+     * ring, devcmd IO buffer, xinfo) and is mapped WRBACK so CPU memcpy
+     * through it stays cached; it must never be handed to a device.
      */
+    uint32_t attr = it->nocache ? PTE_ATTR_NOCACHE : PTE_ATTR_WRBACK;
     ewokos_addr_t addr = it->addr;
     for (i = 0; i < it->pages; i++) {
         ewokos_addr_t physical_addr = resolve_phy_address(_kernel_info.kernel_vm, addr);
         if(map_page(proc->space->vm,
                 addr,
                 physical_addr,
-                access, PTE_ATTR_NOCACHE) != 0) {
+                access, attr) != 0) {
             /* Do not publish a partial attachment on page-table OOM. */
             uint32_t mapped = i;
             for(uint32_t j = 0; j < mapped; j++)
