@@ -74,13 +74,10 @@ void arch_set_proc_vm(page_dir_entry_t* vm) {
         vm[i] = _kernel_info.kernel_vm[i];
     }
 
-    /*
-     * Keep the common low DMA identity window available in the per-process
-     * user half. Boards that need additional private mappings can extend this
-     * through arch_clone_proc_vm().
-     */
-    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_SYS_DMA);
+    /* No whole-range DMA identity pre-map: sys_dma_alloc() maps each buffer on
+     * demand into the high DMA_V_BASE window, and kernel-owned DMA is mapped by
+     * its BSP caller, so the range size costs no per-process page tables. Boards
+     * that need private low-half mappings extend arch_clone_proc_vm(). */
     if(arch_clone_proc_vm(vm, _kernel_info.kernel_vm) != 0)
         return;
     flush_dcache();

@@ -98,24 +98,17 @@ void sys_info_init(void) {
  * The BSP arch_dma_range() gives the hardware limit. kernel.conf may set the
  * extent: dma_base raises the range start, dma_size sets the span (intersected
  * with the hardware limit, never widened beyond it). With dma_size unset the
- * span defaults to a bounded window (get_dma_default_size): arch_set_proc_vm()
- * identity-maps the WHOLE sys_dma range into every process's user half, so an
- * unbounded "whole RAM" range would build megabytes of NOCACHE page tables per
- * fork and exhaust the page-table pool. The floor never drops below the
- * allocable heap base (kernel-core pages must not become DMA targets).
+ * span defaults to DMA_SHM_RANGE_DEFAULT (1G). The range is a pure address
+ * cap: dma_alloc draws runs on demand and sys_dma_alloc maps each buffer into
+ * the high DMA_V_BASE window, so the span costs no per-process page tables
+ * (the old whole-range per-fork identity pre-map was removed). Small boards
+ * are clamped to arch_dma_range() automatically. The floor never drops below
+ * the allocable heap base (kernel-core pages must not become DMA targets).
  * Reserved firmware/GPU pools inside the range are already kept out of the
  * free list by kalloc_arch, so contiguous scans skip them naturally.
  */
-static uint32_t get_dma_default_size(void) {
-    if(_sys_info.total_phy_mem_size >= 8ull*GB)
-        return 64*MB;
-    if(_sys_info.total_phy_mem_size >= 4ull*GB)
-        return 32*MB;
-    if(_sys_info.total_phy_mem_size >= 2ull*GB)
-        return 16*MB;
-    if(_sys_info.total_phy_mem_size >= 512*MB)
-        return 8*MB;
-    return 4*MB;
+static ewokos_addr_t get_dma_default_size(void) {
+    return DMA_SHM_RANGE_DEFAULT;
 }
 
 static void publish_sys_dma_range(void) {

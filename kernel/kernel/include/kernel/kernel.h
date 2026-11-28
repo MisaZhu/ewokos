@@ -35,8 +35,9 @@ typedef struct {
 	uint32_t max_task_per_proc;
 	uint32_t kmalloc_size;
 	/* sys_dma range constraint (NOT a reservation): dma_base is the physical
-	   range start, dma_size its extent; 0 = use the BSP arch_dma_range. The
-	   configured range is intersected with the BSP hardware limit. Pages in
+	   range start, dma_size its extent; dma_size 0 = use the 1G default cap
+	   (DMA_SHM_RANGE_DEFAULT). The configured range is intersected with the
+	   BSP arch_dma_range hardware limit (only shrinks, never widens). Pages in
 	   the range stay general allocable RAM for normal allocation too.
 	   ewokos_addr_t: the range may span >4GB on 64-bit boards. */
 	ewokos_addr_t dma_base;

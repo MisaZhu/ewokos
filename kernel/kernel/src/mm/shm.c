@@ -67,9 +67,11 @@ static share_mem_t* _shm_tail = NULL;
 
    Runs are drawn from [shm_phy_base, shm_phy_base+shm_phy_size), fixed at
    shm_init: the arch_dma_range() hardware limit (every segment may be a
-   GPU/accelerator buffer, so its pages MUST be device-reachable), raised
-   above 4GB when the BSP opts in via arch_relocate_dma_high() and RAM is
-   well above it - that keeps the low 4GB free for one contiguous user heap.
+   GPU/accelerator buffer, so its pages MUST be device-reachable), capped at
+   DMA_SHM_RANGE_DEFAULT (1G) - a pure address cap matching the SHM_MAX_SIZE
+   virtual window, not a reservation - and raised above 4GB when the BSP opts
+   in via arch_relocate_dma_high() and RAM is well above it, keeping the low
+   4GB free for one contiguous user heap.
    always called with the shm lock held. */
 static ewokos_addr_t shm_phy_base = 0;
 static ewokos_addr_t shm_phy_size = 0;
@@ -151,9 +153,10 @@ void shm_init() {
        is a hard constraint - GPU/accelerators must reach every shm page.
        arch_relocate_dma_high() only picks placement INSIDE that limit:
        with 64-bit-clean masters and RAM well above 4GB, draw runs from
-       above 4GB so the low 4GB stays one contiguous user heap. The >6GB
-       threshold guarantees the high span is at least 2GB - far more than
-       the SHM_MAX_SIZE window can ever hold. */
+       above 4GB so the low 4GB stays one contiguous user heap. The span is
+       then capped at DMA_SHM_RANGE_DEFAULT (1G): a pure address cap matching
+       the SHM_MAX_SIZE virtual window, not a reservation - total live shm can
+       never exceed that window anyway, so a wider physical range is useless. */
     ewokos_addr_t base, top;
     arch_dma_range(&base, &top);
     base = ALIGN_UP(base, PAGE_SIZE);
@@ -165,6 +168,8 @@ void shm_init() {
     }
     shm_phy_base = base;
     shm_phy_size = (top > base) ? (top - base) : 0;
+    if(shm_phy_size > DMA_SHM_RANGE_DEFAULT)
+        shm_phy_size = DMA_SHM_RANGE_DEFAULT;
 }
 
 static share_mem_t* shm_new(void) {

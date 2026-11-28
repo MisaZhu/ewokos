@@ -80,6 +80,15 @@
 #define USER_STACK_MAX                (64*MB)
 #define USER_STACK_BOTTOM             (USER_STACK_TOP - USER_STACK_MAX)
 
+/* Default maximum reachability range shared by sys_dma and shm physical
+   allocation. A pure address cap, NOT a reservation: the pages stay general
+   allocable RAM and are claimed on demand. The per-process whole-range DMA
+   identity pre-map was removed (sys_dma_alloc maps each buffer on demand into
+   the high DMA_V_BASE window), so the span no longer costs per-fork page
+   tables and a generous 1G default is safe. Small boards are clamped to their
+   arch_dma_range() hardware limit (publish_sys_dma_range only shrinks). */
+#define DMA_SHM_RANGE_DEFAULT         (1*GB)
+
 /* Shm virtual window. EVERY segment is backed by a dynamically claimed
    physically-contiguous run of general RAM (the dma_alloc mechanism) and
    mapped NOCACHE, so any of them can serve as a g2d/DMA canvas. Boards
@@ -90,13 +99,12 @@
    the display and ~130MB for one full-screen window - the old 128MB window
    overflowed and graph_new_shm() returned NULL, leaving xwin_open() to fail
    while the app kept running with no window. Real 1080p sessions measure
-   ~57MB of shm, i.e. ~230MB scaled to 4K, so 64-bit kernels get
-   256MB (~2x the 4K baseline); 32-bit ones keep 128MB. */
-#ifdef __aarch64__
-#define SHM_MAX_SIZE                  (256*MB)
-#else
-#define SHM_MAX_SIZE                  (128*MB)
-#endif
+   ~57MB of shm, i.e. ~230MB scaled to 4K. Both the virtual window and the
+   physical allocation cap default to DMA_SHM_RANGE_DEFAULT (1G): on aarch64
+   the user half is 256GB so this is trivial; on 32-bit (2GB user half) the
+   top-down stack/shm/kmalloc-vm/dl-window chain still leaves ~640MB below
+   DL_WINDOW_BASE for heap/load, ample for every 32-bit board's physical RAM. */
+#define SHM_MAX_SIZE                  DMA_SHM_RANGE_DEFAULT
 #define SHM_BASE                      (USER_STACK_BOTTOM - SHM_MAX_SIZE)
 
 #define KMALLOC_VM_SIZE               (64*MB)
@@ -118,9 +126,9 @@
    field, riscv permission bits), so read-only text works everywhere. The
    execute-never half of W^X is best-effort: aarch64 marks UXN/PXN through its
    arch_mark_pte_noexec, while other arches leave that hook as the weak no-op,
-   so their data pages may remain executable. On non-aarch64 SHM_CONTIG_VA_MAX
-   is halved to 256MB above precisely to fit this window inside the 2GB user
-   VA. */
+   so their data pages may remain executable. The top-down stack/shm/kmalloc-vm/
+   dl-window chain is sized to fit inside the 2GB user VA on 32-bit arches
+   (see SHM_MAX_SIZE above). */
 #define DL_WINDOW_SIZE                (256*MB)
 #define DL_WINDOW_BASE                (KMALLOC_VM_BASE - DL_WINDOW_SIZE)
 #define DL_WINDOW_END                 (KMALLOC_VM_BASE)

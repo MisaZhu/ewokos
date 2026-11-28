@@ -548,7 +548,7 @@ static ewokos_addr_t sys_mem_map(ewokos_addr_t vaddr, ewokos_addr_t paddr, uint3
      * register or firmware-owned regions.
      */
     if(cache)
-        attr = PTE_ATTR_WRBACK;
+        attr = PTE_ATTR_DEV;
     else
         attr = PTE_ATTR_NOCACHE;
     map_pages_size(cproc->space->vm, vaddr, paddr, size, AP_RW_RW, attr);

@@ -491,6 +491,17 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		return 0;
 	}
 
+	/* Reclaim idle entries on EVERY attach (hit or miss). g2d_cache_sweep
+	   is throttled to one walk per TTL, and live desktop canvases are
+	   touched every frame so it never drops them - only genuinely idle
+	   entries are detached (at most one under-lock shmdt per TTL). This
+	   must run on hits too: a dead client's canvases go idle, but the
+	   compositor's steady-state requests all HIT the persistent desktop
+	   canvases, so a miss-only sweep never fires and the dead client's
+	   pinned runs linger, fragmenting the contig shm pool and starving the
+	   next GPU app's framebuffer allocation (permanent CPU fallback). */
+	g2d_cache_sweep(now_ms);
+
 	/* a standing entry is authoritative: its own shmat pins the segment
 	   in the kernel (see the attach-cache comment above), so there is
 	   nothing to revalidate - the hit path is a table walk and no
@@ -510,15 +521,6 @@ static int32_t g2d_attach(const g2d_canvas_t* canvas, g2d_attached_t* at) {
 		g2d_map_unlock();
 		return 0;
 	}
-
-	/* Reclaim stale mappings only after the lookup misses.  The compositor's
-	   steady-state requests hit persistent frame canvases; sweeping before
-	   every lookup made an otherwise cheap hit occasionally execute shmdt()
-	   for an idle full-frame mapping while holding the map lock.  That page
-	   table teardown can dominate dispatch latency and blocks other requesters.
-	   Misses still sweep before choosing an eviction slot, so reclamation is
-	   retained where it can affect allocation. */
-	g2d_cache_sweep(now_ms);
 
 	/* Cache miss: make room inside the pin budget, then reserve a
 	   placeholder slot BEFORE releasing the lock for shmat. The

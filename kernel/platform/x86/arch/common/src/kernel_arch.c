@@ -50,10 +50,9 @@ void arch_set_proc_vm(page_dir_entry_t* vm) {
     proc_pdpt[2] = kernel_pdpt[2];
     proc_pdpt[3] = kernel_pdpt[3];
 
-    // Keep the low DMA identity window available while leaving the rest of
-    // the user half private for per-process mappings.
-    map_pages_size(vm, _sys_info.sys_dma.phy_base, _sys_info.sys_dma.phy_base,
-            _sys_info.sys_dma.size, AP_RW_D, PTE_ATTR_NOCACHE);
+    /* No whole-range DMA identity pre-map: sys_dma_alloc() maps each buffer on
+     * demand into the high DMA_V_BASE window, so the range size costs no
+     * per-process page tables; the rest of the user half stays private. */
     flush_tlb();
 }
 
